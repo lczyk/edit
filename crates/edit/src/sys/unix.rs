@@ -350,6 +350,21 @@ pub struct FileId {
     st_ino: libc::ino_t,
 }
 
+/// Checks whether the current process has write permission on `path`.
+///
+/// Uses `access(2)` with `W_OK`, which follows symlinks and honors the
+/// filesystem's ACLs. Returns `false` on any error (path missing, permission
+/// denied, etc.) — callers should only invoke this for paths known to exist.
+pub fn is_path_writable(path: &Path) -> bool {
+    use std::os::unix::ffi::OsStrExt as _;
+
+    let bytes = path.as_os_str().as_bytes();
+    let Ok(c_path) = std::ffi::CString::new(bytes) else {
+        return false;
+    };
+    unsafe { libc::access(c_path.as_ptr(), libc::W_OK) == 0 }
+}
+
 /// Returns a unique identifier for the given file by handle or path.
 pub fn file_id(file: Option<&File>, path: &Path) -> io::Result<FileId> {
     let file = match file {

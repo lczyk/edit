@@ -156,6 +156,10 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
         ctx.needs_rerender();
     }
 
+    if doc.read_only {
+        ctx.label("readonly", "RO");
+    }
+
     if tb.is_dirty() {
         ctx.label("dirty", "*");
     }

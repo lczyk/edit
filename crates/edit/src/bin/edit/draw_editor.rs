@@ -176,7 +176,7 @@ pub fn search_execute(ctx: &mut Context, state: &mut State, action: SearchAction
 
 pub fn draw_handle_save(ctx: &mut Context, state: &mut State) {
     let doc = &mut state.document;
-    if doc.path.is_some() {
+    if doc.path.is_some() && !doc.read_only {
         if let Err(err) = doc.save(None) {
             error_log_add(ctx, state, err);
         }

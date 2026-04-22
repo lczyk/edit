@@ -273,6 +273,7 @@ pub struct TextBuffer {
     newlines_are_crlf: bool,
     insert_final_newline: bool,
     overtype: bool,
+    read_only: bool,
 
     /// Sticky x kept across vertical cursor motion so moving Down through a
     /// short line and then back up doesn't forget the original column.
@@ -328,6 +329,7 @@ impl TextBuffer {
             newlines_are_crlf: cfg!(windows), // Windows users want CRLF
             insert_final_newline: false,
             overtype: false,
+            read_only: false,
 
             preferred_column: 0,
 
@@ -373,6 +375,18 @@ impl TextBuffer {
     /// Use this with caution. It's called automatically on write().
     pub fn mark_as_clean(&mut self) {
         self.last_save_generation = self.buffer.generation();
+    }
+
+    /// Returns whether the buffer rejects content mutations.
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
+    /// Sets the read-only flag. When true, `write()`, `delete()`, and
+    /// `indent_change()` become no-ops. Cursor moves, encoding changes,
+    /// and `read_file()` are unaffected.
+    pub fn set_read_only(&mut self, read_only: bool) {
+        self.read_only = read_only;
     }
 
     /// The encoding used during reading/writing. "UTF-8" is the default.
@@ -2306,6 +2320,9 @@ impl TextBuffer {
     }
 
     fn write(&mut self, text: &[u8], at: Cursor, raw: bool) {
+        if self.read_only {
+            return;
+        }
         let history_type = if raw { HistoryType::Other } else { HistoryType::Write };
         let mut edit_begun = false;
 
@@ -2469,7 +2486,7 @@ impl TextBuffer {
     /// The selection is cleared after the call.
     /// Deletes characters from the buffer based on a delta from the cursor.
     pub fn delete(&mut self, granularity: CursorMovement, delta: CoordType) {
-        if delta == 0 {
+        if delta == 0 || self.read_only {
             return;
         }
 
@@ -2513,6 +2530,9 @@ impl TextBuffer {
 
     /// Indents/unindents the current selection or line.
     pub fn indent_change(&mut self, direction: CoordType) {
+        if self.read_only {
+            return;
+        }
         let selection = self.selection;
         let mut selection_beg = self.cursor.logical_pos;
         let mut selection_end = selection_beg;

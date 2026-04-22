@@ -20,6 +20,7 @@ pub struct Document {
     pub filename: String,
     pub file_id: Option<sys::FileId>,
     pub language_override: Option<Option<&'static Language>>,
+    pub read_only: bool,
 }
 
 impl Document {
@@ -36,6 +37,7 @@ impl Document {
         };
 
         let file_id = if file.is_some() { Some(sys::file_id(file.as_ref(), &path)?) } else { None };
+        let read_only = file.is_some() && !sys::is_path_writable(&path);
 
         let buffer = create_buffer()?;
         if let Some(file) = &mut file {
@@ -46,6 +48,7 @@ impl Document {
             {
                 tb.cursor_move_to_logical(goto);
             }
+            tb.set_read_only(read_only);
         }
 
         let mut doc = Document {
@@ -54,12 +57,17 @@ impl Document {
             filename: Default::default(),
             file_id,
             language_override: None,
+            read_only,
         };
         doc.set_path(path);
         Ok(doc)
     }
 
     pub fn save(&mut self, new_path: Option<PathBuf>) -> apperr::Result<()> {
+        if self.read_only && new_path.is_none() {
+            return Err(apperr::Error::from(io::Error::from(io::ErrorKind::PermissionDenied)));
+        }
+
         let path = new_path.as_deref().unwrap_or_else(|| self.path.as_ref().unwrap().as_path());
         let mut file = open_for_writing(path)?;
 
@@ -73,6 +81,9 @@ impl Document {
         }
 
         if let Some(path) = new_path {
+            let writable = sys::is_path_writable(&path);
+            self.read_only = !writable;
+            self.buffer.borrow_mut().set_read_only(!writable);
             self.set_path(path);
         }
 
@@ -83,10 +94,13 @@ impl Document {
         let path = self.path.as_ref().unwrap().as_path();
         let mut file = File::open(path).map_err(apperr::Error::from)?;
 
+        let writable = sys::is_path_writable(path);
         {
             let mut tb = self.buffer.borrow_mut();
             tb.read_file(&mut file, encoding)?;
+            tb.set_read_only(!writable);
         }
+        self.read_only = !writable;
 
         if let Ok(id) = sys::file_id(None, path) {
             self.file_id = Some(id);
