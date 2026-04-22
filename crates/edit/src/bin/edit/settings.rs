@@ -102,15 +102,11 @@ fn config_dir() -> Option<PathBuf> {
         path
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        var_path("APPDATA").map(|p| push(p, "Microsoft\\Edit"))
-    }
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
         var_path("HOME").map(|p| push(p, "Library/Application Support/com.microsoft.edit"))
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
     {
         var_path("XDG_CONFIG_HOME")
             .or_else(|| var_path("HOME").map(|p| push(p, ".config")))

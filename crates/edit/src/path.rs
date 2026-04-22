@@ -55,7 +55,6 @@ mod tests {
         normalize(Path::new(s)).into_os_string()
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_unix() {
         assert_eq!(norm("/a/b/c"), "/a/b/c");
@@ -67,20 +66,5 @@ mod tests {
         assert_eq!(norm("/a//b/c"), "/a/b/c");
         assert_eq!(norm("/a/b/c/../../../../d"), "/d");
         assert_eq!(norm("//"), "/");
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn test_windows() {
-        assert_eq!(norm(r"C:\a\b\c"), r"C:\a\b\c");
-        assert_eq!(norm(r"C:\a\b\c\"), r"C:\a\b\c");
-        assert_eq!(norm(r"C:\a\.\b"), r"C:\a\b");
-        assert_eq!(norm(r"C:\a\b\..\c"), r"C:\a\c");
-        assert_eq!(norm(r"C:\..\..\a"), r"C:\a");
-        assert_eq!(norm(r"C:\..\"), r"C:\");
-        assert_eq!(norm(r"C:\a\\b\c"), r"C:\a\b\c");
-        assert_eq!(norm(r"C:/a\b/c"), r"C:\a\b\c");
-        assert_eq!(norm(r"C:\a\b\c\..\..\..\..\d"), r"C:\d");
-        assert_eq!(norm(r"\\server\share\path"), r"\\server\share\path");
     }
 }

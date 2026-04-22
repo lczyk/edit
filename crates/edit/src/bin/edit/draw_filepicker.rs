@@ -307,19 +307,7 @@ fn draw_dialog_saveas_refresh_files(state: &mut State) {
     // ["..", directories, files]
     let mut dirs_files = [Vec::new(), Vec::new(), Vec::new()];
 
-    #[cfg(windows)]
-    if dir.as_os_str().is_empty() {
-        // If the path is empty, we are at the drive picker.
-        // Add all drives as entries.
-        for drive in edit::sys::drives() {
-            dirs_files[1].push(DisplayablePathBuf::from_string(format!("{drive}:\\")));
-        }
-
-        state.file_picker_entries = Some(dirs_files);
-        return;
-    }
-
-    if cfg!(windows) || dir.parent().is_some() {
+    if dir.parent().is_some() {
         dirs_files[0].push(DisplayablePathBuf::from(".."));
     }
 

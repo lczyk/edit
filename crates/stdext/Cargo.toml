@@ -10,5 +10,5 @@ rust-version.workspace = true
 [features]
 single-threaded = []
 
-[target.'cfg(unix)'.dependencies]
+[dependencies]
 libc = "0.2"

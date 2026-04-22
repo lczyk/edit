@@ -29,11 +29,7 @@ pub use self::generator::Generator;
 use crate::runtime::Register;
 
 pub fn builtin_definitions_path() -> &'static Path {
-    #[cfg(windows)]
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "\\definitions");
-    #[cfg(not(windows))]
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/definitions");
-    Path::new(path)
+    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/definitions"))
 }
 
 pub type CompileResult<T> = Result<T, CompileError>;

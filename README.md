@@ -12,13 +12,6 @@ This editor pays homage to the classic [MS-DOS Editor](https://en.wikipedia.org/
 
 You can also download binaries from [our Releases page](https://github.com/microsoft/edit/releases/latest).
 
-### Windows
-
-You can install the latest version with WinGet:
-```powershell
-winget install Microsoft.Edit
-```
-
 ### Linux (build from source)
 
 If your distribution does not provide binaries, or if you'd like to build your own, you can use our install script, provided you have installed:
@@ -77,10 +70,10 @@ This project optionally depends on the ICU library for its Search and Replace fu
 
 By default, the project will look for the following library names:
 
- Variable | Windows | macOS | Linux / Other
-----------|---------|-------|---------------
-`EDIT_CFG_ICUUC_SONAME` | `icuuc.dll` | `libicucore.dylib` | `libicuuc.so`
-`EDIT_CFG_ICUI18N_SONAME` | `icuin.dll` | `libicucore.dylib` | `libicui18n.so`
+ Variable | macOS | Linux / Other
+----------|-------|---------------
+`EDIT_CFG_ICUUC_SONAME` | `libicucore.dylib` | `libicuuc.so`
+`EDIT_CFG_ICUI18N_SONAME` | `libicucore.dylib` | `libicui18n.so`
 
 If your installation uses a different SONAME, please set the following environment variable at build time:
 * `EDIT_CFG_ICUUC_SONAME`:

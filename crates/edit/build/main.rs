@@ -12,7 +12,6 @@ mod i18n;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum TargetOs {
-    Windows,
     MacOS,
     Unix,
 }
@@ -21,7 +20,6 @@ fn main() {
     stdext::arena::init(128 * 1024 * 1024).unwrap();
 
     let target_os = match env_opt("CARGO_CFG_TARGET_OS").as_str() {
-        "windows" => TargetOs::Windows,
         "macos" | "ios" => TargetOs::MacOS,
         _ => TargetOs::Unix,
     };
@@ -29,8 +27,6 @@ fn main() {
     compile_lsh();
     compile_i18n();
     configure_icu(target_os);
-    #[cfg(windows)]
-    configure_windows_binary(target_os);
 }
 
 fn compile_lsh() {
@@ -94,7 +90,6 @@ fn configure_icu(target_os: TargetOs) {
         &icuuc_soname
     } else {
         match target_os {
-            TargetOs::Windows => "icuuc.dll",
             TargetOs::MacOS => "libicucore.dylib",
             TargetOs::Unix => "libicuuc.so",
         }
@@ -103,7 +98,6 @@ fn configure_icu(target_os: TargetOs) {
         &icui18n_soname
     } else {
         match target_os {
-            TargetOs::Windows => "icuin.dll",
             TargetOs::MacOS => "libicucore.dylib",
             TargetOs::Unix => "libicui18n.so",
         }
@@ -128,22 +122,3 @@ fn configure_icu(target_os: TargetOs) {
     }
 }
 
-#[cfg(windows)]
-fn configure_windows_binary(target_os: TargetOs) {
-    if target_os != TargetOs::Windows {
-        return;
-    }
-
-    let manifest_path = "src/bin/edit/edit.exe.manifest";
-    let icon_path = "../../assets/edit.ico";
-
-    winresource::WindowsResource::new()
-        .set_manifest_file(manifest_path)
-        .set("FileDescription", "Microsoft Edit")
-        .set("LegalCopyright", "© Microsoft Corporation. All rights reserved.")
-        .set_icon(icon_path)
-        .compile()
-        .unwrap();
-
-    println!("cargo::rerun-if-changed={manifest_path}");
-}
