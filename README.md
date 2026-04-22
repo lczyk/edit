@@ -1,34 +1,8 @@
-# ![Application Icon for Edit](./assets/edit.svg) Edit
+# Edit
 
 A simple editor for simple needs.
 
 This editor pays homage to the classic [MS-DOS Editor](https://en.wikipedia.org/wiki/MS-DOS_Editor), but with a modern interface and input controls similar to VS Code. The goal is to provide an accessible editor that even users largely unfamiliar with terminals can easily use.
-
-![Screenshot of Edit with the About dialog in the foreground](./assets/edit_hero_image.png)
-
-## Installation
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/microsoft-edit.svg?exclude_unsupported=1)](https://repology.org/project/microsoft-edit/versions)
-
-You can also download binaries from [our Releases page](https://github.com/microsoft/edit/releases/latest).
-
-### Linux (build from source)
-
-If your distribution does not provide binaries, or if you'd like to build your own, you can use our install script, provided you have installed:
-* Rust (via `rustup` or similar)
-* A C compiler (e.g. `gcc`)
-* ICU (e.g. libicu78, libicu, icu)
-* curl/wget and tar
-
-The following command will then install `msedit` into `~/.local/bin`:
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/microsoft/edit/main/assets/install.sh | sh
-```
-
-Additional flags are `--dev`, to build directly from the main branch, and `--system` to install into `/usr/local/bin`. For instance:
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/microsoft/edit/main/assets/install.sh | sh -s -- --dev --system
-```
 
 ## Build Instructions
 
@@ -46,24 +20,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/microsoft
     cargo build --release
     ```
 
-### Build Configuration
-
-You can set the following environment variables at build-time to configure the build:
-
-Environment variable | Description
---- | ---
-`EDIT_CFG_ICU*` | See [ICU library name (SONAME)](#icu-library-name-soname) below for details. Linux package maintainers are advised to review and configure these options.
-
-## Notes to Package Maintainers
-
-### Package Naming
-
-The canonical executable name is "edit" and the alternative name is "msedit".
-We're aware of the potential conflict of "edit" with existing commands and recommend alternatively naming packages and executables "msedit".
-Names such as "ms-edit" should be avoided.
-Assigning an "edit" alias is recommended, if possible.
-
-### ICU library name (SONAME)
+### ICU library configuration
 
 This project optionally depends on the ICU library for its Search and Replace functionality.
 
@@ -74,27 +31,9 @@ By default, the project will look for the following library names:
 `EDIT_CFG_ICUUC_SONAME` | `libicucore.dylib` | `libicuuc.so`
 `EDIT_CFG_ICUI18N_SONAME` | `libicucore.dylib` | `libicui18n.so`
 
-If your installation uses a different SONAME, please set the following environment variable at build time:
-* `EDIT_CFG_ICUUC_SONAME`:
-  For instance, `libicuuc.so.76`.
-* `EDIT_CFG_ICUI18N_SONAME`:
-  For instance, `libicui18n.so.76`.
+If your installation uses a different SONAME, set these at build time, e.g. `libicuuc.so.76` / `libicui18n.so.76`.
 
-Additionally, this project assumes that the ICU exports symbols without `_` prefix and without version suffix, such as `u_errorName`.
-If your installation uses versioned exports, please set:
-* `EDIT_CFG_ICU_CPP_EXPORTS`:
-  If set to `true`, it'll look for C++ symbols such as `_u_errorName`.
-  Enabled by default on macOS.
-* `EDIT_CFG_ICU_RENAMING_VERSION`:
-  If set to a version number, such as `76`, it'll look for symbols such as `u_errorName_76`.
-
-Finally, you can set the following environment variables:
-* `EDIT_CFG_ICU_RENAMING_AUTO_DETECT`:
-  If set to `true`, the executable will try to detect the `EDIT_CFG_ICU_RENAMING_VERSION` value at runtime.
-  The way it does this is not officially supported by ICU and as such is not recommended to be relied upon.
-  Enabled by default on UNIX (excluding macOS) if no other options are set.
-
-To test your build settings, run `cargo test` with the `--ignored` flag. For instance:
-```sh
-cargo test -- --ignored
-```
+This project assumes that ICU exports symbols without `_` prefix and without version suffix, such as `u_errorName`. If your installation uses versioned exports, set:
+* `EDIT_CFG_ICU_CPP_EXPORTS=true` — look for C++ symbols such as `_u_errorName`. Enabled by default on macOS.
+* `EDIT_CFG_ICU_RENAMING_VERSION=76` — look for symbols such as `u_errorName_76`.
+* `EDIT_CFG_ICU_RENAMING_AUTO_DETECT=true` — detect the version at runtime. Enabled by default on Linux if no other options are set.

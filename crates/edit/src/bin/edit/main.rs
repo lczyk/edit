@@ -110,15 +110,7 @@ fn run() -> apperr::Result<()> {
 
     sys::inject_window_size_into_stdin();
 
-    #[cfg(feature = "debug-latency")]
-    let mut last_latency_width = 0;
-
     loop {
-        #[cfg(feature = "debug-latency")]
-        let time_beg;
-        #[cfg(feature = "debug-latency")]
-        let mut passes;
-
         // Process a batch of input.
         {
             let scratch = scratch_arena(None);
@@ -126,12 +118,6 @@ fn run() -> apperr::Result<()> {
             let Some(input) = sys::read_stdin(&scratch, read_timeout) else {
                 break;
             };
-
-            #[cfg(feature = "debug-latency")]
-            {
-                time_beg = std::time::Instant::now();
-                passes = 0usize;
-            }
 
             let vt_iter = vt_parser.parse(&input);
             let mut input_iter = input_parser.parse(vt_iter);
@@ -143,11 +129,6 @@ fn run() -> apperr::Result<()> {
 
                 draw(&mut ctx, &mut state);
 
-                #[cfg(feature = "debug-latency")]
-                {
-                    passes += 1;
-                }
-
                 more
             } {}
         }
@@ -158,11 +139,6 @@ fn run() -> apperr::Result<()> {
             let mut ctx = tui.create_context(None);
 
             draw(&mut ctx, &mut state);
-
-            #[cfg(feature = "debug-latency")]
-            {
-                passes += 1;
-            }
         }
 
         if state.exit {
@@ -178,48 +154,6 @@ fn run() -> apperr::Result<()> {
 
             if state.osc_clipboard_sync {
                 write_osc_clipboard(&scratch, &mut output, &mut tui, &mut state);
-            }
-
-            #[cfg(feature = "debug-latency")]
-            {
-                use stdext::arena_write_fmt;
-
-                // Print the number of passes and latency in the top right corner.
-                let time_end = std::time::Instant::now();
-                let status = time_end - time_beg;
-
-                let scratch_alt = scratch_arena(Some(&scratch));
-                let status = arena_format!(
-                    &*scratch_alt,
-                    "{}P {}B {:.3}μs",
-                    passes,
-                    output.len(),
-                    status.as_nanos() as f64 / 1000.0
-                );
-
-                // "μs" is 3 bytes and 2 columns.
-                let cols = status.len() as edit::helpers::CoordType - 3 + 2;
-
-                // Since the status may shrink and grow, we may have to overwrite the previous one with whitespace.
-                let padding = (last_latency_width - cols).max(0);
-
-                // If the `output` is already very large,
-                // Rust may double the size during the write below.
-                // Let's avoid that by reserving the needed size in advance.
-                output.reserve_exact(&*scratch, 128);
-
-                // To avoid moving the cursor, push and pop it onto the VT cursor stack.
-                arena_write_fmt!(
-                    &*scratch,
-                    output,
-                    "\x1b7\x1b[0;41;97m\x1b[1;{0}H{1:2$}{3}\x1b8",
-                    tui.size().width - cols - padding + 1,
-                    "",
-                    padding as usize,
-                    status
-                );
-
-                last_latency_width = cols;
             }
 
             sys::write_stdout(&output);

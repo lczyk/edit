@@ -6,7 +6,6 @@ resolver = "2"
 [workspace.package]
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/microsoft/edit"
 rust-version = "1.93"
 
 # We use `opt-level = "s"` as it significantly reduces binary size.
@@ -21,10 +20,6 @@ panic = "abort"             # reduces binary size by ~50% in combination with -Z
 split-debuginfo = "packed"  # generates a separate *.dwp/*.dSYM so the binary can get stripped
 strip = "symbols"           # See split-debuginfo - allows us to drop the size by ~65%
 incremental = true          # Improves re-compile times
-
-[profile.bench]
-codegen-units = 16          # Make compiling criterion faster (16 is the default, but profile.release sets it to 1)
-lto = "thin"                # Similarly, speed up linking by a ton
 
 [workspace.dependencies]
 edit = { path = "./crates/edit" }
