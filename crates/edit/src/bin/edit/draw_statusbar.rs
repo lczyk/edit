@@ -38,11 +38,6 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
             ctx.steal_focus();
         }
 
-        if ctx.button("newline", if tb.is_crlf() { "CRLF" } else { "LF" }, ButtonStyle::default()) {
-            let is_crlf = tb.is_crlf();
-            tb.normalize_newlines(!is_crlf);
-        }
-
         state.wants_encoding_picker |=
             ctx.button("encoding", tb.encoding(), ButtonStyle::default());
         if state.wants_encoding_picker {
