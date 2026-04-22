@@ -295,6 +295,7 @@ fn draw(ctx: &mut Context, state: &mut State) {
 }
 
 fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
+    use edit::buffer::MoveLineDirection;
     use keybindings::{Action, chord};
 
     let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
@@ -313,6 +314,10 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
     } else if search_enabled && ctx.consume_shortcut(chord(Action::Replace)) {
         state.wants_search.kind = StateSearchKind::Replace;
         state.wants_search.focus = true;
+    } else if ctx.consume_shortcut(chord(Action::MoveLineUp)) {
+        state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Up);
+    } else if ctx.consume_shortcut(chord(Action::MoveLineDown)) {
+        state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Down);
     } else {
         return;
     }

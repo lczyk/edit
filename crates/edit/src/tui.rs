@@ -151,7 +151,7 @@ use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::{BString, BVec};
 use stdext::{arena_format, arena_write_fmt, opt_ptr_eq, str_from_raw_parts};
 
-use crate::buffer::{CursorMovement, MoveLineDirection, RcTextBuffer, TextBuffer, TextBufferCell};
+use crate::buffer::{CursorMovement, RcTextBuffer, TextBuffer, TextBufferCell};
 use crate::cell::*;
 use crate::clipboard::Clipboard;
 use crate::document::WriteableDocument;
@@ -2589,10 +2589,6 @@ impl<'a> Context<'a, '_> {
                                 y: tb.cursor_visual_pos().y - 1,
                             });
                         }
-                        kbmod::ALT => tb.move_selected_lines(MoveLineDirection::Up),
-                        kbmod::CTRL_ALT => {
-                            // TODO: Add cursor above
-                        }
                         _ => return false,
                     }
                 }
@@ -2659,10 +2655,6 @@ impl<'a> Context<'a, '_> {
                             if tc.preferred_column == CoordType::MAX {
                                 tc.preferred_column = tb.cursor_visual_pos().x;
                             }
-                        }
-                        kbmod::ALT => tb.move_selected_lines(MoveLineDirection::Down),
-                        kbmod::CTRL_ALT => {
-                            // TODO: Add cursor above
                         }
                         _ => return false,
                     }

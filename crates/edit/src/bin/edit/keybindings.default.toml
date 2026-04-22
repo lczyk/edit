@@ -27,3 +27,6 @@ toggle_word_wrap = "Alt+Z"
 
 open_about       = ""
 focus_menubar    = "F10"
+
+move_line_up     = "Alt+Up"
+move_line_down   = "Alt+Down"

@@ -35,8 +35,7 @@ impl Document {
             Err(err) => return Err(err.into()),
         };
 
-        let file_id =
-            if file.is_some() { Some(sys::file_id(file.as_ref(), &path)?) } else { None };
+        let file_id = if file.is_some() { Some(sys::file_id(file.as_ref(), &path)?) } else { None };
 
         let buffer = create_buffer()?;
         if let Some(file) = &mut file {

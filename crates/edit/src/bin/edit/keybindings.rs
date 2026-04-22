@@ -35,9 +35,11 @@ pub enum Action {
     ToggleWordWrap,
     OpenAbout,
     FocusMenubar,
+    MoveLineUp,
+    MoveLineDown,
 }
 
-const ACTION_COUNT: usize = 16;
+const ACTION_COUNT: usize = 18;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Save, "save"),
@@ -56,6 +58,8 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::ToggleWordWrap, "toggle_word_wrap"),
     (Action::OpenAbout, "open_about"),
     (Action::FocusMenubar, "focus_menubar"),
+    (Action::MoveLineUp, "move_line_up"),
+    (Action::MoveLineDown, "move_line_down"),
 ];
 
 pub struct Keybindings {

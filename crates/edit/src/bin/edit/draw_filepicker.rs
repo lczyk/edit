@@ -28,11 +28,7 @@ pub fn draw_save_as(ctx: &mut Context, state: &mut State) {
         {
             ctx.label("prompt", "Path:");
 
-            let mut editable = state
-                .save_as_path
-                .as_os_str()
-                .to_string_lossy()
-                .into_owned();
+            let mut editable = state.save_as_path.as_os_str().to_string_lossy().into_owned();
             if ctx.editline("path", &mut editable) {
                 state.save_as_path = PathBuf::from(editable);
             }
@@ -127,9 +123,7 @@ fn draw_overwrite_warning(ctx: &mut Context, state: &mut State, done: &mut bool)
         state.save_as_overwrite_warning = None;
     }
 
-    if save
-        && let Some(path) = state.save_as_overwrite_warning.take()
-    {
+    if save && let Some(path) = state.save_as_overwrite_warning.take() {
         match state.document.save(Some(path)) {
             Ok(..) => {
                 ctx.needs_rerender();
@@ -138,5 +132,4 @@ fn draw_overwrite_warning(ctx: &mut Context, state: &mut State, done: &mut bool)
             Err(err) => error_log_add(ctx, state, err),
         }
     }
-
 }

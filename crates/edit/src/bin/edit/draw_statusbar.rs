@@ -28,63 +28,20 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
 
     ctx.table_next_row();
 
-        state.wants_language_picker |= ctx.button(
-            "language",
-            tb.language().map_or("Plain Text", |l| l.name),
-            ButtonStyle::default(),
-        );
-        if state.wants_statusbar_focus {
-            state.wants_statusbar_focus = false;
-            ctx.steal_focus();
-        }
+    state.wants_language_picker |= ctx.button(
+        "language",
+        tb.language().map_or("Plain Text", |l| l.name),
+        ButtonStyle::default(),
+    );
+    if state.wants_statusbar_focus {
+        state.wants_statusbar_focus = false;
+        ctx.steal_focus();
+    }
 
-        state.wants_encoding_picker |=
-            ctx.button("encoding", tb.encoding(), ButtonStyle::default());
-        if state.wants_encoding_picker {
-            if doc.path.is_some() {
-                ctx.block_begin("frame");
-                ctx.attr_float(FloatSpec {
-                    anchor: Anchor::Last,
-                    gravity_x: 0.0,
-                    gravity_y: 1.0,
-                    offset_x: 0.0,
-                    offset_y: 0.0,
-                });
-                ctx.attr_padding(Rect::two(0, 1));
-                ctx.attr_border();
-                {
-                    if ctx.button("reopen", "Reopen with encoding…", ButtonStyle::default()) {
-                        state.wants_encoding_change = StateEncodingChange::Reopen;
-                    }
-                    ctx.focus_on_first_present();
-                    if ctx.button("convert", "Convert to encoding…", ButtonStyle::default()) {
-                        state.wants_encoding_change = StateEncodingChange::Convert;
-                    }
-                }
-                ctx.block_end();
-            } else {
-                // Can't reopen a file that doesn't exist.
-                state.wants_encoding_change = StateEncodingChange::Convert;
-            }
-
-            if !ctx.contains_focus() {
-                state.wants_encoding_picker = false;
-                ctx.needs_rerender();
-            }
-        }
-
-        state.wants_indentation_picker |= ctx.button(
-            "indentation",
-            &arena_format!(
-                ctx.arena(),
-                "{}:{}",
-                if tb.indent_with_tabs() { "Tabs" } else { "Spaces" },
-                tb.tab_size(),
-            ),
-            ButtonStyle::default(),
-        );
-        if state.wants_indentation_picker {
-            ctx.table_begin("indentation-picker");
+    state.wants_encoding_picker |= ctx.button("encoding", tb.encoding(), ButtonStyle::default());
+    if state.wants_encoding_picker {
+        if doc.path.is_some() {
+            ctx.block_begin("frame");
             ctx.attr_float(FloatSpec {
                 anchor: Anchor::Last,
                 gravity_x: 0.0,
@@ -92,74 +49,116 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                 offset_x: 0.0,
                 offset_y: 0.0,
             });
-            ctx.attr_border();
             ctx.attr_padding(Rect::two(0, 1));
-            ctx.table_set_cell_gap(Size { width: 1, height: 0 });
+            ctx.attr_border();
             {
-                if ctx.contains_focus() && ctx.consume_shortcut(vk::RETURN) {
-                    ctx.toss_focus_up();
+                if ctx.button("reopen", "Reopen with encoding…", ButtonStyle::default()) {
+                    state.wants_encoding_change = StateEncodingChange::Reopen;
                 }
-
-                ctx.table_next_row();
-
-                ctx.list_begin("type");
                 ctx.focus_on_first_present();
-                ctx.attr_padding(Rect::two(0, 1));
-                {
-                    if ctx.list_item(tb.indent_with_tabs(), "Tabs") != ListSelection::Unchanged {
-                        tb.set_indent_with_tabs(true);
-                        ctx.needs_rerender();
-                    }
-                    if ctx.list_item(!tb.indent_with_tabs(), "Spaces") != ListSelection::Unchanged {
-                        tb.set_indent_with_tabs(false);
-                        ctx.needs_rerender();
-                    }
+                if ctx.button("convert", "Convert to encoding…", ButtonStyle::default()) {
+                    state.wants_encoding_change = StateEncodingChange::Convert;
                 }
-                ctx.list_end();
-
-                ctx.list_begin("width");
-                ctx.attr_padding(Rect::two(0, 2));
-                {
-                    for width in 1u8..=8 {
-                        let ch = [b'0' + width];
-                        let label = unsafe { std::str::from_utf8_unchecked(&ch) };
-
-                        if ctx.list_item(tb.tab_size() == width as CoordType, label)
-                            != ListSelection::Unchanged
-                        {
-                            tb.set_tab_size(width as CoordType);
-                            ctx.needs_rerender();
-                        }
-                    }
-                }
-                ctx.list_end();
             }
-            ctx.table_end();
-
-            if !ctx.contains_focus() {
-                state.wants_indentation_picker = false;
-                ctx.needs_rerender();
-            }
+            ctx.block_end();
+        } else {
+            // Can't reopen a file that doesn't exist.
+            state.wants_encoding_change = StateEncodingChange::Convert;
         }
 
-        ctx.label(
-            "location",
-            &arena_format!(
-                ctx.arena(),
-                "{}:{}",
-                tb.cursor_logical_pos().y + 1,
-                tb.cursor_logical_pos().x + 1
-            ),
-        );
-
-        if tb.is_overtype() && ctx.button("overtype", "OVR", ButtonStyle::default()) {
-            tb.set_overtype(false);
+        if !ctx.contains_focus() {
+            state.wants_encoding_picker = false;
             ctx.needs_rerender();
         }
+    }
 
-        if tb.is_dirty() {
-            ctx.label("dirty", "*");
+    state.wants_indentation_picker |= ctx.button(
+        "indentation",
+        &arena_format!(
+            ctx.arena(),
+            "{}:{}",
+            if tb.indent_with_tabs() { "Tabs" } else { "Spaces" },
+            tb.tab_size(),
+        ),
+        ButtonStyle::default(),
+    );
+    if state.wants_indentation_picker {
+        ctx.table_begin("indentation-picker");
+        ctx.attr_float(FloatSpec {
+            anchor: Anchor::Last,
+            gravity_x: 0.0,
+            gravity_y: 1.0,
+            offset_x: 0.0,
+            offset_y: 0.0,
+        });
+        ctx.attr_border();
+        ctx.attr_padding(Rect::two(0, 1));
+        ctx.table_set_cell_gap(Size { width: 1, height: 0 });
+        {
+            if ctx.contains_focus() && ctx.consume_shortcut(vk::RETURN) {
+                ctx.toss_focus_up();
+            }
+
+            ctx.table_next_row();
+
+            ctx.list_begin("type");
+            ctx.focus_on_first_present();
+            ctx.attr_padding(Rect::two(0, 1));
+            {
+                if ctx.list_item(tb.indent_with_tabs(), "Tabs") != ListSelection::Unchanged {
+                    tb.set_indent_with_tabs(true);
+                    ctx.needs_rerender();
+                }
+                if ctx.list_item(!tb.indent_with_tabs(), "Spaces") != ListSelection::Unchanged {
+                    tb.set_indent_with_tabs(false);
+                    ctx.needs_rerender();
+                }
+            }
+            ctx.list_end();
+
+            ctx.list_begin("width");
+            ctx.attr_padding(Rect::two(0, 2));
+            {
+                for width in 1u8..=8 {
+                    let ch = [b'0' + width];
+                    let label = unsafe { std::str::from_utf8_unchecked(&ch) };
+
+                    if ctx.list_item(tb.tab_size() == width as CoordType, label)
+                        != ListSelection::Unchanged
+                    {
+                        tb.set_tab_size(width as CoordType);
+                        ctx.needs_rerender();
+                    }
+                }
+            }
+            ctx.list_end();
         }
+        ctx.table_end();
+
+        if !ctx.contains_focus() {
+            state.wants_indentation_picker = false;
+            ctx.needs_rerender();
+        }
+    }
+
+    ctx.label(
+        "location",
+        &arena_format!(
+            ctx.arena(),
+            "{}:{}",
+            tb.cursor_logical_pos().y + 1,
+            tb.cursor_logical_pos().x + 1
+        ),
+    );
+
+    if tb.is_overtype() && ctx.button("overtype", "OVR", ButtonStyle::default()) {
+        tb.set_overtype(false);
+        ctx.needs_rerender();
+    }
+
+    if tb.is_dirty() {
+        ctx.label("dirty", "*");
+    }
 
     ctx.block_begin("filename-container");
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
@@ -324,4 +323,3 @@ fn encoding_picker_update_list(state: &mut State) {
     matches.sort_unstable_by_key(|b| std::cmp::Reverse(b.0));
     state.encoding_picker_results = Some(Vec::from_iter(matches.iter().map(|(_, enc)| *enc)));
 }
-
