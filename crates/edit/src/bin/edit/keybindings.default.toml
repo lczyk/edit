@@ -8,12 +8,8 @@
 # Set a value to "" to leave an action unbound.
 
 [keybindings]
-new_file         = "Ctrl+N"
-open_file        = "Ctrl+O"
 save             = "Ctrl+S"
 save_as          = ""
-open_preferences = ""
-close_file       = "Ctrl+W"
 exit             = "Ctrl+Q"
 
 undo             = "Ctrl+Z"
@@ -26,7 +22,6 @@ find             = "Ctrl+F"
 replace          = "Ctrl+R"
 
 focus_statusbar  = ""
-go_to_file       = "Ctrl+P"
 go_to_line       = "Ctrl+G"
 toggle_word_wrap = "Alt+Z"
 

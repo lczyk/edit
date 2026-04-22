@@ -9,6 +9,7 @@ Private fork of Microsoft's `edit` terminal editor, trimmed down for personal us
 ## Scope and platform
 
 - **Targets:** Linux and macOS. Windows support has been removed — do not reintroduce `#[cfg(windows)]`, `windows-sys`, `winresource`, drive pickers, `\\` path handling, or `EDIT_CFG_*` Windows SONAMEs.
+- **Single-file, single-buffer.** Invoke as `edit FILE`. No path → print help and exit. More than one path → error. No `New`/`Open`/`Close` menu items, no file picker tree, no fuzzy cross-document navigation, no stdin-redirect scratch buffer. `Save As` exists only as a plain path-input modal (renames in place).
 - **Language:** English only. The `i18n/` directory, `localization` module, `LocId` enum, and `loc()` function have all been deleted. Use plain string literals. Do not add `gettext`-style indirection.
 - **No crates.io publish, no distro packaging.** No `categories`, no `repository` URL, no package-maintainer notes, no install scripts, no snap/desktop files.
 - **No benchmarks, no fuzzing in-tree.** The `benches/`, `fuzz/`, and `editing-traces/` dirs are gone. Don't add `criterion`, `libfuzzer-sys`, or similar.

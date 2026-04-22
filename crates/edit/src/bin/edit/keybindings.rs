@@ -19,12 +19,8 @@ pub const DEFAULT_TOML: &str = include_str!("keybindings.default.toml");
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(usize)]
 pub enum Action {
-    NewFile,
-    OpenFile,
     Save,
     SaveAs,
-    OpenPreferences,
-    CloseFile,
     Exit,
     Undo,
     Redo,
@@ -35,22 +31,17 @@ pub enum Action {
     Find,
     Replace,
     FocusStatusbar,
-    GoToFile,
     GoToLine,
     ToggleWordWrap,
     OpenAbout,
     FocusMenubar,
 }
 
-const ACTION_COUNT: usize = 21;
+const ACTION_COUNT: usize = 16;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
-    (Action::NewFile, "new_file"),
-    (Action::OpenFile, "open_file"),
     (Action::Save, "save"),
     (Action::SaveAs, "save_as"),
-    (Action::OpenPreferences, "open_preferences"),
-    (Action::CloseFile, "close_file"),
     (Action::Exit, "exit"),
     (Action::Undo, "undo"),
     (Action::Redo, "redo"),
@@ -61,7 +52,6 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Find, "find"),
     (Action::Replace, "replace"),
     (Action::FocusStatusbar, "focus_statusbar"),
-    (Action::GoToFile, "go_to_file"),
     (Action::GoToLine, "go_to_line"),
     (Action::ToggleWordWrap, "toggle_word_wrap"),
     (Action::OpenAbout, "open_about"),
@@ -334,7 +324,6 @@ mod tests {
         let kb = Keybindings::from_defaults();
         assert_eq!(kb.chord(Action::Save), kbmod::CTRL | vk::S);
         assert_eq!(kb.chord(Action::FocusMenubar), vk::F10);
-        assert_eq!(kb.chord(Action::SaveAs), vk::NULL);
     }
 
     #[test]

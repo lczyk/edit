@@ -25,13 +25,8 @@ pub fn draw_editor(ctx: &mut Context, state: &mut State) {
         _ => 2,
     };
 
-    if let Some(doc) = state.documents.active() {
-        ctx.textarea("textarea", doc.buffer.clone());
-        ctx.inherit_focus();
-    } else {
-        ctx.block_begin("empty");
-        ctx.block_end();
-    }
+    ctx.textarea("textarea", state.document.buffer.clone());
+    ctx.inherit_focus();
 
     ctx.attr_intrinsic_size(Size { width: 0, height: size.height - height_reduction });
 }
@@ -43,10 +38,7 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
         return;
     }
 
-    let Some(doc) = state.documents.active() else {
-        state.wants_search.kind = StateSearchKind::Hidden;
-        return;
-    };
+    let doc = &state.document;
 
     let mut action = None;
     let mut focus = StateSearchKind::Hidden;
@@ -160,9 +152,7 @@ pub enum SearchAction {
 }
 
 pub fn search_execute(ctx: &mut Context, state: &mut State, action: SearchAction) {
-    let Some(doc) = state.documents.active_mut() else {
-        return;
-    };
+    let doc = &mut state.document;
 
     state.search_success = match action {
         SearchAction::Search => {
@@ -185,32 +175,23 @@ pub fn search_execute(ctx: &mut Context, state: &mut State, action: SearchAction
 }
 
 pub fn draw_handle_save(ctx: &mut Context, state: &mut State) {
-    if let Some(doc) = state.documents.active_mut() {
-        if doc.path.is_some() {
-            if let Err(err) = doc.save(None) {
-                error_log_add(ctx, state, err);
-            }
-        } else {
-            // No path? Show the file picker.
-            state.wants_file_picker = StateFilePicker::SaveAs;
-            state.wants_save = false;
-            ctx.needs_rerender();
+    let doc = &mut state.document;
+    if doc.path.is_some() {
+        if let Err(err) = doc.save(None) {
+            error_log_add(ctx, state, err);
         }
+    } else {
+        state.wants_save_as = true;
+        ctx.needs_rerender();
     }
 
     state.wants_save = false;
 }
 
-pub fn draw_handle_wants_close(ctx: &mut Context, state: &mut State) {
-    let Some(doc) = state.documents.active() else {
-        state.wants_close = false;
-        return;
-    };
-
-    if !doc.buffer.borrow().is_dirty() {
-        state.documents.remove_active();
-        state.wants_close = false;
-        ctx.needs_rerender();
+pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
+    if !state.document.buffer.borrow().is_dirty() {
+        state.exit = true;
+        state.wants_exit = false;
         return;
     }
 
@@ -251,7 +232,6 @@ pub fn draw_handle_wants_close(ctx: &mut Context, state: &mut State) {
                 action = Action::Cancel;
             }
 
-            // Handle accelerator shortcuts
             if contains_focus {
                 if ctx.consume_shortcut(vk::S) {
                     action = Action::Save;
@@ -272,12 +252,11 @@ pub fn draw_handle_wants_close(ctx: &mut Context, state: &mut State) {
             state.wants_save = true;
         }
         Action::Discard => {
-            state.documents.remove_active();
-            state.wants_close = false;
+            state.exit = true;
+            state.wants_exit = false;
         }
         Action::Cancel => {
             state.wants_exit = false;
-            state.wants_close = false;
         }
     }
 
@@ -287,37 +266,34 @@ pub fn draw_handle_wants_close(ctx: &mut Context, state: &mut State) {
 pub fn draw_goto_menu(ctx: &mut Context, state: &mut State) {
     let mut done = false;
 
-    if let Some(doc) = state.documents.active_mut() {
-        ctx.modal_begin("goto", "Go to Line:Column…");
-        {
-            if ctx.editline("goto-line", &mut state.goto_target) {
-                state.goto_invalid = false;
-            }
-            if state.goto_invalid {
-                ctx.attr_background_rgba(ctx.indexed(IndexedColor::Red));
-                ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::BrightWhite));
-            }
-
-            ctx.attr_intrinsic_size(Size { width: 24, height: 1 });
-            ctx.steal_focus();
-
-            if ctx.consume_shortcut(vk::RETURN) {
-                match validate_goto_point(&state.goto_target) {
-                    Ok(point) => {
-                        let mut buf = doc.buffer.borrow_mut();
-                        buf.cursor_move_to_logical(point);
-                        buf.make_cursor_visible();
-                        done = true;
-                    }
-                    Err(_) => state.goto_invalid = true,
-                }
-                ctx.needs_rerender();
-            }
+    let doc = &mut state.document;
+    ctx.modal_begin("goto", "Go to Line:Column…");
+    {
+        if ctx.editline("goto-line", &mut state.goto_target) {
+            state.goto_invalid = false;
         }
-        done |= ctx.modal_end();
-    } else {
-        done = true;
+        if state.goto_invalid {
+            ctx.attr_background_rgba(ctx.indexed(IndexedColor::Red));
+            ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::BrightWhite));
+        }
+
+        ctx.attr_intrinsic_size(Size { width: 24, height: 1 });
+        ctx.steal_focus();
+
+        if ctx.consume_shortcut(vk::RETURN) {
+            match validate_goto_point(&state.goto_target) {
+                Ok(point) => {
+                    let mut buf = doc.buffer.borrow_mut();
+                    buf.cursor_move_to_logical(point);
+                    buf.make_cursor_visible();
+                    done = true;
+                }
+                Err(_) => state.goto_invalid = true,
+            }
+            ctx.needs_rerender();
+        }
     }
+    done |= ctx.modal_end();
 
     if done {
         state.wants_goto = false;

@@ -24,15 +24,15 @@ use draw_menubar::*;
 use draw_statusbar::*;
 use edit::framebuffer::{self, IndexedColor};
 use edit::helpers::*;
-use edit::input::{self, kbmod, vk};
+use edit::input::{self, vk};
 use edit::oklab::StraightRgba;
 use edit::tui::*;
 use edit::vt::{self, Token};
-use edit::{base64, path, sys, unicode};
+use edit::{base64, sys, unicode};
 use state::*;
 use stdext::arena::{self, Arena, scratch_arena};
 use stdext::arena_format;
-use stdext::collections::{BString, BVec};
+use stdext::collections::BString;
 
 use crate::settings::Settings;
 
@@ -64,15 +64,14 @@ fn main() -> process::ExitCode {
 }
 
 fn run() -> apperr::Result<()> {
-    // Init `sys` first, as everything else may depend on its functionality (IO, function pointers, etc.).
     let _sys_deinit = sys::init();
-    // Next init `arena`, so that `scratch_arena` works.
     arena::init(SCRATCH_ARENA_CAPACITY)?;
 
-    let mut state = State::new()?;
-    if handle_args(&mut state)? {
+    let Some(path) = parse_args()? else {
         return Ok(());
-    }
+    };
+    let document = documents::Document::open(&path)?;
+    let mut state = State::new(document)?;
 
     if let Err(err) = Settings::reload() {
         state.add_error(err);
@@ -142,8 +141,8 @@ fn run() -> apperr::Result<()> {
 
                 #[cfg(debug_assertions)]
                 if let Some(desc) = logged_input {
-                    let snapshot = state.documents.active().map(|d| d.buffer.borrow());
-                    devlog::log(&desc, snapshot.as_deref());
+                    let snapshot = state.document.buffer.borrow();
+                    devlog::log(&desc, Some(&snapshot));
                 }
 
                 more
@@ -180,79 +179,54 @@ fn run() -> apperr::Result<()> {
     Ok(())
 }
 
-// Returns true if the application should exit early.
-fn handle_args(state: &mut State) -> apperr::Result<bool> {
-    let scratch = scratch_arena(None);
-    let mut paths = BVec::empty();
-    let cwd = env::current_dir()?;
-    let mut dir = None;
-    let mut parse_args = true;
+/// Returns `Some(path)` if the application should continue starting,
+/// `None` if it should exit early (help/version/usage).
+fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
+    let mut path: Option<std::path::PathBuf> = None;
+    let mut accept_flags = true;
 
-    // The best CLI argument parser in the world.
     for arg in env::args_os().skip(1) {
-        if parse_args {
+        if accept_flags {
             if arg == "--" {
-                parse_args = false;
+                accept_flags = false;
                 continue;
-            }
-            if arg == "-" {
-                paths.clear();
-                break;
             }
             if arg == "-h" || arg == "--help" {
                 print_help();
-                return Ok(true);
+                return Ok(None);
             }
             if arg == "-v" || arg == "--version" {
                 print_version();
-                return Ok(true);
+                return Ok(None);
             }
             #[cfg(debug_assertions)]
-            if let Some(path) = arg.to_str().and_then(|s| s.strip_prefix("--logfile=")) {
-                if let Err(e) = devlog::open(Path::new(path)) {
+            if let Some(p) = arg.to_str().and_then(|s| s.strip_prefix("--logfile=")) {
+                if let Err(e) = devlog::open(Path::new(p)) {
                     sys::write_stdout(&format!("failed to open logfile: {e}\n"));
                 }
                 continue;
             }
         }
 
-        let p = cwd.join(Path::new(&arg));
-        let p = path::normalize(&p);
-        if p.is_dir() {
-            state.wants_file_picker = StateFilePicker::Open;
-            dir = Some(p);
-        } else {
-            paths.push(&*scratch, p);
+        if path.is_some() {
+            sys::write_stdout("edit: only one file argument is supported\n");
+            return Ok(None);
+        }
+        path = Some(std::path::PathBuf::from(&arg));
+    }
+
+    match path {
+        Some(p) => Ok(Some(p)),
+        None => {
+            print_help();
+            Ok(None)
         }
     }
-
-    for p in &paths {
-        state.documents.add_file_path(p)?;
-    }
-
-    if let Some(mut file) = sys::open_stdin_if_redirected() {
-        let doc = state.documents.add_untitled()?;
-        let mut tb = doc.buffer.borrow_mut();
-        tb.read_file(&mut file, None)?;
-        tb.mark_as_dirty();
-    } else if paths.is_empty() {
-        // No files were passed, and stdin is not redirected.
-        state.documents.add_untitled()?;
-    }
-
-    if dir.is_none()
-        && let Some(parent) = paths.last().and_then(|p| p.parent())
-    {
-        dir = Some(parent.to_path_buf());
-    }
-
-    state.file_picker_pending_dir = DisplayablePathBuf::from_path(dir.unwrap_or(cwd));
-    Ok(false)
 }
 
 fn print_help() {
     sys::write_stdout(concat!(
-        "Usage: edit [OPTIONS] [FILE[:LINE[:COLUMN]]]\n",
+        "Usage: edit [OPTIONS] FILE[:LINE[:COLUMN]]\n",
         "Options:\n",
         "    -h, --help       Print this help message\n",
         "    -v, --version    Print the version number\n",
@@ -281,17 +255,14 @@ fn draw(ctx: &mut Context, state: &mut State) {
     draw_editor(ctx, state);
     draw_statusbar(ctx, state);
 
-    if state.wants_close {
-        draw_handle_wants_close(ctx, state);
-    }
     if state.wants_exit {
         draw_handle_wants_exit(ctx, state);
     }
     if state.wants_goto {
         draw_goto_menu(ctx, state);
     }
-    if state.wants_file_picker != StateFilePicker::None {
-        draw_file_picker(ctx, state);
+    if state.wants_save_as {
+        draw_save_as(ctx, state);
     }
     if state.wants_save {
         draw_handle_save(ctx, state);
@@ -301,9 +272,6 @@ fn draw(ctx: &mut Context, state: &mut State) {
     }
     if state.wants_encoding_change != StateEncodingChange::None {
         draw_dialog_encoding_change(ctx, state);
-    }
-    if state.wants_go_to_file {
-        draw_go_to_file(ctx, state);
     }
     if state.wants_about {
         draw_dialog_about(ctx, state);
@@ -315,64 +283,18 @@ fn draw(ctx: &mut Context, state: &mut State) {
         draw_error_log(ctx, state);
     }
 
-    if let Some(key) = ctx.keyboard_input() {
-        // Shortcuts that are not handled as part of the textarea, etc.
-
-        if key == kbmod::CTRL | vk::N {
-            draw_add_untitled_document(ctx, state);
-        } else if key == kbmod::CTRL | vk::O {
-            state.wants_file_picker = StateFilePicker::Open;
-        } else if key == kbmod::CTRL | vk::S {
-            state.wants_save = true;
-        } else if key == kbmod::CTRL_SHIFT | vk::S {
-            state.wants_file_picker = StateFilePicker::SaveAs;
-        } else if key == kbmod::CTRL | vk::W {
-            state.wants_close = true;
-        } else if key == kbmod::CTRL | vk::P {
-            state.wants_go_to_file = true;
-        } else if key == kbmod::CTRL | vk::Q {
-            state.wants_exit = true;
-        } else if key == kbmod::CTRL | vk::G {
-            state.wants_goto = true;
-        } else if key == kbmod::CTRL | vk::F && state.wants_search.kind != StateSearchKind::Disabled
-        {
-            state.wants_search.kind = StateSearchKind::Search;
-            state.wants_search.focus = true;
-        } else if key == kbmod::CTRL | vk::R && state.wants_search.kind != StateSearchKind::Disabled
-        {
-            state.wants_search.kind = StateSearchKind::Replace;
-            state.wants_search.focus = true;
-        } else if key == vk::F3 {
-            search_execute(ctx, state, SearchAction::Search);
-        } else {
-            return;
-        }
-
-        // All of the above shortcuts happen to require a rerender.
+    if let Some(key) = ctx.keyboard_input()
+        && key == vk::F3
+    {
+        search_execute(ctx, state, SearchAction::Search);
         ctx.needs_rerender();
         ctx.set_input_consumed();
     }
 }
 
-fn draw_handle_wants_exit(_ctx: &mut Context, state: &mut State) {
-    while let Some(doc) = state.documents.active() {
-        if doc.buffer.borrow().is_dirty() {
-            state.wants_close = true;
-            return;
-        }
-        state.documents.remove_active();
-    }
-
-    if state.documents.len() == 0 {
-        state.exit = true;
-    }
-}
-
 fn write_terminal_title<'a>(arena: &'a Arena, output: &mut BString<'a>, state: &mut State) {
-    let (filename, dirty) = state
-        .documents
-        .active()
-        .map_or(("", false), |d| (&d.filename, d.buffer.borrow().is_dirty()));
+    let filename = state.document.filename.as_str();
+    let dirty = state.document.buffer.borrow().is_dirty();
 
     if filename == state.osc_title_file_status.filename
         && dirty == state.osc_title_file_status.dirty
@@ -637,7 +559,7 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
 
     if ambiguous_width == 2 {
         unicode::setup_ambiguous_width(2);
-        state.documents.reflow_all();
+        state.document.buffer.borrow_mut().reflow();
     }
 
     if color_responses == indexed_colors.len() {

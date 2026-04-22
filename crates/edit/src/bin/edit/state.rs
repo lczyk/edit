@@ -1,10 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-use std::borrow::Cow;
-use std::ffi::{OsStr, OsString};
-use std::mem;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
@@ -13,7 +10,7 @@ use edit::tui::*;
 use edit::{buffer, icu};
 
 use crate::apperr;
-use crate::documents::DocumentManager;
+use crate::documents::Document;
 
 #[repr(transparent)]
 pub struct FormatApperr(apperr::Error);
@@ -39,63 +36,6 @@ impl std::fmt::Display for FormatApperr {
     }
 }
 
-pub struct DisplayablePathBuf {
-    value: PathBuf,
-    str: Cow<'static, str>,
-}
-
-impl DisplayablePathBuf {
-    #[allow(dead_code, reason = "only used on Windows")]
-    pub fn from_string(string: String) -> Self {
-        let str = Cow::Borrowed(string.as_str());
-        let str = unsafe { mem::transmute::<Cow<'_, str>, Cow<'_, str>>(str) };
-        let value = PathBuf::from(string);
-        Self { value, str }
-    }
-
-    pub fn from_path(value: PathBuf) -> Self {
-        let str = value.to_string_lossy();
-        let str = unsafe { mem::transmute::<Cow<'_, str>, Cow<'_, str>>(str) };
-        Self { value, str }
-    }
-
-    pub fn as_path(&self) -> &Path {
-        &self.value
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.str
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        self.value.as_os_str().as_encoded_bytes()
-    }
-}
-
-impl Default for DisplayablePathBuf {
-    fn default() -> Self {
-        Self { value: Default::default(), str: Cow::Borrowed("") }
-    }
-}
-
-impl Clone for DisplayablePathBuf {
-    fn clone(&self) -> Self {
-        Self::from_path(self.value.clone())
-    }
-}
-
-impl From<OsString> for DisplayablePathBuf {
-    fn from(s: OsString) -> Self {
-        Self::from_path(PathBuf::from(s))
-    }
-}
-
-impl<T: ?Sized + AsRef<OsStr>> From<&T> for DisplayablePathBuf {
-    fn from(s: &T) -> Self {
-        Self::from_path(PathBuf::from(s))
-    }
-}
-
 pub struct StateSearch {
     pub kind: StateSearchKind,
     pub focus: bool,
@@ -107,15 +47,6 @@ pub enum StateSearchKind {
     Disabled,
     Search,
     Replace,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum StateFilePicker {
-    None,
-    Open,
-    SaveAs,
-
-    SaveAsShown, // Transitioned from SaveAs
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -135,20 +66,16 @@ pub struct State {
     pub menubar_color_bg: StraightRgba,
     pub menubar_color_fg: StraightRgba,
 
-    pub documents: DocumentManager,
+    pub document: Document,
 
     // A ring buffer of the last 10 errors.
     pub error_log: [String; 10],
     pub error_log_index: usize,
     pub error_log_count: usize,
 
-    pub wants_file_picker: StateFilePicker,
-    pub file_picker_pending_dir: DisplayablePathBuf,
-    pub file_picker_pending_dir_revision: u64, // Bumped every time `file_picker_pending_dir` changes.
-    pub file_picker_pending_name: PathBuf,
-    pub file_picker_entries: Option<[Vec<DisplayablePathBuf>; 3]>, // ["..", directories, files]
-    pub file_picker_overwrite_warning: Option<PathBuf>,            // The path the warning is about.
-    pub file_picker_autocomplete: Vec<DisplayablePathBuf>,
+    pub wants_save_as: bool,
+    pub save_as_path: PathBuf,
+    pub save_as_overwrite_warning: Option<PathBuf>, // The path the warning is about.
 
     pub wants_search: StateSearch,
     pub search_needle: String,
@@ -166,9 +93,7 @@ pub struct State {
     pub wants_save: bool,
     pub wants_statusbar_focus: bool,
     pub wants_indentation_picker: bool,
-    pub wants_go_to_file: bool,
     pub wants_about: bool,
-    pub wants_close: bool,
     pub wants_exit: bool,
     pub wants_goto: bool,
     pub goto_target: String,
@@ -181,24 +106,20 @@ pub struct State {
 }
 
 impl State {
-    pub fn new() -> apperr::Result<Self> {
+    pub fn new(document: Document) -> apperr::Result<Self> {
         Ok(Self {
             menubar_color_bg: StraightRgba::zero(),
             menubar_color_fg: StraightRgba::zero(),
 
-            documents: Default::default(),
+            document,
 
             error_log: [const { String::new() }; 10],
             error_log_index: 0,
             error_log_count: 0,
 
-            wants_file_picker: StateFilePicker::None,
-            file_picker_pending_dir: Default::default(),
-            file_picker_pending_dir_revision: 0,
-            file_picker_pending_name: Default::default(),
-            file_picker_entries: None,
-            file_picker_overwrite_warning: None,
-            file_picker_autocomplete: Vec::new(),
+            wants_save_as: false,
+            save_as_path: PathBuf::new(),
+            save_as_overwrite_warning: None,
 
             wants_search: StateSearch { kind: StateSearchKind::Hidden, focus: false },
             search_needle: Default::default(),
@@ -216,9 +137,7 @@ impl State {
             wants_statusbar_focus: false,
             wants_encoding_change: StateEncodingChange::None,
             wants_indentation_picker: false,
-            wants_go_to_file: false,
             wants_about: false,
-            wants_close: false,
             wants_exit: false,
             wants_goto: false,
             goto_target: Default::default(),
@@ -241,12 +160,6 @@ impl State {
         self.error_log_index = (self.error_log_index + 1) % self.error_log.len();
         self.error_log_count = self.error_log.len().min(self.error_log_count + 1);
         true
-    }
-}
-
-pub fn draw_add_untitled_document(ctx: &mut Context, state: &mut State) {
-    if let Err(err) = state.documents.add_untitled() {
-        error_log_add(ctx, state, err);
     }
 }
 

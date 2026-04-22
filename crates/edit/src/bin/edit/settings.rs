@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use edit::buffer::TextBuffer;
 use edit::cell::{Ref, SemiRefCell};
 use edit::lsh::{LANGUAGES, Language};
 use stdext::arena::{read_to_string, scratch_arena};
@@ -20,14 +19,6 @@ static SETTINGS: LazyLock<SettingsCell> =
     LazyLock::new(|| SettingsCell(SemiRefCell::new(Settings::new())));
 
 impl Settings {
-    /// Fills the given associations.toml text buffer with some initial contents for convenience.
-    pub fn bootstrap(tb: &mut TextBuffer) {
-        tb.set_crlf(false);
-        tb.write_raw(b"# Glob -> language id overrides for syntax highlighting.\n[associations]\n");
-        tb.cursor_move_to_logical(Default::default());
-        tb.mark_as_clean();
-    }
-
     fn new() -> Self {
         Settings { path: PathBuf::new(), file_associations: Vec::new() }
     }
