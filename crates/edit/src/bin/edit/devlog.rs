@@ -82,7 +82,10 @@ pub fn log(input_desc: &str, buffer: Option<&TextBuffer>) {
 }
 
 fn render_buffer(tb: &TextBuffer) -> String {
-    let c = tb.cursor_logical_pos();
+    let logical = tb.cursor_logical_pos();
+    let visual = tb.cursor_visual_pos();
+    let offset = tb.cursor_offset();
+    let preferred = tb.preferred_column();
     let dirty = tb.is_dirty();
     let lines = tb.logical_line_count();
     let sel = match tb.selection_range() {
@@ -92,7 +95,10 @@ fn render_buffer(tb: &TextBuffer) -> String {
         ),
         None => "null".into(),
     };
-    format!(r#"{{"cursor":[{},{}],"selection":{sel},"dirty":{dirty},"lines":{lines}}}"#, c.x, c.y)
+    format!(
+        r#"{{"cursor":[{},{}],"visual":[{},{}],"offset":{offset},"preferred_col":{preferred},"selection":{sel},"dirty":{dirty},"lines":{lines}}}"#,
+        logical.x, logical.y, visual.x, visual.y,
+    )
 }
 
 fn json_str(s: &str) -> String {

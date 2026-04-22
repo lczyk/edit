@@ -46,8 +46,10 @@ Debug builds accept `--logfile=PATH`. Each `Input` event (keyboard, mouse, resiz
 Record shape:
 
 ```json
-{"ts_ms":123,"input":{"kind":"key","key":"Ctrl+S"},"buffer":{"cursor":[5,3],"selection":null,"dirty":true,"lines":42}}
+{"ts_ms":123,"input":{"kind":"key","key":"Ctrl+S"},"buffer":{"cursor":[5,3],"visual":[5,3],"offset":78,"preferred_col":5,"selection":null,"dirty":true,"lines":42}}
 ```
+
+Fields: `cursor` = logical `[x, y]` (grapheme col, line). `visual` = laid-out `[x, y]` (affected by word wrap and tabs). `offset` = byte offset in the buffer. `preferred_col` = sticky visual column carried across vertical motion so short lines don't lose x. `selection` = `[[x0,y0],[x1,y1]]` or `null`.
 
 Implementation: [crates/edit/src/bin/edit/devlog.rs](crates/edit/src/bin/edit/devlog.rs). Gated behind `#[cfg(debug_assertions)]` so release builds carry zero cost. When you paste log excerpts here, I'll read the `cursor`, `selection`, `dirty`, `lines` fields as ground truth for what actually happened.
 

@@ -2144,7 +2144,6 @@ impl<'a> Context<'a, '_> {
             scroll_offset_y_drag_start: CoordType::MIN,
             scroll_offset_x_max: 0,
             thumb_height: 0,
-            preferred_column: 0,
             single_line,
             has_focus: self.tui.is_node_focused(node.id),
         });
@@ -2165,7 +2164,6 @@ impl<'a> Context<'a, '_> {
                 content.scroll_offset_y_drag_start = content_prev.scroll_offset_y_drag_start;
                 content.scroll_offset_x_max = content_prev.scroll_offset_x_max;
                 content.thumb_height = content_prev.thumb_height;
-                content.preferred_column = content_prev.preferred_column;
 
                 let mut text_width = node_prev.inner.width();
                 if !single_line {
@@ -2265,7 +2263,7 @@ impl<'a> Context<'a, '_> {
             if text_rect.contains(self.tui.mouse_down_position) {
                 if self.tui.mouse_is_drag {
                     tb.selection_update_visual(pos);
-                    tc.preferred_column = tb.cursor_visual_pos().x;
+                    tb.set_preferred_column(tb.cursor_visual_pos().x);
 
                     let height = inner.height();
 
@@ -2316,7 +2314,7 @@ impl<'a> Context<'a, '_> {
                                 } else {
                                     tb.cursor_move_to_visual(pos);
                                 }
-                                tc.preferred_column = tb.cursor_visual_pos().x;
+                                tb.set_preferred_column(tb.cursor_visual_pos().x);
                                 make_cursor_visible = true;
                             }
                             _ => return false,
@@ -2406,17 +2404,17 @@ impl<'a> Context<'a, '_> {
                     // If the cursor was already on the first line,
                     // move it to the start of the buffer.
                     if tb.cursor_visual_pos().y == 0 {
-                        tc.preferred_column = 0;
+                        tb.set_preferred_column(0);
                     }
 
                     if modifiers == kbmod::SHIFT {
                         tb.selection_update_visual(Point {
-                            x: tc.preferred_column,
+                            x: tb.preferred_column(),
                             y: tb.cursor_visual_pos().y - height,
                         });
                     } else {
                         tb.cursor_move_to_visual(Point {
-                            x: tc.preferred_column,
+                            x: tb.preferred_column(),
                             y: tb.cursor_visual_pos().y - height,
                         });
                     }
@@ -2427,23 +2425,23 @@ impl<'a> Context<'a, '_> {
                     // If the cursor was already on the last line,
                     // move it to the end of the buffer.
                     if tb.cursor_visual_pos().y >= tb.visual_line_count() - 1 {
-                        tc.preferred_column = CoordType::MAX;
+                        tb.set_preferred_column(CoordType::MAX);
                     }
 
                     if modifiers == kbmod::SHIFT {
                         tb.selection_update_visual(Point {
-                            x: tc.preferred_column,
+                            x: tb.preferred_column(),
                             y: tb.cursor_visual_pos().y + height,
                         });
                     } else {
                         tb.cursor_move_to_visual(Point {
-                            x: tc.preferred_column,
+                            x: tb.preferred_column(),
                             y: tb.cursor_visual_pos().y + height,
                         });
                     }
 
-                    if tc.preferred_column == CoordType::MAX {
-                        tc.preferred_column = tb.cursor_visual_pos().x;
+                    if tb.preferred_column() == CoordType::MAX {
+                        tb.set_preferred_column(tb.cursor_visual_pos().x);
                     }
                 }
                 vk::END => {
@@ -2554,21 +2552,21 @@ impl<'a> Context<'a, '_> {
                     }
                     match modifiers {
                         kbmod::NONE => {
-                            let mut x = tc.preferred_column;
+                            let mut x = tb.preferred_column();
                             let mut y = tb.cursor_visual_pos().y - 1;
 
                             // If there's a selection we put the cursor above it.
                             if let Some((beg, _)) = tb.selection_range() {
                                 x = beg.visual_pos.x;
                                 y = beg.visual_pos.y - 1;
-                                tc.preferred_column = x;
+                                tb.set_preferred_column(x);
                             }
 
                             // If the cursor was already on the first line,
                             // move it to the start of the buffer.
                             if y < 0 {
                                 x = 0;
-                                tc.preferred_column = 0;
+                                tb.set_preferred_column(0);
                             }
 
                             tb.cursor_move_to_visual(Point { x, y });
@@ -2581,11 +2579,11 @@ impl<'a> Context<'a, '_> {
                             // If the cursor was already on the first line,
                             // move it to the start of the buffer.
                             if tb.cursor_visual_pos().y == 0 {
-                                tc.preferred_column = 0;
+                                tb.set_preferred_column(0);
                             }
 
                             tb.selection_update_visual(Point {
-                                x: tc.preferred_column,
+                                x: tb.preferred_column(),
                                 y: tb.cursor_visual_pos().y - 1,
                             });
                         }
@@ -2612,14 +2610,14 @@ impl<'a> Context<'a, '_> {
                     }
                     match modifiers {
                         kbmod::NONE => {
-                            let mut x = tc.preferred_column;
+                            let mut x = tb.preferred_column();
                             let mut y = tb.cursor_visual_pos().y + 1;
 
                             // If there's a selection we put the cursor below it.
                             if let Some((_, end)) = tb.selection_range() {
                                 x = end.visual_pos.x;
                                 y = end.visual_pos.y + 1;
-                                tc.preferred_column = x;
+                                tb.set_preferred_column(x);
                             }
 
                             // If the cursor was already on the last line,
@@ -2633,7 +2631,7 @@ impl<'a> Context<'a, '_> {
                             // If we fell into the `if y >= tb.get_visual_line_count()` above, we wanted to
                             // update the `preferred_column` but didn't know yet what it was. Now we know!
                             if x == CoordType::MAX {
-                                tc.preferred_column = tb.cursor_visual_pos().x;
+                                tb.set_preferred_column(tb.cursor_visual_pos().x);
                             }
                         }
                         kbmod::CTRL => {
@@ -2644,16 +2642,16 @@ impl<'a> Context<'a, '_> {
                             // If the cursor was already on the last line,
                             // move it to the end of the buffer.
                             if tb.cursor_visual_pos().y >= tb.visual_line_count() - 1 {
-                                tc.preferred_column = CoordType::MAX;
+                                tb.set_preferred_column(CoordType::MAX);
                             }
 
                             tb.selection_update_visual(Point {
-                                x: tc.preferred_column,
+                                x: tb.preferred_column(),
                                 y: tb.cursor_visual_pos().y + 1,
                             });
 
-                            if tc.preferred_column == CoordType::MAX {
-                                tc.preferred_column = tb.cursor_visual_pos().x;
+                            if tb.preferred_column() == CoordType::MAX {
+                                tb.set_preferred_column(tb.cursor_visual_pos().x);
                             }
                         }
                         _ => return false,
@@ -2738,7 +2736,7 @@ impl<'a> Context<'a, '_> {
         }
 
         if change_preferred_column {
-            tc.preferred_column = tb.cursor_visual_pos().x;
+            tb.set_preferred_column(tb.cursor_visual_pos().x);
         }
 
         self.set_input_consumed();
@@ -3699,7 +3697,6 @@ struct TextareaContent<'a> {
     scroll_offset_y_drag_start: CoordType,
     scroll_offset_x_max: CoordType,
     thumb_height: CoordType,
-    preferred_column: CoordType,
 
     single_line: bool,
     has_focus: bool,

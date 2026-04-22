@@ -356,18 +356,18 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
 }
 
 fn small_jump(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
-    let pos = tb.cursor_visual_pos();
+    let x = tb.preferred_column();
     let max_y = (tb.visual_line_count() - 1).max(0);
-    let y = (pos.y + delta).clamp(0, max_y);
-    tb.cursor_move_to_visual(Point { x: pos.x, y });
+    let y = (tb.cursor_visual_pos().y + delta).clamp(0, max_y);
+    tb.cursor_move_to_visual(Point { x, y });
     tb.make_cursor_visible();
 }
 
 fn small_jump_select(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
-    let pos = tb.cursor_visual_pos();
+    let x = tb.preferred_column();
     let max_y = (tb.visual_line_count() - 1).max(0);
-    let y = (pos.y + delta).clamp(0, max_y);
-    tb.selection_update_visual(Point { x: pos.x, y });
+    let y = (tb.cursor_visual_pos().y + delta).clamp(0, max_y);
+    tb.selection_update_visual(Point { x, y });
     tb.make_cursor_visible();
 }
 
@@ -380,6 +380,7 @@ fn smart_line_start(tb: &mut edit::buffer::TextBuffer, select: bool) {
     } else {
         tb.cursor_move_to_logical(target);
     }
+    tb.set_preferred_column(tb.cursor_visual_pos().x);
     tb.make_cursor_visible();
 }
 
@@ -391,6 +392,7 @@ fn line_end(tb: &mut edit::buffer::TextBuffer, select: bool) {
     } else {
         tb.cursor_move_to_logical(target);
     }
+    tb.set_preferred_column(tb.cursor_visual_pos().x);
     tb.make_cursor_visible();
 }
 

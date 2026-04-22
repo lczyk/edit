@@ -274,6 +274,11 @@ pub struct TextBuffer {
     insert_final_newline: bool,
     overtype: bool,
 
+    /// Sticky x kept across vertical cursor motion so moving Down through a
+    /// short line and then back up doesn't forget the original column.
+    /// Updated by horizontal motion; preserved by vertical motion.
+    preferred_column: CoordType,
+
     wants_cursor_visibility: bool,
 }
 
@@ -323,6 +328,8 @@ impl TextBuffer {
             newlines_are_crlf: cfg!(windows), // Windows users want CRLF
             insert_final_newline: false,
             overtype: false,
+
+            preferred_column: 0,
 
             wants_cursor_visibility: false,
         })
@@ -486,6 +493,25 @@ impl TextBuffer {
     /// the position in laid out rows and columns.
     pub fn cursor_visual_pos(&self) -> Point {
         self.cursor.visual_pos
+    }
+
+    /// Byte offset of the cursor inside the buffer.
+    pub fn cursor_offset(&self) -> usize {
+        self.cursor.offset
+    }
+
+    /// Sticky horizontal column (in visual columns) preserved across vertical
+    /// cursor motion so short lines don't lose the original x. Callers that
+    /// perform vertical navigation should use this as the target x; callers
+    /// that perform horizontal motion should call [`Self::set_preferred_column`]
+    /// to sync it with the new cursor position.
+    pub fn preferred_column(&self) -> CoordType {
+        self.preferred_column
+    }
+
+    /// Sets the sticky horizontal column. See [`Self::preferred_column`].
+    pub fn set_preferred_column(&mut self, x: CoordType) {
+        self.preferred_column = x;
     }
 
     /// Gets the width of the left margin.
