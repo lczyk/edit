@@ -3,11 +3,51 @@
 
 #![allow(irrefutable_let_patterns)]
 
+use std::process::Command;
+
 use stdext::arena::scratch_arena;
 
 use crate::helpers::env_opt;
 
 mod helpers;
+
+fn command_output(command: &mut Command) -> Option<String> {
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Some(text)
+}
+
+fn emit_version_info() {
+    let manifest_dir = env_opt("CARGO_MANIFEST_DIR");
+
+    let git_sha = command_output(
+        Command::new("git").current_dir(&manifest_dir).args(["rev-parse", "--short", "HEAD"]),
+    )
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| "unknown".to_string());
+
+    let git_status = command_output(
+        Command::new("git")
+            .current_dir(&manifest_dir)
+            .args(["status", "--porcelain", "--", "."]),
+    )
+    .map(|s| if s.is_empty() { "clean".to_string() } else { "dirty".to_string() })
+    .unwrap_or_else(|| "unknown".to_string());
+
+    let build_date = command_output(Command::new("date").args(["-u", "+%Y-%m-%dT%H:%M:%SZ"]))
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    println!("cargo::rustc-env=EDIT_GIT_SHA={git_sha}");
+    println!("cargo::rustc-env=EDIT_GIT_STATUS={git_status}");
+    println!("cargo::rustc-env=EDIT_BUILD_DATE={build_date}");
+
+    println!("cargo::rerun-if-changed=.git/HEAD");
+    println!("cargo::rerun-if-changed=.git/index");
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum TargetOs {
@@ -25,6 +65,7 @@ fn main() {
 
     compile_lsh();
     configure_icu(target_os);
+    emit_version_info();
 }
 
 fn compile_lsh() {
