@@ -24,6 +24,24 @@ Use the [Makefile](Makefile) — do not invoke `cargo` directly in routine work.
 
 ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
 
+## Cmd / Super modifier
+
+`kbmod::CMD` is available alongside `CTRL`/`ALT`/`SHIFT` and maps to the Super modifier in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 (disambiguate escape codes) on startup via `CSI > 1 u` in `setup_terminal` and pops on exit via `CSI < u`.
+
+Reaches the editor only when (a) the terminal supports the protocol and (b) the terminal forwards Cmd rather than binding it at the window level. Known-good: Ghostty, kitty, WezTerm, Alacritty ≥ 0.14. Any built-in terminal shortcut (Cmd+Q, Cmd+C, …) must be cleared in the terminal's config before that chord reaches the editor.
+
+## Dev input log (`--logfile`)
+
+Debug builds accept `--logfile=PATH`. Each `Input` event (keyboard, mouse, resize, paste, text) is written to PATH as JSONL alongside a snapshot of the active [`TextBuffer`](crates/edit/src/buffer/mod.rs) *after* the frame is processed. Meant for the "I pressed X, expected Y" feedback loop — not for crash debugging.
+
+Record shape:
+
+```json
+{"ts_ms":123,"input":{"kind":"key","key":"Ctrl+S"},"buffer":{"cursor":[5,3],"selection":null,"dirty":true,"lines":42}}
+```
+
+Implementation: [crates/edit/src/bin/edit/devlog.rs](crates/edit/src/bin/edit/devlog.rs). Gated behind `#[cfg(debug_assertions)]` so release builds carry zero cost. When you paste log excerpts here, I'll read the `cursor`, `selection`, `dirty`, `lines` fields as ground truth for what actually happened.
+
 ## Architecture
 
 - **Text buffer ([crates/edit/src/buffer/](crates/edit/src/buffer/))** does not track line breaks. Only the current cursor position is kept; navigation seeks `O(n)` through the document. Every other perf decision flows from this:

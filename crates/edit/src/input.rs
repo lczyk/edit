@@ -6,6 +6,7 @@
 //! In the future this allows us to take apart the application and
 //! support input schemes that aren't VT, such as UEFI, or GUI.
 
+use std::fmt;
 use std::mem;
 
 use crate::helpers::{CoordType, Point, Size};
@@ -59,7 +60,8 @@ impl InputKey {
     }
 }
 
-/// A keyboard modifier. Ctrl/Alt/Shift.
+/// A keyboard modifier. Ctrl/Alt/Shift/Cmd. Cmd (Super) is only reported by
+/// terminals that implement the kitty keyboard protocol.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct InputKeyMod(u32);
@@ -93,6 +95,72 @@ impl std::ops::BitOr<InputKey> for InputKeyMod {
 impl std::ops::BitOrAssign for InputKeyMod {
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
+    }
+}
+
+impl fmt::Display for InputKeyMod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut sep = "";
+        if self.contains(kbmod::CTRL) {
+            f.write_str(sep)?;
+            f.write_str("Ctrl")?;
+            sep = "+";
+        }
+        if self.contains(kbmod::ALT) {
+            f.write_str(sep)?;
+            f.write_str("Alt")?;
+            sep = "+";
+        }
+        if self.contains(kbmod::SHIFT) {
+            f.write_str(sep)?;
+            f.write_str("Shift")?;
+            sep = "+";
+        }
+        if self.contains(kbmod::CMD) {
+            f.write_str(sep)?;
+            f.write_str("Cmd")?;
+            sep = "+";
+        }
+        let _ = sep;
+        Ok(())
+    }
+}
+
+impl fmt::Display for InputKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mods = self.modifiers();
+        if mods.0 != 0 {
+            write!(f, "{mods}+")?;
+        }
+        let k = self.key().0;
+        match k {
+            0x00 => f.write_str("Null"),
+            0x08 => f.write_str("Back"),
+            0x09 => f.write_str("Tab"),
+            0x0D => f.write_str("Return"),
+            0x1B => f.write_str("Escape"),
+            0x20 => f.write_str("Space"),
+            0x21 => f.write_str("PageUp"),
+            0x22 => f.write_str("PageDown"),
+            0x23 => f.write_str("End"),
+            0x24 => f.write_str("Home"),
+            0x25 => f.write_str("Left"),
+            0x26 => f.write_str("Up"),
+            0x27 => f.write_str("Right"),
+            0x28 => f.write_str("Down"),
+            0x2D => f.write_str("Insert"),
+            0x2E => f.write_str("Delete"),
+            0x30..=0x39 | 0x41..=0x5A => write!(f, "{}", char::from_u32(k).unwrap_or('?')),
+            0x60..=0x69 => write!(f, "Numpad{}", k - 0x60),
+            0x6A => f.write_str("Multiply"),
+            0x6B => f.write_str("Add"),
+            0x6C => f.write_str("Separator"),
+            0x6D => f.write_str("Subtract"),
+            0x6E => f.write_str("Decimal"),
+            0x6F => f.write_str("Divide"),
+            0x70..=0x87 => write!(f, "F{}", k - 0x6F),
+            _ => write!(f, "0x{k:02X}"),
+        }
     }
 }
 
@@ -212,6 +280,7 @@ pub mod kbmod {
     pub const CTRL: InputKeyMod = InputKeyMod::new(0x01000000);
     pub const ALT: InputKeyMod = InputKeyMod::new(0x02000000);
     pub const SHIFT: InputKeyMod = InputKeyMod::new(0x04000000);
+    pub const CMD: InputKeyMod = InputKeyMod::new(0x08000000);
 
     pub const CTRL_ALT: InputKeyMod = InputKeyMod::new(0x03000000);
     pub const CTRL_SHIFT: InputKeyMod = InputKeyMod::new(0x05000000);
@@ -432,6 +501,27 @@ impl<'input> Iterator for Stream<'_, '_, 'input> {
                                 _ => {}
                             }
                         }
+                        'u' => {
+                            // Kitty keyboard protocol CSI-u encoding:
+                            //   CSI <codepoint> ; <modifier> u
+                            // Triggered under flag 1 for modified control combos
+                            // (Ctrl+letter, Alt+letter, Cmd+anything, etc.).
+                            let code = csi.params[0] as u32;
+                            let vk = match code {
+                                // Backspace codepoint → our BACK vk.
+                                127 => 0x08,
+                                // Lowercase ASCII letter → uppercase vk code.
+                                c if (b'a' as u32..=b'z' as u32).contains(&c) => c - 0x20,
+                                c => c,
+                            };
+                            // InputKey value occupies lower 24 bits; reject anything else
+                            // (functional-key codepoints in the ≥57344 range etc.).
+                            if vk != 0 && vk < 0x01000000 {
+                                return Some(Input::Keyboard(
+                                    InputKey::new(vk) | Self::parse_modifiers(csi),
+                                ));
+                            }
+                        }
                         'm' | 'M' if csi.private_byte == '<' => {
                             let btn = csi.params[0];
                             let mut mouse = InputMouse {
@@ -592,6 +682,10 @@ impl<'input> Stream<'_, '_, 'input> {
         }
         if (p1 & 0x04) != 0 {
             modifiers |= kbmod::CTRL;
+        }
+        // Bit 3 is Super in the kitty keyboard protocol — on macOS that's Cmd.
+        if (p1 & 0x08) != 0 {
+            modifiers |= kbmod::CMD;
         }
         modifiers
     }

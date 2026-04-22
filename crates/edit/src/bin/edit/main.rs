@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 mod apperr;
+#[cfg(debug_assertions)]
+mod devlog;
 mod documents;
 mod draw_editor;
 mod draw_filepicker;
@@ -125,9 +127,23 @@ fn run() -> apperr::Result<()> {
             while {
                 let input = input_iter.next();
                 let more = input.is_some();
+
+                #[cfg(debug_assertions)]
+                let logged_input = if devlog::is_enabled() {
+                    input.as_ref().map(devlog::describe)
+                } else {
+                    None
+                };
+
                 let mut ctx = tui.create_context(input);
 
                 draw(&mut ctx, &mut state);
+
+                #[cfg(debug_assertions)]
+                if let Some(desc) = logged_input {
+                    let snapshot = state.documents.active().map(|d| d.buffer.borrow());
+                    devlog::log(&desc, snapshot.as_deref());
+                }
 
                 more
             } {}
@@ -182,13 +198,20 @@ fn handle_args(state: &mut State) -> apperr::Result<bool> {
                 paths.clear();
                 break;
             }
-            if arg == "-h" || arg == "--help" || (cfg!(windows) && arg == "/?") {
+            if arg == "-h" || arg == "--help" {
                 print_help();
                 return Ok(true);
             }
             if arg == "-v" || arg == "--version" {
                 print_version();
                 return Ok(true);
+            }
+            #[cfg(debug_assertions)]
+            if let Some(path) = arg.to_str().and_then(|s| s.strip_prefix("--logfile=")) {
+                if let Err(e) = devlog::open(Path::new(path)) {
+                    sys::write_stdout(&format!("failed to open logfile: {e}\n"));
+                }
+                continue;
             }
         }
 
@@ -236,6 +259,10 @@ fn print_help() {
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",
     ));
+    #[cfg(debug_assertions)]
+    sys::write_stdout(
+        "\nDebug-build options:\n    --logfile=PATH   Log inputs + buffer state as JSONL\n",
+    );
 }
 
 fn print_version() {
@@ -490,7 +517,10 @@ impl Drop for RestoreModes {
         // Same as in the beginning but in the reverse order.
         // It also includes DECSCUSR 0 to reset the cursor style and DECTCEM to show the cursor.
         // We specifically don't reset mode 1036, because most applications expect it to be set nowadays.
-        sys::write_stdout("\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l");
+        // `CSI < u` pops the kitty keyboard protocol flags we pushed in setup_terminal.
+        sys::write_stdout(
+            "\x1b[<u\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l",
+        );
     }
 }
 
@@ -504,6 +534,10 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
         // 2004: Bracketed Paste Mode
         // 1036: Xterm: "meta sends escape" (Alt keypresses should be encoded with ESC + char)
         "\x1b[?1049h\x1b[?1002;1006;2004h\x1b[?1036h",
+        // Kitty keyboard protocol: push flag 1 (disambiguate escape codes). This gets
+        // us distinct Super/Cmd modifiers on keys. Terminals that don't support it
+        // silently ignore the sequence and fall back to legacy encoding.
+        "\x1b[>1u",
         // OSC 4 color table requests for indices 0 through 15 (base colors).
         "\x1b]4;0;?;1;?;2;?;3;?;4;?;5;?;6;?;7;?\x07",
         "\x1b]4;8;?;9;?;10;?;11;?;12;?;13;?;14;?;15;?\x07",
