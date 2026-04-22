@@ -7,7 +7,6 @@ mod draw_editor;
 mod draw_filepicker;
 mod draw_menubar;
 mod draw_statusbar;
-mod localization;
 mod settings;
 mod state;
 
@@ -27,7 +26,6 @@ use edit::oklab::StraightRgba;
 use edit::tui::*;
 use edit::vt::{self, Token};
 use edit::{base64, path, sys, unicode};
-use localization::*;
 use state::*;
 use stdext::arena::{self, Arena, scratch_arena};
 use stdext::arena_format;
@@ -65,10 +63,8 @@ fn main() -> process::ExitCode {
 fn run() -> apperr::Result<()> {
     // Init `sys` first, as everything else may depend on its functionality (IO, function pointers, etc.).
     let _sys_deinit = sys::init();
-    // Next init `arena`, so that `scratch_arena` works. `loc` depends on it.
+    // Next init `arena`, so that `scratch_arena` works.
     arena::init(SCRATCH_ARENA_CAPACITY)?;
-    // Init the `loc` module, so that error messages are localized.
-    localization::init();
 
     let mut state = State::new()?;
     if handle_args(&mut state)? {
@@ -103,9 +99,9 @@ fn run() -> apperr::Result<()> {
         .oklab_blend(tui.indexed_alpha(IndexedColor::Foreground, 1, 3));
     let floater_fg = tui.contrasted(floater_bg);
     tui.setup_modifier_translations(ModifierTranslations {
-        ctrl: loc(LocId::Ctrl),
-        alt: loc(LocId::Alt),
-        shift: loc(LocId::Shift),
+        ctrl: "Ctrl",
+        alt: "Alt",
+        shift: "Shift",
     });
     tui.set_floater_default_bg(floater_bg);
     tui.set_floater_default_fg(floater_fg);
@@ -444,19 +440,19 @@ fn draw_handle_clipboard_change(ctx: &mut Context, state: &mut State) {
     let over_limit = data_len >= SCRATCH_ARENA_CAPACITY / 4;
     let mut done = None;
 
-    ctx.modal_begin("warning", loc(LocId::WarningDialogTitle));
+    ctx.modal_begin("warning", "Warning");
     {
         ctx.block_begin("description");
         ctx.attr_padding(Rect::three(1, 2, 1));
 
         if over_limit {
-            ctx.label("line1", loc(LocId::LargeClipboardWarningLine1));
+            ctx.label("line1", "Text you copy is shared with the terminal clipboard.");
             ctx.attr_position(Position::Center);
-            ctx.label("line2", loc(LocId::SuperLargeClipboardWarning));
+            ctx.label("line2", "The text you copied is too large to be shared.");
             ctx.attr_position(Position::Center);
         } else {
             let label2 = {
-                let template = loc(LocId::LargeClipboardWarningLine2);
+                let template = "You copied {size} which may take a long time to share.";
                 let size = arena_format!(ctx.arena(), "{}", MetricFormatter(data_len));
 
                 let mut label = BString::empty();
@@ -466,11 +462,11 @@ fn draw_handle_clipboard_change(ctx: &mut Context, state: &mut State) {
                 label
             };
 
-            ctx.label("line1", loc(LocId::LargeClipboardWarningLine1));
+            ctx.label("line1", "Text you copy is shared with the terminal clipboard.");
             ctx.attr_position(Position::Center);
             ctx.label("line2", &label2);
             ctx.attr_position(Position::Center);
-            ctx.label("line3", loc(LocId::LargeClipboardWarningLine3));
+            ctx.label("line3", "Do you want to send it anyway?");
             ctx.attr_position(Position::Center);
         }
         ctx.block_end();
@@ -485,24 +481,24 @@ fn draw_handle_clipboard_change(ctx: &mut Context, state: &mut State) {
             ctx.inherit_focus();
 
             if over_limit {
-                if ctx.button("ok", loc(LocId::Ok), ButtonStyle::default()) {
+                if ctx.button("ok", "Ok", ButtonStyle::default()) {
                     done = Some(true);
                 }
                 ctx.inherit_focus();
             } else {
-                if ctx.button("always", loc(LocId::Always), ButtonStyle::default()) {
+                if ctx.button("always", "Always", ButtonStyle::default()) {
                     state.osc_clipboard_always_send = true;
                     done = Some(true);
                 }
 
-                if ctx.button("yes", loc(LocId::Yes), ButtonStyle::default()) {
+                if ctx.button("yes", "Yes", ButtonStyle::default()) {
                     done = Some(true);
                 }
                 if data_len < 10 * LARGE_CLIPBOARD_THRESHOLD {
                     ctx.inherit_focus();
                 }
 
-                if ctx.button("no", loc(LocId::No), ButtonStyle::default()) {
+                if ctx.button("no", "No", ButtonStyle::default()) {
                     done = Some(false);
                 }
                 if data_len >= 10 * LARGE_CLIPBOARD_THRESHOLD {

@@ -12,7 +12,6 @@ use stdext::arena::scratch_arena;
 use stdext::arena_format;
 use stdext::collections::BVec;
 
-use crate::localization::*;
 use crate::state::*;
 
 pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
@@ -59,11 +58,11 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                 ctx.attr_padding(Rect::two(0, 1));
                 ctx.attr_border();
                 {
-                    if ctx.button("reopen", loc(LocId::EncodingReopen), ButtonStyle::default()) {
+                    if ctx.button("reopen", "Reopen with encoding…", ButtonStyle::default()) {
                         state.wants_encoding_change = StateEncodingChange::Reopen;
                     }
                     ctx.focus_on_first_present();
-                    if ctx.button("convert", loc(LocId::EncodingConvert), ButtonStyle::default()) {
+                    if ctx.button("convert", "Convert to encoding…", ButtonStyle::default()) {
                         state.wants_encoding_change = StateEncodingChange::Convert;
                     }
                 }
@@ -84,11 +83,7 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
             &arena_format!(
                 ctx.arena(),
                 "{}:{}",
-                loc(if tb.indent_with_tabs() {
-                    LocId::IndentationTabs
-                } else {
-                    LocId::IndentationSpaces
-                }),
+                if tb.indent_with_tabs() { "Tabs" } else { "Spaces" },
                 tb.tab_size(),
             ),
             ButtonStyle::default(),
@@ -116,13 +111,13 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                 ctx.focus_on_first_present();
                 ctx.attr_padding(Rect::two(0, 1));
                 {
-                    if ctx.list_item(tb.indent_with_tabs(), loc(LocId::IndentationTabs))
+                    if ctx.list_item(tb.indent_with_tabs(), "Tabs")
                         != ListSelection::Unchanged
                     {
                         tb.set_indent_with_tabs(true);
                         ctx.needs_rerender();
                     }
-                    if ctx.list_item(!tb.indent_with_tabs(), loc(LocId::IndentationSpaces))
+                    if ctx.list_item(!tb.indent_with_tabs(), "Spaces")
                         != ListSelection::Unchanged
                     {
                         tb.set_indent_with_tabs(false);
@@ -212,7 +207,7 @@ pub fn draw_dialog_language_change(ctx: &mut Context, state: &mut State) {
     let doc = state.documents.active_mut();
     let mut done = doc.is_none();
 
-    ctx.modal_begin("language", loc(LocId::LanguageSelectMode));
+    ctx.modal_begin("language", "Select Language Mode");
     if let Some(doc) = doc {
         let width = (ctx.size().width - 20).max(10);
         let height = (ctx.size().height - 10).max(10);
@@ -227,7 +222,7 @@ pub fn draw_dialog_language_change(ctx: &mut Context, state: &mut State) {
             let auto_detect = doc.language_override.is_none();
             let selected = if auto_detect { None } else { doc.buffer.borrow().language() };
 
-            if ctx.list_item(auto_detect, loc(LocId::LanguageAutoDetect))
+            if ctx.list_item(auto_detect, "Auto Detect")
                 == ListSelection::Activated
             {
                 doc.auto_detect_language();
@@ -267,7 +262,7 @@ pub fn draw_dialog_encoding_change(ctx: &mut Context, state: &mut State) {
 
     ctx.modal_begin(
         "encode",
-        if reopen { loc(LocId::EncodingReopen) } else { loc(LocId::EncodingConvert) },
+        if reopen { "Reopen with encoding…" } else { "Convert to encoding…" },
     );
     {
         ctx.table_begin("encoding-search");
@@ -278,7 +273,7 @@ pub fn draw_dialog_encoding_change(ctx: &mut Context, state: &mut State) {
             ctx.table_next_row();
             ctx.inherit_focus();
 
-            ctx.label("needle-label", loc(LocId::SearchNeedleLabel));
+            ctx.label("needle-label", "Find:");
 
             if ctx.editline("needle", &mut state.encoding_picker_needle) {
                 encoding_picker_update_list(state);
@@ -364,7 +359,7 @@ fn encoding_picker_update_list(state: &mut State) {
 }
 
 pub fn draw_go_to_file(ctx: &mut Context, state: &mut State) {
-    ctx.modal_begin("go-to-file", loc(LocId::ViewGoToFile));
+    ctx.modal_begin("go-to-file", "Go to File…");
     {
         let width = (ctx.size().width - 20).max(10);
         let height = (ctx.size().height - 10).max(10);

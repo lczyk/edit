@@ -14,7 +14,6 @@ use edit::{buffer, icu};
 
 use crate::apperr;
 use crate::documents::DocumentManager;
-use crate::localization::*;
 
 #[repr(transparent)]
 pub struct FormatApperr(apperr::Error);
@@ -29,9 +28,9 @@ impl std::fmt::Display for FormatApperr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             apperr::Error::SettingsInvalid(what) => {
-                write!(f, "{}{}", loc(LocId::SettingsInvalid), what)
+                write!(f, "Invalid Settings: {}", what)
             }
-            apperr::Error::Icu(icu::ICU_MISSING_ERROR) => f.write_str(loc(LocId::ErrorIcuMissing)),
+            apperr::Error::Icu(icu::ICU_MISSING_ERROR) => f.write_str("This operation requires the ICU library"),
             apperr::Error::Icu(ref err) => err.fmt(f),
             apperr::Error::Io(ref err) => err.fmt(f),
         }
@@ -256,7 +255,7 @@ pub fn error_log_add(ctx: &mut Context, state: &mut State, err: apperr::Error) {
 }
 
 pub fn draw_error_log(ctx: &mut Context, state: &mut State) {
-    ctx.modal_begin("error", loc(LocId::ErrorDialogTitle));
+    ctx.modal_begin("error", "Error");
     ctx.attr_background_rgba(ctx.indexed(IndexedColor::Red));
     ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::BrightWhite));
     {
@@ -278,7 +277,7 @@ pub fn draw_error_log(ctx: &mut Context, state: &mut State) {
         }
         ctx.block_end();
 
-        if ctx.button("ok", loc(LocId::Ok), ButtonStyle::default()) {
+        if ctx.button("ok", "Ok", ButtonStyle::default()) {
             state.error_log_count = 0;
         }
         ctx.attr_position(Position::Center);

@@ -53,7 +53,6 @@ You can set the following environment variables at build-time to configure the b
 Environment variable | Description
 --- | ---
 `EDIT_CFG_ICU*` | See [ICU library name (SONAME)](#icu-library-name-soname) below for details. Linux package maintainers are advised to review and configure these options.
-`EDIT_CFG_LANGUAGES` | A comma-separated list of languages to include in the build. See [i18n/edit.toml](i18n/edit.toml) for available languages.
 
 ## Notes to Package Maintainers
 

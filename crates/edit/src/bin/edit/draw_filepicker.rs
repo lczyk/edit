@@ -13,7 +13,6 @@ use edit::{icu, path};
 use stdext::arena::scratch_arena;
 use stdext::collections::BVec;
 
-use crate::localization::*;
 use crate::state::*;
 
 pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
@@ -35,9 +34,9 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
     ctx.modal_begin(
         "file-picker",
         if state.wants_file_picker == StateFilePicker::Open {
-            loc(LocId::FileOpen)
+            "Open File…"
         } else {
-            loc(LocId::FileSaveAs)
+            "Save As…"
         },
     );
     ctx.attr_intrinsic_size(Size { width, height });
@@ -53,14 +52,14 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
         {
             ctx.table_next_row();
 
-            ctx.label("dir-label", loc(LocId::SaveAsDialogPathLabel));
+            ctx.label("dir-label", "Folder:");
             ctx.label("dir", state.file_picker_pending_dir.as_str());
             ctx.attr_overflow(Overflow::TruncateMiddle);
 
             ctx.table_next_row();
             ctx.inherit_focus();
 
-            ctx.label("name-label", loc(LocId::SaveAsDialogNameLabel));
+            ctx.label("name-label", "File name:");
 
             let name_changed = ctx.editline("name", &mut state.file_picker_pending_name);
             ctx.inherit_focus();
@@ -196,13 +195,13 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
     if state.file_picker_overwrite_warning.is_some() {
         let mut save;
 
-        ctx.modal_begin("overwrite", loc(LocId::FileOverwriteWarning));
+        ctx.modal_begin("overwrite", "Confirm Save As");
         ctx.attr_background_rgba(ctx.indexed(IndexedColor::Red));
         ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::BrightWhite));
         {
             let contains_focus = ctx.contains_focus();
 
-            ctx.label("description", loc(LocId::FileOverwriteWarningDescription));
+            ctx.label("description", "File already exists. Do you want to overwrite it?");
             ctx.attr_overflow(Overflow::TruncateTail);
             ctx.attr_padding(Rect::three(1, 2, 1));
 
@@ -215,10 +214,10 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
                 ctx.table_next_row();
                 ctx.inherit_focus();
 
-                save = ctx.button("yes", loc(LocId::Yes), ButtonStyle::default());
+                save = ctx.button("yes", "Yes", ButtonStyle::default());
                 ctx.inherit_focus();
 
-                if ctx.button("no", loc(LocId::No), ButtonStyle::default()) {
+                if ctx.button("no", "No", ButtonStyle::default()) {
                     state.file_picker_overwrite_warning = None;
                 }
             }
