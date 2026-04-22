@@ -33,7 +33,7 @@ Reaches the editor only when (a) the terminal supports the protocol and (b) the 
 
 ## Keybindings
 
-Config file: `<config_dir>/keybindings.toml`. Auto-created from embedded default ([crates/edit/src/bin/edit/keybindings.default.toml](crates/edit/src/bin/edit/keybindings.default.toml)) on first run. Location: `$XDG_CONFIG_HOME/edit/keybindings.toml` (fallback `~/.config/edit/keybindings.toml`). Same on Linux and macOS.
+Config file: `<config_dir>/keybindings.toml`. Auto-created on first run from a platform-specific embedded default: [keybindings.macos.toml](crates/edit/src/bin/edit/keybindings.macos.toml) or [keybindings.linux.toml](crates/edit/src/bin/edit/keybindings.linux.toml). Location: `$XDG_CONFIG_HOME/edit/keybindings.toml` (fallback `~/.config/edit/keybindings.toml`) on both platforms.
 
 Configurable actions (21) in [crates/edit/src/bin/edit/keybindings.rs](crates/edit/src/bin/edit/keybindings.rs) `Action` enum — menubar items only. Dialog-internal keys (Return/Escape/Arrows/Backspace) stay hardcoded.
 

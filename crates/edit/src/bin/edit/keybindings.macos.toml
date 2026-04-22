@@ -1,0 +1,38 @@
+# Edit keybindings (macOS).
+#
+# One chord per action. Modifiers: Ctrl, Alt, Shift, Cmd (Super).
+# Separate modifiers and the key with "+". Key names: letter A-Z, digit 0-9,
+# Up/Down/Left/Right, Home/End/PageUp/PageDown, Insert/Delete,
+# Tab/Back/Return/Escape/Space, F1..F24, Numpad0..Numpad9.
+#
+# Set a value to "" to leave an action unbound.
+
+[keybindings]
+save             = "Ctrl+S"
+save_as          = ""
+exit             = "Ctrl+Q"
+
+undo             = "Ctrl+Z"
+redo             = "Ctrl+Y"
+cut              = "Ctrl+X"
+copy             = "Ctrl+C"
+paste            = "Ctrl+V"
+select_all       = "Ctrl+A"
+find             = "Ctrl+F"
+replace          = "Ctrl+R"
+
+focus_statusbar  = ""
+go_to_line       = "Ctrl+G"
+toggle_word_wrap = "Alt+Z"
+
+open_about       = ""
+focus_menubar    = "F10"
+
+move_line_up     = "Alt+Up"
+move_line_down   = "Alt+Down"
+
+# Cursor jumps 3 lines at a time. Select variants extend the selection.
+small_jump_up           = "Cmd+Up"
+small_jump_down         = "Cmd+Down"
+small_jump_up_select    = "Cmd+Shift+Up"
+small_jump_down_select  = "Cmd+Shift+Down"

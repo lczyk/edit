@@ -13,7 +13,10 @@ use edit::input::{InputKey, InputKeyMod, kbmod, vk};
 use crate::apperr;
 use crate::settings;
 
-pub const DEFAULT_TOML: &str = include_str!("keybindings.default.toml");
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub const DEFAULT_TOML: &str = include_str!("keybindings.macos.toml");
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+pub const DEFAULT_TOML: &str = include_str!("keybindings.linux.toml");
 
 /// Configurable user actions. Each has at most one chord in the config.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -37,9 +40,13 @@ pub enum Action {
     FocusMenubar,
     MoveLineUp,
     MoveLineDown,
+    SmallJumpUp,
+    SmallJumpDown,
+    SmallJumpUpSelect,
+    SmallJumpDownSelect,
 }
 
-const ACTION_COUNT: usize = 18;
+const ACTION_COUNT: usize = 22;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Save, "save"),
@@ -60,6 +67,10 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::FocusMenubar, "focus_menubar"),
     (Action::MoveLineUp, "move_line_up"),
     (Action::MoveLineDown, "move_line_down"),
+    (Action::SmallJumpUp, "small_jump_up"),
+    (Action::SmallJumpDown, "small_jump_down"),
+    (Action::SmallJumpUpSelect, "small_jump_up_select"),
+    (Action::SmallJumpDownSelect, "small_jump_down_select"),
 ];
 
 pub struct Keybindings {
@@ -112,6 +123,24 @@ pub fn path() -> Option<PathBuf> {
     let mut p = settings::config_dir()?;
     p.push("keybindings.toml");
     Some(p)
+}
+
+/// Debug helper: wipe the config directory and rewrite `keybindings.toml` from
+/// [`DEFAULT_TOML`]. Called by `--force-reset-config`.
+pub fn force_reset() -> apperr::Result<()> {
+    let Some(dir) = settings::config_dir() else { return Ok(()) };
+    for name in ["keybindings.toml", "associations.toml"] {
+        let p = dir.join(name);
+        if let Err(e) = fs::remove_file(&p)
+            && e.kind() != std::io::ErrorKind::NotFound
+        {
+            return Err(e.into());
+        }
+    }
+    let kb = dir.join("keybindings.toml");
+    fs::create_dir_all(&dir)?;
+    fs::write(&kb, DEFAULT_TOML)?;
+    Ok(())
 }
 
 /// Load the keybindings file, auto-creating it from [`DEFAULT_TOML`] if missing.

@@ -206,6 +206,15 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 }
                 continue;
             }
+            #[cfg(debug_assertions)]
+            if arg == "--force-reset-config" {
+                if let Err(e) = keybindings::force_reset() {
+                    sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
+                    return Ok(None);
+                }
+                sys::write_stdout("config reset\n");
+                continue;
+            }
         }
 
         if path.is_some() {
@@ -235,9 +244,11 @@ fn print_help() {
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",
     ));
     #[cfg(debug_assertions)]
-    sys::write_stdout(
-        "\nDebug-build options:\n    --logfile=PATH          Log inputs + buffer state as JSONL\n",
-    );
+    sys::write_stdout(concat!(
+        "\nDebug-build options:\n",
+        "    --logfile=PATH          Log inputs + buffer state as JSONL\n",
+        "    --force-reset-config    Wipe config dir and rewrite defaults, then continue\n",
+    ));
 }
 
 fn print_version() {
@@ -294,6 +305,9 @@ fn draw(ctx: &mut Context, state: &mut State) {
     }
 }
 
+/// Lines moved per "small jump" action.
+const SMALL_JUMP_LINES: CoordType = 3;
+
 fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
     use edit::buffer::MoveLineDirection;
     use keybindings::{Action, chord};
@@ -318,11 +332,35 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Up);
     } else if ctx.consume_shortcut(chord(Action::MoveLineDown)) {
         state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Down);
+    } else if ctx.consume_shortcut(chord(Action::SmallJumpUpSelect)) {
+        small_jump_select(&mut state.document.buffer.borrow_mut(), -SMALL_JUMP_LINES);
+    } else if ctx.consume_shortcut(chord(Action::SmallJumpDownSelect)) {
+        small_jump_select(&mut state.document.buffer.borrow_mut(), SMALL_JUMP_LINES);
+    } else if ctx.consume_shortcut(chord(Action::SmallJumpUp)) {
+        small_jump(&mut state.document.buffer.borrow_mut(), -SMALL_JUMP_LINES);
+    } else if ctx.consume_shortcut(chord(Action::SmallJumpDown)) {
+        small_jump(&mut state.document.buffer.borrow_mut(), SMALL_JUMP_LINES);
     } else {
         return;
     }
 
     ctx.needs_rerender();
+}
+
+fn small_jump(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
+    let pos = tb.cursor_visual_pos();
+    let max_y = (tb.visual_line_count() - 1).max(0);
+    let y = (pos.y + delta).clamp(0, max_y);
+    tb.cursor_move_to_visual(Point { x: pos.x, y });
+    tb.make_cursor_visible();
+}
+
+fn small_jump_select(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
+    let pos = tb.cursor_visual_pos();
+    let max_y = (tb.visual_line_count() - 1).max(0);
+    let y = (pos.y + delta).clamp(0, max_y);
+    tb.selection_update_visual(Point { x: pos.x, y });
+    tb.make_cursor_visible();
 }
 
 fn write_terminal_title<'a>(arena: &'a Arena, output: &mut BString<'a>, state: &mut State) {

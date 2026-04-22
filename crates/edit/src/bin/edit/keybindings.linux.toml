@@ -1,4 +1,4 @@
-# Edit keybindings.
+# Edit keybindings (Linux).
 #
 # One chord per action. Modifiers: Ctrl, Alt, Shift, Cmd (Super).
 # Separate modifiers and the key with "+". Key names: letter A-Z, digit 0-9,
@@ -30,3 +30,10 @@ focus_menubar    = "F10"
 
 move_line_up     = "Alt+Up"
 move_line_down   = "Alt+Down"
+
+# Cursor jumps 3 lines at a time. Select variants extend the selection.
+# Default chords avoid Shift so the select variant is a natural Shift+chord.
+small_jump_up           = "Ctrl+Alt+Up"
+small_jump_down         = "Ctrl+Alt+Down"
+small_jump_up_select    = "Ctrl+Alt+Shift+Up"
+small_jump_down_select  = "Ctrl+Alt+Shift+Down"
