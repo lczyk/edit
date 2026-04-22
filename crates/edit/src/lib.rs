@@ -18,7 +18,6 @@ pub mod hash;
 pub mod helpers;
 pub mod icu;
 pub mod input;
-pub mod json;
 pub mod lsh;
 pub mod oklab;
 pub mod path;
