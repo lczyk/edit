@@ -189,7 +189,7 @@ impl Arena {
     pub fn alloc_slice<T: Copy>(&self, count: usize, value: T) -> &mut [T] {
         let slice = self.alloc_uninit_slice(count);
         slice.fill(MaybeUninit::new(value));
-        unsafe { slice.assume_init_mut() }
+        unsafe { &mut *(slice as *mut [MaybeUninit<T>] as *mut [T]) }
     }
 }
 

@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use edit::buffer::TextBuffer;
 use edit::cell::{Ref, SemiRefCell};
@@ -16,7 +17,8 @@ pub struct Settings {
 
 struct SettingsCell(SemiRefCell<Settings>);
 unsafe impl Sync for SettingsCell {}
-static SETTINGS: SettingsCell = SettingsCell(SemiRefCell::new(Settings::new()));
+static SETTINGS: LazyLock<SettingsCell> =
+    LazyLock::new(|| SettingsCell(SemiRefCell::new(Settings::new())));
 
 impl Settings {
     /// Fills the given settings.json text buffer with some initial contents for convenience.
@@ -27,7 +29,7 @@ impl Settings {
         tb.mark_as_clean();
     }
 
-    const fn new() -> Self {
+    fn new() -> Self {
         Settings { path: PathBuf::new(), file_associations: Vec::new() }
     }
 

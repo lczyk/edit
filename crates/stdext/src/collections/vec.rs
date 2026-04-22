@@ -61,7 +61,8 @@ impl<'a, T> BVec<'a, T> {
 
     /// Leaks a `Vec` and turns it into a "borrowed" `BVec`.
     pub fn from_std_vec(vec: Vec<T>) -> Self {
-        let (ptr, len, cap) = vec.into_raw_parts();
+        let mut vec = std::mem::ManuallyDrop::new(vec);
+        let (ptr, len, cap) = (vec.as_mut_ptr(), vec.len(), vec.capacity());
         // A `Vec` always has a non-null pointer (it's dangling).
         let ptr = unsafe { NonNull::new_unchecked(ptr) };
         Self {
