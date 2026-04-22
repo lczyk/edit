@@ -38,39 +38,7 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
         ctx.steal_focus();
     }
 
-    state.wants_encoding_picker |= ctx.button("encoding", tb.encoding(), ButtonStyle::default());
-    if state.wants_encoding_picker {
-        if doc.path.is_some() {
-            ctx.block_begin("frame");
-            ctx.attr_float(FloatSpec {
-                anchor: Anchor::Last,
-                gravity_x: 0.0,
-                gravity_y: 1.0,
-                offset_x: 0.0,
-                offset_y: 0.0,
-            });
-            ctx.attr_padding(Rect::two(0, 1));
-            ctx.attr_border();
-            {
-                if ctx.button("reopen", "Reopen with encoding…", ButtonStyle::default()) {
-                    state.wants_encoding_change = StateEncodingChange::Reopen;
-                }
-                ctx.focus_on_first_present();
-                if ctx.button("convert", "Convert to encoding…", ButtonStyle::default()) {
-                    state.wants_encoding_change = StateEncodingChange::Convert;
-                }
-            }
-            ctx.block_end();
-        } else {
-            // Can't reopen a file that doesn't exist.
-            state.wants_encoding_change = StateEncodingChange::Convert;
-        }
-
-        if !ctx.contains_focus() {
-            state.wants_encoding_picker = false;
-            ctx.needs_rerender();
-        }
-    }
+    state.wants_encoding_change |= ctx.button("encoding", tb.encoding(), ButtonStyle::default());
 
     state.wants_indentation_picker |= ctx.button(
         "indentation",
@@ -225,16 +193,12 @@ pub fn draw_dialog_language_change(ctx: &mut Context, state: &mut State) {
 
 pub fn draw_dialog_encoding_change(ctx: &mut Context, state: &mut State) {
     let encoding = state.document.buffer.borrow().encoding();
-    let reopen = state.wants_encoding_change == StateEncodingChange::Reopen;
     let width = (ctx.size().width - 20).max(10);
     let height = (ctx.size().height - 10).max(10);
     let mut change = None;
     let mut done = encoding.is_empty();
 
-    ctx.modal_begin(
-        "encode",
-        if reopen { "Reopen with encoding…" } else { "Convert to encoding…" },
-    );
+    ctx.modal_begin("encode", "Reopen with encoding…");
     {
         ctx.table_begin("encoding-search");
         ctx.table_set_columns(&[0, COORD_TYPE_SAFE_MAX]);
@@ -279,24 +243,20 @@ pub fn draw_dialog_encoding_change(ctx: &mut Context, state: &mut State) {
 
     if let Some(encoding) = change {
         let doc = &mut state.document;
-        if reopen && doc.path.is_some() {
-            let mut res = Ok(());
-            if doc.buffer.borrow().is_dirty() {
-                res = doc.save(None);
-            }
-            if res.is_ok() {
-                res = doc.reread(Some(encoding));
-            }
-            if let Err(err) = res {
-                error_log_add(ctx, state, err);
-            }
-        } else {
-            doc.buffer.borrow_mut().set_encoding(encoding);
+        let mut res = Ok(());
+        if doc.buffer.borrow().is_dirty() {
+            res = doc.save();
+        }
+        if res.is_ok() {
+            res = doc.reread(Some(encoding));
+        }
+        if let Err(err) = res {
+            error_log_add(ctx, state, err);
         }
     }
 
     if done {
-        state.wants_encoding_change = StateEncodingChange::None;
+        state.wants_encoding_change = false;
         state.encoding_picker_needle.clear();
         state.encoding_picker_results = None;
         ctx.needs_rerender();

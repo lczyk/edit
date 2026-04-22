@@ -16,7 +16,7 @@ use crate::settings::Settings;
 
 pub struct Document {
     pub buffer: RcTextBuffer,
-    pub path: Option<PathBuf>,
+    pub path: PathBuf,
     pub filename: String,
     pub file_id: Option<sys::FileId>,
     pub language_override: Option<Option<&'static Language>>,
@@ -51,50 +51,36 @@ impl Document {
             tb.set_read_only(read_only);
         }
 
-        let mut doc = Document {
-            buffer,
-            path: None,
-            filename: Default::default(),
-            file_id,
-            language_override: None,
-            read_only,
-        };
-        doc.set_path(path);
+        let filename = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let mut doc =
+            Document { buffer, path, filename, file_id, language_override: None, read_only };
+        doc.apply_path_metadata();
         Ok(doc)
     }
 
-    pub fn save(&mut self, new_path: Option<PathBuf>) -> apperr::Result<()> {
-        if self.read_only && new_path.is_none() {
+    pub fn save(&mut self) -> apperr::Result<()> {
+        if self.read_only {
             return Err(apperr::Error::from(io::Error::from(io::ErrorKind::PermissionDenied)));
         }
 
-        let path = new_path.as_deref().unwrap_or_else(|| self.path.as_ref().unwrap().as_path());
-        let mut file = open_for_writing(path)?;
+        let mut file = open_for_writing(&self.path)?;
 
         {
             let mut tb = self.buffer.borrow_mut();
             tb.write_file(&mut file)?;
         }
 
-        if let Ok(id) = sys::file_id(None, path) {
+        if let Ok(id) = sys::file_id(None, &self.path) {
             self.file_id = Some(id);
-        }
-
-        if let Some(path) = new_path {
-            let writable = sys::is_path_writable(&path);
-            self.read_only = !writable;
-            self.buffer.borrow_mut().set_read_only(!writable);
-            self.set_path(path);
         }
 
         Ok(())
     }
 
     pub fn reread(&mut self, encoding: Option<&'static str>) -> apperr::Result<()> {
-        let path = self.path.as_ref().unwrap().as_path();
-        let mut file = File::open(path).map_err(apperr::Error::from)?;
+        let mut file = File::open(&self.path).map_err(apperr::Error::from)?;
 
-        let writable = sys::is_path_writable(path);
+        let writable = sys::is_path_writable(&self.path);
         {
             let mut tb = self.buffer.borrow_mut();
             tb.read_file(&mut file, encoding)?;
@@ -102,19 +88,14 @@ impl Document {
         }
         self.read_only = !writable;
 
-        if let Ok(id) = sys::file_id(None, path) {
+        if let Ok(id) = sys::file_id(None, &self.path) {
             self.file_id = Some(id);
         }
 
         Ok(())
     }
 
-    fn set_path(&mut self, path: PathBuf) {
-        let filename = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-
-        self.filename = filename;
-        self.path = Some(path);
-
+    fn apply_path_metadata(&mut self) {
         self.buffer.borrow_mut().set_ruler(if self.filename == "COMMIT_EDITMSG" { 72 } else { 0 });
         self.update_language();
     }
@@ -138,14 +119,12 @@ impl Document {
             return lang;
         }
 
-        if let Some(path) = &self.path {
-            let settings = Settings::borrow();
-            if let Some(lang) = process_file_associations(&settings.file_associations, path) {
-                return Some(lang);
-            }
-            if let Some(lang) = process_file_associations(FILE_ASSOCIATIONS, path) {
-                return Some(lang);
-            }
+        let settings = Settings::borrow();
+        if let Some(lang) = process_file_associations(&settings.file_associations, &self.path) {
+            return Some(lang);
+        }
+        if let Some(lang) = process_file_associations(FILE_ASSOCIATIONS, &self.path) {
+            return Some(lang);
         }
 
         None

@@ -47,13 +47,6 @@ pub enum StateSearchKind {
     Replace,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum StateEncodingChange {
-    None,
-    Convert,
-    Reopen,
-}
-
 #[derive(Default)]
 pub struct OscTitleFileStatus {
     pub filename: String,
@@ -79,8 +72,7 @@ pub struct State {
 
     pub wants_language_picker: bool,
 
-    pub wants_encoding_picker: bool,
-    pub wants_encoding_change: StateEncodingChange,
+    pub wants_encoding_change: bool,
     pub encoding_picker_needle: String,
     pub encoding_picker_results: Option<Vec<icu::Encoding>>,
 
@@ -94,7 +86,6 @@ pub struct State {
 
     pub osc_title_file_status: OscTitleFileStatus,
     pub osc_clipboard_sync: bool,
-    pub osc_clipboard_always_send: bool,
     pub exit: bool,
 }
 
@@ -118,12 +109,11 @@ impl State {
 
             wants_language_picker: false,
 
-            wants_encoding_picker: false,
             encoding_picker_needle: Default::default(),
             encoding_picker_results: Default::default(),
 
             wants_statusbar_focus: false,
-            wants_encoding_change: StateEncodingChange::None,
+            wants_encoding_change: false,
             wants_indentation_picker: false,
             wants_about: false,
             wants_exit: false,
@@ -133,7 +123,6 @@ impl State {
 
             osc_title_file_status: Default::default(),
             osc_clipboard_sync: false,
-            osc_clipboard_always_send: false,
             exit: false,
         })
     }

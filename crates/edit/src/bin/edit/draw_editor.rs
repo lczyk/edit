@@ -247,7 +247,7 @@ pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
 
     match action {
         Action::None => return,
-        Action::Save => match state.document.save(None) {
+        Action::Save => match state.document.save() {
             Ok(()) => {
                 state.exit = true;
                 state.wants_exit = false;

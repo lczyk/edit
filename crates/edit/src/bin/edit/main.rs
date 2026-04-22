@@ -29,7 +29,6 @@ use edit::vt::{self, Token};
 use edit::{base64, sys, unicode};
 use state::*;
 use stdext::arena::{self, Arena, scratch_arena};
-use stdext::arena_format;
 use stdext::collections::BString;
 
 use crate::settings::Settings;
@@ -275,14 +274,15 @@ fn draw(ctx: &mut Context, state: &mut State) {
     if state.wants_language_picker {
         draw_dialog_language_change(ctx, state);
     }
-    if state.wants_encoding_change != StateEncodingChange::None {
+    if state.wants_encoding_change {
         draw_dialog_encoding_change(ctx, state);
     }
     if state.wants_about {
         draw_dialog_about(ctx, state);
     }
     if ctx.clipboard_ref().wants_host_sync() {
-        draw_handle_clipboard_change(ctx, state);
+        ctx.clipboard_mut().mark_as_synchronized();
+        state.osc_clipboard_sync = true;
     }
     if state.error_log_count != 0 {
         draw_error_log(ctx, state);
@@ -406,99 +406,6 @@ fn write_terminal_title<'a>(arena: &'a Arena, output: &mut BString<'a>, state: &
 
     state.osc_title_file_status.filename = filename.to_string();
     state.osc_title_file_status.dirty = dirty;
-}
-
-const LARGE_CLIPBOARD_THRESHOLD: usize = 128 * KIBI;
-
-fn draw_handle_clipboard_change(ctx: &mut Context, state: &mut State) {
-    let data_len = ctx.clipboard_ref().read().len();
-
-    if state.osc_clipboard_always_send || data_len < LARGE_CLIPBOARD_THRESHOLD {
-        ctx.clipboard_mut().mark_as_synchronized();
-        state.osc_clipboard_sync = true;
-        return;
-    }
-
-    let over_limit = data_len >= SCRATCH_ARENA_CAPACITY / 4;
-    let mut done = None;
-
-    ctx.modal_begin("warning", "Warning");
-    {
-        ctx.block_begin("description");
-        ctx.attr_padding(Rect::three(1, 2, 1));
-
-        if over_limit {
-            ctx.label("line1", "Text you copy is shared with the terminal clipboard.");
-            ctx.attr_position(Position::Center);
-            ctx.label("line2", "The text you copied is too large to be shared.");
-            ctx.attr_position(Position::Center);
-        } else {
-            let label2 = {
-                let template = "You copied {size} which may take a long time to share.";
-                let size = arena_format!(ctx.arena(), "{}", MetricFormatter(data_len));
-
-                let mut label = BString::empty();
-                label.reserve(ctx.arena(), template.len() + size.len());
-                label.push_str(ctx.arena(), template);
-                label.replace_once_in_place(ctx.arena(), "{size}", &size);
-                label
-            };
-
-            ctx.label("line1", "Text you copy is shared with the terminal clipboard.");
-            ctx.attr_position(Position::Center);
-            ctx.label("line2", &label2);
-            ctx.attr_position(Position::Center);
-            ctx.label("line3", "Do you want to send it anyway?");
-            ctx.attr_position(Position::Center);
-        }
-        ctx.block_end();
-
-        ctx.table_begin("choices");
-        ctx.inherit_focus();
-        ctx.attr_padding(Rect::three(0, 2, 1));
-        ctx.attr_position(Position::Center);
-        ctx.table_set_cell_gap(Size { width: 2, height: 0 });
-        {
-            ctx.table_next_row();
-            ctx.inherit_focus();
-
-            if over_limit {
-                if ctx.button("ok", "Ok", ButtonStyle::default()) {
-                    done = Some(true);
-                }
-                ctx.inherit_focus();
-            } else {
-                if ctx.button("always", "Always", ButtonStyle::default()) {
-                    state.osc_clipboard_always_send = true;
-                    done = Some(true);
-                }
-
-                if ctx.button("yes", "Yes", ButtonStyle::default()) {
-                    done = Some(true);
-                }
-                if data_len < 10 * LARGE_CLIPBOARD_THRESHOLD {
-                    ctx.inherit_focus();
-                }
-
-                if ctx.button("no", "No", ButtonStyle::default()) {
-                    done = Some(false);
-                }
-                if data_len >= 10 * LARGE_CLIPBOARD_THRESHOLD {
-                    ctx.inherit_focus();
-                }
-            }
-        }
-        ctx.table_end();
-    }
-    if ctx.modal_end() {
-        done = Some(false);
-    }
-
-    if let Some(sync) = done {
-        state.osc_clipboard_sync = sync;
-        ctx.clipboard_mut().mark_as_synchronized();
-        ctx.needs_rerender();
-    }
 }
 
 #[cold]
