@@ -3,7 +3,6 @@ use std::sync::LazyLock;
 
 use edit::buffer::TextBuffer;
 use edit::cell::{Ref, SemiRefCell};
-use edit::json;
 use edit::lsh::{LANGUAGES, Language};
 use stdext::arena::{read_to_string, scratch_arena};
 use stdext::arena_format;
@@ -21,10 +20,10 @@ static SETTINGS: LazyLock<SettingsCell> =
     LazyLock::new(|| SettingsCell(SemiRefCell::new(Settings::new())));
 
 impl Settings {
-    /// Fills the given settings.json text buffer with some initial contents for convenience.
+    /// Fills the given associations.toml text buffer with some initial contents for convenience.
     pub fn bootstrap(tb: &mut TextBuffer) {
         tb.set_crlf(false);
-        tb.write_raw(b"{\n}\n");
+        tb.write_raw(b"# Glob -> language id overrides for syntax highlighting.\n[associations]\n");
         tb.cursor_move_to_logical(Default::default());
         tb.mark_as_clean();
     }
@@ -49,7 +48,7 @@ impl Settings {
     }
 
     fn load(&mut self) -> apperr::Result<()> {
-        self.path = match settings_json_path() {
+        self.path = match associations_path() {
             Some(p) => p,
             None => return Ok(()),
         };
@@ -60,41 +59,44 @@ impl Settings {
             Err(err) => return Err(err.into()),
             Ok(str) => str,
         };
-        let Ok(json) = json::parse(&scratch, &str) else {
-            return Err(apperr::Error::SettingsInvalid("Invalid JSON"));
+        let Ok(doc) = toml_span::parse(&str) else {
+            return Err(apperr::Error::SettingsInvalid("Invalid TOML"));
         };
-        let Some(root) = json.as_object() else {
-            return Err(apperr::Error::SettingsInvalid("Non-object root"));
+        let Some(root) = doc.as_table() else {
+            return Err(apperr::Error::SettingsInvalid("Non-table root"));
+        };
+        let Some((_, associations)) = root.iter().find(|(k, _)| k.name == "associations") else {
+            return Ok(());
+        };
+        let Some(associations) = associations.as_table() else {
+            return Err(apperr::Error::SettingsInvalid("[associations] not a table"));
         };
 
-        if let Some(f) = root.get_object("files.associations") {
-            for &(mut key, ref value) in f.iter() {
-                if !key.contains('/') {
-                    key = arena_format!(&*scratch, "**/{key}").leak();
-                }
-
-                let Some(id) = value.as_str() else {
-                    return Err(apperr::Error::SettingsInvalid("files.associations"));
-                };
-                let Some(language) = LANGUAGES.iter().find(|lang| lang.id == id) else {
-                    return Err(apperr::Error::SettingsInvalid("language ID"));
-                };
-
-                self.file_associations.push((key.to_string(), language));
+        for (k, v) in associations.iter() {
+            let mut key: &str = &k.name;
+            if !key.contains('/') {
+                key = arena_format!(&*scratch, "**/{key}").leak();
             }
+            let Some(id) = v.as_str() else {
+                return Err(apperr::Error::SettingsInvalid("associations value"));
+            };
+            let Some(language) = LANGUAGES.iter().find(|lang| lang.id == id) else {
+                return Err(apperr::Error::SettingsInvalid("language ID"));
+            };
+            self.file_associations.push((key.to_string(), language));
         }
 
         Ok(())
     }
 }
 
-fn settings_json_path() -> Option<PathBuf> {
+fn associations_path() -> Option<PathBuf> {
     let mut config_dir = config_dir()?;
-    config_dir.push("settings.json");
+    config_dir.push("associations.toml");
     Some(config_dir)
 }
 
-fn config_dir() -> Option<PathBuf> {
+pub fn config_dir() -> Option<PathBuf> {
     fn var_path(key: &str) -> Option<PathBuf> {
         std::env::var_os(key).map(PathBuf::from)
     }
@@ -106,12 +108,12 @@ fn config_dir() -> Option<PathBuf> {
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
-        var_path("HOME").map(|p| push(p, "Library/Application Support/com.microsoft.edit"))
+        var_path("HOME").map(|p| push(p, "Library/Application Support/edit"))
     }
     #[cfg(not(any(target_os = "macos", target_os = "ios")))]
     {
         var_path("XDG_CONFIG_HOME")
             .or_else(|| var_path("HOME").map(|p| push(p, ".config")))
-            .map(|p| push(p, "msedit"))
+            .map(|p| push(p, "edit"))
     }
 }

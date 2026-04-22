@@ -30,7 +30,9 @@ impl std::fmt::Display for FormatApperr {
             apperr::Error::SettingsInvalid(what) => {
                 write!(f, "Invalid Settings: {}", what)
             }
-            apperr::Error::Icu(icu::ICU_MISSING_ERROR) => f.write_str("This operation requires the ICU library"),
+            apperr::Error::Icu(icu::ICU_MISSING_ERROR) => {
+                f.write_str("This operation requires the ICU library")
+            }
             apperr::Error::Icu(ref err) => err.fmt(f),
             apperr::Error::Io(ref err) => err.fmt(f),
         }

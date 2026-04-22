@@ -123,21 +123,11 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
 
             ctx.table_next_row();
 
-            change |= ctx.checkbox(
-                "match-case",
-                "Match Case",
-                &mut state.search_options.match_case,
-            );
-            change |= ctx.checkbox(
-                "whole-word",
-                "Whole Word",
-                &mut state.search_options.whole_word,
-            );
-            change |= ctx.checkbox(
-                "use-regex",
-                "Use Regex",
-                &mut state.search_options.use_regex,
-            );
+            change |=
+                ctx.checkbox("match-case", "Match Case", &mut state.search_options.match_case);
+            change |=
+                ctx.checkbox("whole-word", "Whole Word", &mut state.search_options.whole_word);
+            change |= ctx.checkbox("use-regex", "Use Regex", &mut state.search_options.use_regex);
             if state.wants_search.kind == StateSearchKind::Replace
                 && ctx.button("replace-all", "Replace All", ButtonStyle::default())
             {
@@ -250,19 +240,11 @@ pub fn draw_handle_wants_close(ctx: &mut Context, state: &mut State) {
             ctx.table_next_row();
             ctx.inherit_focus();
 
-            if ctx.button(
-                "yes",
-                "Save",
-                ButtonStyle::default().accelerator('S'),
-            ) {
+            if ctx.button("yes", "Save", ButtonStyle::default().accelerator('S')) {
                 action = Action::Save;
             }
             ctx.inherit_focus();
-            if ctx.button(
-                "no",
-                "Don't Save",
-                ButtonStyle::default().accelerator('N'),
-            ) {
+            if ctx.button("no", "Don't Save", ButtonStyle::default().accelerator('N')) {
                 action = Action::Discard;
             }
             if ctx.button("cancel", "Cancel", ButtonStyle::default()) {

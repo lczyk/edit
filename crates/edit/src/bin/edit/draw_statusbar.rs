@@ -111,15 +111,11 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                 ctx.focus_on_first_present();
                 ctx.attr_padding(Rect::two(0, 1));
                 {
-                    if ctx.list_item(tb.indent_with_tabs(), "Tabs")
-                        != ListSelection::Unchanged
-                    {
+                    if ctx.list_item(tb.indent_with_tabs(), "Tabs") != ListSelection::Unchanged {
                         tb.set_indent_with_tabs(true);
                         ctx.needs_rerender();
                     }
-                    if ctx.list_item(!tb.indent_with_tabs(), "Spaces")
-                        != ListSelection::Unchanged
-                    {
+                    if ctx.list_item(!tb.indent_with_tabs(), "Spaces") != ListSelection::Unchanged {
                         tb.set_indent_with_tabs(false);
                         ctx.needs_rerender();
                     }
@@ -216,9 +212,7 @@ pub fn draw_dialog_language_change(ctx: &mut Context, state: &mut State) {
             let auto_detect = doc.language_override.is_none();
             let selected = if auto_detect { None } else { doc.buffer.borrow().language() };
 
-            if ctx.list_item(auto_detect, "Auto Detect")
-                == ListSelection::Activated
-            {
+            if ctx.list_item(auto_detect, "Auto Detect") == ListSelection::Activated {
                 doc.auto_detect_language();
                 done = true;
             }

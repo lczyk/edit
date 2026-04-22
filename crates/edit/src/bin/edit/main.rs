@@ -9,6 +9,7 @@ mod draw_editor;
 mod draw_filepicker;
 mod draw_menubar;
 mod draw_statusbar;
+mod keybindings;
 mod settings;
 mod state;
 
@@ -76,6 +77,9 @@ fn run() -> apperr::Result<()> {
     if let Err(err) = Settings::reload() {
         state.add_error(err);
     }
+    if let Err(err) = keybindings::load_or_create() {
+        state.add_error(err);
+    }
 
     // This will reopen stdin if it's redirected (which may fail) and switch
     // the terminal to raw mode which prevents the user from pressing Ctrl+C.
@@ -129,11 +133,8 @@ fn run() -> apperr::Result<()> {
                 let more = input.is_some();
 
                 #[cfg(debug_assertions)]
-                let logged_input = if devlog::is_enabled() {
-                    input.as_ref().map(devlog::describe)
-                } else {
-                    None
-                };
+                let logged_input =
+                    if devlog::is_enabled() { input.as_ref().map(devlog::describe) } else { None };
 
                 let mut ctx = tui.create_context(input);
 
@@ -261,7 +262,7 @@ fn print_help() {
     ));
     #[cfg(debug_assertions)]
     sys::write_stdout(
-        "\nDebug-build options:\n    --logfile=PATH   Log inputs + buffer state as JSONL\n",
+        "\nDebug-build options:\n    --logfile=PATH          Log inputs + buffer state as JSONL\n",
     );
 }
 
@@ -518,9 +519,7 @@ impl Drop for RestoreModes {
         // It also includes DECSCUSR 0 to reset the cursor style and DECTCEM to show the cursor.
         // We specifically don't reset mode 1036, because most applications expect it to be set nowadays.
         // `CSI < u` pops the kitty keyboard protocol flags we pushed in setup_terminal.
-        sys::write_stdout(
-            "\x1b[<u\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l",
-        );
+        sys::write_stdout("\x1b[<u\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l");
     }
 }
 

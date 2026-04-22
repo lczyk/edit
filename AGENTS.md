@@ -30,6 +30,16 @@ ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades grace
 
 Reaches the editor only when (a) the terminal supports the protocol and (b) the terminal forwards Cmd rather than binding it at the window level. Known-good: Ghostty, kitty, WezTerm, Alacritty ≥ 0.14. Any built-in terminal shortcut (Cmd+Q, Cmd+C, …) must be cleared in the terminal's config before that chord reaches the editor.
 
+## Keybindings
+
+Config file: `<config_dir>/keybindings.toml`. Auto-created from embedded default ([crates/edit/src/bin/edit/keybindings.default.toml](crates/edit/src/bin/edit/keybindings.default.toml)) on first run. Location:
+- macOS: `~/Library/Application Support/edit/keybindings.toml`
+- Linux: `$XDG_CONFIG_HOME/edit/keybindings.toml` (fallback `~/.config/edit/keybindings.toml`)
+
+Configurable actions (21) in [crates/edit/src/bin/edit/keybindings.rs](crates/edit/src/bin/edit/keybindings.rs) `Action` enum — menubar items only. Dialog-internal keys (Return/Escape/Arrows/Backspace) stay hardcoded.
+
+Chord syntax: `"Ctrl+Shift+F"`, `"Cmd+P"`, `"F10"`, `"A"`, `""` (unbound). Modifier names: `Ctrl`, `Alt`, `Shift`, `Cmd` (alias `Super`). Key names: letter A-Z, digit 0-9, Up/Down/Left/Right, Home/End/PageUp/PageDown, Insert/Delete, Tab/Back/Return/Escape/Space, F1..F24, Numpad0..Numpad9.
+
 ## Dev input log (`--logfile`)
 
 Debug builds accept `--logfile=PATH`. Each `Input` event (keyboard, mouse, resize, paste, text) is written to PATH as JSONL alongside a snapshot of the active [`TextBuffer`](crates/edit/src/buffer/mod.rs) *after* the frame is processed. Meant for the "I pressed X, expected Y" feedback loop — not for crash debugging.

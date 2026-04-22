@@ -2930,9 +2930,9 @@ impl TextBuffer {
                 };
 
                 // Only pop the entry if its buffer generation matches the previous one
-                let matches = from
-                    .back()
-                    .is_some_and(|c| entry_buffer_generation.is_none_or(|g| g == c.borrow().generation_before));
+                let matches = from.back().is_some_and(|c| {
+                    entry_buffer_generation.is_none_or(|g| g == c.borrow().generation_before)
+                });
                 let Some(g) = (if matches { from.pop_back() } else { None }) else {
                     break;
                 };

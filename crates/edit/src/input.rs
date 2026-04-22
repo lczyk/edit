@@ -19,7 +19,7 @@ use crate::vt;
 /// Of course you could just translate on the ABI boundary, but my hope is that this
 /// design lets me realize some restrictions early on that I can't foresee yet.
 #[repr(transparent)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct InputKey(u32);
 
 impl InputKey {
@@ -63,7 +63,7 @@ impl InputKey {
 /// A keyboard modifier. Ctrl/Alt/Shift/Cmd. Cmd (Super) is only reported by
 /// terminals that implement the kitty keyboard protocol.
 #[repr(transparent)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct InputKeyMod(u32);
 
 impl InputKeyMod {
@@ -89,6 +89,14 @@ impl std::ops::BitOr<InputKey> for InputKeyMod {
 
     fn bitor(self, rhs: InputKey) -> InputKey {
         InputKey(self.0 | rhs.0)
+    }
+}
+
+impl std::ops::BitOr for InputKeyMod {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
     }
 }
 

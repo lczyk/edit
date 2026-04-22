@@ -23,17 +23,20 @@ fn command_output(command: &mut Command) -> Option<String> {
 fn emit_version_info() {
     let manifest_dir = env_opt("CARGO_MANIFEST_DIR");
 
-    let git_sha = command_output(
-        Command::new("git").current_dir(&manifest_dir).args(["rev-parse", "--short", "HEAD"]),
-    )
+    let git_sha = command_output(Command::new("git").current_dir(&manifest_dir).args([
+        "rev-parse",
+        "--short",
+        "HEAD",
+    ]))
     .filter(|s| !s.is_empty())
     .unwrap_or_else(|| "unknown".to_string());
 
-    let git_status = command_output(
-        Command::new("git")
-            .current_dir(&manifest_dir)
-            .args(["status", "--porcelain", "--", "."]),
-    )
+    let git_status = command_output(Command::new("git").current_dir(&manifest_dir).args([
+        "status",
+        "--porcelain",
+        "--",
+        ".",
+    ]))
     .map(|s| if s.is_empty() { "clean".to_string() } else { "dirty".to_string() })
     .unwrap_or_else(|| "unknown".to_string());
 
@@ -147,4 +150,3 @@ fn configure_icu(target_os: TargetOs) {
         println!("cargo::rustc-cfg=edit_icu_renaming_auto_detect");
     }
 }
-

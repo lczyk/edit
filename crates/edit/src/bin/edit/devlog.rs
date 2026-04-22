@@ -47,11 +47,7 @@ pub fn describe(input: &Input<'_>) -> String {
         Input::Paste(b) => {
             let preview = String::from_utf8_lossy(b);
             let preview: String = preview.chars().take(40).collect();
-            format!(
-                r#"{{"kind":"paste","bytes":{},"preview":{}}}"#,
-                b.len(),
-                json_str(&preview)
-            )
+            format!(r#"{{"kind":"paste","bytes":{},"preview":{}}}"#, b.len(), json_str(&preview))
         }
         Input::Keyboard(k) => {
             format!(r#"{{"kind":"key","key":"{k}"}}"#)
@@ -79,10 +75,8 @@ pub fn log(input_desc: &str, buffer: Option<&TextBuffer>) {
         let Some(state) = slot.as_mut() else { return };
         let ts = state.start.elapsed().as_millis();
         let buf_json = buffer.map(render_buffer).unwrap_or_else(|| "null".into());
-        let _ = writeln!(
-            state.file,
-            r#"{{"ts_ms":{ts},"input":{input_desc},"buffer":{buf_json}}}"#
-        );
+        let _ =
+            writeln!(state.file, r#"{{"ts_ms":{ts},"input":{input_desc},"buffer":{buf_json}}}"#);
         let _ = state.file.flush();
     });
 }
@@ -98,10 +92,7 @@ fn render_buffer(tb: &TextBuffer) -> String {
         ),
         None => "null".into(),
     };
-    format!(
-        r#"{{"cursor":[{},{}],"selection":{sel},"dirty":{dirty},"lines":{lines}}}"#,
-        c.x, c.y
-    )
+    format!(r#"{{"cursor":[{},{}],"selection":{sel},"dirty":{dirty},"lines":{lines}}}"#, c.x, c.y)
 }
 
 fn json_str(s: &str) -> String {
