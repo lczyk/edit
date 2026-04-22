@@ -12,6 +12,10 @@ build:  ## Release build (stable toolchain, larger binary)
 build-nightly:  ## Release build (nightly toolchain, smaller binary via build-std)
 	cargo build --release --config .cargo/release.toml
 
+.PHONY: install
+install:  ## Install the edit binary into ~/.cargo/bin
+	cargo install --path crates/edit --force
+
 .PHONY: check
 check:  ## Fast type-check across all targets and features
 	cargo check --all-targets --all-features
