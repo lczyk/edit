@@ -1,0 +1,62 @@
+# AGENTS.md
+
+Project-level guidance for AI coding assistants working on this codebase.
+
+## Context
+
+Private fork of Microsoft's `edit` terminal editor, trimmed down for personal use. Not published, not packaged, no upstream contributions. Ignore anything on the internet that frames this as a Microsoft/MSDOS product.
+
+## Scope and platform
+
+- **Targets:** Linux and macOS. Windows support has been removed — do not reintroduce `#[cfg(windows)]`, `windows-sys`, `winresource`, drive pickers, `\\` path handling, or `EDIT_CFG_*` Windows SONAMEs.
+- **Language:** English only. The `i18n/` directory, `localization` module, `LocId` enum, and `loc()` function have all been deleted. Use plain string literals. Do not add `gettext`-style indirection.
+- **No crates.io publish, no distro packaging.** No `categories`, no `repository` URL, no package-maintainer notes, no install scripts, no snap/desktop files.
+- **No benchmarks, no fuzzing in-tree.** The `benches/`, `fuzz/`, and `editing-traces/` dirs are gone. Don't add `criterion`, `libfuzzer-sys`, or similar.
+
+## Build and test
+
+Use the [Makefile](Makefile) — do not invoke `cargo` directly in routine work. Run `make help` to list targets. Common ones:
+
+- `make build` / `make build-nightly` — release builds.
+- `make check` / `make clippy` / `make test` — individual checks.
+- `make fmt` / `make fmt-check` — formatting.
+- `make verify` — full pre-commit gate (fmt-check + clippy + test). Run this before reporting a task as done.
+
+ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
+
+## Architecture
+
+- **Text buffer ([crates/edit/src/buffer/](crates/edit/src/buffer/))** does not track line breaks. Only the current cursor position is kept; navigation seeks `O(n)` through the document. Every other perf decision flows from this:
+  - [crates/edit/src/simd/](crates/edit/src/simd/) — `memchr2` line-break scanners (>100 GB/s).
+  - [crates/edit/src/unicode/](crates/edit/src/unicode/) — `Utf8Chars` iterator (4 GB/s, transparently inserts U+FFFD) and `MeasurementConfig` grapheme/width measurement (600 MB/s).
+  - Without word-wrap, `memchr2` drives all line navigation — 1 GB files feel like 1 MB.
+- **[crates/edit/src/framebuffer.rs](crates/edit/src/framebuffer.rs)** — video-game-style framebuffer. UI draws into a buffer; diff against the previous frame is sent to the terminal.
+- **[crates/edit/src/tui.rs](crates/edit/src/tui.rs)** — immediate-mode UI. Read its module doc.
+- **[crates/edit/src/vt.rs](crates/edit/src/vt.rs)** — VT parser.
+- **[crates/edit/src/sys/](crates/edit/src/sys/)** — platform abstractions (unix only).
+- **[crates/edit/src/bin/edit/](crates/edit/src/bin/edit/)** — the binary. ~90% UI and business logic, plus `setup_terminal` in [main.rs](crates/edit/src/bin/edit/main.rs).
+
+Terminal issues: check `vt.rs`, `sys/unix.rs`, and `setup_terminal` first.
+
+## Crates
+
+- `edit` — main binary and library.
+- `lsh` — syntax-highlighting compiler and runtime. Language definitions in [crates/lsh/definitions/](crates/lsh/definitions/). See [crates/lsh/README.md](crates/lsh/README.md).
+- `lsh-bin` — CLI for debugging LSH output.
+- `stdext` — shared utilities (arena allocator, collections, SIMD helpers, sys shims).
+- `unicode-gen` — codegen for Unicode LUTs (only needed to regenerate tables; tables are checked in).
+
+## Code conventions
+
+- **Binary size matters.** Don't introduce dependencies lightly. Check whether stdlib or existing helpers already cover the use case.
+- **[rustfmt.toml](rustfmt.toml):** `style_edition = "2024"`, `use_small_heuristics = "Max"`, `group_imports = "StdExternalCrate"`, `imports_granularity = "Module"`. Run `cargo fmt` before committing.
+- **Clippy:** `--deny warnings` is the CI bar.
+- **No comments explaining what well-named code already says.** Only comment hidden constraints, workarounds, or subtle invariants.
+- **Rust edition:** 2024, MSRV `1.93`.
+
+## Things to avoid
+
+- Reintroducing Windows support, localization, or packaging surface.
+- Adding features, dependencies, or abstractions beyond what the task requires.
+- Mocking in tests where the real thing is cheap.
+- Committing without running `make verify`.
