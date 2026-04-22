@@ -28,7 +28,7 @@ use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, Read as _, Write as _};
-use std::mem::{self, MaybeUninit};
+use std::mem;
 use std::ops::Range;
 use std::rc::Rc;
 use std::str;
@@ -37,7 +37,7 @@ pub use gap_buffer::GapBuffer;
 use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::{BString, BVec};
 use stdext::unicode::Utf8Chars;
-use stdext::{ReplaceRange as _, arena_write_fmt, minmax, slice_as_uninit_mut, slice_copy_safe};
+use stdext::{ReplaceRange as _, arena_write_fmt, minmax, slice_copy_safe};
 
 use crate::cell::SemiRefCell;
 use crate::clipboard::Clipboard;
@@ -50,11 +50,6 @@ use crate::oklab::StraightRgba;
 use crate::simd::memchr2;
 use crate::unicode::{self, Cursor, MeasurementConfig};
 use crate::{icu, simd};
-
-#[inline]
-unsafe fn mu_slice_assume_init<T>(s: &[MaybeUninit<T>]) -> &[T] {
-    unsafe { &*(s as *const [MaybeUninit<T>] as *const [T]) }
-}
 
 /// The margin template is used for line numbers.
 /// The max. line number we should ever expect is probably 64-bit,
@@ -269,7 +264,6 @@ pub struct TextBuffer {
     line_highlight_enabled: bool,
     language: Option<&'static Language>,
     ruler: CoordType,
-    encoding: &'static str,
     newlines_are_crlf: bool,
     insert_final_newline: bool,
     overtype: bool,
@@ -325,7 +319,6 @@ impl TextBuffer {
             line_highlight_enabled: false,
             language: None,
             ruler: 0,
-            encoding: "UTF-8",
             newlines_are_crlf: false,
             insert_final_newline: false,
             overtype: false,
@@ -387,19 +380,6 @@ impl TextBuffer {
     /// and `read_file()` are unaffected.
     pub fn set_read_only(&mut self, read_only: bool) {
         self.read_only = read_only;
-    }
-
-    /// The encoding used during reading/writing. "UTF-8" is the default.
-    pub fn encoding(&self) -> &'static str {
-        self.encoding
-    }
-
-    /// Set the encoding used during reading/writing.
-    pub fn set_encoding(&mut self, encoding: &'static str) {
-        if self.encoding != encoding {
-            self.encoding = encoding;
-            self.mark_as_dirty();
-        }
     }
 
     /// The newline type used in the document. LF or CRLF.
@@ -748,39 +728,12 @@ impl TextBuffer {
         self.mark_as_clean();
     }
 
-    /// Reads a file from disk into the text buffer, detecting encoding and BOM.
-    pub fn read_file(&mut self, file: &mut File, encoding: Option<&'static str>) -> IoResult<()> {
-        let scratch = scratch_arena(None);
-        let buf = scratch.alloc_uninit_array();
-        let mut first_chunk_len = 0;
-        let mut read = 0;
-
-        // Read enough bytes to detect the BOM.
-        while first_chunk_len < BOM_MAX_LEN {
-            read = file_read_uninit(file, &mut buf[first_chunk_len..])?;
-            if read == 0 {
-                break;
-            }
-            first_chunk_len += read;
-        }
-
-        if let Some(encoding) = encoding {
-            self.encoding = encoding;
-        } else {
-            let bom = detect_bom(unsafe { mu_slice_assume_init(&buf[..first_chunk_len]) });
-            self.encoding = bom.unwrap_or("UTF-8");
-        }
-
+    /// Reads a UTF-8 file from disk into the text buffer.
+    pub fn read_file(&mut self, file: &mut File) -> IoResult<()> {
         // TODO: Since reading the file can fail, we should ensure that we also reset the cursor here.
         // I don't do it, so that `recalc_after_content_swap()` works.
         self.buffer.clear();
-
-        let done = read == 0;
-        if self.encoding == "UTF-8" {
-            self.read_file_as_utf8(file, buf, first_chunk_len, done)?;
-        } else {
-            self.read_file_with_icu(file, buf, first_chunk_len, done)?;
-        }
+        self.read_file_as_utf8(file)?;
 
         // Figure out
         // * the logical line count
@@ -892,27 +845,7 @@ impl TextBuffer {
         Ok(())
     }
 
-    fn read_file_as_utf8(
-        &mut self,
-        file: &mut File,
-        buf: &mut [MaybeUninit<u8>; 4 * KIBI],
-        first_chunk_len: usize,
-        done: bool,
-    ) -> io::Result<()> {
-        {
-            let mut first_chunk = unsafe { mu_slice_assume_init(&buf[..first_chunk_len]) };
-            if first_chunk.starts_with(b"\xEF\xBB\xBF") {
-                first_chunk = &first_chunk[3..];
-                self.encoding = "UTF-8 BOM";
-            }
-
-            self.buffer.replace(0..0, first_chunk);
-        }
-
-        if done {
-            return Ok(());
-        }
-
+    fn read_file_as_utf8(&mut self, file: &mut File) -> io::Result<()> {
         // If we don't have file metadata, the input may be a pipe or a socket.
         // Every read will have the same size until we hit the end.
         let mut chunk_size = 128 * KIBI;
@@ -923,8 +856,7 @@ impl TextBuffer {
             // but if the size has changed for some reason, then `extra_chunk_size`
             // should be large enough to read the rest of the file.
             // 4KiB is not too large and not too slow.
-            let len = m.len() as usize;
-            chunk_size = len.saturating_sub(first_chunk_len);
+            chunk_size = m.len() as usize;
             extra_chunk_size = 4 * KIBI;
         }
 
@@ -946,124 +878,18 @@ impl TextBuffer {
         Ok(())
     }
 
-    fn read_file_with_icu(
-        &mut self,
-        file: &mut File,
-        buf: &mut [MaybeUninit<u8>; 4 * KIBI],
-        first_chunk_len: usize,
-        mut done: bool,
-    ) -> IoResult<()> {
-        let scratch = scratch_arena(None);
-        let pivot_buffer = scratch.alloc_uninit_slice(4 * KIBI);
-        let mut c = icu::Converter::new(pivot_buffer, self.encoding, "UTF-8")?;
-        let mut first_chunk = unsafe { mu_slice_assume_init(&buf[..first_chunk_len]) };
-
-        while !first_chunk.is_empty() {
-            let off = self.text_length();
-            let gap = self.buffer.allocate_gap(off, 8 * KIBI, 0);
-            let (input_advance, mut output_advance) =
-                c.convert(first_chunk, slice_as_uninit_mut(gap))?;
-
-            // Remove the BOM from the file, if this is the first chunk.
-            // Our caller ensures to only call us once the BOM has been identified,
-            // which means that if there's a BOM it must be wholly contained in this chunk.
-            if off == 0 {
-                let written = &mut gap[..output_advance];
-                if written.starts_with(b"\xEF\xBB\xBF") {
-                    written.copy_within(3.., 0);
-                    output_advance -= 3;
-                }
-            }
-
-            self.buffer.commit_gap(output_advance);
-            first_chunk = &first_chunk[input_advance..];
-        }
-
-        let mut buf_len = 0;
-
-        loop {
-            if !done {
-                let read = file_read_uninit(file, &mut buf[buf_len..])?;
-                buf_len += read;
-                done = read == 0;
-            }
-
-            let gap = self.buffer.allocate_gap(self.text_length(), 8 * KIBI, 0);
-            if gap.is_empty() {
-                break;
-            }
-
-            let read = unsafe { mu_slice_assume_init(&buf[..buf_len]) };
-            let (input_advance, output_advance) = c.convert(read, slice_as_uninit_mut(gap))?;
-
-            self.buffer.commit_gap(output_advance);
-
-            let flush = done && buf_len == 0;
-            buf_len -= input_advance;
-            buf.copy_within(input_advance.., 0);
-
-            if flush {
-                break;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Writes the text buffer contents to a file, handling BOM and encoding.
+    /// Writes the text buffer contents as UTF-8.
     pub fn write_file(&mut self, file: &mut File) -> IoResult<()> {
         let mut offset = 0;
-
-        if self.encoding.starts_with("UTF-8") {
-            if self.encoding == "UTF-8 BOM" {
-                file.write_all(b"\xEF\xBB\xBF")?;
-            }
-            loop {
-                let chunk = self.read_forward(offset);
-                if chunk.is_empty() {
-                    break;
-                }
-                file.write_all(chunk)?;
-                offset += chunk.len();
-            }
-        } else {
-            self.write_file_with_icu(file)?;
-        }
-
-        self.mark_as_clean();
-        Ok(())
-    }
-
-    fn write_file_with_icu(&mut self, file: &mut File) -> IoResult<()> {
-        let scratch = scratch_arena(None);
-        let pivot_buffer = scratch.alloc_uninit_slice(4 * KIBI);
-        let buf = scratch.alloc_uninit_slice(4 * KIBI);
-        let mut c = icu::Converter::new(pivot_buffer, "UTF-8", self.encoding)?;
-        let mut offset = 0;
-
-        // Write the BOM for the encodings we know need it.
-        if self.encoding.starts_with("UTF-16")
-            || self.encoding.starts_with("UTF-32")
-            || self.encoding == "GB18030"
-        {
-            let (_, output_advance) = c.convert(b"\xEF\xBB\xBF", buf)?;
-            let chunk = unsafe { mu_slice_assume_init(&buf[..output_advance]) };
-            file.write_all(chunk)?;
-        }
-
         loop {
             let chunk = self.read_forward(offset);
-            let (input_advance, output_advance) = c.convert(chunk, buf)?;
-            let chunk = unsafe { mu_slice_assume_init(&buf[..output_advance]) };
-
-            file.write_all(chunk)?;
-            offset += input_advance;
-
             if chunk.is_empty() {
                 break;
             }
+            file.write_all(chunk)?;
+            offset += chunk.len();
         }
-
+        self.mark_as_clean();
         Ok(())
     }
 
@@ -3099,42 +2925,4 @@ impl TextBuffer {
     pub fn read_forward(&self, off: usize) -> &[u8] {
         self.buffer.read_forward(off)
     }
-}
-
-pub enum Bom {
-    None,
-    UTF8,
-    UTF16LE,
-    UTF16BE,
-    UTF32LE,
-    UTF32BE,
-    GB18030,
-}
-
-const BOM_MAX_LEN: usize = 4;
-
-fn detect_bom(bytes: &[u8]) -> Option<&'static str> {
-    if bytes.len() >= 4 {
-        if bytes.starts_with(b"\xFF\xFE\x00\x00") {
-            return Some("UTF-32LE");
-        }
-        if bytes.starts_with(b"\x00\x00\xFE\xFF") {
-            return Some("UTF-32BE");
-        }
-        if bytes.starts_with(b"\x84\x31\x95\x33") {
-            return Some("GB18030");
-        }
-    }
-    if bytes.len() >= 3 && bytes.starts_with(b"\xEF\xBB\xBF") {
-        return Some("UTF-8");
-    }
-    if bytes.len() >= 2 {
-        if bytes.starts_with(b"\xFF\xFE") {
-            return Some("UTF-16LE");
-        }
-        if bytes.starts_with(b"\xFE\xFF") {
-            return Some("UTF-16BE");
-        }
-    }
-    None
 }

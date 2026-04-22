@@ -72,10 +72,6 @@ pub struct State {
 
     pub wants_language_picker: bool,
 
-    pub wants_encoding_change: bool,
-    pub encoding_picker_needle: String,
-    pub encoding_picker_results: Option<Vec<icu::Encoding>>,
-
     pub wants_statusbar_focus: bool,
     pub wants_indentation_picker: bool,
     pub wants_about: bool,
@@ -109,11 +105,7 @@ impl State {
 
             wants_language_picker: false,
 
-            encoding_picker_needle: Default::default(),
-            encoding_picker_results: Default::default(),
-
             wants_statusbar_focus: false,
-            wants_encoding_change: false,
             wants_indentation_picker: false,
             wants_about: false,
             wants_exit: false,

@@ -42,7 +42,7 @@ impl Document {
         let buffer = create_buffer()?;
         if let Some(file) = &mut file {
             let mut tb = buffer.borrow_mut();
-            tb.read_file(file, None)?;
+            tb.read_file(file)?;
             if let Some(goto) = goto
                 && goto != Default::default()
             {
@@ -69,24 +69,6 @@ impl Document {
             let mut tb = self.buffer.borrow_mut();
             tb.write_file(&mut file)?;
         }
-
-        if let Ok(id) = sys::file_id(None, &self.path) {
-            self.file_id = Some(id);
-        }
-
-        Ok(())
-    }
-
-    pub fn reread(&mut self, encoding: Option<&'static str>) -> apperr::Result<()> {
-        let mut file = File::open(&self.path).map_err(apperr::Error::from)?;
-
-        let writable = sys::is_path_writable(&self.path);
-        {
-            let mut tb = self.buffer.borrow_mut();
-            tb.read_file(&mut file, encoding)?;
-            tb.set_read_only(!writable);
-        }
-        self.read_only = !writable;
 
         if let Ok(id) = sys::file_id(None, &self.path) {
             self.file_id = Some(id);

@@ -274,9 +274,6 @@ fn draw(ctx: &mut Context, state: &mut State) {
     if state.wants_language_picker {
         draw_dialog_language_change(ctx, state);
     }
-    if state.wants_encoding_change {
-        draw_dialog_encoding_change(ctx, state);
-    }
     if state.wants_about {
         draw_dialog_about(ctx, state);
     }

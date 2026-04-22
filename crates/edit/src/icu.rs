@@ -11,7 +11,6 @@ use std::ptr::{null, null_mut};
 use std::{fmt, mem};
 
 use stdext::arena::{Arena, scratch_arena};
-use stdext::arena_format;
 use stdext::collections::{BString, BVec};
 use stdext::unicode::Utf8Chars;
 
@@ -54,207 +53,6 @@ impl fmt::Display for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Clone, Copy)]
-pub struct Encoding {
-    pub label: &'static str,
-    pub canonical: &'static str,
-}
-
-pub struct Encodings {
-    pub preferred: &'static [Encoding],
-    pub all: &'static [Encoding],
-}
-
-static mut ENCODINGS: Encodings = Encodings { preferred: &[], all: &[] };
-
-/// Returns a list of encodings ICU supports.
-pub fn get_available_encodings() -> &'static Encodings {
-    // OnceCell for people that want to put it into a static.
-    #[allow(static_mut_refs)]
-    unsafe {
-        if ENCODINGS.all.is_empty() {
-            let scratch = scratch_arena(None);
-            let mut preferred = BVec::empty();
-            let mut alternative = BVec::empty();
-
-            // These encodings are always available.
-            preferred.push(&*scratch, Encoding { label: "UTF-8", canonical: "UTF-8" });
-            preferred.push(&*scratch, Encoding { label: "UTF-8 BOM", canonical: "UTF-8 BOM" });
-
-            if let Ok(f) = init_if_needed() {
-                let mut n = 0;
-                loop {
-                    let name = (f.ucnv_getAvailableName)(n);
-                    if name.is_null() {
-                        break;
-                    }
-
-                    n += 1;
-
-                    let name = CStr::from_ptr(name).to_str().unwrap_unchecked();
-                    // We have already pushed UTF-8 above and can skip it.
-                    // There is no need to filter UTF-8 BOM here,
-                    // since ICU does not distinguish it from UTF-8.
-                    if name.is_empty() || name == "UTF-8" {
-                        continue;
-                    }
-
-                    let mut status = icu_ffi::U_ZERO_ERROR;
-                    let mime = (f.ucnv_getStandardName)(
-                        name.as_ptr(),
-                        c"MIME".as_ptr().cast(),
-                        &mut status,
-                    );
-                    if !mime.is_null() && status.is_success() {
-                        let mime = CStr::from_ptr(mime).to_str().unwrap_unchecked();
-                        preferred.push(&*scratch, Encoding { label: mime, canonical: name });
-                    } else {
-                        alternative.push(&*scratch, Encoding { label: name, canonical: name });
-                    }
-                }
-            }
-
-            let preferred_len = preferred.len();
-
-            // Combine the preferred and alternative encodings into a single list.
-            let mut all = Vec::with_capacity(preferred.len() + alternative.len());
-            all.extend(preferred);
-            all.extend(alternative);
-
-            let all = all.leak();
-            ENCODINGS.preferred = &all[..preferred_len];
-            ENCODINGS.all = &all[..];
-        }
-
-        &ENCODINGS
-    }
-}
-
-/// Converts between two encodings using ICU.
-pub struct Converter<'pivot> {
-    source: *mut icu_ffi::UConverter,
-    target: *mut icu_ffi::UConverter,
-    pivot_buffer: &'pivot mut [MaybeUninit<u16>],
-    pivot_source: *mut u16,
-    pivot_target: *mut u16,
-    reset: bool,
-}
-
-impl Drop for Converter<'_> {
-    fn drop(&mut self) {
-        let f = assume_loaded();
-        unsafe { (f.ucnv_close)(self.source) };
-        unsafe { (f.ucnv_close)(self.target) };
-    }
-}
-
-impl<'pivot> Converter<'pivot> {
-    /// Constructs a new `Converter` instance.
-    ///
-    /// # Parameters
-    ///
-    /// * `pivot_buffer`: A buffer used to cache partial conversions.
-    ///   Don't make it too small.
-    /// * `source_encoding`: The source encoding name (e.g., "UTF-8").
-    /// * `target_encoding`: The target encoding name (e.g., "UTF-16").
-    pub fn new(
-        pivot_buffer: &'pivot mut [MaybeUninit<u16>],
-        source_encoding: &str,
-        target_encoding: &str,
-    ) -> Result<Self> {
-        let f = init_if_needed()?;
-
-        let arena = scratch_arena(None);
-        let source_encoding = Self::append_nul(&arena, source_encoding);
-        let target_encoding = Self::append_nul(&arena, target_encoding);
-
-        let mut status = icu_ffi::U_ZERO_ERROR;
-        let source = unsafe { (f.ucnv_open)(source_encoding.as_ptr(), &mut status) };
-        let target = unsafe { (f.ucnv_open)(target_encoding.as_ptr(), &mut status) };
-        if status.is_failure() {
-            if !source.is_null() {
-                unsafe { (f.ucnv_close)(source) };
-            }
-            if !target.is_null() {
-                unsafe { (f.ucnv_close)(target) };
-            }
-            return Err(status.as_error());
-        }
-
-        let pivot_source = pivot_buffer.as_mut_ptr().cast::<u16>();
-        let pivot_target = unsafe { pivot_source.add(pivot_buffer.len()) };
-
-        Ok(Self { source, target, pivot_buffer, pivot_source, pivot_target, reset: true })
-    }
-
-    fn append_nul<'a>(arena: &'a Arena, input: &str) -> BString<'a> {
-        arena_format!(arena, "{}\0", input)
-    }
-
-    /// Performs one step of the encoding conversion.
-    ///
-    /// # Parameters
-    ///
-    /// * `input`: The input buffer to convert from.
-    ///   It should be in the `source_encoding` that was previously specified.
-    /// * `output`: The output buffer to convert to.
-    ///   It should be in the `target_encoding` that was previously specified.
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing:
-    /// 1. The number of bytes read from the input buffer.
-    /// 2. The number of bytes written to the output buffer.
-    pub fn convert(
-        &mut self,
-        input: &[u8],
-        output: &mut [MaybeUninit<u8>],
-    ) -> Result<(usize, usize)> {
-        let f = assume_loaded();
-
-        let input_beg = input.as_ptr();
-        let input_end = unsafe { input_beg.add(input.len()) };
-        let mut input_ptr = input_beg;
-
-        let output_beg = output.as_mut_ptr().cast::<u8>();
-        let output_end = unsafe { output_beg.add(output.len()) };
-        let mut output_ptr = output_beg;
-
-        let pivot_beg = self.pivot_buffer.as_mut_ptr().cast::<u16>();
-        let pivot_end = unsafe { pivot_beg.add(self.pivot_buffer.len()) };
-
-        let flush = input.is_empty();
-        let mut status = icu_ffi::U_ZERO_ERROR;
-
-        unsafe {
-            (f.ucnv_convertEx)(
-                /* target_cnv   */ self.target,
-                /* source_cnv   */ self.source,
-                /* target       */ &mut output_ptr,
-                /* target_limit */ output_end,
-                /* source       */ &mut input_ptr,
-                /* source_limit */ input_end,
-                /* pivot_start  */ pivot_beg,
-                /* pivot_source */ &mut self.pivot_source,
-                /* pivot_target */ &mut self.pivot_target,
-                /* pivot_limit  */ pivot_end,
-                /* reset        */ self.reset,
-                /* flush        */ flush,
-                /* status       */ &mut status,
-            );
-        }
-
-        self.reset = false;
-        if status.is_failure() && status != icu_ffi::U_BUFFER_OVERFLOW_ERROR {
-            return Err(status.as_error());
-        }
-
-        let input_advance = unsafe { input_ptr.offset_from(input_beg) as usize };
-        let output_advance = unsafe { output_ptr.offset_from(output_beg) as usize };
-        Ok((input_advance, output_advance))
-    }
-}
 
 // In benchmarking, I found that the performance does not really change much by changing this value.
 // I picked 64 because it seemed like a reasonable lower bound.
@@ -932,11 +730,6 @@ struct LibraryFunctions {
     u_errorName: icu_ffi::u_errorName,
     ucasemap_open: icu_ffi::ucasemap_open,
     ucasemap_utf8FoldCase: icu_ffi::ucasemap_utf8FoldCase,
-    ucnv_getAvailableName: icu_ffi::ucnv_getAvailableName,
-    ucnv_getStandardName: icu_ffi::ucnv_getStandardName,
-    ucnv_open: icu_ffi::ucnv_open,
-    ucnv_close: icu_ffi::ucnv_close,
-    ucnv_convertEx: icu_ffi::ucnv_convertEx,
     utext_setup: icu_ffi::utext_setup,
     utext_close: icu_ffi::utext_close,
 
@@ -964,15 +757,10 @@ macro_rules! proc_name {
 }
 
 // Found in libicuuc.so on UNIX, icuuc.dll/icu.dll on Windows.
-const LIBICUUC_PROC_NAMES: [*const c_char; 10] = [
+const LIBICUUC_PROC_NAMES: [*const c_char; 5] = [
     proc_name!("u_errorName"),
     proc_name!("ucasemap_open"),
     proc_name!("ucasemap_utf8FoldCase"),
-    proc_name!("ucnv_getAvailableName"),
-    proc_name!("ucnv_getStandardName"),
-    proc_name!("ucnv_open"),
-    proc_name!("ucnv_close"),
-    proc_name!("ucnv_convertEx"),
     proc_name!("utext_setup"),
     proc_name!("utext_close"),
 ];
@@ -1125,37 +913,6 @@ mod icu_ffi {
     pub const U_UNSUPPORTED_ERROR: UErrorCode = UErrorCode(16);
 
     pub type u_errorName = unsafe extern "C" fn(code: UErrorCode) -> *const c_char;
-
-    pub struct UConverter;
-
-    pub type ucnv_getAvailableName = unsafe extern "C" fn(n: i32) -> *const c_char;
-
-    pub type ucnv_getStandardName = unsafe extern "C" fn(
-        name: *const u8,
-        standard: *const u8,
-        status: &mut UErrorCode,
-    ) -> *const c_char;
-
-    pub type ucnv_open =
-        unsafe extern "C" fn(converter_name: *const u8, status: &mut UErrorCode) -> *mut UConverter;
-
-    pub type ucnv_close = unsafe extern "C" fn(converter: *mut UConverter);
-
-    pub type ucnv_convertEx = unsafe extern "C" fn(
-        target_cnv: *mut UConverter,
-        source_cnv: *mut UConverter,
-        target: *mut *mut u8,
-        target_limit: *const u8,
-        source: *mut *const u8,
-        source_limit: *const u8,
-        pivot_start: *mut u16,
-        pivot_source: *mut *mut u16,
-        pivot_target: *mut *mut u16,
-        pivot_limit: *const u16,
-        reset: bool,
-        flush: bool,
-        status: &mut UErrorCode,
-    );
 
     pub struct UCaseMap;
 
