@@ -174,20 +174,6 @@ pub fn search_execute(ctx: &mut Context, state: &mut State, action: SearchAction
     ctx.needs_rerender();
 }
 
-pub fn draw_handle_save(ctx: &mut Context, state: &mut State) {
-    let doc = &mut state.document;
-    if doc.path.is_some() && !doc.read_only {
-        if let Err(err) = doc.save(None) {
-            error_log_add(ctx, state, err);
-        }
-    } else {
-        state.wants_save_as = true;
-        ctx.needs_rerender();
-    }
-
-    state.wants_save = false;
-}
-
 pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
     if !state.document.buffer.borrow().is_dirty() {
         state.exit = true;
@@ -202,6 +188,7 @@ pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
         Cancel,
     }
     let mut action = Action::None;
+    let read_only = state.document.read_only;
 
     ctx.modal_begin("unsaved-changes", "Unsaved Changes");
     ctx.attr_background_rgba(ctx.indexed(IndexedColor::Red));
@@ -209,7 +196,14 @@ pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
     {
         let contains_focus = ctx.contains_focus();
 
-        ctx.label("description", "Do you want to save the changes you made?");
+        ctx.label(
+            "description",
+            if read_only {
+                "File is read-only. Discard unsaved changes?"
+            } else {
+                "Do you want to save the changes you made?"
+            },
+        );
         ctx.attr_padding(Rect::three(1, 2, 1));
 
         ctx.table_begin("choices");
@@ -221,19 +215,24 @@ pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
             ctx.table_next_row();
             ctx.inherit_focus();
 
-            if ctx.button("yes", "Save", ButtonStyle::default().accelerator('S')) {
-                action = Action::Save;
+            if !read_only {
+                if ctx.button("yes", "Save", ButtonStyle::default().accelerator('S')) {
+                    action = Action::Save;
+                }
+                ctx.inherit_focus();
             }
-            ctx.inherit_focus();
             if ctx.button("no", "Don't Save", ButtonStyle::default().accelerator('N')) {
                 action = Action::Discard;
+            }
+            if read_only {
+                ctx.inherit_focus();
             }
             if ctx.button("cancel", "Cancel", ButtonStyle::default()) {
                 action = Action::Cancel;
             }
 
             if contains_focus {
-                if ctx.consume_shortcut(vk::S) {
+                if !read_only && ctx.consume_shortcut(vk::S) {
                     action = Action::Save;
                 } else if ctx.consume_shortcut(vk::N) {
                     action = Action::Discard;
@@ -248,9 +247,16 @@ pub fn draw_handle_wants_exit(ctx: &mut Context, state: &mut State) {
 
     match action {
         Action::None => return,
-        Action::Save => {
-            state.wants_save = true;
-        }
+        Action::Save => match state.document.save(None) {
+            Ok(()) => {
+                state.exit = true;
+                state.wants_exit = false;
+            }
+            Err(err) => {
+                error_log_add(ctx, state, err);
+                state.wants_exit = false;
+            }
+        },
         Action::Discard => {
             state.exit = true;
             state.wants_exit = false;

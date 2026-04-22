@@ -35,12 +35,6 @@ pub fn draw_menubar(ctx: &mut Context, state: &mut State) {
 }
 
 fn draw_menu_file(ctx: &mut Context, state: &mut State) {
-    if ctx.menubar_menu_button("Save", 'S', keybindings::chord(Action::Save)) {
-        state.wants_save = true;
-    }
-    if ctx.menubar_menu_button("Save As…", 'A', keybindings::chord(Action::SaveAs)) {
-        state.wants_save_as = true;
-    }
     if ctx.menubar_menu_button("Exit", 'X', keybindings::chord(Action::Exit)) {
         state.wants_exit = true;
     }

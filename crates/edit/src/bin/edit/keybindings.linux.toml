@@ -8,8 +8,6 @@
 # Set a value to "" to leave an action unbound.
 
 [keybindings]
-save             = "Ctrl+S"
-save_as          = ""
 exit             = "Ctrl+Q"
 
 undo             = "Ctrl+Z"

@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-use std::path::PathBuf;
-
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::oklab::StraightRgba;
@@ -73,10 +71,6 @@ pub struct State {
     pub error_log_index: usize,
     pub error_log_count: usize,
 
-    pub wants_save_as: bool,
-    pub save_as_path: PathBuf,
-    pub save_as_overwrite_warning: Option<PathBuf>, // The path the warning is about.
-
     pub wants_search: StateSearch,
     pub search_needle: String,
     pub search_replacement: String,
@@ -90,7 +84,6 @@ pub struct State {
     pub encoding_picker_needle: String,
     pub encoding_picker_results: Option<Vec<icu::Encoding>>,
 
-    pub wants_save: bool,
     pub wants_statusbar_focus: bool,
     pub wants_indentation_picker: bool,
     pub wants_about: bool,
@@ -117,10 +110,6 @@ impl State {
             error_log_index: 0,
             error_log_count: 0,
 
-            wants_save_as: false,
-            save_as_path: PathBuf::new(),
-            save_as_overwrite_warning: None,
-
             wants_search: StateSearch { kind: StateSearchKind::Hidden, focus: false },
             search_needle: Default::default(),
             search_replacement: Default::default(),
@@ -133,7 +122,6 @@ impl State {
             encoding_picker_needle: Default::default(),
             encoding_picker_results: Default::default(),
 
-            wants_save: false,
             wants_statusbar_focus: false,
             wants_encoding_change: StateEncodingChange::None,
             wants_indentation_picker: false,

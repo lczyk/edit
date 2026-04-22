@@ -6,7 +6,6 @@ mod apperr;
 mod devlog;
 mod documents;
 mod draw_editor;
-mod draw_filepicker;
 mod draw_menubar;
 mod draw_statusbar;
 mod keybindings;
@@ -19,7 +18,6 @@ use std::time::Duration;
 use std::{env, process};
 
 use draw_editor::*;
-use draw_filepicker::*;
 use draw_menubar::*;
 use draw_statusbar::*;
 use edit::framebuffer::{self, IndexedColor};
@@ -274,12 +272,6 @@ fn draw(ctx: &mut Context, state: &mut State) {
     if state.wants_goto {
         draw_goto_menu(ctx, state);
     }
-    if state.wants_save_as {
-        draw_save_as(ctx, state);
-    }
-    if state.wants_save {
-        draw_handle_save(ctx, state);
-    }
     if state.wants_language_picker {
         draw_dialog_language_change(ctx, state);
     }
@@ -314,11 +306,7 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
 
     let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
 
-    if ctx.consume_shortcut(chord(Action::Save)) {
-        state.wants_save = true;
-    } else if ctx.consume_shortcut(chord(Action::SaveAs)) {
-        state.wants_save_as = true;
-    } else if ctx.consume_shortcut(chord(Action::Exit)) {
+    if ctx.consume_shortcut(chord(Action::Exit)) {
         state.wants_exit = true;
     } else if ctx.consume_shortcut(chord(Action::GoToLine)) {
         state.wants_goto = true;

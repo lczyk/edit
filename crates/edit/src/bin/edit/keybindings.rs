@@ -22,8 +22,6 @@ pub const DEFAULT_TOML: &str = include_str!("keybindings.linux.toml");
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(usize)]
 pub enum Action {
-    Save,
-    SaveAs,
     Exit,
     Undo,
     Redo,
@@ -50,11 +48,9 @@ pub enum Action {
     LineEndSelect,
 }
 
-const ACTION_COUNT: usize = 26;
+const ACTION_COUNT: usize = 24;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
-    (Action::Save, "save"),
-    (Action::SaveAs, "save_as"),
     (Action::Exit, "exit"),
     (Action::Undo, "undo"),
     (Action::Redo, "redo"),
@@ -363,7 +359,7 @@ mod tests {
     #[test]
     fn default_toml_parses() {
         let kb = Keybindings::from_defaults();
-        assert_eq!(kb.chord(Action::Save), kbmod::CTRL | vk::S);
+        assert_eq!(kb.chord(Action::Exit), kbmod::CTRL | vk::Q);
         assert_eq!(kb.chord(Action::FocusMenubar), vk::F10);
     }
 
