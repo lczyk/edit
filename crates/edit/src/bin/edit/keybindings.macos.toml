@@ -36,3 +36,9 @@ small_jump_up           = "Cmd+Up"
 small_jump_down         = "Cmd+Down"
 small_jump_up_select    = "Cmd+Shift+Up"
 small_jump_down_select  = "Cmd+Shift+Down"
+
+# Line-start is smart: first jumps to end of indent, then to column 0 if already there.
+line_start              = "Cmd+Left"
+line_end                = "Cmd+Right"
+line_start_select       = "Cmd+Shift+Left"
+line_end_select         = "Cmd+Shift+Right"

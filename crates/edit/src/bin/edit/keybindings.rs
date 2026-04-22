@@ -44,9 +44,13 @@ pub enum Action {
     SmallJumpDown,
     SmallJumpUpSelect,
     SmallJumpDownSelect,
+    LineStart,
+    LineEnd,
+    LineStartSelect,
+    LineEndSelect,
 }
 
-const ACTION_COUNT: usize = 22;
+const ACTION_COUNT: usize = 26;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Save, "save"),
@@ -71,6 +75,10 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::SmallJumpDown, "small_jump_down"),
     (Action::SmallJumpUpSelect, "small_jump_up_select"),
     (Action::SmallJumpDownSelect, "small_jump_down_select"),
+    (Action::LineStart, "line_start"),
+    (Action::LineEnd, "line_end"),
+    (Action::LineStartSelect, "line_start_select"),
+    (Action::LineEndSelect, "line_end_select"),
 ];
 
 pub struct Keybindings {

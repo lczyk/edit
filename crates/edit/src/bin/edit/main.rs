@@ -340,6 +340,14 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         small_jump(&mut state.document.buffer.borrow_mut(), -SMALL_JUMP_LINES);
     } else if ctx.consume_shortcut(chord(Action::SmallJumpDown)) {
         small_jump(&mut state.document.buffer.borrow_mut(), SMALL_JUMP_LINES);
+    } else if ctx.consume_shortcut(chord(Action::LineStart)) {
+        smart_line_start(&mut state.document.buffer.borrow_mut(), false);
+    } else if ctx.consume_shortcut(chord(Action::LineEnd)) {
+        line_end(&mut state.document.buffer.borrow_mut(), false);
+    } else if ctx.consume_shortcut(chord(Action::LineStartSelect)) {
+        smart_line_start(&mut state.document.buffer.borrow_mut(), true);
+    } else if ctx.consume_shortcut(chord(Action::LineEndSelect)) {
+        line_end(&mut state.document.buffer.borrow_mut(), true);
     } else {
         return;
     }
@@ -360,6 +368,29 @@ fn small_jump_select(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
     let max_y = (tb.visual_line_count() - 1).max(0);
     let y = (pos.y + delta).clamp(0, max_y);
     tb.selection_update_visual(Point { x: pos.x, y });
+    tb.make_cursor_visible();
+}
+
+fn smart_line_start(tb: &mut edit::buffer::TextBuffer, select: bool) {
+    let cur = tb.cursor_logical_pos();
+    let indent_end = tb.indent_end_logical_pos();
+    let target = if cur.x > indent_end.x { indent_end } else { Point { x: 0, y: cur.y } };
+    if select {
+        tb.selection_update_logical(target);
+    } else {
+        tb.cursor_move_to_logical(target);
+    }
+    tb.make_cursor_visible();
+}
+
+fn line_end(tb: &mut edit::buffer::TextBuffer, select: bool) {
+    let y = tb.cursor_logical_pos().y;
+    let target = Point { x: CoordType::MAX, y };
+    if select {
+        tb.selection_update_logical(target);
+    } else {
+        tb.cursor_move_to_logical(target);
+    }
     tb.make_cursor_visible();
 }
 
