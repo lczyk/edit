@@ -251,6 +251,8 @@ fn print_version() {
 }
 
 fn draw(ctx: &mut Context, state: &mut State) {
+    handle_global_shortcuts(ctx, state);
+
     draw_menubar(ctx, state);
     draw_editor(ctx, state);
     draw_statusbar(ctx, state);
@@ -290,6 +292,32 @@ fn draw(ctx: &mut Context, state: &mut State) {
         ctx.needs_rerender();
         ctx.set_input_consumed();
     }
+}
+
+fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
+    use keybindings::{Action, chord};
+
+    let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
+
+    if ctx.consume_shortcut(chord(Action::Save)) {
+        state.wants_save = true;
+    } else if ctx.consume_shortcut(chord(Action::SaveAs)) {
+        state.wants_save_as = true;
+    } else if ctx.consume_shortcut(chord(Action::Exit)) {
+        state.wants_exit = true;
+    } else if ctx.consume_shortcut(chord(Action::GoToLine)) {
+        state.wants_goto = true;
+    } else if search_enabled && ctx.consume_shortcut(chord(Action::Find)) {
+        state.wants_search.kind = StateSearchKind::Search;
+        state.wants_search.focus = true;
+    } else if search_enabled && ctx.consume_shortcut(chord(Action::Replace)) {
+        state.wants_search.kind = StateSearchKind::Replace;
+        state.wants_search.focus = true;
+    } else {
+        return;
+    }
+
+    ctx.needs_rerender();
 }
 
 fn write_terminal_title<'a>(arena: &'a Arena, output: &mut BString<'a>, state: &mut State) {
