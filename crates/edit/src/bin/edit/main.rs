@@ -5,11 +5,14 @@ mod apperr;
 mod colormap;
 #[cfg(debug_assertions)]
 mod devlog;
+mod diff_mode;
 mod documents;
 mod draw_editor;
 mod draw_menubar;
 mod draw_statusbar;
+mod git;
 mod keybindings;
+mod linediff;
 mod settings;
 mod state;
 
@@ -148,6 +151,12 @@ fn run() -> apperr::Result<()> {
 
                 more
             } {}
+        }
+
+        // Re-run diff if user edits have settled (debounced).
+        state.document.diff_mark_dirty_if_changed();
+        if state.document.diff_should_rebuild() {
+            state.document.rediff();
         }
 
         // Continue rendering until the layout has settled.
@@ -341,11 +350,21 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         smart_line_start(&mut state.document.buffer.borrow_mut(), true);
     } else if ctx.consume_shortcut(chord(Action::LineEndSelect)) {
         line_end(&mut state.document.buffer.borrow_mut(), true);
+    } else if ctx.consume_shortcut(chord(Action::ToggleDiffMode)) {
+        toggle_diff_mode(ctx, state);
     } else {
         return;
     }
 
     ctx.needs_rerender();
+}
+
+pub fn toggle_diff_mode(ctx: &mut Context, state: &mut State) {
+    if state.document.diff.is_some() {
+        state.document.exit_diff_mode();
+    } else if let Err(err) = state.document.enter_diff_mode() {
+        error_log_add(ctx, state, err);
+    }
 }
 
 fn small_jump(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {

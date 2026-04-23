@@ -40,3 +40,5 @@ line_start              = "Cmd+Left"
 line_end                = "Cmd+Right"
 line_start_select       = "Cmd+Shift+Left"
 line_end_select         = "Cmd+Shift+Right"
+
+toggle_diff_mode        = "Ctrl+Shift+D"

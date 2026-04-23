@@ -3,7 +3,9 @@
 
 use std::ffi::OsStr;
 use std::fs::File;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use std::{fs, io};
 
 use edit::buffer::{RcTextBuffer, TextBuffer};
@@ -12,7 +14,22 @@ use edit::lsh::{FILE_ASSOCIATIONS, Language, process_file_associations};
 use edit::{path, sys};
 
 use crate::apperr;
+use crate::diff_mode::{self, DiffState};
+use crate::git;
 use crate::settings::Settings;
+
+pub struct DiffMode {
+    pub state: DiffState,
+    /// Bumped by user edits; cleared after a rediff rebuild.
+    pub dirty_generation: u32,
+    /// Generation of the buffer the last time we ran a rediff.
+    pub last_rebuilt_generation: u32,
+    /// `Instant` at which `dirty_generation` last changed; used for debounce.
+    pub dirty_since: Option<Instant>,
+    /// Running counts of added / deleted lines for the status badge.
+    pub hunk_adds: u32,
+    pub hunk_dels: u32,
+}
 
 pub struct Document {
     pub buffer: RcTextBuffer,
@@ -21,6 +38,7 @@ pub struct Document {
     pub file_id: Option<sys::FileId>,
     pub language_override: Option<Option<&'static Language>>,
     pub read_only: bool,
+    pub diff: Option<DiffMode>,
 }
 
 impl Document {
@@ -52,8 +70,15 @@ impl Document {
         }
 
         let filename = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-        let mut doc =
-            Document { buffer, path, filename, file_id, language_override: None, read_only };
+        let mut doc = Document {
+            buffer,
+            path,
+            filename,
+            file_id,
+            language_override: None,
+            read_only,
+            diff: None,
+        };
         doc.apply_path_metadata();
         Ok(doc)
     }
@@ -65,7 +90,16 @@ impl Document {
 
         let mut file = open_for_writing(&self.path)?;
 
-        {
+        if self.diff.is_some() {
+            // In diff mode the view buffer contains deleted-line stripes; we
+            // must save only the editable portion.
+            let real = {
+                let tb = self.buffer.borrow();
+                diff_mode::extract_real(&tb)
+            };
+            file.write_all(&real)?;
+            self.buffer.borrow_mut().mark_as_clean();
+        } else {
             let mut tb = self.buffer.borrow_mut();
             tb.write_file(&mut file)?;
         }
@@ -75,6 +109,144 @@ impl Document {
         }
 
         Ok(())
+    }
+
+    /// Enters diff mode: locate repo, read baseline, build the interleaved
+    /// view and install it on the buffer. Caller should display returned
+    /// errors via the error log.
+    pub fn enter_diff_mode(&mut self) -> apperr::Result<()> {
+        if self.diff.is_some() {
+            return Ok(());
+        }
+        if self.read_only {
+            return Err(apperr::Error::from(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "file is read-only",
+            )));
+        }
+
+        let info = git::locate(&self.path)?;
+        if !git::is_tracked(&info)? {
+            return Err(apperr::Error::from(io::Error::new(
+                io::ErrorKind::NotFound,
+                "file is not tracked by git",
+            )));
+        }
+        let baseline = git::read_baseline(&info)?;
+        if baseline.len() > diff_mode::MAX_DIFF_BYTES {
+            return Err(apperr::Error::from(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "baseline exceeds diff-mode size cap",
+            )));
+        }
+        if looks_binary(&baseline) {
+            return Err(apperr::Error::from(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "baseline looks binary",
+            )));
+        }
+
+        let current = {
+            let tb = self.buffer.borrow();
+            read_all(&tb)
+        };
+        if current.len() > diff_mode::MAX_DIFF_BYTES {
+            return Err(apperr::Error::from(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "file exceeds diff-mode size cap",
+            )));
+        }
+
+        let state = DiffState::new(baseline);
+        let view = state.build_view(&current);
+        let (adds, dels) = count_hunks(&view);
+
+        {
+            let mut tb = self.buffer.borrow_mut();
+            tb.set_locked_content(&view.bytes, view.locked_ranges);
+            tb.set_line_decorations(view.decorations);
+        }
+
+        self.diff = Some(DiffMode {
+            state,
+            dirty_generation: 0,
+            last_rebuilt_generation: self.buffer.borrow().generation(),
+            dirty_since: None,
+            hunk_adds: adds,
+            hunk_dels: dels,
+        });
+
+        Ok(())
+    }
+
+    /// Leaves diff mode. Replaces the view with just the editable content
+    /// (stripes gone) and clears locks / decorations.
+    pub fn exit_diff_mode(&mut self) {
+        if self.diff.is_none() {
+            return;
+        }
+
+        let real = {
+            let tb = self.buffer.borrow();
+            diff_mode::extract_real(&tb)
+        };
+
+        {
+            let mut tb = self.buffer.borrow_mut();
+            tb.set_locked_content(&real, Vec::new());
+            tb.clear_line_decorations();
+        }
+
+        self.diff = None;
+    }
+
+    /// Re-runs the diff against the stored baseline and rebuilds the view.
+    /// Preserves the cursor by round-tripping through a real-content anchor.
+    pub fn rediff(&mut self) {
+        let Some(diff) = self.diff.as_mut() else { return };
+
+        let (cursor_real, current_bytes) = {
+            let tb = self.buffer.borrow();
+            let cursor_real =
+                diff_mode::view_to_real_off(tb.cursor_offset(), tb.locked_ranges());
+            let current = diff_mode::extract_real(&tb);
+            (cursor_real, current)
+        };
+
+        let view = diff.state.build_view(&current_bytes);
+        let (adds, dels) = count_hunks(&view);
+
+        let mut tb = self.buffer.borrow_mut();
+        // `refresh_view_content` preserves undo/redo and the dirty flag.
+        tb.refresh_view_content(&view.bytes, view.locked_ranges);
+        tb.set_line_decorations(view.decorations);
+
+        let new_view_off =
+            diff_mode::real_to_view_off(cursor_real, tb.locked_ranges(), tb.text_length());
+        tb.cursor_move_to_offset(new_view_off);
+
+        diff.last_rebuilt_generation = tb.generation();
+        diff.dirty_since = None;
+        diff.hunk_adds = adds;
+        diff.hunk_dels = dels;
+    }
+
+    /// Call after each input batch in diff mode. If the buffer has changed
+    /// since the last rebuild, records the dirtying time for debouncing.
+    pub fn diff_mark_dirty_if_changed(&mut self) {
+        let Some(diff) = self.diff.as_mut() else { return };
+        let current_gen = self.buffer.borrow().generation();
+        if current_gen != diff.last_rebuilt_generation && diff.dirty_since.is_none() {
+            diff.dirty_since = Some(Instant::now());
+        }
+    }
+
+    /// Returns `true` if enough idle time has elapsed since the last edit to
+    /// warrant a rediff.
+    pub fn diff_should_rebuild(&self) -> bool {
+        let Some(diff) = self.diff.as_ref() else { return false };
+        let Some(since) = diff.dirty_since else { return false };
+        since.elapsed().as_millis() as u64 >= diff_mode::REDIFF_DEBOUNCE_MS
     }
 
     fn apply_path_metadata(&mut self) {
@@ -122,6 +294,38 @@ fn create_buffer() -> apperr::Result<RcTextBuffer> {
         tb.set_line_highlight_enabled(true);
     }
     Ok(buffer)
+}
+
+fn read_all(tb: &TextBuffer) -> Vec<u8> {
+    let mut out = Vec::with_capacity(tb.text_length());
+    let mut off = 0;
+    loop {
+        let chunk = tb.read_forward(off);
+        if chunk.is_empty() {
+            break;
+        }
+        out.extend_from_slice(chunk);
+        off += chunk.len();
+    }
+    out
+}
+
+fn looks_binary(bytes: &[u8]) -> bool {
+    let window = &bytes[..bytes.len().min(8 * 1024)];
+    window.contains(&0)
+}
+
+fn count_hunks(view: &diff_mode::BuiltView) -> (u32, u32) {
+    let mut adds = 0;
+    let mut dels = 0;
+    for d in &view.decorations {
+        match d {
+            edit::buffer::LineDecoration::Added => adds += 1,
+            edit::buffer::LineDecoration::Deleted => dels += 1,
+            edit::buffer::LineDecoration::None => {}
+        }
+    }
+    (adds, dels)
 }
 
 fn open_for_writing(path: &Path) -> apperr::Result<File> {

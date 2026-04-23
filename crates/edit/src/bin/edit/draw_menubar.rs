@@ -82,8 +82,8 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
 }
 
 fn draw_menu_view(ctx: &mut Context, state: &mut State) {
-    let mut tb = state.document.buffer.borrow_mut();
-    let word_wrap = tb.is_word_wrap_enabled();
+    let word_wrap = state.document.buffer.borrow().is_word_wrap_enabled();
+    let diff_active = state.document.diff.is_some();
 
     if ctx.menubar_menu_button("Focus Statusbar", 'S', keybindings::chord(Action::FocusStatusbar)) {
         state.wants_statusbar_focus = true;
@@ -97,7 +97,17 @@ fn draw_menu_view(ctx: &mut Context, state: &mut State) {
         keybindings::chord(Action::ToggleWordWrap),
         word_wrap,
     ) {
+        let mut tb = state.document.buffer.borrow_mut();
         tb.set_word_wrap(!word_wrap);
+        ctx.needs_rerender();
+    }
+    if ctx.menubar_menu_checkbox(
+        "Diff Mode",
+        'D',
+        keybindings::chord(Action::ToggleDiffMode),
+        diff_active,
+    ) {
+        crate::toggle_diff_mode(ctx, state);
         ctx.needs_rerender();
     }
 

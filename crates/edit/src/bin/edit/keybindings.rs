@@ -46,9 +46,10 @@ pub enum Action {
     LineEnd,
     LineStartSelect,
     LineEndSelect,
+    ToggleDiffMode,
 }
 
-const ACTION_COUNT: usize = 24;
+const ACTION_COUNT: usize = 25;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
@@ -75,6 +76,7 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::LineEnd, "line_end"),
     (Action::LineStartSelect, "line_start_select"),
     (Action::LineEndSelect, "line_end_select"),
+    (Action::ToggleDiffMode, "toggle_diff_mode"),
 ];
 
 pub struct Keybindings {

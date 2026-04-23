@@ -118,6 +118,13 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
         ctx.needs_rerender();
     }
 
+    if let Some(diff) = &doc.diff {
+        ctx.label(
+            "diffmode",
+            &arena_format!(ctx.arena(), "DIFF +{}/-{}", diff.hunk_adds, diff.hunk_dels),
+        );
+    }
+
     if doc.read_only {
         ctx.label("readonly", "RO");
     }

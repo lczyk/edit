@@ -207,6 +207,16 @@ pub enum CursorMovement {
     Word,
 }
 
+/// Per-logical-line decoration applied by the render pass. Consumers (the
+/// diff-mode orchestrator) set this to tint added/deleted regions. Lines
+/// with no entry (or entries past the end of the slice) render unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LineDecoration {
+    None,
+    Added,
+    Deleted,
+}
+
 /// See [`TextBuffer::move_selected_lines`].
 pub enum MoveLineDirection {
     Up,
@@ -275,6 +285,17 @@ pub struct TextBuffer {
     preferred_column: CoordType,
 
     wants_cursor_visibility: bool,
+
+    /// Sorted, non-overlapping byte ranges that user edits must not modify.
+    /// Used by diff-mode to render baseline-deleted hunks as selectable but
+    /// read-only stripes interleaved with the editable file contents.
+    locked_ranges: Vec<Range<usize>>,
+    /// Counter bumped whenever a user edit is rejected because it would
+    /// touch a locked range. The UI polls this to flash a status message.
+    edit_rejected: u32,
+    /// Per-logical-line decoration. Indexed by logical line number; entries
+    /// past the end render as [`LineDecoration::None`].
+    line_decorations: Vec<LineDecoration>,
 }
 
 impl TextBuffer {
@@ -327,6 +348,10 @@ impl TextBuffer {
             preferred_column: 0,
 
             wants_cursor_visibility: false,
+
+            locked_ranges: Vec::new(),
+            edit_rejected: 0,
+            line_decorations: Vec::new(),
         })
     }
 
@@ -382,6 +407,126 @@ impl TextBuffer {
         self.read_only = read_only;
     }
 
+    /// Currently locked byte ranges. Ranges are sorted and non-overlapping.
+    pub fn locked_ranges(&self) -> &[Range<usize>] {
+        &self.locked_ranges
+    }
+
+    /// Clears all locked ranges. Subsequent edits are unrestricted.
+    pub fn clear_locked_ranges(&mut self) {
+        self.locked_ranges.clear();
+    }
+
+    /// Wholesale-replaces the buffer contents with `text` and installs the
+    /// given locked `ranges`. Clears the undo/redo stack (this operation is
+    /// treated as structural, like `read_file`). Ranges must be sorted,
+    /// non-overlapping, non-empty, and fully within `0..text.len()`.
+    pub fn set_locked_content(&mut self, text: &[u8], ranges: Vec<Range<usize>>) {
+        self.replace_view_content(text, ranges, true);
+    }
+
+    /// Like [`set_locked_content`] but preserves the undo/redo history and
+    /// dirty flag. Used by diff-mode rediff, where the rebuild is derived
+    /// from the user's edits and shouldn't count as a save point.
+    pub fn refresh_view_content(&mut self, text: &[u8], ranges: Vec<Range<usize>>) {
+        self.replace_view_content(text, ranges, false);
+    }
+
+    fn replace_view_content(
+        &mut self,
+        text: &[u8],
+        ranges: Vec<Range<usize>>,
+        clear_history: bool,
+    ) {
+        debug_assert!(ranges.iter().all(|r| r.start < r.end && r.end <= text.len()));
+        debug_assert!(ranges.windows(2).all(|w| w[0].end <= w[1].start));
+
+        // Preserve user-visible state that a diff-mode view swap shouldn't
+        // disturb: the dirty flag (the underlying file is unchanged), and
+        // the undo history when the rebuild is a refresh, not a fresh entry.
+        let was_dirty = self.is_dirty();
+        let saved_history = (!clear_history).then(|| {
+            (mem::take(&mut self.undo_stack), mem::take(&mut self.redo_stack), self.last_history_type)
+        });
+
+        self.buffer.clear();
+        self.buffer.replace(0..0, text);
+        // Recount logical lines; bypassing the edit pipeline leaves `stats`
+        // stale otherwise, which trips cursor-position assertions. Matches
+        // `read_file`: newline count + 1 (the trailing blank-line slot).
+        let newlines = text.iter().filter(|&&b| b == b'\n').count() as CoordType;
+        self.stats.logical_lines = newlines + 1;
+        self.stats.visual_lines = self.stats.logical_lines;
+        self.recalc_after_content_swap();
+        self.locked_ranges = ranges;
+        self.edit_rejected = 0;
+
+        if let Some((undo, redo, last_type)) = saved_history {
+            self.undo_stack = undo;
+            self.redo_stack = redo;
+            self.last_history_type = last_type;
+        }
+        if was_dirty {
+            // `recalc_after_content_swap` called `mark_as_clean`; reverse it
+            // so the underlying file is still shown as having unsaved edits.
+            self.last_save_generation = self.last_save_generation.wrapping_sub(1);
+        }
+    }
+
+    /// Number of user edits rejected because they would have touched a
+    /// locked range. Wraps on overflow; consumers compare generations.
+    pub fn edit_rejected_count(&self) -> u32 {
+        self.edit_rejected
+    }
+
+    /// Installs per-logical-line decorations used by the render pass to
+    /// tint added/deleted lines. Lines past the end of `decorations` render
+    /// as [`LineDecoration::None`].
+    pub fn set_line_decorations(&mut self, decorations: Vec<LineDecoration>) {
+        self.line_decorations = decorations;
+    }
+
+    /// Clears all line decorations.
+    pub fn clear_line_decorations(&mut self) {
+        self.line_decorations.clear();
+    }
+
+    /// Returns `true` if `range` overlaps any locked range by at least one byte.
+    fn locked_intersects(&self, range: Range<usize>) -> bool {
+        if self.locked_ranges.is_empty() {
+            return false;
+        }
+        // First range whose end > range.start.
+        let idx = self.locked_ranges.partition_point(|r| r.end <= range.start);
+        self.locked_ranges.get(idx).is_some_and(|r| r.start < range.end)
+    }
+
+    /// Checks whether an intended replace `range` is allowed; if not, bumps
+    /// the reject counter and returns `true` so callers can early-return.
+    fn reject_if_locked(&mut self, range: Range<usize>) -> bool {
+        if self.locked_intersects(range) {
+            self.edit_rejected = self.edit_rejected.wrapping_add(1);
+            return true;
+        }
+        false
+    }
+
+    /// Shifts locked-range offsets after a mutation. `at` is the offset at
+    /// which the mutation took place; `delta` is the signed byte change. Any
+    /// range whose `start >= at` is shifted. Callers must have already
+    /// ensured via `locked_intersects` that no range straddles `at`.
+    fn shift_locked(&mut self, at: usize, delta: isize) {
+        if delta == 0 || self.locked_ranges.is_empty() {
+            return;
+        }
+        for r in &mut self.locked_ranges {
+            if r.start >= at {
+                r.start = (r.start as isize + delta) as usize;
+                r.end = (r.end as isize + delta) as usize;
+            }
+        }
+    }
+
     /// The newline type used in the document. LF or CRLF.
     pub fn is_crlf(&self) -> bool {
         self.newlines_are_crlf
@@ -396,6 +541,13 @@ impl TextBuffer {
     ///
     /// NOTE: Cannot be undone.
     pub fn normalize_newlines(&mut self, crlf: bool) {
+        // Locked ranges refer to specific byte offsets that would shift
+        // unpredictably through newline rewriting. Reject rather than corrupt.
+        if !self.locked_ranges.is_empty() {
+            self.edit_rejected = self.edit_rejected.wrapping_add(1);
+            return;
+        }
+
         let newline: &[u8] = if crlf { b"\r\n" } else { b"\n" };
         let mut off = 0;
 
@@ -720,6 +872,8 @@ impl TextBuffer {
         self.mark_as_clean();
         self.reflow();
         self.highlighter_cache.invalidate_from(0);
+        self.locked_ranges.clear();
+        self.line_decorations.clear();
     }
 
     /// Copies the contents of the buffer into a string.
@@ -1719,6 +1873,32 @@ impl TextBuffer {
                 }
             }
 
+            // Tint the full text row if this logical line has a decoration.
+            // Applied before the selection pass so a selection overlay still
+            // reads normally on top of diff colors.
+            if cursor_beg.visual_pos.y == visual_line
+                && let Some(decoration) = self
+                    .line_decorations
+                    .get(cursor_beg.logical_pos.y as usize)
+                    .copied()
+                && decoration != LineDecoration::None
+            {
+                let tint_color = match decoration {
+                    LineDecoration::Added => IndexedColor::BrightGreen,
+                    LineDecoration::Deleted => IndexedColor::BrightRed,
+                    LineDecoration::None => unreachable!(),
+                };
+                let left = destination.left + self.margin_width - origin.x;
+                let top = destination.top + y;
+                let rect = Rect {
+                    left: left + origin.x,
+                    top,
+                    right: left + origin.x + text_width,
+                    bottom: top + 1,
+                };
+                fb.blend_bg(rect, fb.indexed_alpha(tint_color, 2, 5));
+            }
+
             let mut selection_off = 0..0;
 
             // Figure out the selection range on this line, if any.
@@ -2211,6 +2391,22 @@ impl TextBuffer {
         if self.read_only {
             return;
         }
+        if !self.locked_ranges.is_empty() {
+            // Conservative replace-range: covers a selection-delete (if any)
+            // and, in overtype, the bytes that will be overwritten past `at`.
+            let (range_start, range_end) =
+                if let Some((beg, end)) = self.selection_range_internal(false) {
+                    (beg.offset, end.offset)
+                } else if !raw && self.overtype && !text.is_empty() {
+                    let end = (at.offset + text.len()).min(self.text_length());
+                    (at.offset, end)
+                } else {
+                    (at.offset, at.offset)
+                };
+            if self.reject_if_locked(range_start..range_end) {
+                return;
+            }
+        }
         let history_type = if raw { HistoryType::Other } else { HistoryType::Write };
         let mut edit_begun = false;
 
@@ -2399,6 +2595,10 @@ impl TextBuffer {
             if beg.offset > end.offset {
                 mem::swap(&mut beg, &mut end);
             }
+        }
+
+        if self.reject_if_locked(beg.offset..end.offset) {
+            return;
         }
 
         self.edit_begin(HistoryType::Delete, beg);
@@ -2606,6 +2806,9 @@ impl TextBuffer {
         self.buffer.extract_raw(beg.offset..end.offset, &mut out, 0);
 
         if delete && !out.is_empty() {
+            if self.reject_if_locked(beg.offset..end.offset) {
+                return out;
+            }
             self.edit_begin(HistoryType::Delete, beg);
             self.edit_delete(end);
             self.edit_end();
@@ -2753,7 +2956,9 @@ impl TextBuffer {
         }
 
         // Write!
-        self.buffer.replace(self.active_edit_off..self.active_edit_off, text);
+        let insert_off = self.active_edit_off;
+        self.buffer.replace(insert_off..insert_off, text);
+        self.shift_locked(insert_off, text.len() as isize);
 
         // Move self.cursor to the end of the newly written text. Can't use `self.set_cursor_internal`,
         // because we're still in the progress of recalculating the line stats.
@@ -2771,22 +2976,25 @@ impl TextBuffer {
         let off = self.active_edit_off;
         let mut out_off = usize::MAX;
 
-        let mut undo = self.undo_stack.back_mut().unwrap().borrow_mut();
+        {
+            let mut undo = self.undo_stack.back_mut().unwrap().borrow_mut();
 
-        // If this is a continued backspace operation,
-        // we need to prepend the deleted portion to the undo entry.
-        if self.cursor.logical_pos < undo.cursor {
-            out_off = 0;
-            undo.cursor = self.cursor.logical_pos;
+            // If this is a continued backspace operation,
+            // we need to prepend the deleted portion to the undo entry.
+            if self.cursor.logical_pos < undo.cursor {
+                out_off = 0;
+                undo.cursor = self.cursor.logical_pos;
+            }
+
+            // Copy the deleted portion into the undo entry.
+            let deleted = &mut undo.deleted;
+            self.buffer.extract_raw(off..to.offset, deleted, out_off);
         }
-
-        // Copy the deleted portion into the undo entry.
-        let deleted = &mut undo.deleted;
-        self.buffer.extract_raw(off..to.offset, deleted, out_off);
 
         // Delete the portion from the buffer by enlarging the gap.
         let count = to.offset - off;
         self.buffer.allocate_gap(off, 0, count);
+        self.shift_locked(to.offset, -(count as isize));
 
         self.stats.logical_lines += logical_y_before - to.logical_pos.y;
     }
@@ -2986,5 +3194,198 @@ impl TextBuffer {
     /// For interfacing with ICU.
     pub fn read_forward(&self, off: usize) -> &[u8] {
         self.buffer.read_forward(off)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::single_range_in_vec_init)]
+mod locked_range_tests {
+    use super::*;
+
+    fn make(text: &str) -> TextBuffer {
+        let mut b = TextBuffer::new(true).unwrap();
+        // Use the public rebuild path so buffers with multiple lines are set
+        // up correctly (`copy_from_str` assumes the line count doesn't change).
+        b.set_locked_content(text.as_bytes(), Vec::new());
+        b
+    }
+
+    fn dump(b: &mut TextBuffer) -> String {
+        let mut s = String::new();
+        b.save_as_string(&mut s);
+        s
+    }
+
+    fn lock_ranges(b: &mut TextBuffer, ranges: &[Range<usize>]) {
+        b.locked_ranges = ranges.to_vec();
+    }
+
+    #[test]
+    fn intersects_basic() {
+        let mut b = make("0123456789");
+        lock_ranges(&mut b, &[3..6]);
+        assert!(!b.locked_intersects(0..0));
+        assert!(!b.locked_intersects(0..3));
+        assert!(!b.locked_intersects(6..10));
+        assert!(!b.locked_intersects(6..6));
+        assert!(b.locked_intersects(3..3 + 1));
+        assert!(b.locked_intersects(5..5 + 1));
+        assert!(b.locked_intersects(2..4));
+        assert!(b.locked_intersects(0..10));
+    }
+
+    #[test]
+    fn intersects_touches_boundary_not_overlapping() {
+        let mut b = make("abcdef");
+        lock_ranges(&mut b, &[2..4]);
+        // Empty range exactly at the boundary shouldn't be considered overlap.
+        assert!(!b.locked_intersects(2..2));
+        assert!(!b.locked_intersects(4..4));
+        // Non-empty range ending at the boundary is fine.
+        assert!(!b.locked_intersects(0..2));
+        assert!(!b.locked_intersects(4..6));
+    }
+
+    #[test]
+    fn write_inside_locked_is_rejected() {
+        let mut b = make("abc HELLO xyz");
+        // Lock "HELLO" (bytes 4..9).
+        lock_ranges(&mut b, &[4..9]);
+        b.cursor_move_to_offset(6);
+        let before = b.edit_rejected_count();
+        b.write_canon(b"X");
+        assert_eq!(dump(&mut b), "abc HELLO xyz");
+        assert_eq!(b.edit_rejected_count(), before + 1);
+        assert_eq!(b.locked_ranges(), &[4..9]);
+    }
+
+    #[test]
+    fn write_before_locked_shifts_range() {
+        let mut b = make("abc HELLO xyz");
+        lock_ranges(&mut b, &[4..9]);
+        b.cursor_move_to_offset(0);
+        b.write_canon(b"!!");
+        assert_eq!(dump(&mut b), "!!abc HELLO xyz");
+        assert_eq!(b.locked_ranges(), &[6..11]);
+    }
+
+    #[test]
+    fn write_at_locked_start_shifts_range() {
+        let mut b = make("abc HELLO xyz");
+        lock_ranges(&mut b, &[4..9]);
+        b.cursor_move_to_offset(4);
+        b.write_canon(b"!");
+        // Insertion at the start of a locked range is allowed; the locked
+        // bytes simply slide forward.
+        assert_eq!(dump(&mut b), "abc !HELLO xyz");
+        assert_eq!(b.locked_ranges(), &[5..10]);
+    }
+
+    #[test]
+    fn write_at_locked_end_keeps_range() {
+        let mut b = make("abc HELLO xyz");
+        lock_ranges(&mut b, &[4..9]);
+        b.cursor_move_to_offset(9);
+        b.write_canon(b"!");
+        assert_eq!(dump(&mut b), "abc HELLO! xyz");
+        assert_eq!(b.locked_ranges(), &[4..9]);
+    }
+
+    #[test]
+    fn delete_across_locked_is_rejected() {
+        let mut b = make("abc HELLO xyz");
+        lock_ranges(&mut b, &[4..9]);
+        b.cursor_move_to_offset(2);
+        b.selection_update_offset(7);
+        let before = b.edit_rejected_count();
+        b.delete(CursorMovement::Grapheme, -1);
+        assert_eq!(dump(&mut b), "abc HELLO xyz");
+        assert_eq!(b.edit_rejected_count(), before + 1);
+    }
+
+    #[test]
+    fn delete_outside_locked_shifts_range() {
+        let mut b = make("abc HELLO xyz");
+        lock_ranges(&mut b, &[4..9]);
+        b.cursor_move_to_offset(1);
+        b.delete(CursorMovement::Grapheme, 1);
+        assert_eq!(dump(&mut b), "ac HELLO xyz");
+        assert_eq!(b.locked_ranges(), &[3..8]);
+    }
+
+    #[test]
+    fn set_locked_content_replaces_buffer() {
+        let mut b = make("old contents");
+        b.set_locked_content(b"new\nLOCKED\ntail\n", vec![4..11]);
+        assert_eq!(dump(&mut b), "new\nLOCKED\ntail\n");
+        assert_eq!(b.locked_ranges(), &[4..11]);
+        assert_eq!(b.edit_rejected_count(), 0);
+    }
+
+    #[test]
+    fn clear_locked_ranges_restores_editability() {
+        let mut b = make("abc HELLO xyz");
+        lock_ranges(&mut b, &[4..9]);
+        b.clear_locked_ranges();
+        b.cursor_move_to_offset(6);
+        b.write_canon(b"X");
+        assert_eq!(dump(&mut b), "abc HEXLLO xyz");
+    }
+
+    #[test]
+    fn set_locked_content_preserves_dirty_flag() {
+        let mut b = make("hello");
+        // Fresh buffer is clean.
+        assert!(!b.is_dirty());
+        // Type something to dirty it.
+        b.cursor_move_to_offset(0);
+        b.write_canon(b"X");
+        assert!(b.is_dirty());
+
+        // Entering diff mode (set_locked_content) must keep the dirty flag.
+        b.set_locked_content(b"Xhello with stripe\n", vec![6..15]);
+        assert!(b.is_dirty());
+    }
+
+    #[test]
+    fn refresh_view_content_preserves_undo_and_dirty() {
+        let mut b = make("one\ntwo\n");
+        b.cursor_move_to_offset(0);
+        b.write_canon(b"X");
+        assert!(b.is_dirty());
+
+        // Rediff-style refresh. Undo stack and dirty flag both survive.
+        b.refresh_view_content(b"Xone\ntwo\n", Vec::new());
+        assert!(b.is_dirty());
+
+        // Undo should still revert the "X" insertion.
+        b.undo();
+        assert_eq!(dump(&mut b), "one\ntwo\n");
+    }
+
+    #[test]
+    fn line_decorations_set_and_clear() {
+        let mut b = make("a\nb\nc\n");
+        let decs = vec![LineDecoration::None, LineDecoration::Added, LineDecoration::Deleted];
+        b.set_line_decorations(decs.clone());
+        assert_eq!(b.line_decorations, decs);
+
+        b.clear_line_decorations();
+        assert!(b.line_decorations.is_empty());
+
+        // A wholesale rebuild also wipes decorations.
+        b.set_line_decorations(decs);
+        b.set_locked_content(b"x\n", Vec::new());
+        assert!(b.line_decorations.is_empty());
+    }
+
+    #[test]
+    fn normalize_newlines_rejected_when_locked() {
+        let mut b = make("a\nb\n");
+        lock_ranges(&mut b, &[0..1]);
+        let before = b.edit_rejected_count();
+        b.normalize_newlines(true);
+        assert_eq!(dump(&mut b), "a\nb\n");
+        assert_eq!(b.edit_rejected_count(), before + 1);
     }
 }
