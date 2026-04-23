@@ -1642,6 +1642,21 @@ impl TextBuffer {
             Some(TextBufferSelection { beg, end }) => minmax(beg, end),
         };
 
+        // Shadow-highlight every other literal occurrence of the selected text.
+        // Only when the selection is non-empty, fits on one logical line, and
+        // contains no newline bytes.
+        let shadow_match = self.selection_range().and_then(|(b, e)| {
+            if b.logical_pos.y != e.logical_pos.y {
+                return None;
+            }
+            let mut needle = Vec::new();
+            self.buffer.extract_raw(b.offset..e.offset, &mut needle, 0);
+            if needle.is_empty() || needle.contains(&b'\n') {
+                return None;
+            }
+            Some((needle, b.offset, e.offset))
+        });
+
         for y in 0..height {
             let scratch = scratch_arena(None);
             let mut line = BString::empty();
@@ -1757,6 +1772,53 @@ impl TextBuffer {
                 let fg = fb.contrasted(bg);
                 fb.blend_bg(rect, bg);
                 fb.blend_fg(rect, fg);
+            }
+
+            // Shadow-highlight matches of the current selection on this visual line.
+            if let Some((needle, sel_beg, sel_end)) = &shadow_match
+                && cursor_beg.visual_pos.y == visual_line
+                && cursor_beg.offset < cursor_end.offset
+            {
+                let line_beg = cursor_beg.offset;
+                let line_end = cursor_end.offset;
+                // Extend the scan window to catch matches that cross the left edge.
+                let scan_beg = line_beg.saturating_sub(needle.len().saturating_sub(1));
+                let mut haystack = Vec::new();
+                self.buffer.extract_raw(scan_beg..line_end, &mut haystack, 0);
+
+                let bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
+                let mut i = 0;
+                while i + needle.len() <= haystack.len() {
+                    if &haystack[i..i + needle.len()] != needle.as_slice() {
+                        i += 1;
+                        continue;
+                    }
+                    let match_beg = scan_beg + i;
+                    let match_end = match_beg + needle.len();
+                    i += 1;
+
+                    // Keep only matches whose visible portion lies on this line.
+                    if match_end <= line_beg || match_beg >= line_end {
+                        continue;
+                    }
+                    // Skip the user's actual selection.
+                    if match_beg == *sel_beg && match_end == *sel_end {
+                        continue;
+                    }
+
+                    let mb =
+                        self.cursor_move_to_offset_internal(cursor_beg, match_beg.max(line_beg));
+                    let me = self.cursor_move_to_offset_internal(mb, match_end.min(line_end));
+                    let left = destination.left + self.margin_width - origin.x;
+                    let top = destination.top + y;
+                    let rect = Rect {
+                        left: left + mb.visual_pos.x,
+                        top,
+                        right: left + me.visual_pos.x,
+                        bottom: top + 1,
+                    };
+                    fb.blend_bg(rect, bg);
+                }
             }
 
             // Nothing to do if the entire line is empty.
