@@ -2059,7 +2059,7 @@ impl<'a> Context<'a, '_> {
         if self.is_focused() {
             self.attr_reverse();
         }
-        self.styled_label_add_text(if *checked { "[🗹 " } else { "[☐ " });
+        self.styled_label_add_text(if *checked { "[x " } else { "[ " });
         self.styled_label_add_text(text);
         self.styled_label_add_text("]");
         self.styled_label_end();
@@ -3279,7 +3279,7 @@ impl<'a> Context<'a, '_> {
             self.styled_label_add_text("[");
         }
         if let Some(checked) = style.checked {
-            self.styled_label_add_text(if checked { "🗹 " } else { "  " });
+            self.styled_label_add_text(if checked { "x " } else { "  " });
         }
         // Label text
         match style.accelerator {
