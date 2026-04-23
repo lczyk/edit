@@ -22,5 +22,5 @@ cargo run -p lsh-bin -- assembly crates/lsh/definitions/git_commit.lsh crates/ls
 
 Or to render a file:
 ```sh
-cargo run -p lsh-bin -- render --input assets/highlighting-tests/html.html crates/lsh/definitions
+cargo run -p lsh-bin -- render --input tests/pty/fixtures/highlighting/html.html crates/lsh/definitions
 ```
