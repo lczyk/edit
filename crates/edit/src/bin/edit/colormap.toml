@@ -1,0 +1,28 @@
+# Base 16 VT palette + default foreground/background.
+# Hex RGB strings, "#rrggbb" or "rrggbb". Alpha implied 0xff.
+#
+# `use_colormap`:
+#   true  -> colors below override terminal's reported palette
+#   false -> terminal's reported palette wins; colors below act as fallback
+
+use_colormap = true
+
+[colors]
+black          = "#000000"
+red            = "#be2c21"
+green          = "#3fae3a"
+yellow         = "#be9a4a"
+blue           = "#204dbe"
+magenta        = "#bb54be"
+cyan           = "#00a7b2"
+white          = "#bebebe"
+bright_black   = "#808080"
+bright_red     = "#ff3e30"
+bright_green   = "#58ea51"
+bright_yellow  = "#ffc944"
+bright_blue    = "#2f6aff"
+bright_magenta = "#fc74ff"
+bright_cyan    = "#00e1f0"
+bright_white   = "#ffffff"
+background     = "#000000"
+foreground     = "#bebebe"

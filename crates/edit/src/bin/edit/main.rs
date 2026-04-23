@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 mod apperr;
+mod colormap;
 #[cfg(debug_assertions)]
 mod devlog;
 mod documents;
@@ -20,7 +21,7 @@ use std::{env, process};
 use draw_editor::*;
 use draw_menubar::*;
 use draw_statusbar::*;
-use edit::framebuffer::{self, IndexedColor};
+use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::input::{self, vk};
 use edit::oklab::StraightRgba;
@@ -74,6 +75,9 @@ fn run() -> apperr::Result<()> {
         state.add_error(err);
     }
     if let Err(err) = keybindings::load_or_create() {
+        state.add_error(err);
+    }
+    if let Err(err) = colormap::load_or_create() {
         state.add_error(err);
     }
 
@@ -206,6 +210,10 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
             #[cfg(debug_assertions)]
             if arg == "--force-reset-config" {
                 if let Err(e) = keybindings::force_reset() {
+                    sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
+                    return Ok(None);
+                }
+                if let Err(e) = colormap::force_reset() {
                     sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
                     return Ok(None);
                 }
@@ -474,7 +482,10 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
 
     let mut done = false;
     let mut osc_buffer = String::new();
-    let mut indexed_colors = framebuffer::DEFAULT_THEME;
+    let (mut indexed_colors, force_colormap) = {
+        let cm = colormap::borrow();
+        (cm.palette, cm.use_colormap)
+    };
     let mut color_responses = 0;
     let mut ambiguous_width = 1;
 
@@ -558,7 +569,10 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
         state.document.buffer.borrow_mut().reflow();
     }
 
-    if color_responses == indexed_colors.len() {
+    if force_colormap {
+        // colormap.toml wins — ignore terminal responses.
+        tui.setup_indexed_colors(colormap::borrow().palette);
+    } else if color_responses == indexed_colors.len() {
         tui.setup_indexed_colors(indexed_colors);
     }
 
