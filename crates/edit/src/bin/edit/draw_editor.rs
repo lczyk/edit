@@ -49,7 +49,15 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
 
         // If the selection is empty, focus the search input field.
         // Otherwise, focus the replace input field, if it exists.
-        if let Some(selection) = doc.buffer.borrow_mut().extract_user_selection(false) {
+        // Only prefill from a single-line selection; multi-line selections are
+        // almost never useful as search needles.
+        let mut buf = doc.buffer.borrow_mut();
+        let single_line = buf
+            .selection_range()
+            .is_some_and(|(b, e)| b.logical_pos.y == e.logical_pos.y);
+        if single_line
+            && let Some(selection) = buf.extract_user_selection(false)
+        {
             state.search_needle = string_from_utf8_lossy_owned(selection);
             focus = state.wants_search.kind;
         }
