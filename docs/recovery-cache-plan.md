@@ -41,11 +41,12 @@ discard them.
   yet).
 - Atomic write: write to `<key>.swap.tmp`, fsync, rename. Avoids partial files
   if killed mid-flush.
-- Format: one-line JSON header + `\n` + raw buffer bytes.
+- Format: one-line JSON header + `\n` + editable bytes.
   Header records: `path`, `file_id` (dev/ino), `mtime_ns`, `size`,
-  `encoding`, `cursor: [x, y]`. Body is the buffer as UTF-8 (we always
-  re-encode on save, so storing UTF-8 is fine even if the original file was
-  another encoding — header preserves the original).
+  `encoding`, `cursor: [x, y]`. Body is the buffer's *editable* content as
+  UTF-8 — see the diff-mode note below. We always re-encode on save, so
+  storing UTF-8 is fine even if the original file was another encoding;
+  the header preserves the original encoding.
 
 ## Lifecycle
 
@@ -71,7 +72,8 @@ discard them.
   - `pub fn delete(key: &SwapKey) -> io::Result<()>`
   - `pub fn prune_stale(max_age: Duration)`
 - `TextBuffer::save_to_bytes(&mut self) -> Vec<u8>` — dump buffer for the swap
-  body (or reuse `write_file` against a `Cursor<Vec<u8>>`).
+  body (or reuse `write_file` against a `Cursor<Vec<u8>>`). In diff mode this
+  must return the editable content — see below.
 - `Document` gains `swap_key: Option<SwapKey>`.
 - `State` gains `wants_swap_restore: Option<SwapEntry>`,
   `last_swap_write_generation: u32`, `last_swap_write_time: Instant`.
@@ -125,3 +127,34 @@ is shown — so a SIGINT inside the modal still leaves a fresh swap.
 - Concurrent-edit lock (vim-style `.swp` lock file refusing a second open).
 - Per-edit incremental swap (full-buffer rewrite is fine for this editor's scale).
 - Cross-machine swap portability.
+
+## Interaction with diff mode
+
+See [diff-viewer.md](diff-viewer.md). Diff mode replaces the buffer with a view
+that interleaves the editable file with baseline-deleted stripes, and installs
+those stripes as `TextBuffer` locked ranges. A naive "dump the buffer" flush
+would persist the stripes — wrong.
+
+Rules:
+
+- **Flush body is editable content, not raw buffer.** At flush time, if
+  `buf.locked_ranges().is_empty()` dump the buffer as usual; otherwise dump
+  `diff_mode::extract_real(&buf)`, which concatenates everything outside the
+  locked ranges. The same rule applies to `TextBuffer::save_to_bytes`.
+- **Cursor header is real-content coords.** In diff mode, translate the
+  cursor's view offset through `diff_mode::view_to_real_off` before writing
+  the `cursor` field. On restore the file reloads as plain editable text;
+  the user re-enters diff mode manually if they want it.
+- **Swap does not persist diff-mode state.** No baseline, no locked ranges,
+  no decorations. Diff mode is a view over whatever real bytes are live; on
+  restore, the user can toggle it back on and it re-reads the baseline from
+  git.
+- **Redundant flushes from rediff.** A rediff rebuilds the view buffer via
+  `refresh_view_content`, which bumps `buffer.generation()` even though the
+  editable bytes are unchanged. The standard flush check (`generation !=
+  last_swap_write_generation`) will fire one extra write per rediff. Cost is
+  one `extract_real` walk — cheap at the 5 MB size cap. If this matters,
+  track a separate "user-edit generation" that rediff leaves alone.
+- **Save path is already correct.** `Document::save` writes
+  `diff_mode::extract_real` when diff mode is active, so swap eviction on
+  successful save needs no diff-mode awareness.
