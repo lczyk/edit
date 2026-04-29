@@ -2,3 +2,4 @@ target
 *.log
 
 __pycache__/
+cover.out
