@@ -369,3 +369,323 @@ impl ReadableDocument for GapBuffer {
         unsafe { slice::from_raw_parts(self.text.add(beg).as_ptr(), len) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn collect(b: &GapBuffer) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut off = 0;
+        while off < b.len() {
+            let chunk = b.read_forward(off);
+            assert!(!chunk.is_empty(), "read_forward must not return empty before end");
+            out.extend_from_slice(chunk);
+            off += chunk.len();
+        }
+        out
+    }
+
+    fn collect_backward(b: &GapBuffer) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut off = b.len();
+        while off > 0 {
+            let chunk = b.read_backward(off);
+            assert!(!chunk.is_empty(), "read_backward must not return empty before start");
+            // Prepend (chunks come in reverse order).
+            let mut chunk_owned = chunk.to_vec();
+            chunk_owned.extend_from_slice(&out);
+            out = chunk_owned;
+            off -= chunk.len();
+        }
+        out
+    }
+
+    #[test]
+    fn new_small_is_empty() {
+        let b = GapBuffer::new(true).unwrap();
+        assert_eq!(b.len(), 0);
+        assert_eq!(b.generation(), 0);
+        assert_eq!(collect(&b), b"");
+    }
+
+    #[test]
+    fn new_large_is_empty() {
+        let b = GapBuffer::new(false).unwrap();
+        assert_eq!(b.len(), 0);
+        assert_eq!(collect(&b), b"");
+    }
+
+    #[test]
+    fn replace_inserts_at_start() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"hello");
+        assert_eq!(b.len(), 5);
+        assert_eq!(collect(&b), b"hello");
+    }
+
+    #[test]
+    fn replace_appends_at_end() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"hello");
+        b.replace(5..5, b" world");
+        assert_eq!(collect(&b), b"hello world");
+    }
+
+    #[test]
+    fn replace_inserts_in_middle() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"helloworld");
+        b.replace(5..5, b", ");
+        assert_eq!(collect(&b), b"hello, world");
+    }
+
+    #[test]
+    fn replace_deletes_range() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        b.replace(2..4, b"");
+        assert_eq!(collect(&b), b"abef");
+    }
+
+    #[test]
+    fn replace_substitutes_range() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        b.replace(2..4, b"XY");
+        assert_eq!(collect(&b), b"abXYef");
+    }
+
+    #[test]
+    fn replace_substitutes_with_longer() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        b.replace(2..4, b"WXYZ");
+        assert_eq!(collect(&b), b"abWXYZef");
+    }
+
+    #[test]
+    fn replace_substitutes_with_shorter() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdefghij");
+        b.replace(2..8, b"X");
+        assert_eq!(collect(&b), b"abXij");
+    }
+
+    #[test]
+    fn replace_out_of_bounds_clamped() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abc");
+        // Range past end should clamp.
+        b.replace(2..1000, b"");
+        assert_eq!(collect(&b), b"ab");
+    }
+
+    #[test]
+    fn replace_start_past_end_appends() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abc");
+        b.replace(1000..1000, b"X");
+        assert_eq!(collect(&b), b"abcX");
+    }
+
+    #[test]
+    fn clear_empties_buffer() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"hello");
+        b.clear();
+        assert_eq!(b.len(), 0);
+        assert_eq!(collect(&b), b"");
+    }
+
+    #[test]
+    fn clear_then_insert_works() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"hello");
+        b.clear();
+        b.replace(0..0, b"world");
+        assert_eq!(collect(&b), b"world");
+    }
+
+    #[test]
+    fn generation_changes_on_mutation() {
+        let mut b = GapBuffer::new(true).unwrap();
+        let g0 = b.generation();
+        b.replace(0..0, b"abc");
+        let g1 = b.generation();
+        assert_ne!(g0, g1, "replace should bump generation");
+        b.clear();
+        let g2 = b.generation();
+        assert_ne!(g1, g2, "clear should bump generation");
+    }
+
+    #[test]
+    fn set_generation_roundtrips() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.set_generation(42);
+        assert_eq!(b.generation(), 42);
+    }
+
+    #[test]
+    fn copy_from_fills_buffer() {
+        let mut b = GapBuffer::new(true).unwrap();
+        let src: &[u8] = b"the quick brown fox";
+        let changed = b.copy_from(&src);
+        assert!(changed);
+        assert_eq!(collect(&b), src);
+    }
+
+    #[test]
+    fn copy_from_identical_returns_false() {
+        let mut b = GapBuffer::new(true).unwrap();
+        let src: &[u8] = b"hello world";
+        b.copy_from(&src);
+        let changed = b.copy_from(&src);
+        assert!(!changed, "copying identical content should report no change");
+        assert_eq!(collect(&b), src);
+    }
+
+    #[test]
+    fn copy_from_different_returns_true() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.copy_from(&(b"hello".as_ref()));
+        let changed = b.copy_from(&(b"world".as_ref()));
+        assert!(changed);
+        assert_eq!(collect(&b), b"world");
+    }
+
+    #[test]
+    fn copy_from_to_empty() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.copy_from(&(b"non-empty".as_ref()));
+        let empty: &[u8] = b"";
+        let changed = b.copy_from(&empty);
+        assert!(changed);
+        assert_eq!(b.len(), 0);
+        assert_eq!(collect(&b), b"");
+    }
+
+    #[test]
+    fn copy_into_string() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"hello, world");
+        let mut dst = String::new();
+        b.copy_into(&mut dst);
+        assert_eq!(dst, "hello, world");
+    }
+
+    #[test]
+    fn copy_into_overwrites_destination() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"new");
+        let mut dst = String::from("preexisting content");
+        b.copy_into(&mut dst);
+        assert_eq!(dst, "new");
+    }
+
+    #[test]
+    fn extract_raw_full_range() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        let mut out = Vec::new();
+        b.extract_raw(0..b.len(), &mut out, 0);
+        assert_eq!(out, b"abcdef");
+    }
+
+    #[test]
+    fn extract_raw_partial_range() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        let mut out = Vec::new();
+        b.extract_raw(2..5, &mut out, 0);
+        assert_eq!(out, b"cde");
+    }
+
+    #[test]
+    fn extract_raw_empty_range() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        let mut out = Vec::new();
+        b.extract_raw(3..3, &mut out, 0);
+        assert_eq!(out, b"");
+    }
+
+    #[test]
+    fn extract_raw_clamps_oob() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abc");
+        let mut out = Vec::new();
+        b.extract_raw(1..1000, &mut out, 0);
+        assert_eq!(out, b"bc");
+    }
+
+    #[test]
+    fn extract_raw_inserts_at_offset() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdef");
+        let mut out = b"___".to_vec();
+        b.extract_raw(0..3, &mut out, 1);
+        // Insert "abc" at index 1 of "___" -> "_abc__"
+        assert_eq!(out, b"_abc__");
+    }
+
+    #[test]
+    fn read_backward_concatenates_to_content() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"hello, world");
+        // Force a gap by inserting in the middle.
+        b.replace(5..5, b"XYZ");
+        let expected = b"helloXYZ, world".to_vec();
+        assert_eq!(collect(&b), expected);
+        assert_eq!(collect_backward(&b), expected);
+    }
+
+    #[test]
+    fn read_forward_past_end_returns_empty() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abc");
+        let chunk = b.read_forward(b.len());
+        assert!(chunk.is_empty());
+        let chunk = b.read_forward(b.len() + 100);
+        assert!(chunk.is_empty());
+    }
+
+    #[test]
+    fn read_backward_at_zero_returns_empty() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abc");
+        let chunk = b.read_backward(0);
+        assert!(chunk.is_empty());
+    }
+
+    #[test]
+    fn many_small_inserts() {
+        let mut b = GapBuffer::new(true).unwrap();
+        let mut model = Vec::new();
+        for i in 0..256u32 {
+            let byte = (i & 0xff) as u8;
+            let off = i as usize % (model.len() + 1);
+            b.replace(off..off, &[byte]);
+            model.insert(off, byte);
+        }
+        assert_eq!(collect(&b), model);
+    }
+
+    #[test]
+    fn large_insert_grows_buffer() {
+        let mut b = GapBuffer::new(true).unwrap();
+        let payload = vec![b'A'; 10_000];
+        b.replace(0..0, &payload);
+        assert_eq!(b.len(), 10_000);
+        assert_eq!(collect(&b), payload);
+    }
+
+    #[test]
+    fn insert_then_delete_then_insert_roundtrip() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.replace(0..0, b"abcdefghij");
+        b.replace(3..7, b""); // remove "defg" -> "abchij"
+        b.replace(3..3, b"XYZ"); // insert at 3 -> "abcXYZhij"
+        assert_eq!(collect(&b), b"abcXYZhij");
+    }
+}

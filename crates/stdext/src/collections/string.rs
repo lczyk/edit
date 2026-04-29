@@ -271,6 +271,242 @@ impl Default for BString<'_> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::arena::scratch_arena;
+
+    #[test]
+    fn empty() {
+        let s = BString::empty();
+        assert_eq!(s.len(), 0);
+        assert!(s.is_empty());
+        assert_eq!(s.as_str(), "");
+    }
+
+    #[test]
+    fn default_is_empty() {
+        let s = BString::default();
+        assert_eq!(s.as_str(), "");
+    }
+
+    #[test]
+    fn from_str_roundtrip() {
+        let scratch = scratch_arena(None);
+        let s = BString::from_str(&*scratch, "hello");
+        assert_eq!(s.as_str(), "hello");
+        assert_eq!(s.len(), 5);
+        assert!(!s.is_empty());
+    }
+
+    #[test]
+    fn from_str_empty() {
+        let scratch = scratch_arena(None);
+        let s = BString::from_str(&*scratch, "");
+        assert_eq!(s.as_str(), "");
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn from_str_unicode() {
+        let scratch = scratch_arena(None);
+        let s = BString::from_str(&*scratch, "héllo 💀");
+        assert_eq!(s.as_str(), "héllo 💀");
+    }
+
+    #[test]
+    fn push_appends_char() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::empty();
+        s.push(&*scratch, 'a');
+        s.push(&*scratch, 'b');
+        s.push(&*scratch, 'c');
+        assert_eq!(s.as_str(), "abc");
+    }
+
+    #[test]
+    fn push_unicode_char() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::empty();
+        s.push(&*scratch, '💀');
+        assert_eq!(s.as_str(), "💀");
+        assert_eq!(s.len(), 4); // UTF-8 length
+    }
+
+    #[test]
+    fn push_str_appends() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "hello");
+        s.push_str(&*scratch, ", world");
+        assert_eq!(s.as_str(), "hello, world");
+    }
+
+    #[test]
+    fn push_repeat_appends_n_copies() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::empty();
+        s.push_repeat(&*scratch, 'x', 5);
+        assert_eq!(s.as_str(), "xxxxx");
+    }
+
+    #[test]
+    fn push_repeat_zero_is_noop() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "abc");
+        s.push_repeat(&*scratch, 'x', 0);
+        assert_eq!(s.as_str(), "abc");
+    }
+
+    #[test]
+    fn push_repeat_unicode() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::empty();
+        s.push_repeat(&*scratch, '💀', 3);
+        assert_eq!(s.as_str(), "💀💀💀");
+    }
+
+    #[test]
+    fn clear_empties() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "abc");
+        s.clear();
+        assert_eq!(s.as_str(), "");
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn capacity_at_least_len() {
+        let scratch = scratch_arena(None);
+        let s = BString::from_str(&*scratch, "hello");
+        assert!(s.capacity() >= s.len());
+    }
+
+    #[test]
+    fn equality_with_str() {
+        let scratch = scratch_arena(None);
+        let s = BString::from_str(&*scratch, "hello");
+        assert_eq!(s, "hello");
+        assert_ne!(s, "world");
+    }
+
+    #[test]
+    fn equality_with_other_bstring() {
+        let scratch = scratch_arena(None);
+        let a = BString::from_str(&*scratch, "hello");
+        let b = BString::from_str(&*scratch, "hello");
+        let c = BString::from_str(&*scratch, "world");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn ordering() {
+        let scratch = scratch_arena(None);
+        let a = BString::from_str(&*scratch, "abc");
+        let b = BString::from_str(&*scratch, "abd");
+        assert!(a < b);
+        assert!(b > a);
+    }
+
+    #[test]
+    fn replace_range_substitutes() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "hello world");
+        s.replace_range(&*scratch, 6..11, "Rust!");
+        assert_eq!(s.as_str(), "hello Rust!");
+    }
+
+    #[test]
+    fn replace_range_insert() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "abcdef");
+        s.replace_range(&*scratch, 3..3, "X");
+        assert_eq!(s.as_str(), "abcXdef");
+    }
+
+    #[test]
+    fn replace_range_delete() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "abcdef");
+        s.replace_range(&*scratch, 1..4, "");
+        assert_eq!(s.as_str(), "aef");
+    }
+
+    #[test]
+    fn replace_once_in_place_replaces_first() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "foo bar foo");
+        s.replace_once_in_place(&*scratch, "foo", "baz");
+        assert_eq!(s.as_str(), "baz bar foo");
+    }
+
+    #[test]
+    fn replace_once_missing_is_noop() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "hello");
+        s.replace_once_in_place(&*scratch, "xyz", "abc");
+        assert_eq!(s.as_str(), "hello");
+    }
+
+    #[test]
+    fn replace_once_with_longer() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "abc");
+        s.replace_once_in_place(&*scratch, "b", "BBBB");
+        assert_eq!(s.as_str(), "aBBBBc");
+    }
+
+    #[test]
+    fn from_utf16_lossy_ascii() {
+        let scratch = scratch_arena(None);
+        let utf16: Vec<u16> = "hello".encode_utf16().collect();
+        let s = BString::from_utf16_lossy(&*scratch, &utf16);
+        assert_eq!(s.as_str(), "hello");
+    }
+
+    #[test]
+    fn from_utf16_lossy_unicode() {
+        let scratch = scratch_arena(None);
+        let utf16: Vec<u16> = "héllo 💀".encode_utf16().collect();
+        let s = BString::from_utf16_lossy(&*scratch, &utf16);
+        assert_eq!(s.as_str(), "héllo 💀");
+    }
+
+    #[test]
+    fn push_utf16_lossy_appends() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::from_str(&*scratch, "abc");
+        let utf16: Vec<u16> = "def".encode_utf16().collect();
+        s.push_utf16_lossy(&*scratch, &utf16);
+        assert_eq!(s.as_str(), "abcdef");
+    }
+
+    #[test]
+    fn from_std_string_roundtrip() {
+        let s = BString::from_std_string("hello".into());
+        assert_eq!(s.as_str(), "hello");
+        let back = s.into_std_string();
+        assert_eq!(back, "hello");
+    }
+
+    #[test]
+    fn extend_appends_chars() {
+        let scratch = scratch_arena(None);
+        let mut s = BString::empty();
+        s.extend(&*scratch, ['a', 'b', 'c']);
+        assert_eq!(s.as_str(), "abc");
+    }
+
+    #[test]
+    fn deref_to_str() {
+        let scratch = scratch_arena(None);
+        let s = BString::from_str(&*scratch, "hello");
+        // Deref to &str — call str method directly.
+        assert!(s.contains("ell"));
+        assert_eq!(s.to_uppercase(), "HELLO");
+    }
+}
+
 impl Deref for BString<'_> {
     type Target = str;
 

@@ -650,3 +650,269 @@ impl<'a, T> ExactSizeIterator for IntoIter<'a, T> {
 }
 
 impl<'a, T> FusedIterator for IntoIter<'a, T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::arena::scratch_arena;
+
+    #[test]
+    fn empty() {
+        let v: BVec<u32> = BVec::empty();
+        assert_eq!(v.len(), 0);
+        assert!(v.is_empty());
+        assert_eq!(v.capacity(), 0);
+        assert_eq!(v.as_slice(), &[] as &[u32]);
+    }
+
+    #[test]
+    fn default_is_empty() {
+        let v: BVec<u32> = BVec::default();
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn push_appends() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.push(&*scratch, 1);
+        v.push(&*scratch, 2);
+        v.push(&*scratch, 3);
+        assert_eq!(v.as_slice(), &[1, 2, 3]);
+        assert_eq!(v.len(), 3);
+    }
+
+    #[test]
+    fn push_returns_mut_ref_to_pushed() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        let r = v.push(&*scratch, 42);
+        assert_eq!(*r, 42);
+        *r = 99;
+        assert_eq!(v.as_slice(), &[99]);
+    }
+
+    #[test]
+    fn pop_returns_last() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.push(&*scratch, 1);
+        v.push(&*scratch, 2);
+        v.push(&*scratch, 3);
+        assert_eq!(v.pop(), Some(3));
+        assert_eq!(v.pop(), Some(2));
+        assert_eq!(v.pop(), Some(1));
+        assert_eq!(v.pop(), None);
+    }
+
+    #[test]
+    fn pop_empty_is_none() {
+        let mut v: BVec<u32> = BVec::empty();
+        assert_eq!(v.pop(), None);
+    }
+
+    #[test]
+    fn truncate_shrinks() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3, 4, 5]);
+        v.truncate(3);
+        assert_eq!(v.as_slice(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn truncate_to_larger_is_noop() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        v.truncate(100);
+        assert_eq!(v.as_slice(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn truncate_zero_clears() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        v.truncate(0);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn clear_empties() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        v.clear();
+        assert!(v.is_empty());
+        assert_eq!(v.as_slice(), &[] as &[u32]);
+    }
+
+    #[test]
+    fn extend_from_slice_appends() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        v.extend_from_slice(&*scratch, &[4, 5]);
+        assert_eq!(v.as_slice(), &[1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn push_repeat_appends_n_copies() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.push_repeat(&*scratch, 7, 5);
+        assert_eq!(v.as_slice(), &[7, 7, 7, 7, 7]);
+    }
+
+    #[test]
+    fn push_repeat_zero_is_noop() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.push(&*scratch, 1);
+        v.push_repeat(&*scratch, 7, 0);
+        assert_eq!(v.as_slice(), &[1]);
+    }
+
+    #[test]
+    fn extend_from_within_duplicates_range() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3, 4]);
+        v.extend_from_within(&*scratch, 1..3);
+        assert_eq!(v.as_slice(), &[1, 2, 3, 4, 2, 3]);
+    }
+
+    #[test]
+    fn replace_range_substitutes() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3, 4, 5]);
+        v.replace_range(&*scratch, 1..4, &[8, 9]);
+        assert_eq!(v.as_slice(), &[1, 8, 9, 5]);
+    }
+
+    #[test]
+    fn replace_range_insert() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        v.replace_range(&*scratch, 1..1, &[8, 9]);
+        assert_eq!(v.as_slice(), &[1, 8, 9, 2, 3]);
+    }
+
+    #[test]
+    fn replace_range_delete() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3, 4, 5]);
+        v.replace_range(&*scratch, 1..4, &[]);
+        assert_eq!(v.as_slice(), &[1, 5]);
+    }
+
+    #[test]
+    fn iter_via_deref() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        let sum: u32 = v.iter().sum();
+        assert_eq!(sum, 6);
+    }
+
+    #[test]
+    fn into_iterator() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        let collected: Vec<u32> = v.into_iter().collect();
+        assert_eq!(collected, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn into_iter_double_ended() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        let collected: Vec<u32> = v.into_iter().rev().collect();
+        assert_eq!(collected, vec![3, 2, 1]);
+    }
+
+    #[test]
+    fn equality_with_self() {
+        let scratch = scratch_arena(None);
+        let mut a: BVec<u32> = BVec::empty();
+        let mut b: BVec<u32> = BVec::empty();
+        a.extend_from_slice(&*scratch, &[1, 2, 3]);
+        b.extend_from_slice(&*scratch, &[1, 2, 3]);
+        assert_eq!(a, b);
+        b.push(&*scratch, 4);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn equality_with_slice() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        assert!(*v == [1u32, 2, 3][..]);
+    }
+
+    #[test]
+    fn ordering_lex() {
+        let scratch = scratch_arena(None);
+        let mut a: BVec<u32> = BVec::empty();
+        let mut b: BVec<u32> = BVec::empty();
+        a.extend_from_slice(&*scratch, &[1, 2, 3]);
+        b.extend_from_slice(&*scratch, &[1, 2, 4]);
+        assert!(a < b);
+    }
+
+    #[test]
+    fn from_std_vec_roundtrip() {
+        let v: BVec<u32> = BVec::from_std_vec(vec![1, 2, 3]);
+        assert_eq!(v.as_slice(), &[1, 2, 3]);
+        let back = v.into_std_vec();
+        assert_eq!(back, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn capacity_grows_with_push() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        for i in 0..1000u32 {
+            v.push(&*scratch, i);
+        }
+        assert_eq!(v.len(), 1000);
+        assert!(v.capacity() >= 1000);
+        for i in 0..1000u32 {
+            assert_eq!(v[i as usize], i);
+        }
+    }
+
+    #[test]
+    fn as_mut_slice_writes_visible() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u32> = BVec::empty();
+        v.extend_from_slice(&*scratch, &[1, 2, 3]);
+        v.as_mut_slice()[1] = 99;
+        assert_eq!(v.as_slice(), &[1, 99, 3]);
+    }
+
+    #[test]
+    fn push_encode_utf16_ascii() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u16> = BVec::empty();
+        v.push_encode_utf16(&*scratch, b"hello");
+        let s = String::from_utf16(v.as_slice()).unwrap();
+        assert_eq!(s, "hello");
+    }
+
+    #[test]
+    fn push_encode_utf16_unicode() {
+        let scratch = scratch_arena(None);
+        let mut v: BVec<u16> = BVec::empty();
+        v.push_encode_utf16(&*scratch, "héllo 💀".as_bytes());
+        let s = String::from_utf16(v.as_slice()).unwrap();
+        assert_eq!(s, "héllo 💀");
+    }
+}
