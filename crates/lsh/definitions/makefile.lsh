@@ -1,0 +1,60 @@
+#[display_name = "Makefile"]
+#[path = "**/Makefile"]
+#[path = "**/makefile"]
+#[path = "**/GNUmakefile"]
+#[path = "**/*.mk"]
+#[path = "**/*.make"]
+pub fn makefile() {
+    if /#.*/ {
+        yield comment;
+        return;
+    }
+
+    if /(?:-|s)?include\>/ {
+        yield keyword.control;
+    } else if /(?:ifdef|ifndef|ifeq|ifneq|else|endif|define|endef|override|export|unexport|vpath|undefine|private)\>/ {
+        yield keyword.control;
+    } else if /([A-Za-z_][\w.-]*)\s*(?:::?=|\?=|\+=|=)/ {
+        yield $1 as variable;
+    } else if /([^:#=\s][^:#=]*):/ {
+        yield $1 as method;
+    }
+
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /'/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /'/ { yield string; break; }
+                await input;
+            }
+        } else if /\$[@<?^+*|%]/ {
+            yield variable;
+        } else if /\$\([A-Za-z_][\w.-]*\)/ {
+            yield variable;
+        } else if /\$\{[A-Za-z_][\w.-]*\}/ {
+            yield variable;
+        } else if /\$\((?:abspath|addprefix|addsuffix|and|basename|call|dir|error|eval|file|filter-out|filter|findstring|firstword|flavor|foreach|guile|if|info|join|lastword|notdir|or|origin|patsubst|realpath|shell|sort|strip|subst|suffix|value|warning|wildcard|word|wordlist|words)\>/ {
+            yield keyword.other;
+        } else if /\$[\(\{]/ {
+            yield variable;
+        } else if /(?:0x[\da-fA-F]+|\d+)\>/ {
+            yield constant.numeric;
+        } else if /\w+/ {
+            // Gobble word chars to align next iteration on word boundary.
+        }
+
+        yield other;
+    }
+}
