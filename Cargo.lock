@@ -128,6 +128,7 @@ dependencies = [
  "lsh",
  "stdext",
  "toml-span",
+ "version",
 ]
 
 [[package]]
@@ -380,6 +381,11 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "version"
+version = "0.1.0"
+source = "git+https://github.com/lczyk/version?tag=rust%2Fv0.5.0#ca0bdafe821ee134d5c73da9b6a6c49368f28b20"
 
 [[package]]
 name = "wasm-bindgen"

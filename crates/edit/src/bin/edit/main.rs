@@ -257,13 +257,7 @@ fn print_help() {
 }
 
 fn print_version() {
-    sys::write_stdout(&format!(
-        "edit {}+{} ({}, {})\n",
-        env!("CARGO_PKG_VERSION"),
-        env!("EDIT_GIT_SHA"),
-        env!("EDIT_BUILD_DATE"),
-        env!("EDIT_GIT_STATUS"),
-    ));
+    sys::write_stdout(&format!("edit {}\n", version::version!()));
 }
 
 fn draw(ctx: &mut Context, state: &mut State) {
