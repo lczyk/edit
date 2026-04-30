@@ -1,0 +1,15 @@
+// LSH definition example
+#[display_name = "Demo"]
+#[line_comment = "#"]
+#[path = "**/*.demo"]
+pub fn demo() {
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /\d+/ {
+            yield constant.numeric;
+        }
+    }
+}

@@ -1,0 +1,13 @@
+# Build artefacts
+target/
+*.o
+*.so
+
+# Editor scratch
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+!important.log
