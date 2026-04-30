@@ -2516,26 +2516,28 @@ impl TextBuffer {
             }
         };
 
-        // Pass 1: walk the line range, decide direction + min indent. Don't
-        // mutate yet -- just measure.
+        // Pass 1: walk the line range, decide direction + min indent _column_
+        // (tab-aware visible column, mirroring vscode `_normalizeInsertionPoint`).
+        // Don't mutate yet -- just measure.
         let mut any_non_blank = false;
         let mut all_commented = true;
-        let mut min_indent_chars = CoordType::MAX;
+        let mut min_indent_cols = CoordType::MAX;
         for y in sel_beg_y..=sel_end_y {
             self.cursor_move_to_logical(Point { x: 0, y });
             if self.cursor.logical_pos.y != y {
                 break;
             }
             let line_start = self.cursor.offset;
-            let (indent_chars, _) = self.measure_indent_internal(line_start, CoordType::MAX);
+            let (indent_chars, indent_cols) =
+                self.measure_indent_internal(line_start, CoordType::MAX);
             self.cursor_move_to_logical(Point { x: indent_chars, y });
             let off = self.cursor.offset;
             if line_is_blank_after(self.read_forward(off)) {
                 continue;
             }
             any_non_blank = true;
-            if indent_chars < min_indent_chars {
-                min_indent_chars = indent_chars;
+            if indent_cols < min_indent_cols {
+                min_indent_cols = indent_cols;
             }
             if !self.starts_with_at(off, token_bytes) {
                 all_commented = false;
@@ -2544,6 +2546,9 @@ impl TextBuffer {
         if !any_non_blank {
             return;
         }
+        // Floor to the indent grid so insertion lands on a tab boundary even
+        // for files with mixed tab+space leading whitespace.
+        let insert_cols = min_indent_cols / self.tab_size * self.tab_size;
 
         // Clear the selection while we mutate so `write_canon`/`delete` don't
         // try to delete the whole selected range. Restored (with shifted xs)
@@ -2575,7 +2580,11 @@ impl TextBuffer {
                     delta = -token_chars;
                 }
             } else {
-                self.cursor_move_to_logical(Point { x: min_indent_chars, y });
+                // Per-line char offset that lands at `insert_cols` visible col.
+                // `measure_indent_internal` stops before any tab that would
+                // straddle the boundary, matching vscode's back-off branch.
+                let (insert_chars, _) = self.measure_indent_internal(line_start, insert_cols);
+                self.cursor_move_to_logical(Point { x: insert_chars, y });
                 let mut buf = Vec::with_capacity(token_bytes.len() + 1);
                 buf.extend_from_slice(token_bytes);
                 buf.push(b' ');
@@ -3483,13 +3492,45 @@ mod tests {
 
     #[test]
     fn toggle_line_comment_multi_line_aligns_min_indent() {
-        // vscode `editor.action.commentLine`: token is inserted at the column
-        // of the least-indented non-blank line, so deeper-indented lines keep
-        // their extra leading whitespace _after_ the token.
+        // vscode `editor.action.commentLine`: token inserted at min indent
+        // visible column, floored to the indent grid (default tab_size=4).
+        // min(4, 8, 12) = 4; floored = 4. Deeper-indented lines keep extras.
+        let mut tb = buf_with("    a\n        b\n            c\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "    // a\n    //     b\n    //         c\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_floors_to_indent_grid() {
+        // min indent = 2 cols, tab_size=4 -> floor to col 0. Matches vscode.
         let mut tb = buf_with("    a\n  b\n      c\n");
         select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
         tb.toggle_line_comment("//");
-        assert_eq!(dump(&tb), "  //   a\n  // b\n  //     c\n");
+        assert_eq!(dump(&tb), "//     a\n//   b\n//       c\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_mixed_tab_space_aligns_visible_column() {
+        // Line 0: tab (vis col 4). Line 1: 4 spaces (vis col 4).
+        // min visible col = 4, floored to 4. Both insert at vis col 4.
+        let mut tb = buf_with("\tfoo\n    bar\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "\t// foo\n    // bar\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_tab_straddling_boundary_backs_off() {
+        // Line 0: 2 spaces + tab (tab snaps to col 4 -> vis col 4).
+        // Line 1: 3 spaces (vis col 3).
+        // min = 3, floored = 0. Line 0 insertion stops _before_ the tab:
+        // measure_indent_internal won't advance through the tab if doing so
+        // would overshoot 0. With max_columns=0 both lines insert at offset 0.
+        let mut tb = buf_with("  \tfoo\n   bar\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "//   \tfoo\n//    bar\n");
     }
 
     #[test]

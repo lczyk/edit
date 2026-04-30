@@ -75,6 +75,7 @@ pub fn path() -> Option<PathBuf> {
 
 /// Wipe and rewrite `colormap.toml` from [`DEFAULT_TOML`]. Called by
 /// `--force-reset-config`.
+#[cfg(debug_assertions)]
 pub fn force_reset() -> apperr::Result<()> {
     let Some(dir) = settings::config_dir() else { return Ok(()) };
     let p = dir.join("colormap.toml");
@@ -127,7 +128,7 @@ fn parse_toml(text: &str) -> Result<([StraightRgba; INDEXED_COLORS_COUNT], bool)
                 return Err(format!("{}: unknown color key", k.name));
             };
             let s = v.as_str().ok_or_else(|| format!("{}: not a string", k.name))?;
-            let rgba = parse_hex(&s).ok_or_else(|| format!("{}: invalid hex {:?}", k.name, s))?;
+            let rgba = parse_hex(s).ok_or_else(|| format!("{}: invalid hex {:?}", k.name, s))?;
             palette[idx as usize] = rgba;
         }
     }

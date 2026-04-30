@@ -1,0 +1,11 @@
+[package]
+name = "polyflag"
+version = "0.0.0"
+description = "Repeatable comma-separated set-style cli flags with `-` prefix removal."
+readme = "README.md"
+
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]

@@ -14,9 +14,14 @@ mod settings;
 mod state;
 
 use std::borrow::Cow;
+use std::collections::HashSet;
+#[cfg(debug_assertions)]
 use std::path::Path;
 use std::time::Duration;
 use std::{env, process};
+
+/// Opt-in toggles for non-default behaviour. Parsed from `--quirks=a,b,c`.
+const KNOWN_QUIRKS: &[&str] = &["weird-filenames"];
 
 use draw_editor::*;
 use draw_menubar::*;
@@ -185,6 +190,7 @@ fn run() -> apperr::Result<()> {
 fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     let mut path: Option<std::path::PathBuf> = None;
     let mut accept_flags = true;
+    let mut quirks: HashSet<&'static str> = HashSet::new();
 
     for arg in env::args_os().skip(1) {
         if accept_flags {
@@ -199,6 +205,17 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
             if arg == "-v" || arg == "--version" {
                 print_version();
                 return Ok(None);
+            }
+            if let Some(list) = arg.to_str().and_then(|s| s.strip_prefix("--quirks=")) {
+                if let Err(e) = polyflag::apply(list, KNOWN_QUIRKS, &mut quirks) {
+                    sys::write_stdout(&format!(
+                        "edit: unknown quirk {:?}\nknown quirks: {}\n",
+                        e.0,
+                        KNOWN_QUIRKS.join(", ")
+                    ));
+                    return Ok(None);
+                }
+                continue;
             }
             #[cfg(debug_assertions)]
             if let Some(p) = arg.to_str().and_then(|s| s.strip_prefix("--logfile=")) {
@@ -220,6 +237,18 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 sys::write_stdout("config reset\n");
                 continue;
             }
+
+            // Unknown flag: anything starting with `-` that survived the
+            // checks above. Refuse rather than silently treating it as a
+            // path. Use `--` to open files whose names start with `-`.
+            if arg.to_str().is_some_and(|s| s.starts_with('-') && s != "-") {
+                let arg = arg.to_string_lossy();
+                sys::write_stdout(&format!(
+                    "edit: unknown option {arg:?}\n\
+                     try 'edit --help', or 'edit -- {arg}' to open a file with that name\n"
+                ));
+                return Ok(None);
+            }
         }
 
         if path.is_some() {
@@ -230,7 +259,22 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     }
 
     match path {
-        Some(p) => Ok(Some(p)),
+        Some(p) => {
+            // Refuse to create a new file whose name starts with `-`. These
+            // get mistaken for cli flags by the next tool (`rm --foo`, etc.).
+            // Existing files with such names still open. Override with
+            // `--quirks=weird-filenames`.
+            let (file_path, _) = documents::parse_filename_goto(&p);
+            let name = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            if name.starts_with('-') && !quirks.contains("weird-filenames") && !file_path.exists() {
+                sys::write_stdout(&format!(
+                    "edit: refusing to create new file {name:?} (filename starts with `-`)\n\
+                     pass `--quirks=weird-filenames` to allow\n"
+                ));
+                return Ok(None);
+            }
+            Ok(Some(p))
+        }
         None => {
             print_help();
             Ok(None)
@@ -240,10 +284,21 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 
 fn print_help() {
     sys::write_stdout(concat!(
-        "Usage: edit [OPTIONS] FILE[:LINE[:COLUMN]]\n",
+        "Usage: edit [OPTIONS] [--] FILE[:LINE[:COLUMN]]\n",
         "Options:\n",
         "    -h, --help       Print this help message\n",
         "    -v, --version    Print the version number\n",
+        "    --               End of options. Subsequent arguments are treated as\n",
+        "                     file names even if they start with `-`.\n",
+        "                     Example: `edit -- --version` opens a file called `--version`.\n",
+        "    --quirks=LIST    Comma-separated opt-in toggles for non-default behaviour.\n",
+        "                     Repeatable; tokens accumulate into a set. A `-` prefix\n",
+        "                     removes a previously-added quirk\n",
+        "                     (e.g. `--quirks=foo,bar --quirks=-foo` -> {bar}).\n",
+        "                     Known quirks:\n",
+        "                       weird-filenames -- allow creating files whose names\n",
+        "                                          start with `-`. Existing files with\n",
+        "                                          such names always open.\n",
         "\n",
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",

@@ -136,3 +136,11 @@ end-to-end: hit the chord on a `.rs` document via the existing input-driving har
 ## open items
 
 - the warning hookup mentioned in the TODO depends on a status/toast system that doesn't exist yet.
+
+## post-impl: vscode-parity gap closure
+
+after initial impl, audited against vscode `lineCommentCommand.ts`. closed gaps:
+
+- **visible-column min indent (vscode `_normalizeInsertionPoint`)**: original impl tracked `min_indent_chars`. with mixed tab+space leading whitespace this misaligns the inserted token. switched to tracking `min_indent_cols` (visible col, tab-aware via `measure_indent_internal`'s second return). after pass 1, floor to the indent grid: `insert_cols = min_cols / tab_size * tab_size`. pass 2 computes per-line char offset for `insert_cols` via `measure_indent_internal(line_start, insert_cols)` -- which stops before any tab that would straddle the boundary, matching vscode's back-off branch. behaviour change vs prior impl: in pure-space files where min indent isn't on a tab boundary, insertion now floors leftward (e.g. `[4,2,6]` spaces with `tab=4` now inserts at col 0, not col 2).
+
+remaining gaps tracked separately (block fallback shape, add/remove actions, block-remove in line fallback, token coverage, config knobs, multi-cursor).

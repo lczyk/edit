@@ -133,6 +133,7 @@ pub fn path() -> Option<PathBuf> {
 
 /// Debug helper: wipe the config directory and rewrite `keybindings.toml` from
 /// [`DEFAULT_TOML`]. Called by `--force-reset-config`.
+#[cfg(debug_assertions)]
 pub fn force_reset() -> apperr::Result<()> {
     let Some(dir) = settings::config_dir() else { return Ok(()) };
     for name in ["keybindings.toml", "associations.toml"] {

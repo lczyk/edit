@@ -24,5 +24,6 @@ incremental = true          # Improves re-compile times
 [workspace.dependencies]
 edit = { path = "./crates/edit" }
 lsh = { path = "./crates/lsh" }
+polyflag = { path = "./crates/polyflag" }
 stdext = { path = "./crates/stdext" }
 unicode-gen = { path = "./crates/unicode-gen" }
