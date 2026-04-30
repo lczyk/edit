@@ -9,7 +9,10 @@ mod documents;
 mod draw_editor;
 mod draw_menubar;
 mod draw_statusbar;
+mod git;
+mod gutter_diff;
 mod keybindings;
+mod linediff;
 mod settings;
 mod state;
 
@@ -121,6 +124,8 @@ fn run() -> apperr::Result<()> {
 
     sys::inject_window_size_into_stdin();
 
+    const GUTTER_REDIFF_DEBOUNCE: Duration = Duration::from_millis(300);
+
     loop {
         // Process a batch of input.
         {
@@ -165,6 +170,14 @@ fn run() -> apperr::Result<()> {
 
         if state.exit {
             break;
+        }
+
+        // Refresh the git-baseline gutter marks if the buffer changed and
+        // the debounce window has elapsed. Synchronous; the diff is fast
+        // and the git subprocess only runs on first refresh.
+        state.document.gutter_check_dirty();
+        if state.document.gutter_should_rebuild(GUTTER_REDIFF_DEBOUNCE) {
+            state.document.gutter_refresh();
         }
 
         // Render the UI and write it to the terminal.

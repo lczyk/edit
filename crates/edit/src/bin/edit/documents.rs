@@ -12,6 +12,7 @@ use edit::lsh::{FILE_ASSOCIATIONS, Language, process_file_associations};
 use edit::{path, sys};
 
 use crate::apperr;
+use crate::gutter_diff::{self, BaselineState};
 use crate::settings::Settings;
 
 pub struct Document {
@@ -21,6 +22,18 @@ pub struct Document {
     pub file_id: Option<sys::FileId>,
     pub language_override: Option<Option<&'static Language>>,
     pub read_only: bool,
+
+    /// `None` until first refresh attempt; `Some` carries the cached
+    /// baseline blob (or a `disabled` flag if the file isn't in a git repo
+    /// or otherwise can't be diffed).
+    baseline: Option<BaselineState>,
+    /// Buffer generation at last gutter recompute. Compared each tick to
+    /// decide whether marks need refreshing.
+    last_gutter_generation: u32,
+    /// True after the buffer changed and we haven't yet recomputed marks.
+    /// Used together with [`Self::gutter_dirty_since`] for debouncing.
+    gutter_dirty: bool,
+    gutter_dirty_since: Option<std::time::Instant>,
 }
 
 impl Document {
@@ -52,8 +65,18 @@ impl Document {
         }
 
         let filename = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-        let mut doc =
-            Document { buffer, path, filename, file_id, language_override: None, read_only };
+        let mut doc = Document {
+            buffer,
+            path,
+            filename,
+            file_id,
+            language_override: None,
+            read_only,
+            baseline: None,
+            last_gutter_generation: 0,
+            gutter_dirty: true,
+            gutter_dirty_since: None,
+        };
         doc.apply_path_metadata();
         Ok(doc)
     }
@@ -74,7 +97,51 @@ impl Document {
             self.file_id = Some(id);
         }
 
+        // Saving doesn't change HEAD, so the cached baseline is still
+        // valid. Mark gutter dirty so the next tick recomputes immediately.
+        self.gutter_dirty = true;
+        self.gutter_dirty_since = Some(std::time::Instant::now());
         Ok(())
+    }
+
+    /// Mark gutter for recompute if the buffer generation has advanced.
+    pub fn gutter_check_dirty(&mut self) {
+        let buf_gen = self.buffer.borrow().generation();
+        if buf_gen != self.last_gutter_generation {
+            self.last_gutter_generation = buf_gen;
+            self.gutter_dirty = true;
+            self.gutter_dirty_since = Some(std::time::Instant::now());
+        }
+    }
+
+    /// Returns true iff debounce has elapsed and we should recompute now.
+    pub fn gutter_should_rebuild(&self, debounce: std::time::Duration) -> bool {
+        self.gutter_dirty && self.gutter_dirty_since.is_some_and(|t| t.elapsed() >= debounce)
+    }
+
+    /// Recompute marks. Cheap when the baseline is disabled.
+    pub fn gutter_refresh(&mut self) {
+        if self.baseline.is_none() {
+            self.baseline = Some(BaselineState::load(&self.path));
+        }
+        let baseline = self.baseline.as_ref().unwrap();
+        self.gutter_dirty = false;
+        self.gutter_dirty_since = None;
+        let Some(bytes) = baseline.bytes.as_deref() else {
+            self.buffer.borrow_mut().clear_gutter_marks();
+            return;
+        };
+        let mut tb = self.buffer.borrow_mut();
+        let lines = tb.logical_line_count() as u32;
+        let len = tb.text_length();
+        if len > gutter_diff::MAX_DIFF_BYTES {
+            tb.clear_gutter_marks();
+            return;
+        }
+        let mut current = Vec::with_capacity(len);
+        tb.copy_all_bytes(&mut current);
+        let marks = gutter_diff::compute_marks(bytes, &current, lines);
+        tb.set_gutter_marks(marks);
     }
 
     fn apply_path_metadata(&mut self) {

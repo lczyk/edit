@@ -89,7 +89,7 @@ pub fn clear_gutter_marks(&mut self);
 pub fn gutter_mark(&self, y: CoordType) -> GutterMark;  // out-of-range -> None
 ```
 
-shifting on edit: don't bother. marks are recomputed wholesale on rediff; between rediffs they may briefly point at the wrong logical line. that's fine -- the debounce window is short, and a shifted mark is much less distracting than vscode's identical UX (which has the same delay).
+shifting on edit: don't bother. marks are recomputed wholesale on rediff; between cycles they may briefly point at the wrong logical line. that's fine -- the debounce window is short, and a shifted mark is much less distracting than vscode's identical UX (which has the same delay).
 
 `clear_gutter_marks` from `recalc_after_content_swap`.
 
@@ -159,7 +159,7 @@ never block the input loop on git. v1 runs the subprocess synchronously inside `
 - `crates/edit/src/bin/edit/state.rs` -- maybe nothing; gutter state lives on the document.
 - `crates/edit/src/bin/edit/settings.rs` -- optional toggle `gutter_diff: bool` (default true) for users who don't want it.
 
-no keybinding, no menubar entry in v1. (could add `View > Gutter Diff` checkbox later -- one-line edit in `draw_menubar.rs`.)
+no key binding, no menubar entry in v1. (could add `View > Gutter Diff` checkbox later -- one-line edit in `draw_menubar.rs`.)
 
 ## tests
 
@@ -169,7 +169,7 @@ no keybinding, no menubar entry in v1. (could add `View > Gutter Diff` checkbox 
 - buffer: `set_gutter_marks` clears via `recalc_after_content_swap`; out-of-range `gutter_mark()` returns `None`. 2 tests.
 - end-to-end (pty harness, optional): open a file, `git commit`, edit a line, wait 350 ms, assert the rendered margin contains a `│` cell with the modified colour. probably skip in v1 -- terminal-colour assertions are flaky.
 
-## tradeoffs / open questions
+## trade-offs / open questions
 
 - **single-character glyph instead of a thin bar.** unavoidable in a tui. hijacking the existing `│` separator is the cleanest path; the alternative (extra column) is a layout-system change for a 1-bit signal.
 - **modified vs added detection.** the del+ins-fold heuristic matches vscode but produces surprising results when a single line is edited drastically (myers may emit it as `Insert`+`Delete` non-adjacent if surrounding context shifts). acceptable; vscode has the same artefact.

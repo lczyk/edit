@@ -68,6 +68,20 @@ pub enum IoError {
     Icu(icu::Error),
 }
 
+/// Per-line marker shown in the margin to indicate how a line differs from
+/// its baseline (typically `HEAD:<path>`). Computed externally and stuffed
+/// in via [`TextBuffer::set_gutter_marks`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GutterMark {
+    None,
+    Added,
+    Modified,
+    /// Lines were deleted immediately above this one.
+    DeletedAbove,
+    /// Lines were deleted immediately below this one (used at EOF).
+    DeletedBelow,
+}
+
 pub type IoResult<T> = std::result::Result<T, IoError>;
 
 impl From<io::Error> for IoError {
@@ -275,6 +289,11 @@ pub struct TextBuffer {
     preferred_column: CoordType,
 
     wants_cursor_visibility: bool,
+
+    /// Indexed by logical line `y`. Empty means "no marks". May be shorter
+    /// or longer than the current logical line count if a refresh is
+    /// pending; out-of-range lookups return `GutterMark::None`.
+    gutter_marks: Vec<GutterMark>,
 }
 
 impl TextBuffer {
@@ -327,7 +346,30 @@ impl TextBuffer {
             preferred_column: 0,
 
             wants_cursor_visibility: false,
+
+            gutter_marks: Vec::new(),
         })
+    }
+
+    pub fn set_gutter_marks(&mut self, marks: Vec<GutterMark>) {
+        self.gutter_marks = marks;
+    }
+
+    pub fn clear_gutter_marks(&mut self) {
+        self.gutter_marks.clear();
+    }
+
+    pub fn gutter_mark(&self, y: CoordType) -> GutterMark {
+        if y < 0 {
+            return GutterMark::None;
+        }
+        self.gutter_marks.get(y as usize).copied().unwrap_or(GutterMark::None)
+    }
+
+    /// Append a raw byte copy of the entire buffer to `out`. Used by the
+    /// gutter-diff machinery; the buffer is read-only here.
+    pub fn copy_all_bytes(&self, out: &mut Vec<u8>) {
+        self.buffer.extract_raw(0..self.buffer.len(), out, out.len());
     }
 
     /// Length of the document in bytes.
@@ -720,6 +762,7 @@ impl TextBuffer {
         self.mark_as_clean();
         self.reflow();
         self.highlighter_cache.invalidate_from(0);
+        self.gutter_marks.clear();
     }
 
     /// Copies the contents of the buffer into a string.
@@ -1627,6 +1670,9 @@ impl TextBuffer {
         let text_width = width - self.margin_width;
         let mut visualizer_buf = [0xE2, 0x90, 0x80]; // U+2400 in UTF8
         let mut visual_pos_x_max = 0;
+        // Collected during the per-line loop and replayed after the global
+        // margin tint so the gutter colours aren't dimmed.
+        let mut gutter_paint: Vec<(CoordType, GutterMark)> = Vec::new();
 
         // Pick the cursor closer to the `origin.y`.
         let mut cursor = {
@@ -1693,6 +1739,10 @@ impl TextBuffer {
                         cursor_beg.logical_pos.y + 1,
                         line_number_width
                     );
+                    let mark = self.gutter_mark(cursor_beg.logical_pos.y);
+                    if mark != GutterMark::None {
+                        gutter_paint.push((destination.top + y, mark));
+                    }
                 } else {
                     // Wrapped line? Place " ... | " in the margin.
                     let number_width = (cursor_beg.logical_pos.y + 1).ilog10() as usize + 1;
@@ -1957,6 +2007,26 @@ impl TextBuffer {
                 bottom: destination.bottom,
             };
             fb.blend_fg(margin, StraightRgba::from_le(0x7f7f7f7f));
+        }
+
+        // Paint per-line gutter marks at full saturation, after the tint.
+        // The `│` separator sits at `margin_width - 2`.
+        if self.margin_width >= 2 && !gutter_paint.is_empty() {
+            let mark_x = destination.left + self.margin_width - 2;
+            for (y, mark) in &gutter_paint {
+                let cell = Rect { left: mark_x, top: *y, right: mark_x + 1, bottom: *y + 1 };
+                let (fg, glyph) = match mark {
+                    GutterMark::Added => (fb.indexed(IndexedColor::BrightGreen), None),
+                    GutterMark::Modified => (fb.indexed(IndexedColor::BrightYellow), None),
+                    GutterMark::DeletedAbove => (fb.indexed(IndexedColor::BrightRed), Some("▴")),
+                    GutterMark::DeletedBelow => (fb.indexed(IndexedColor::BrightRed), Some("▾")),
+                    GutterMark::None => continue,
+                };
+                if let Some(g) = glyph {
+                    fb.replace_text(*y, mark_x, mark_x + 1, g);
+                }
+                fb.blend_fg(cell, fg);
+            }
         }
 
         if self.ruler > 0 {
