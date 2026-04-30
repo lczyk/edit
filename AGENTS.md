@@ -18,10 +18,10 @@ Private fork of Microsoft's `edit` terminal editor, trimmed down for personal us
 
 Use the [Makefile](Makefile) — do not invoke `cargo` directly in routine work. Run `make help` to list targets. Common ones:
 
-- `make build` / `make build-nightly` — release builds.
-- `make check` / `make clippy` / `make test` — individual checks.
+- `make build` — release build.
+- `make check` / `make clippy` / `make test` / `make spellcheck` — individual checks.
 - `make fmt` / `make fmt-check` — formatting.
-- `make verify` — full pre-commit gate (fmt-check + clippy + test). Run this before reporting a task as done.
+- `make verify` — full pre-commit gate (fmt-check + clippy + test + spellcheck). Run this before reporting a task as done.
 
 ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
 
@@ -35,7 +35,7 @@ Reaches the editor only when (a) the terminal supports the protocol and (b) the 
 
 Config file: `<config_dir>/keybindings.toml`. Auto-created on first run from a platform-specific embedded default: [keybindings.macos.toml](crates/edit/src/bin/edit/keybindings.macos.toml) or [keybindings.linux.toml](crates/edit/src/bin/edit/keybindings.linux.toml). Location: `$XDG_CONFIG_HOME/edit/keybindings.toml` (fallback `~/.config/edit/keybindings.toml`) on both platforms.
 
-Configurable actions (21) in [crates/edit/src/bin/edit/keybindings.rs](crates/edit/src/bin/edit/keybindings.rs) `Action` enum — menubar items only. Dialog-internal keys (Return/Escape/Arrows/Backspace) stay hardcoded.
+Configurable actions in [crates/edit/src/bin/edit/keybindings.rs](crates/edit/src/bin/edit/keybindings.rs) `Action` enum — menubar items + a few editor commands (move/delete line, toggle comment). Dialog-internal keys (Return/Escape/Arrows/Backspace) stay hardcoded.
 
 Chord syntax: `"Ctrl+Shift+F"`, `"Cmd+P"`, `"F10"`, `"A"`, `""` (unbound). Modifier names: `Ctrl`, `Alt`, `Shift`, `Cmd` (alias `Super`). Key names: letter A-Z, digit 0-9, Up/Down/Left/Right, Home/End/PageUp/PageDown, Insert/Delete, Tab/Back/Return/Escape/Space, F1..F24, Numpad0..Numpad9.
 
@@ -82,7 +82,7 @@ Design notes, proposals, and comparisons live in [meanderings/](meanderings/) as
 ## Code conventions
 
 - **Binary size matters.** Don't introduce dependencies lightly. Check whether stdlib or existing helpers already cover the use case.
-- **[rustfmt.toml](rustfmt.toml):** `style_edition = "2024"`, `use_small_heuristics = "Max"`, `group_imports = "StdExternalCrate"`, `imports_granularity = "Module"`. Run `cargo fmt` before committing.
+- **[rustfmt.toml](rustfmt.toml):** stable rustfmt only -- `style_edition = "2024"`, `use_small_heuristics = "Max"`, `newline_style = "Unix"`, `use_field_init_shorthand = true`. Run `cargo fmt` before committing.
 - **Clippy:** `--deny warnings` is the CI bar.
 - **No comments explaining what well-named code already says.** Only comment hidden constraints, workarounds, or subtle invariants.
 - **Rust edition:** 2024, MSRV `1.93`.
