@@ -1,5 +1,5 @@
 ---
-status: implemented
+status: open
 date: 2026-04-23
 description: diff-mode editing -- toggle a baseline-vs-current view w/ deleted-line stripes
 ---
