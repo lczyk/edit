@@ -3108,10 +3108,19 @@ impl TextBuffer {
             stats_before: self.stats,
             generation_before: self.buffer.generation(),
         });
+        // Force the next `edit_begin` to push a fresh undo entry rather than
+        // merging into a prior same-type entry from outside the group. Without
+        // this, two adjacent groupings with the same first history type (e.g.
+        // a menu-triggered toggle following a keyboard-triggered toggle, or a
+        // toggle following plain typing) end up coalesced into one undo step.
+        self.last_history_type = HistoryType::Other;
     }
 
     fn edit_end_grouping(&mut self) {
         self.active_edit_group = None;
+        // Same reason in reverse: edits made after the group close shouldn't
+        // be merged back into the last entry inside the group.
+        self.last_history_type = HistoryType::Other;
     }
 
     /// Starts a new edit operation.
@@ -3570,6 +3579,24 @@ mod tests {
         assert_eq!(dump(&tb), "<!-- foo -->\n<!-- bar -->\n");
         tb.undo();
         assert_eq!(dump(&tb), "foo\nbar\n");
+    }
+
+    #[test]
+    fn two_back_to_back_toggles_undo_separately() {
+        // Regression: prior to forcing a fresh undo entry on group boundaries,
+        // two consecutive toggles (e.g. one via keyboard then one via menu)
+        // would coalesce into a single undo entry, so a single undo would
+        // revert both. This test pins the per-toggle granularity.
+        let mut tb = buf_with("foo\n");
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// foo\n");
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "foo\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "// foo\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "foo\n");
     }
 
     #[test]
