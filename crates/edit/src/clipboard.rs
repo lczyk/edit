@@ -26,7 +26,7 @@ impl Clipboard {
         self.wants_host_sync = false;
     }
 
-    /// The editor has a special behavior when you have no selection and press
+    /// The editor has a special behaviour when you have no selection and press
     /// Ctrl+C: It copies the current line to the clipboard. Then, when you
     /// paste it, it inserts the line at *the start* of the current line.
     /// This effectively prepends the current line with the copied line.

@@ -23,7 +23,7 @@ The current model has no safety net:
 Vim solves this with `.swp` files. We want the same idea, scoped to a
 single-buffer editor.
 
-## Behavior
+## Behaviour
 
 1. On every dirty edit, periodically flush a swap snapshot to a per-file entry
    in the user's cache dir.
@@ -104,7 +104,7 @@ is shown — so a SIGINT inside the modal still leaves a fresh swap.
 
 ## Edge cases
 
-| Case                                  | Behavior                                          |
+| Case                                  | Behaviour                                          |
 | ------------------------------------- | ------------------------------------------------- |
 | Perms revoked mid-session             | Save fails → swap retained → restore on next launch |
 | SIGKILL / power loss                  | Swap survives → restore prompt next launch        |

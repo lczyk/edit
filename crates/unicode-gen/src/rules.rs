@@ -255,7 +255,7 @@ pub const JOIN_RULES_GRAPHEME_CLUSTER: [[[i32; 16]; 16]; 2] = [
 // LB30b: Do not break between an emoji base (or potential emoji) and an emoji modifier.
 //        ✗ Our ucd_* functions never break within grapheme clusters.
 // LB31:  Break everywhere else.
-//        ✗ Our default behavior.
+//        ✗ Our default behaviour.
 #[rustfmt::skip]
 pub const JOIN_RULES_LINE_BREAK: [[i32; 24]; 25] = [
     /* ↓ leading                    → trailing codepoint                                                                                                                                                                                                                                                                                                                                                                               */

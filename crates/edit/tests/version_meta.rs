@@ -10,8 +10,8 @@ fn manifest_dir() -> PathBuf {
 
 fn read_version_file() -> String {
     let path = manifest_dir().join("../../VERSION");
-    let raw = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let raw =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     raw.lines()
         .map(str::trim)
         .find(|l| !l.is_empty() && !l.starts_with('#'))
@@ -21,18 +21,18 @@ fn read_version_file() -> String {
 
 fn read_cargo_toml_version() -> String {
     let path = manifest_dir().join("Cargo.toml");
-    let raw = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let raw =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     for line in raw.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("version") {
             let rest = rest.trim_start();
             if let Some(rest) = rest.strip_prefix('=') {
                 let rest = rest.trim_start();
-                if let Some(after_open) = rest.strip_prefix('"') {
-                    if let Some(end) = after_open.find('"') {
-                        return after_open[..end].to_string();
-                    }
+                if let Some(after_open) = rest.strip_prefix('"')
+                    && let Some(end) = after_open.find('"')
+                {
+                    return after_open[..end].to_string();
                 }
             }
         }

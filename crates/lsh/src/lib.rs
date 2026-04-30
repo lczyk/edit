@@ -21,7 +21,7 @@
 //! - `off` advances only on successful regex matches. Failed matches leave it alone.
 //!   This is why the frontend emits backup/restore pairs around regex chains.
 //! - `hs` (highlight start) is used to track the input offset of the last yield statement,
-//!   which permits the runtime to highlight everything inbetween with the next yield's highlight kind.
+//!   which permits the runtime to highlight everything in between with the next yield's highlight kind.
 //!
 //! ## Charset encoding
 //!
@@ -32,7 +32,7 @@
 //! ## Gotchas
 //!
 //! - Physical VS virtual registers:
-//!   `IRReg.physical` being `Some` means it's pre-colored (e.g., `off` register).
+//!   `IRReg.physical` being `Some` means it's pre-coloured (e.g., `off` register).
 //!   The backend must preserve these assignments.
 //! - Semi-SSA:
 //!   The frontend emits IR where each vreg is written once,

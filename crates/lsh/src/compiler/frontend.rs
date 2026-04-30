@@ -128,7 +128,7 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
     fn parse_block(&mut self) -> CompileResult<IRSpan<'a>> {
         self.expect('{')?;
 
-        // TODO: a bit inoptimal to always allocate a noop node
+        // TODO: a bit suboptimal to always allocate a noop node
         let mut result: Option<IRSpan> = None;
 
         while !matches!(self.peek(), Some('}') | None) {

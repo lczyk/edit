@@ -36,7 +36,7 @@
 //!
 //! # Gotchas
 //!
-//! - `\w` includes bytes 0xC2-0xF4 (UTF-8 leading bytes) so that it can consume multibyte characters.
+//! - `\w` includes bytes 0xC2-0xF4 (UTF-8 leading bytes) so that it can consume multi-byte characters.
 //!   This isn't Unicode-correct but works for identifiers in most programming languages.
 //! - We don't create loops to keep the IR generation and optimization simple.
 //!   This means that e.g. (a|b)+ is not supported. For now that's fine.
@@ -49,8 +49,8 @@ use stdext::collections::BVec;
 
 use super::*;
 
-// 0xC2-0xF4 are UTF-8 leading bytes for multibyte sequences. Including them lets
-// `\w+` consume entire multibyte characters, which is important for identifiers
+// 0xC2-0xF4 are UTF-8 leading bytes for multi-byte sequences. Including them lets
+// `\w+` consume entire multi-byte characters, which is important for identifiers
 // containing non-ASCII letters (e.g., `naïve`, `café`).
 const ASCII_WORD_CHARSET: Charset = {
     let mut charset = Charset::no();
@@ -411,7 +411,7 @@ impl<'a> RegexParser<'a> {
 
                     // Check for ranges, e.g. [a-z].
                     // We exclude patterns like [a-], because this implicitly sets 'a'..='a' in this iteration,
-                    // and then '-'..='-' in the next iteration, which is the exact behavior we need.
+                    // and then '-'..='-' in the next iteration, which is the exact behaviour we need.
                     if let rest = self.rest()
                         && rest.starts_with("-")
                         && !rest.starts_with("-]")

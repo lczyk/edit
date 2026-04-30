@@ -1,3 +1,4 @@
+# cspell:ignore gsub rustup
 .SUFFIXES:
 
 help:
@@ -18,13 +19,6 @@ sync-version:  ## Sync crates/edit/Cargo.toml version from VERSION (source of tr
 .PHONY: build
 build: sync-version  ## Release build (stable toolchain, larger binary)
 	cargo build --release
-	@if command -v upx >/dev/null 2>&1; then \
-		upx target/release/edit || echo "upx failed, skipping compression"; \
-	fi
-
-.PHONY: build-nightly
-build-nightly: sync-version  ## Release build (nightly toolchain, smaller binary via build-std)
-	cargo build --release --config .cargo/release.toml
 	@if command -v upx >/dev/null 2>&1; then \
 		upx target/release/edit || echo "upx failed, skipping compression"; \
 	fi
@@ -81,5 +75,5 @@ clean:  ## Remove the target/ directory
 	cargo clean
 
 .PHONY: verify
-verify: fmt-check clippy test  ## Run the full pre-commit gate (fmt, clippy, test)
+verify: fmt-check clippy test spellcheck  ## Run the full pre-commit gate (fmt, clippy, test, spellcheck)
 	@echo "All checks passed."

@@ -47,7 +47,7 @@ pub fn word_backward(doc: &dyn ReadableDocument, offset: usize) -> usize {
     word_navigation(WordBackward { doc, offset, chunk: &[], chunk_off: 0 })
 }
 
-/// Word navigation implementation. Matches the behavior of VS Code.
+/// Word navigation implementation. Matches the behaviour of VS Code.
 fn word_navigation<T: WordNavigation>(mut nav: T) -> usize {
     // First, fill `self.chunk` with at least 1 grapheme.
     nav.read();

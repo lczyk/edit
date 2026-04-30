@@ -89,7 +89,7 @@ fn run() -> apperr::Result<()> {
     // This will reopen stdin if it's redirected (which may fail) and switch
     // the terminal to raw mode which prevents the user from pressing Ctrl+C.
     // `handle_args` may want to print a help message (must not fail),
-    // and reads files (may hang; should be cancelable with Ctrl+C).
+    // and reads files (may hang; should be cancellable with Ctrl+C).
     // As such, we call this after `handle_args`.
     sys::switch_modes()?;
 

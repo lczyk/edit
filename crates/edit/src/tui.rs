@@ -246,7 +246,7 @@ pub enum Position {
     Right,
 }
 
-/// Controls the text overflow behavior of a label
+/// Controls the text overflow behaviour of a label
 /// when the text doesn't fit the container.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum Overflow {
@@ -2030,7 +2030,7 @@ impl<'a> Context<'a, '_> {
         self.block_end();
     }
 
-    /// Sets the overflow behavior of the current label.
+    /// Sets the overflow behaviour of the current label.
     pub fn attr_overflow(&mut self, overflow: Overflow) {
         let mut last_node = self.tree.last_node.borrow_mut();
         let NodeContent::Text(content) = &mut last_node.content else {

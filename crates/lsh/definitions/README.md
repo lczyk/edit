@@ -54,7 +54,7 @@ Definitions behave like coroutines:
 ## Highlighting with `yield`
 
 `yield <kind>` emits a highlight span.
-Everything between the previous `yield` and the current position is colored with `<kind>`.
+Everything between the previous `yield` and the current position is coloured with `<kind>`.
 
 > [!NOTE]
 > This can be confusing in practice, because `yield` does not just color the regex it appears in.

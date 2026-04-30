@@ -436,7 +436,7 @@ impl Framebuffer {
             (back, front)
         };
 
-        let mut front_lines = front.text.lines.iter(); // hahaha
+        let mut front_lines = front.text.lines.iter();
         let mut front_bgs = front.bg_bitmap.iter();
         let mut front_fgs = front.fg_bitmap.iter();
         let mut front_attrs = front.attributes.iter();

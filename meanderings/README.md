@@ -19,7 +19,7 @@ so they sort to the bottom of `ls`.
 
 ## Style: no verdicts
 
-Proposals describe the **gap**, the **options**, **tradeoffs**, and
+Proposals describe the **gap**, the **options**, **trade-offs**, and
 **open questions** -- not whether to ship. Avoid `Lean:`,
 `Recommendation:`, `Preference:`, `should live in edit`, etc. The
 ship / no-ship call happens at implementation time with current context;

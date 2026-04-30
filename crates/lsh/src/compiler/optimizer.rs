@@ -21,7 +21,7 @@ use stdext::collections::BVec;
 use super::*;
 
 pub fn optimize<'a>(compiler: &mut Compiler<'a>) {
-    // Remove noops first, such that analyzing instruction chains becomes easier for the other passes.
+    // Remove noops first, such that analysing instruction chains becomes easier for the other passes.
     optimize_noop(compiler);
     optimize_redundant_offset_backup_restore(compiler);
     optimize_highlight_kind_values(compiler);

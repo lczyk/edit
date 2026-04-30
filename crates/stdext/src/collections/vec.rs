@@ -22,7 +22,7 @@ use crate::simd::memset;
 ///
 /// The struct does not drop the elements, nor does it deallocate any memory.
 pub struct BVec<'a, T> {
-    // NOTE: Only the first `len` elemennts are `T`, the rest are essentially `MaybeUninit<T>`.
+    // NOTE: Only the first `len` elements are `T`, the rest are essentially `MaybeUninit<T>`.
     // This is an important distinction, due to Rust's highly nebulous rules around uninitialized memory.
     // You should avoid `self.ptr.as_ptr().add(self.len)` and use `self.spare_mut_ptr()` instead.
     ptr: NonNull<T>,

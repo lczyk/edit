@@ -578,7 +578,7 @@ mod tests {
     fn copy_into_overwrites_destination() {
         let mut b = GapBuffer::new(true).unwrap();
         b.replace(0..0, b"new");
-        let mut dst = String::from("preexisting content");
+        let mut dst = String::from("pre-existing content");
         b.copy_into(&mut dst);
         assert_eq!(dst, "new");
     }

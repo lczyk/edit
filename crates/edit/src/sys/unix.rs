@@ -352,7 +352,7 @@ pub struct FileId {
 
 /// Checks whether the current process has write permission on `path`.
 ///
-/// Uses `access(2)` with `W_OK`, which follows symlinks and honors the
+/// Uses `access(2)` with `W_OK`, which follows symlinks and honours the
 /// filesystem's ACLs. Returns `false` on any error (path missing, permission
 /// denied, etc.) — callers should only invoke this for paths known to exist.
 pub fn is_path_writable(path: &Path) -> bool {
