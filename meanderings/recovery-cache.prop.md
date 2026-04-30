@@ -1,6 +1,10 @@
-# Recovery cache (TBD)
+---
+status: open
+date: 2026-04-23
+description: vim-style swap files for crash/sigkill/perms-lost recovery
+---
 
-Status: **design only, not implemented.**
+# Recovery cache
 
 Future plan to make `edit` survive crashes, SIGKILL, lost write permissions, and
 other failure modes that today result in lost edits. Captured here so the design

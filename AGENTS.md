@@ -75,6 +75,10 @@ Terminal issues: check `vt.rs`, `sys/unix.rs`, and `setup_terminal` first.
 - `stdext` — shared utilities (arena allocator, collections, SIMD helpers, sys shims).
 - `unicode-gen` — codegen for Unicode LUTs (only needed to regenerate tables; tables are checked in).
 
+## Meanderings
+
+Design notes, proposals, and comparisons live in [meanderings/](meanderings/) as `*.prop.md` files with YAML frontmatter (`status`, `date`, `description`). Run [meanderings/index.sh](meanderings/index.sh) for a status-grouped index. See [meanderings/README.md](meanderings/README.md) for the format. Files prefixed `_` are no longer active (implemented or shelved).
+
 ## Code conventions
 
 - **Binary size matters.** Don't introduce dependencies lightly. Check whether stdlib or existing helpers already cover the use case.

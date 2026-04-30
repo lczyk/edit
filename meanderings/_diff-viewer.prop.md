@@ -1,7 +1,13 @@
+---
+status: implemented
+date: 2026-04-23
+description: diff-mode editing -- toggle a baseline-vs-current view w/ deleted-line stripes
+---
+
 # Diff-mode editing
 
-Status: **implemented behind `Ctrl+Shift+D`. This doc is a recreation spec —
-sufficient detail to rebuild the feature from scratch if reverted.**
+Implemented behind `Ctrl+Shift+D`. This doc is a recreation spec --
+sufficient detail to rebuild the feature from scratch if reverted.
 
 ## Goal
 
