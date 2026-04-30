@@ -29,6 +29,8 @@ focus_menubar    = "F10"
 move_line_up     = "Alt+Up"
 move_line_down   = "Alt+Down"
 
+toggle_line_comment = "Ctrl+/"
+
 # Cursor jumps 3 lines at a time. Select variants extend the selection.
 # Default chords avoid Shift so the select variant is a natural Shift+chord.
 small_jump_up           = "Ctrl+Alt+Up"

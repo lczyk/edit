@@ -38,6 +38,7 @@ pub enum Action {
     FocusMenubar,
     MoveLineUp,
     MoveLineDown,
+    ToggleLineComment,
     SmallJumpUp,
     SmallJumpDown,
     SmallJumpUpSelect,
@@ -48,7 +49,7 @@ pub enum Action {
     LineEndSelect,
 }
 
-const ACTION_COUNT: usize = 24;
+const ACTION_COUNT: usize = 25;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
@@ -67,6 +68,7 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::FocusMenubar, "focus_menubar"),
     (Action::MoveLineUp, "move_line_up"),
     (Action::MoveLineDown, "move_line_down"),
+    (Action::ToggleLineComment, "toggle_line_comment"),
     (Action::SmallJumpUp, "small_jump_up"),
     (Action::SmallJumpDown, "small_jump_down"),
     (Action::SmallJumpUpSelect, "small_jump_up_select"),
@@ -228,6 +230,9 @@ fn parse_key(token: &str) -> Option<InputKey> {
             b'0'..=b'9' => Some(digit_vk(c - b'0')),
             b'a'..=b'z' => Some(letter_vk(c - b'a' + b'A')),
             b'A'..=b'Z' => Some(letter_vk(c)),
+            // ASCII punctuation reaches the editor as raw codepoints via the
+            // kitty CSI-u path (Ctrl+/ -> CSI 47;5u).
+            b'/' => Some(vk::SLASH),
             _ => None,
         };
     }
@@ -368,6 +373,8 @@ mod tests {
         assert_eq!(parse_chord("Ctrl+S"), Some(kbmod::CTRL | vk::S));
         assert_eq!(parse_chord("Cmd+Shift+P"), Some(kbmod::CMD | kbmod::SHIFT | vk::P));
         assert_eq!(parse_chord("F10"), Some(vk::F10));
+        assert_eq!(parse_chord("Ctrl+/"), Some(kbmod::CTRL | vk::SLASH));
+        assert_eq!(parse_chord("Cmd+/"), Some(kbmod::CMD | vk::SLASH));
         assert_eq!(parse_chord(""), Some(vk::NULL));
         assert_eq!(parse_chord("NotAKey"), None);
     }

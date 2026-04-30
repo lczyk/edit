@@ -5,6 +5,7 @@ use edit::helpers::*;
 use edit::tui::*;
 use stdext::arena_format;
 
+use crate::documents;
 use crate::keybindings::{self, Action};
 use crate::state::*;
 
@@ -77,6 +78,38 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
     if ctx.menubar_menu_button("Select All", 'A', keybindings::chord(Action::SelectAll)) {
         tb.select_all();
         ctx.needs_rerender();
+    }
+    if ctx.menubar_menu_button(
+        "Toggle Line Comment",
+        'M',
+        keybindings::chord(Action::ToggleLineComment),
+    ) {
+        let lang = tb.language();
+        let line_tok = lang.and_then(|l| l.line_comment);
+        let block_tok = lang.and_then(|l| l.block_comment);
+        if let Some(tok) =
+            line_tok.or_else(|| documents::fallback_line_comment(&state.document.path))
+        {
+            tb.toggle_line_comment(tok);
+        } else if let Some((open, close)) = block_tok {
+            tb.toggle_per_line_block_comment(open, close);
+        }
+        ctx.needs_rerender();
+    }
+    if ctx.menubar_menu_button("Toggle Block Comment", 'B', edit::input::vk::NULL) {
+        if let Some((open, close)) = tb.language().and_then(|l| l.block_comment) {
+            tb.toggle_block_comment(open, close);
+            ctx.needs_rerender();
+        } else if let Some(tok) = tb
+            .language()
+            .and_then(|l| l.line_comment)
+            .or_else(|| documents::fallback_line_comment(&state.document.path))
+        {
+            // Fall back to line comments for languages with no block syntax,
+            // matching vscode's blockComment behaviour.
+            tb.toggle_line_comment(tok);
+            ctx.needs_rerender();
+        }
     }
     ctx.menubar_menu_end();
 }

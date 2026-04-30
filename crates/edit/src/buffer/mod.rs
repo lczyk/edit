@@ -2487,6 +2487,442 @@ impl TextBuffer {
         );
     }
 
+    /// Toggle line comments over the selection (or current line if no
+    /// selection) using `token` as the line-comment marker (e.g. `"//"`).
+    ///
+    /// Mirrors vscode's `editor.action.commentLine`: if every non-blank line
+    /// in the range already starts with `token`, strips it (plus one trailing
+    /// space if present); otherwise inserts `token + " "` at the column of the
+    /// least-indented non-blank line. Blank lines are left untouched.
+    pub fn toggle_line_comment(&mut self, token: &str) {
+        if self.read_only || token.is_empty() {
+            return;
+        }
+
+        let token_bytes = token.as_bytes();
+        let token_chars = token.chars().count() as CoordType;
+
+        let saved_selection = self.selection;
+        let saved_cursor = self.cursor;
+
+        let (sel_beg_y, sel_end_y, mut sel_beg, mut sel_end) = match saved_selection {
+            Some(s) => {
+                let [y0, y1] = minmax(s.beg.y, s.end.y);
+                (y0, y1, s.beg, s.end)
+            }
+            None => {
+                let p = saved_cursor.logical_pos;
+                (p.y, p.y, p, p)
+            }
+        };
+
+        // Pass 1: walk the line range, decide direction + min indent. Don't
+        // mutate yet -- just measure.
+        let mut any_non_blank = false;
+        let mut all_commented = true;
+        let mut min_indent_chars = CoordType::MAX;
+        for y in sel_beg_y..=sel_end_y {
+            self.cursor_move_to_logical(Point { x: 0, y });
+            if self.cursor.logical_pos.y != y {
+                break;
+            }
+            let line_start = self.cursor.offset;
+            let (indent_chars, _) = self.measure_indent_internal(line_start, CoordType::MAX);
+            self.cursor_move_to_logical(Point { x: indent_chars, y });
+            let off = self.cursor.offset;
+            if line_is_blank_after(self.read_forward(off)) {
+                continue;
+            }
+            any_non_blank = true;
+            if indent_chars < min_indent_chars {
+                min_indent_chars = indent_chars;
+            }
+            if !self.starts_with_at(off, token_bytes) {
+                all_commented = false;
+            }
+        }
+        if !any_non_blank {
+            return;
+        }
+
+        // Clear the selection while we mutate so `write_canon`/`delete` don't
+        // try to delete the whole selected range. Restored (with shifted xs)
+        // at the end.
+        self.set_selection(None);
+
+        self.edit_begin_grouping();
+        for y in sel_beg_y..=sel_end_y {
+            self.cursor_move_to_logical(Point { x: 0, y });
+            if self.cursor.logical_pos.y != y {
+                break;
+            }
+            let line_start = self.cursor.offset;
+            let (indent_chars, _) = self.measure_indent_internal(line_start, CoordType::MAX);
+            self.cursor_move_to_logical(Point { x: indent_chars, y });
+            let off = self.cursor.offset;
+            if line_is_blank_after(self.read_forward(off)) {
+                continue;
+            }
+
+            let delta;
+            if all_commented {
+                self.delete(CursorMovement::Grapheme, token_chars);
+                let trailing_space = self.read_forward(self.cursor.offset).first() == Some(&b' ');
+                if trailing_space {
+                    self.delete(CursorMovement::Grapheme, 1);
+                    delta = -(token_chars + 1);
+                } else {
+                    delta = -token_chars;
+                }
+            } else {
+                self.cursor_move_to_logical(Point { x: min_indent_chars, y });
+                let mut buf = Vec::with_capacity(token_bytes.len() + 1);
+                buf.extend_from_slice(token_bytes);
+                buf.push(b' ');
+                self.write_canon(&buf);
+                delta = token_chars + 1;
+            }
+
+            if y == sel_beg.y {
+                sel_beg.x = (sel_beg.x + delta).max(0);
+            }
+            if y == sel_end.y {
+                sel_end.x = (sel_end.x + delta).max(0);
+            }
+        }
+        self.edit_end_grouping();
+
+        // Restore selection (shifted) and place the cursor at its end, mirroring
+        // `indent_change`.
+        let restored_cursor_pos = if saved_cursor.logical_pos.y == sel_end.y {
+            sel_end
+        } else if saved_cursor.logical_pos.y == sel_beg.y {
+            sel_beg
+        } else {
+            saved_cursor.logical_pos
+        };
+        self.set_cursor_internal(
+            self.cursor_move_to_logical_internal(self.cursor, restored_cursor_pos),
+        );
+        self.set_selection(
+            saved_selection.map(|_| TextBufferSelection { beg: sel_beg, end: sel_end }),
+        );
+    }
+
+    /// Toggle per-line block comments over the selection (or current line).
+    /// Used as a `Cmd+/` fallback for languages with no line-comment syntax
+    /// (markdown, html, xml). Each non-blank line gets `open content close`
+    /// inserted/stripped individually.
+    pub fn toggle_per_line_block_comment(&mut self, open: &str, close: &str) {
+        if self.read_only || open.is_empty() || close.is_empty() {
+            return;
+        }
+
+        let open_bytes = open.as_bytes();
+        let close_bytes = close.as_bytes();
+        let open_chars = open.chars().count() as CoordType;
+        let close_chars = close.chars().count() as CoordType;
+
+        let saved_selection = self.selection;
+        let saved_cursor = self.cursor;
+
+        let (sel_beg_y, sel_end_y, mut sel_beg, mut sel_end) = match saved_selection {
+            Some(s) => {
+                let [y0, y1] = minmax(s.beg.y, s.end.y);
+                (y0, y1, s.beg, s.end)
+            }
+            None => {
+                let p = saved_cursor.logical_pos;
+                (p.y, p.y, p, p)
+            }
+        };
+
+        // Pass 1: decide direction. A line is "wrapped" iff its content (after
+        // leading ws, before trailing ws) starts with `open` and ends with
+        // `close`.
+        let mut any_non_blank = false;
+        let mut all_wrapped = true;
+        for y in sel_beg_y..=sel_end_y {
+            let Some(info) = self.scan_line_extents(y) else {
+                continue;
+            };
+            any_non_blank = true;
+            if !self.range_starts_with(info.content_start, info.content_end, open_bytes)
+                || !self.range_ends_with(info.content_start, info.content_end, close_bytes)
+            {
+                all_wrapped = false;
+            }
+        }
+        if !any_non_blank {
+            return;
+        }
+
+        self.set_selection(None);
+        self.edit_begin_grouping();
+
+        for y in sel_beg_y..=sel_end_y {
+            let Some(info) = self.scan_line_extents(y) else {
+                continue;
+            };
+
+            let beg_delta;
+            let end_delta;
+            if all_wrapped {
+                // Strip trailing close (+ optional preceding space).
+                self.cursor_move_to_logical(Point { x: info.content_end_chars, y });
+                self.delete(CursorMovement::Grapheme, -close_chars);
+                let mut close_strip = close_chars;
+                if self.read_backward(self.cursor.offset).last() == Some(&b' ') {
+                    self.delete(CursorMovement::Grapheme, -1);
+                    close_strip += 1;
+                }
+                // Strip leading open (+ optional trailing space).
+                self.cursor_move_to_logical(Point { x: info.indent_chars, y });
+                self.delete(CursorMovement::Grapheme, open_chars);
+                let mut open_strip = open_chars;
+                if self.read_forward(self.cursor.offset).first() == Some(&b' ') {
+                    self.delete(CursorMovement::Grapheme, 1);
+                    open_strip += 1;
+                }
+                beg_delta = -open_strip;
+                end_delta = -(open_strip + close_strip);
+            } else {
+                // Append " close" at end of content.
+                self.cursor_move_to_logical(Point { x: info.content_end_chars, y });
+                let mut tail = Vec::with_capacity(close_bytes.len() + 1);
+                tail.push(b' ');
+                tail.extend_from_slice(close_bytes);
+                self.write_canon(&tail);
+                // Insert "open " at indent end.
+                self.cursor_move_to_logical(Point { x: info.indent_chars, y });
+                let mut head = Vec::with_capacity(open_bytes.len() + 1);
+                head.extend_from_slice(open_bytes);
+                head.push(b' ');
+                self.write_canon(&head);
+                beg_delta = open_chars + 1;
+                end_delta = open_chars + 1 + close_chars + 1;
+            }
+
+            if y == sel_beg.y {
+                sel_beg.x = (sel_beg.x + beg_delta).max(0);
+            }
+            if y == sel_end.y {
+                sel_end.x = (sel_end.x + end_delta).max(0);
+            }
+        }
+        self.edit_end_grouping();
+
+        let restored_cursor_pos = if saved_cursor.logical_pos.y == sel_end.y {
+            sel_end
+        } else if saved_cursor.logical_pos.y == sel_beg.y {
+            sel_beg
+        } else {
+            saved_cursor.logical_pos
+        };
+        self.set_cursor_internal(
+            self.cursor_move_to_logical_internal(self.cursor, restored_cursor_pos),
+        );
+        self.set_selection(
+            saved_selection.map(|_| TextBufferSelection { beg: sel_beg, end: sel_end }),
+        );
+    }
+
+    /// Toggle a single block-comment pair around the current selection (or
+    /// current line if no selection). Triggered from the Edit menu only --
+    /// no keyboard shortcut.
+    pub fn toggle_block_comment(&mut self, open: &str, close: &str) {
+        if self.read_only || open.is_empty() || close.is_empty() {
+            return;
+        }
+
+        let open_bytes = open.as_bytes();
+        let close_bytes = close.as_bytes();
+        let open_chars = open.chars().count() as CoordType;
+        let close_chars = close.chars().count() as CoordType;
+
+        let saved_selection = self.selection;
+        let saved_cursor = self.cursor;
+
+        // Determine the byte range we'll toggle around. If there's a
+        // selection use it; otherwise span the full content of the current
+        // line.
+        let (mut beg_pos, mut end_pos) = match saved_selection {
+            Some(s) => {
+                let [b, e] = minmax(s.beg, s.end);
+                (b, e)
+            }
+            None => {
+                let y = saved_cursor.logical_pos.y;
+                let Some(info) = self.scan_line_extents(y) else {
+                    return;
+                };
+                (Point { x: info.indent_chars, y }, Point { x: info.content_end_chars, y })
+            }
+        };
+
+        self.cursor_move_to_logical(beg_pos);
+        let beg_off = self.cursor.offset;
+        self.cursor_move_to_logical(end_pos);
+        let end_off = self.cursor.offset;
+        if beg_off >= end_off {
+            return;
+        }
+
+        // Toggle: if the selected range is exactly `open ... close` (allowing
+        // one optional space on each inner side), strip it. Otherwise wrap.
+        let wrapped = self.range_starts_with(beg_off, end_off, open_bytes)
+            && self.range_ends_with(beg_off, end_off, close_bytes);
+
+        self.set_selection(None);
+        self.edit_begin_grouping();
+
+        if wrapped {
+            // Strip trailing close (+ optional space).
+            self.cursor_move_to_logical(end_pos);
+            self.delete(CursorMovement::Grapheme, -close_chars);
+            let mut close_strip = close_chars;
+            if self.read_backward(self.cursor.offset).last() == Some(&b' ') {
+                self.delete(CursorMovement::Grapheme, -1);
+                close_strip += 1;
+            }
+            // Strip leading open (+ optional space).
+            self.cursor_move_to_logical(beg_pos);
+            self.delete(CursorMovement::Grapheme, open_chars);
+            let mut open_strip = open_chars;
+            if self.read_forward(self.cursor.offset).first() == Some(&b' ') {
+                self.delete(CursorMovement::Grapheme, 1);
+                open_strip += 1;
+            }
+            beg_pos.x = (beg_pos.x).max(0);
+            end_pos.x = if beg_pos.y == end_pos.y {
+                (end_pos.x - (open_strip + close_strip)).max(beg_pos.x)
+            } else {
+                (end_pos.x - close_strip).max(0)
+            };
+        } else {
+            // Append close + space at end.
+            self.cursor_move_to_logical(end_pos);
+            let mut tail = Vec::with_capacity(close_bytes.len() + 1);
+            tail.push(b' ');
+            tail.extend_from_slice(close_bytes);
+            self.write_canon(&tail);
+            // Insert open + space at start.
+            self.cursor_move_to_logical(beg_pos);
+            let mut head = Vec::with_capacity(open_bytes.len() + 1);
+            head.extend_from_slice(open_bytes);
+            head.push(b' ');
+            self.write_canon(&head);
+            // Shift end if it sits on the same line as beg.
+            if beg_pos.y == end_pos.y {
+                end_pos.x += open_chars + 1;
+            }
+        }
+        self.edit_end_grouping();
+
+        let restored_cursor_pos =
+            if saved_cursor.logical_pos == end_pos || saved_cursor.logical_pos.y == end_pos.y {
+                end_pos
+            } else {
+                beg_pos
+            };
+        self.set_cursor_internal(
+            self.cursor_move_to_logical_internal(self.cursor, restored_cursor_pos),
+        );
+        self.set_selection(
+            saved_selection.map(|_| TextBufferSelection { beg: beg_pos, end: end_pos }),
+        );
+    }
+
+    /// Returns the indent + trimmed-content extents for line `y`, or `None`
+    /// if the line is blank (zero non-whitespace characters) or out of range.
+    fn scan_line_extents(&mut self, y: CoordType) -> Option<LineExtents> {
+        self.cursor_move_to_logical(Point { x: 0, y });
+        if self.cursor.logical_pos.y != y {
+            return None;
+        }
+        let line_start = self.cursor.offset;
+        let (indent_chars, _) = self.measure_indent_internal(line_start, CoordType::MAX);
+        self.cursor_move_to_logical(Point { x: indent_chars, y });
+        let content_start = self.cursor.offset;
+        if line_is_blank_after(self.read_forward(content_start)) {
+            return None;
+        }
+        // Walk to end of line and back-trim trailing whitespace.
+        self.cursor_move_to_logical(Point { x: CoordType::MAX, y });
+        let mut content_end = self.cursor.offset;
+        let mut content_end_chars = self.cursor.logical_pos.x;
+        while content_end > content_start {
+            let chunk = self.read_backward(content_end);
+            let Some(&last) = chunk.last() else { break };
+            if last == b' ' || last == b'\t' {
+                content_end -= 1;
+                content_end_chars -= 1;
+            } else {
+                break;
+            }
+        }
+        Some(LineExtents { indent_chars, content_start, content_end, content_end_chars })
+    }
+
+    fn range_starts_with(&self, beg: usize, end: usize, needle: &[u8]) -> bool {
+        if end - beg < needle.len() {
+            return false;
+        }
+        let mut off = beg;
+        let mut i = 0;
+        while i < needle.len() {
+            let chunk = self.read_forward(off);
+            if chunk.is_empty() {
+                return false;
+            }
+            let take = chunk.len().min(needle.len() - i);
+            if chunk[..take] != needle[i..i + take] {
+                return false;
+            }
+            i += take;
+            off += take;
+        }
+        true
+    }
+
+    fn range_ends_with(&self, beg: usize, end: usize, needle: &[u8]) -> bool {
+        if end - beg < needle.len() {
+            return false;
+        }
+        let mut off = end;
+        let mut i = needle.len();
+        while i > 0 {
+            let chunk = self.read_backward(off);
+            if chunk.is_empty() {
+                return false;
+            }
+            let take = chunk.len().min(i);
+            if chunk[chunk.len() - take..] != needle[i - take..i] {
+                return false;
+            }
+            i -= take;
+            off -= take;
+        }
+        true
+    }
+
+    fn starts_with_at(&self, mut offset: usize, needle: &[u8]) -> bool {
+        let mut i = 0;
+        while i < needle.len() {
+            let chunk = self.read_forward(offset);
+            if chunk.is_empty() {
+                return false;
+            }
+            let take = chunk.len().min(needle.len() - i);
+            if chunk[..take] != needle[i..i + take] {
+                return false;
+            }
+            i += take;
+            offset += take;
+        }
+        true
+    }
+
     fn measure_indent_internal(
         &self,
         mut offset: usize,
@@ -2986,5 +3422,240 @@ impl TextBuffer {
     /// For interfacing with ICU.
     pub fn read_forward(&self, off: usize) -> &[u8] {
         self.buffer.read_forward(off)
+    }
+}
+
+/// True if the chunk starts at end-of-buffer or end-of-line, meaning the
+/// "rest of this line" is empty. Used by `toggle_line_comment` to skip
+/// whitespace-only lines.
+fn line_is_blank_after(chunk: &[u8]) -> bool {
+    matches!(chunk.first(), None | Some(b'\n') | Some(b'\r'))
+}
+
+/// Trimmed extents of a non-blank line. Used by the block-comment helpers.
+struct LineExtents {
+    indent_chars: CoordType,
+    content_start: usize,
+    content_end: usize,
+    content_end_chars: CoordType,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn buf_with(text: &str) -> TextBuffer {
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw(text.as_bytes());
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb
+    }
+
+    fn dump(tb: &TextBuffer) -> String {
+        let mut out = Vec::new();
+        tb.buffer.extract_raw(0..tb.text_length(), &mut out, 0);
+        String::from_utf8(out).unwrap()
+    }
+
+    fn select(tb: &mut TextBuffer, beg: Point, end: Point) {
+        tb.cursor_move_to_logical(end);
+        tb.set_selection(Some(TextBufferSelection { beg, end }));
+    }
+
+    #[test]
+    fn toggle_line_comment_single_line_no_selection() {
+        let mut tb = buf_with("foo\n");
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// foo\n");
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "foo\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_multi_line_aligns_min_indent() {
+        // vscode `editor.action.commentLine`: token is inserted at the column
+        // of the least-indented non-blank line, so deeper-indented lines keep
+        // their extra leading whitespace _after_ the token.
+        let mut tb = buf_with("    a\n  b\n      c\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "  //   a\n  // b\n  //     c\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_uncomment_strips_one_space() {
+        let mut tb = buf_with("// a\n//b\n// c\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "a\nb\nc\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_mixed_lines_comments_all() {
+        // not all commented -> comment all (matches vscode).
+        let mut tb = buf_with("// a\nb\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// // a\n// b\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_skips_blank_lines() {
+        let mut tb = buf_with("a\n\nb\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// a\n\n// b\n");
+        // round-trip back.
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "a\n\nb\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_blank_only_range_is_noop() {
+        let mut tb = buf_with("\n   \n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "\n   \n");
+    }
+
+    #[test]
+    fn toggle_line_comment_read_only_is_noop() {
+        let mut tb = buf_with("foo\n");
+        tb.set_read_only(true);
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "foo\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_undo_reverts() {
+        let mut tb = buf_with("foo\nbar\n");
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// foo\nbar\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "foo\nbar\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_undo_after_typing() {
+        // Simulates the real-world scenario: user types text, then triggers
+        // toggle from a menu. Undo should revert the toggle without merging it
+        // with the prior typing into a single mangled entry.
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_canon(b"foo\n");
+        let after_typing = dump(&tb);
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// foo\n");
+        tb.undo();
+        assert_eq!(dump(&tb), after_typing);
+    }
+
+    #[test]
+    fn toggle_line_comment_multi_line_undo_is_one_step() {
+        let mut tb = buf_with("a\nb\nc\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_line_comment("//");
+        assert_eq!(dump(&tb), "// a\n// b\n// c\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "a\nb\nc\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_undo_reverts() {
+        let mut tb = buf_with("foo\nbar\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-- foo -->\n<!-- bar -->\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "foo\nbar\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_undo_reverts() {
+        let mut tb = buf_with("foo bar\n");
+        select(&mut tb, Point { x: 4, y: 0 }, Point { x: 7, y: 0 });
+        tb.toggle_block_comment("/*", "*/");
+        assert_eq!(dump(&tb), "foo /* bar */\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "foo bar\n");
+    }
+
+    #[test]
+    fn toggle_line_comment_hash_token() {
+        let mut tb = buf_with("a = 1\nb = 2\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_line_comment("#");
+        assert_eq!(dump(&tb), "# a = 1\n# b = 2\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_wrap_each_line() {
+        let mut tb = buf_with("foo\nbar\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-- foo -->\n<!-- bar -->\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_round_trip() {
+        let mut tb = buf_with("foo\nbar\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "foo\nbar\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_skips_blank_lines() {
+        let mut tb = buf_with("a\n\nb\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-- a -->\n\n<!-- b -->\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_preserves_indent() {
+        let mut tb = buf_with("  foo\nbar\n");
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "  <!-- foo -->\n<!-- bar -->\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_wraps_selection() {
+        let mut tb = buf_with("foo bar\n");
+        select(&mut tb, Point { x: 4, y: 0 }, Point { x: 7, y: 0 });
+        tb.toggle_block_comment("/*", "*/");
+        assert_eq!(dump(&tb), "foo /* bar */\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_round_trip() {
+        let mut tb = buf_with("foo bar\n");
+        select(&mut tb, Point { x: 4, y: 0 }, Point { x: 7, y: 0 });
+        tb.toggle_block_comment("/*", "*/");
+        // Selection now spans the wrapped region; round-trip strips it.
+        select(&mut tb, Point { x: 4, y: 0 }, Point { x: 13, y: 0 });
+        tb.toggle_block_comment("/*", "*/");
+        assert_eq!(dump(&tb), "foo bar\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_no_selection_uses_line_content() {
+        let mut tb = buf_with("  foo\n");
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb.toggle_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "  <!-- foo -->\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_read_only_is_noop() {
+        let mut tb = buf_with("foo\n");
+        tb.set_read_only(true);
+        tb.toggle_block_comment("/*", "*/");
+        assert_eq!(dump(&tb), "foo\n");
     }
 }

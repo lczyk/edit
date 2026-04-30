@@ -136,6 +136,19 @@ fn open_for_writing(path: &Path) -> apperr::Result<File> {
     File::create(path).map_err(apperr::Error::from)
 }
 
+/// Hardcoded line-comment token for files lsh doesn't recognise. lsh stays
+/// the canonical source -- this only covers extensions we don't yet have
+/// syntax definitions for.
+pub fn fallback_line_comment(path: &Path) -> Option<&'static str> {
+    let ext = path.extension()?.to_str()?;
+    Some(match ext {
+        "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hxx" | "java" | "kt" | "swift" | "ts"
+        | "tsx" | "scala" | "dart" | "zig" => "//",
+        "bash" | "zsh" | "fish" | "conf" | "cfg" | "service" | "dockerfile" => "#",
+        _ => return None,
+    })
+}
+
 /// Parse a filename like `foo.txt:123:45` into `(foo.txt, Some(Point { y: 122, x: 44 }))`.
 pub fn parse_filename_goto(path: &Path) -> (&Path, Option<Point>) {
     fn parse(s: &[u8]) -> Option<CoordType> {
