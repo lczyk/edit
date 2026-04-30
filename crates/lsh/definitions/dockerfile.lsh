@@ -1,0 +1,57 @@
+#[display_name = "Dockerfile"]
+#[line_comment = "#"]
+#[path = "**/Dockerfile"]
+#[path = "**/Dockerfile.*"]
+#[path = "**/*.Dockerfile"]
+#[path = "**/*.dockerfile"]
+#[path = "**/Containerfile"]
+#[path = "**/Containerfile.*"]
+pub fn dockerfile() {
+    if /#.*/ {
+        yield comment;
+        return;
+    }
+
+    if /(?i:FROM|RUN|CMD|LABEL|MAINTAINER|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\>/ {
+        yield keyword.control;
+    }
+
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /(?i:AS|NONE|CMD-SHELL)\>/ {
+            yield keyword.other;
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\$(?:\{[^}]+\}|[A-Za-z_]\w*)/ {
+                    yield variable;
+                }
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /'/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /'/ { yield string; break; }
+                await input;
+            }
+        } else if /\$(?:\{[^}]+\}|[A-Za-z_]\w*)/ {
+            yield variable;
+        } else if /--[A-Za-z][\w-]*/ {
+            yield keyword.other;
+        } else if /(?:true|false)\>/ {
+            yield constant.language;
+        } else if /(?:0x[\da-fA-F]+|\d+)\>/ {
+            yield constant.numeric;
+        } else if /\w+/ {
+            // Gobble word chars to align next iteration on word boundary.
+        }
+
+        yield other;
+    }
+}
