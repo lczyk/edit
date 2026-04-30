@@ -1,5 +1,5 @@
 ---
-status: open
+status: implemented
 date: 2026-04-30
 description: vscode-parity Cmd+/ / Ctrl+/ to toggle line comments on selected lines
 ---
@@ -124,7 +124,15 @@ buffer-level tests next to existing `indent_change` / `move_selected_lines` test
 
 end-to-end: hit the chord on a `.rs` document via the existing input-driving harness (if there's one in `tests/`); confirm `// ` insertion and undo collapses to a single step.
 
+## extension: block comments
+
+`Language` also carries `block_comment: Option<(&'static str, &'static str)>` (lsh attributes `#[block_comment_open = "..."]` / `#[block_comment_close = "..."]`). two methods on `TextBuffer`:
+
+- `toggle_per_line_block_comment(open, close)` -- per-line wrapping (`<!-- foo -->`). used as the `Cmd+/` fallback for languages with no `line_comment` (markdown, html/xml).
+- `toggle_block_comment(open, close)` -- single-pair wrap of selection or current line. menu only (`Edit > Toggle Block Comment`), no keyboard shortcut. for languages without block syntax it falls back to `toggle_line_comment`, matching vscode `editor.action.blockComment`.
+
+`.lsh` definitions: `/*` `*/` for rust/go/javascript/lsh. `<!--` `-->` for markdown/xml.
+
 ## open items
 
-- block comment toggle (`Shift+Alt+A`) deferred. would land as a sibling `Action::ToggleBlockComment` + `TextBuffer::toggle_block_comment(open, close)` once the line variant settles.
 - the warning hookup mentioned in the TODO depends on a status/toast system that doesn't exist yet.
