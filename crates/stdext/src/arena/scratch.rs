@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::io;
 #[cfg(debug_assertions)]
 use std::marker::PhantomData;

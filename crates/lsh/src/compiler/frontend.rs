@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Frontend: DSL source code -> IR graph
 //!
 //! ## Gotchas

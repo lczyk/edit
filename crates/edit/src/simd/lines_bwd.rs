@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::ptr;
 
 use crate::helpers::CoordType;

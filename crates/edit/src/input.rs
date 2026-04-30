@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Parses VT sequences into input events.
 //!
 //! In the future this allows us to take apart the application and

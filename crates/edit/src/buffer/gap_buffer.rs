@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::ops::Range;
 use std::ptr::{self, NonNull};
 use std::{io, slice};

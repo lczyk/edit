@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! A shoddy framebuffer for terminal applications.
 
 use std::cell::Cell;

@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::ffi::OsStr;
 use std::fs::File;
 use std::path::{Path, PathBuf};

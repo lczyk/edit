@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Base64 facilities.
 
 use stdext::arena::Arena;

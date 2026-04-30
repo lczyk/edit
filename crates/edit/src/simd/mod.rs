@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Provides various high-throughput utilities.
 
 pub mod lines_bwd;

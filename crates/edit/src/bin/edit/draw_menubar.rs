@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use edit::helpers::*;
 use edit::tui::*;
 use stdext::arena_format;

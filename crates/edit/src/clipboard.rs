@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Clipboard facilities for the editor.
 
 /// The builtin, internal clipboard of the editor.

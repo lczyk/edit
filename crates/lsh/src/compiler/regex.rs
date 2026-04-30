@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Regex -> IR Compiler
 //!
 //! This module compiles regex patterns into IR instructions.

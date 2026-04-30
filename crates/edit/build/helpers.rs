@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::env::VarError;
 
 pub fn env_opt(name: &str) -> String {

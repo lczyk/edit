@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 #![allow(irrefutable_let_patterns)]
 
 use stdext::arena::scratch_arena;

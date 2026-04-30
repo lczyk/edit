@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Welcome to the Lightweight Syntax Highlighter (LSH), otherwise known as
 //! Leonard's Shitty Highlighter, which is really what it is.
 //!

@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! LSH bytecode interpreter.
 //!
 //! ## Performance notes

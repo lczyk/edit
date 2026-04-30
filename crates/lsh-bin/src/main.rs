@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, IsTerminal, Write as _, stdout};
 use std::path::{Path, PathBuf};

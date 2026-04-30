@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 #![allow(clippy::missing_safety_doc, clippy::mut_from_ref)]
 
 use std::io;

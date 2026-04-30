@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 #![cfg_attr(
     target_arch = "loongarch64",
     feature(stdarch_loongarch, stdarch_loongarch_feature_detection, loongarch_target_feature),

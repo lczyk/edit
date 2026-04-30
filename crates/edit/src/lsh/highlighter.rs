@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use lsh::runtime::*;
 use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::BVec;

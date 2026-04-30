@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::ffi::c_int;
 use std::io;
 use std::ptr::{self, NonNull, null_mut};

@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 use std::hint::assert_unchecked;
 use std::iter::FusedIterator;
 use std::marker::PhantomData;

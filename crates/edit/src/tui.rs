@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! An immediate mode UI framework for terminals.
 //!
 //! # Why immediate mode?

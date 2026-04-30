@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! A text buffer for a text editor.
 //!
 //! Implements a Unicode-aware, layout-aware text buffer for terminals.

@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Backend: IR graph -> bytecode
 //!
 //! ## Algorithm

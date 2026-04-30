@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! Provides fast, non-cryptographic hash functions.
 
 use std::hash::Hasher;

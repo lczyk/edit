@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 //! [`std::cell::RefCell`], but without runtime checks in release builds.
 
 #[cfg(debug_assertions)]
