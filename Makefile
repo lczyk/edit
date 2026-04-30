@@ -4,15 +4,26 @@ help:
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: sync-version
+sync-version:  ## Sync crates/edit/Cargo.toml version from VERSION (source of truth)
+	@v=$$(awk '/^[[:space:]]*#/ {next} /^[[:space:]]*$$/ {next} {gsub(/[[:space:]]/,""); print; exit}' VERSION); \
+	if [ -z "$$v" ]; then echo "VERSION has no version line" >&2; exit 1; fi; \
+	awk -v v="$$v" ' \
+	  /^version = ".*"[[:space:]]*#[[:space:]]*source:[[:space:]]*\/VERSION/ { \
+	    print "version = \"" v "\"  # source: /VERSION (synced by `make sync-version`; do not edit by hand)"; next \
+	  } \
+	  { print } \
+	' crates/edit/Cargo.toml > crates/edit/Cargo.toml.tmp && mv crates/edit/Cargo.toml.tmp crates/edit/Cargo.toml
+
 .PHONY: build
-build:  ## Release build (stable toolchain, larger binary)
+build: sync-version  ## Release build (stable toolchain, larger binary)
 	cargo build --release
 	@if command -v upx >/dev/null 2>&1; then \
 		upx target/release/edit || echo "upx failed, skipping compression"; \
 	fi
 
 .PHONY: build-nightly
-build-nightly:  ## Release build (nightly toolchain, smaller binary via build-std)
+build-nightly: sync-version  ## Release build (nightly toolchain, smaller binary via build-std)
 	cargo build --release --config .cargo/release.toml
 	@if command -v upx >/dev/null 2>&1; then \
 		upx target/release/edit || echo "upx failed, skipping compression"; \
@@ -23,7 +34,7 @@ du: build  ## Show release binary size
 	du -h target/release/edit
 
 .PHONY: install
-install:  ## Install the edit binary into ~/.cargo/bin
+install: sync-version  ## Install the edit binary into ~/.cargo/bin
 	cargo install --path crates/edit --force
 
 .PHONY: check
