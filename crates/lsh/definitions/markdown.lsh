@@ -1,4 +1,6 @@
 #[display_name = "Markdown"]
+#[block_comment_open = "<!--"]
+#[block_comment_close = "-->"]
 #[path = "**/*.md"]
 pub fn markdown() {
     // Any lines that start with a tab or 4+ spaces are code blocks.

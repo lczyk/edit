@@ -1,4 +1,5 @@
 #[display_name = "Makefile"]
+#[line_comment = "#"]
 #[path = "**/Makefile"]
 #[path = "**/makefile"]
 #[path = "**/GNUmakefile"]

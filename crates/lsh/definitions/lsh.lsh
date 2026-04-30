@@ -1,4 +1,7 @@
 #[display_name = "LSH"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
 #[path = "**/*.lsh"]
 pub fn lsh() {
     until /$/ {

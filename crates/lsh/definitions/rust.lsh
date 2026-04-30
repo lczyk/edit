@@ -1,4 +1,7 @@
 #[display_name = "Rust"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
 #[path = "**/*.rs"]
 pub fn rust() {
     until /$/ {

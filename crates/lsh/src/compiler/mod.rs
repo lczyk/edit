@@ -394,6 +394,8 @@ pub struct Entrypoint {
     pub name: String,
     pub display_name: String,
     pub paths: Vec<String>,
+    pub line_comment: Option<String>,
+    pub block_comment: Option<(String, String)>,
     pub address: usize,
 }
 
@@ -434,6 +436,9 @@ impl<'a> fmt::Display for HighlightKindCamelcaseFormatter<'a> {
 struct FunctionAttributes<'a> {
     display_name: Option<&'a str>,
     paths: Vec<&'a str>,
+    line_comment: Option<&'a str>,
+    block_comment_open: Option<&'a str>,
+    block_comment_close: Option<&'a str>,
 }
 
 #[derive(Debug, Clone)]

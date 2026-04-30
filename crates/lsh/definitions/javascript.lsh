@@ -1,4 +1,7 @@
 #[display_name = "JavaScript"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
 #[path = "**/*.cjs"]
 #[path = "**/*.js"]
 #[path = "**/*.jsx"]

@@ -1,4 +1,5 @@
 #[display_name = "Python"]
+#[line_comment = "#"]
 #[path = "**/*.py"]
 #[path = "**/*.pyi"]
 #[path = "**/*.pyw"]

@@ -215,9 +215,17 @@ impl TryFrom<u32> for HighlightKind {{
         for ep in &assembly.entrypoints {
             _ = writeln!(
                 output,
-                "    Language {{ id: {:?}, name: {:?}, entrypoint: {} }},",
+                "    Language {{ id: {:?}, name: {:?}, line_comment: {}, block_comment: {}, entrypoint: {} }},",
                 ep.name.replace('_', "-"),
                 ep.display_name,
+                match &ep.line_comment {
+                    Some(s) => format!("Some({s:?})"),
+                    None => "None".to_string(),
+                },
+                match &ep.block_comment {
+                    Some((o, c)) => format!("Some(({o:?}, {c:?}))"),
+                    None => "None".to_string(),
+                },
                 ep.address,
             );
         }

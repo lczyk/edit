@@ -1,4 +1,5 @@
 #[display_name = "TOML"]
+#[line_comment = "#"]
 #[path = "**/*.toml"]
 #[path = "**/Cargo.lock"]
 pub fn toml() {

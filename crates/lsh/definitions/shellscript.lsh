@@ -1,4 +1,5 @@
 #[display_name = "Shell Script"]
+#[line_comment = "#"]
 #[path = "**/*.sh"]
 #[path = "**/*.bash"]
 #[path = "**/*.bashrc"]

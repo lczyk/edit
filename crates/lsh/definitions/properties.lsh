@@ -1,4 +1,5 @@
 #[display_name = "Properties"]
+#[line_comment = "#"]
 // ini
 #[path = "**/*.ini"]
 // git

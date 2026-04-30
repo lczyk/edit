@@ -1,4 +1,5 @@
 #[display_name = "Git Rebase Message"]
+#[line_comment = "#"]
 #[path = "**/git-rebase-todo"]
 #[path = "**/rebase-merge/done"]
 pub fn git_rebase() {

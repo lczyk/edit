@@ -1,4 +1,5 @@
 #[display_name = "YAML"]
+#[line_comment = "#"]
 #[path = "**/*.yaml"]
 #[path = "**/*.yml"]
 pub fn yaml() {

@@ -35,6 +35,13 @@ pub struct Language {
     pub id: &'static str,
     /// Human-readable display name.
     pub name: &'static str,
+    /// Line-comment token (e.g., "//" for rust, "#" for python). `None` if
+    /// the language has no line-comment syntax.
+    pub line_comment: Option<&'static str>,
+    /// Block-comment open/close pair (e.g., `("/*", "*/")` for rust,
+    /// `("<!--", "-->")` for markdown/html). `None` if the language has no
+    /// block-comment syntax.
+    pub block_comment: Option<(&'static str, &'static str)>,
     /// Bytecode address where execution begins for this language.
     pub entrypoint: u32,
 }

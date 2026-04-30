@@ -1,4 +1,5 @@
 #[display_name = "PowerShell"]
+#[line_comment = "#"]
 #[path = "**/*.ps1"]
 #[path = "**/*.psd1"]
 #[path = "**/*.psm1"]

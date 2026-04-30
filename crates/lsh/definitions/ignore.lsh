@@ -1,4 +1,5 @@
 #[display_name = "Ignore"]
+#[line_comment = "#"]
 #[path = "**/.git-blame-ignore-revs"]
 #[path = "**/.gitignore"]
 pub fn ignore() {

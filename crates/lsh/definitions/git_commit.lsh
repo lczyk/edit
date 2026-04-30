@@ -1,4 +1,5 @@
 #[display_name = "Git Commit Message"]
+#[line_comment = "#"]
 #[path = "**/COMMIT_EDITMSG"]
 #[path = "**/MERGE_MSG"]
 pub fn git_commit() {

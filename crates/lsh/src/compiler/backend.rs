@@ -128,6 +128,18 @@ impl<'a> Backend<'a> {
                 name: f.name.to_string(),
                 display_name: f.attributes.display_name.unwrap_or(f.name).to_string(),
                 paths: f.attributes.paths.iter().map(|s| s.to_string()).collect(),
+                line_comment: f.attributes.line_comment.map(|s| s.to_string()),
+                block_comment: match (
+                    f.attributes.block_comment_open,
+                    f.attributes.block_comment_close,
+                ) {
+                    (Some(o), Some(c)) => Some((o.to_string(), c.to_string())),
+                    (None, None) => None,
+                    _ => panic!(
+                        "{}: block_comment_open and block_comment_close must be specified together",
+                        f.name
+                    ),
+                },
                 address: f.body.borrow().offset,
             })
             .collect();
