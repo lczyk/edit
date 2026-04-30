@@ -38,6 +38,7 @@ pub enum Action {
     FocusMenubar,
     MoveLineUp,
     MoveLineDown,
+    DeleteLine,
     ToggleLineComment,
     SmallJumpUp,
     SmallJumpDown,
@@ -49,7 +50,7 @@ pub enum Action {
     LineEndSelect,
 }
 
-const ACTION_COUNT: usize = 25;
+const ACTION_COUNT: usize = 26;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
@@ -68,6 +69,7 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::FocusMenubar, "focus_menubar"),
     (Action::MoveLineUp, "move_line_up"),
     (Action::MoveLineDown, "move_line_down"),
+    (Action::DeleteLine, "delete_line"),
     (Action::ToggleLineComment, "toggle_line_comment"),
     (Action::SmallJumpUp, "small_jump_up"),
     (Action::SmallJumpDown, "small_jump_down"),

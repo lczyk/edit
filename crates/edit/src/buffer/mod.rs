@@ -3106,6 +3106,53 @@ impl TextBuffer {
         }));
     }
 
+    /// Deletes the line(s) the cursor or selection touches. Mirrors
+    /// vscode `editor.action.deleteLines`. With no selection, removes the
+    /// current line. With a selection, removes every line the selection
+    /// spans (whole-line, regardless of column anchors). Cursor lands at
+    /// column 0 of the line that took the deleted lines' place.
+    pub fn delete_lines(&mut self) {
+        if self.read_only || self.text_length() == 0 {
+            return;
+        }
+
+        let [beg_y, end_y] = match self.selection {
+            Some(s) => minmax(s.beg.y, s.end.y),
+            None => [self.cursor.logical_pos.y, self.cursor.logical_pos.y],
+        };
+        let last_line = self.stats.logical_lines - 1;
+
+        self.set_selection(None);
+
+        let (beg_pt, end_pt) = if end_y < last_line {
+            // Common case: drop [beg_y..=end_y] plus the trailing newline of end_y.
+            (Point { x: 0, y: beg_y }, Point { x: 0, y: end_y + 1 })
+        } else if beg_y > 0 {
+            // Selection runs to the last line: also pull back over the
+            // newline before beg_y so we don't leave a trailing blank line.
+            (
+                Point { x: COORD_TYPE_SAFE_MAX, y: beg_y - 1 },
+                Point { x: COORD_TYPE_SAFE_MAX, y: end_y },
+            )
+        } else {
+            // Whole buffer.
+            (Point { x: 0, y: 0 }, Point { x: COORD_TYPE_SAFE_MAX, y: end_y })
+        };
+
+        let beg = self.cursor_move_to_logical_internal(self.cursor, beg_pt);
+        let end = self.cursor_move_to_logical_internal(beg, end_pt);
+        if beg.offset >= end.offset {
+            return;
+        }
+
+        self.edit_begin(HistoryType::Delete, beg);
+        self.edit_delete(end);
+        self.edit_end();
+
+        let landing = beg_y.min(self.stats.logical_lines - 1).max(0);
+        self.cursor_move_to_logical(Point { x: 0, y: landing });
+    }
+
     /// Extracts the contents of the current selection.
     /// May optionally delete it, if requested. This is meant to be used for Ctrl+X.
     fn extract_selection(&mut self, delete: bool) -> Vec<u8> {
@@ -3643,6 +3690,55 @@ mod tests {
         tb.set_read_only(true);
         tb.toggle_line_comment("//");
         assert_eq!(dump(&tb), "foo\n");
+    }
+
+    #[test]
+    fn delete_lines_no_selection_drops_current_line() {
+        let mut tb = buf_with("a\nb\nc\n");
+        tb.cursor_move_to_logical(Point { x: 0, y: 1 });
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "a\nc\n");
+    }
+
+    #[test]
+    fn delete_lines_selection_drops_spanned_lines() {
+        let mut tb = buf_with("a\nb\nc\nd\n");
+        select(&mut tb, Point { x: 1, y: 1 }, Point { x: 0, y: 2 });
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "a\nd\n");
+    }
+
+    #[test]
+    fn delete_lines_last_line_pulls_back_newline() {
+        let mut tb = buf_with("a\nb\nc");
+        tb.cursor_move_to_logical(Point { x: 0, y: 2 });
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "a\nb");
+    }
+
+    #[test]
+    fn delete_lines_only_line_clears_buffer() {
+        let mut tb = buf_with("only\n");
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "");
+    }
+
+    #[test]
+    fn delete_lines_read_only_is_noop() {
+        let mut tb = buf_with("foo\n");
+        tb.set_read_only(true);
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "foo\n");
+    }
+
+    #[test]
+    fn delete_lines_undo_reverts() {
+        let mut tb = buf_with("a\nb\nc\n");
+        tb.cursor_move_to_logical(Point { x: 0, y: 1 });
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "a\nc\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "a\nb\nc\n");
     }
 
     #[test]

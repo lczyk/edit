@@ -29,6 +29,8 @@ focus_menubar    = "F10"
 move_line_up     = "Alt+Up"
 move_line_down   = "Alt+Down"
 
+delete_line      = "Cmd+Shift+K"
+
 toggle_line_comment = "Cmd+/"
 
 # Cursor jumps 3 lines at a time. Select variants extend the selection.

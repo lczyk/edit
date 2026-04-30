@@ -384,6 +384,8 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Up);
     } else if ctx.consume_shortcut(chord(Action::MoveLineDown)) {
         state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Down);
+    } else if ctx.consume_shortcut(chord(Action::DeleteLine)) {
+        state.document.buffer.borrow_mut().delete_lines();
     } else if ctx.consume_shortcut(chord(Action::ToggleLineComment)) {
         // TODO: when we have a user-facing warning/toast system, surface a
         // "no comment syntax for this file" hint instead of silent noop.
