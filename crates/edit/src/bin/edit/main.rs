@@ -21,7 +21,7 @@ use std::time::Duration;
 use std::{env, process};
 
 /// Opt-in toggles for non-default behaviour. Parsed from `--quirks=a,b,c`.
-const KNOWN_QUIRKS: &[&str] = &["weird-filenames"];
+const KNOWN_QUIRKS: &[&str] = &["weird-filenames", "ascii"];
 
 use draw_editor::*;
 use draw_menubar::*;
@@ -268,6 +268,9 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
         path = Some(std::path::PathBuf::from(&arg));
     }
 
+    // Apply quirks that affect global rendering state.
+    edit::glyphs::set_ascii_only(quirks.contains("ascii"));
+
     match path {
         Some(p) => {
             // Refuse to create a new file whose name starts with `-`. These
@@ -309,6 +312,8 @@ fn print_help() {
         "                       weird-filenames -- allow creating files whose names\n",
         "                                          start with `-`. Existing files with\n",
         "                                          such names always open.\n",
+        "                       ascii           -- render UI with ASCII glyphs only\n",
+        "                                          (no box-drawing or other unicode).\n",
         "\n",
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",
@@ -476,7 +481,7 @@ fn write_terminal_title<'a>(arena: &'a Arena, output: &mut BString<'a>, state: &
     output.push_str(arena, "\x1b]0;");
     if !filename.is_empty() {
         if dirty {
-            output.push_str(arena, "● ");
+            output.push_str(arena, edit::glyphs::modified_dot());
         }
         output.push_str(arena, &sanitize_control_chars(filename));
         output.push_str(arena, " - ");

@@ -11,6 +11,7 @@ pub mod cell;
 pub mod clipboard;
 pub mod document;
 pub mod framebuffer;
+pub mod glyphs;
 pub mod hash;
 pub mod helpers;
 pub mod icu;

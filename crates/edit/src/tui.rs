@@ -868,13 +868,13 @@ impl Tui {
             {
                 let scratch = scratch_arena(None);
                 let mut fill = BString::empty();
-                fill.push(&*scratch, '┌');
+                fill.push(&*scratch, crate::glyphs::box_tl());
                 fill.push_repeat(
                     &*scratch,
-                    '─',
+                    crate::glyphs::box_h(),
                     (outer_clipped.right - outer_clipped.left - 2) as usize,
                 );
-                fill.push(&*scratch, '┐');
+                fill.push(&*scratch, crate::glyphs::box_tr());
                 self.framebuffer.replace_text(
                     outer_clipped.top,
                     outer_clipped.left,
@@ -887,13 +887,13 @@ impl Tui {
             {
                 let scratch = scratch_arena(None);
                 let mut fill = BString::empty();
-                fill.push(&*scratch, '│');
+                fill.push(&*scratch, crate::glyphs::box_v());
                 fill.push_repeat(
                     &*scratch,
                     ' ',
                     (outer_clipped.right - outer_clipped.left - 2) as usize,
                 );
-                fill.push(&*scratch, '│');
+                fill.push(&*scratch, crate::glyphs::box_v());
 
                 for y in outer_clipped.top + 1..outer_clipped.bottom - 1 {
                     self.framebuffer.replace_text(
@@ -909,13 +909,13 @@ impl Tui {
             {
                 let scratch = scratch_arena(None);
                 let mut fill = BString::empty();
-                fill.push(&*scratch, '└');
+                fill.push(&*scratch, crate::glyphs::box_bl());
                 fill.push_repeat(
                     &*scratch,
-                    '─',
+                    crate::glyphs::box_h(),
                     (outer_clipped.right - outer_clipped.left - 2) as usize,
                 );
-                fill.push(&*scratch, '┘');
+                fill.push(&*scratch, crate::glyphs::box_br());
                 self.framebuffer.replace_text(
                     outer_clipped.bottom - 1,
                     outer_clipped.left,
@@ -1092,7 +1092,7 @@ impl Tui {
             let mut modified = BString::empty();
             modified.reserve(&*scratch, text.len() + 3);
             modified.push_str(&*scratch, &text[..skipped.start]);
-            modified.push(&*scratch, '…');
+            modified.push(&*scratch, crate::glyphs::ellipsis_char());
             modified.push_str(&*scratch, &text[skipped.end..]);
 
             self.framebuffer.replace_text(target.top, target.left, target.right, &modified);

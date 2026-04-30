@@ -51,14 +51,34 @@ use crate::{icu, simd};
 /// The margin template is used for line numbers.
 /// The max. line number we should ever expect is probably 64-bit,
 /// and so this template fits 19 digits, followed by " │ ".
-const MARGIN_TEMPLATE: &str = "                    │ ";
+const MARGIN_TEMPLATE_UNICODE: &str = "                    │ ";
+const MARGIN_TEMPLATE_ASCII: &str = "                    | ";
+fn margin_template() -> &'static str {
+    if crate::glyphs::ascii_only() { MARGIN_TEMPLATE_ASCII } else { MARGIN_TEMPLATE_UNICODE }
+}
 /// Just a bunch of whitespace you can use for turning tabs into spaces.
-/// Happens to reuse MARGIN_TEMPLATE, because it has sufficient whitespace.
-const TAB_WHITESPACE: &str = MARGIN_TEMPLATE;
-const VISUAL_SPACE: &str = "･";
-const VISUAL_SPACE_PREFIX_ADD: usize = '･'.len_utf8() - 1;
-const VISUAL_TAB: &str = "￫       ";
-const VISUAL_TAB_PREFIX_ADD: usize = '￫'.len_utf8() - 1;
+/// Happens to reuse the margin template, because it has sufficient whitespace.
+fn tab_whitespace() -> &'static str {
+    margin_template()
+}
+const VISUAL_SPACE_UNICODE: &str = "･";
+const VISUAL_SPACE_PREFIX_ADD_UNICODE: usize = '･'.len_utf8() - 1;
+const VISUAL_TAB_UNICODE: &str = "￫       ";
+const VISUAL_TAB_PREFIX_ADD_UNICODE: usize = '￫'.len_utf8() - 1;
+fn visual_space() -> (&'static str, usize) {
+    if crate::glyphs::ascii_only() {
+        ("_", 0)
+    } else {
+        (VISUAL_SPACE_UNICODE, VISUAL_SPACE_PREFIX_ADD_UNICODE)
+    }
+}
+fn visual_tab() -> (&'static str, usize) {
+    if crate::glyphs::ascii_only() {
+        (">       ", 0)
+    } else {
+        (VISUAL_TAB_UNICODE, VISUAL_TAB_PREFIX_ADD_UNICODE)
+    }
+}
 
 pub enum IoError {
     Io(io::Error),
@@ -1725,16 +1745,19 @@ impl TextBuffer {
                     // any time soon, we can use a static string as the template (`MARGIN`) and slice it,
                     // because `line_number_width` can't possibly be larger than 19.
                     let off = 19 - line_number_width;
-                    unsafe { std::hint::assert_unchecked(off < MARGIN_TEMPLATE.len()) };
-                    line.push_str(&*scratch, &MARGIN_TEMPLATE[off..]);
+                    let template = margin_template();
+                    unsafe { std::hint::assert_unchecked(off < template.len()) };
+                    line.push_str(&*scratch, &template[off..]);
                 } else if self.word_wrap_column <= 0 || cursor_beg.logical_pos.x == 0 {
                     // Regular line? Place "123 | " in the margin.
+                    let sep = crate::glyphs::box_v();
                     arena_write_fmt!(
                         &*scratch,
                         line,
-                        "{:1$} │ ",
+                        "{:1$} {2} ",
                         cursor_beg.logical_pos.y + 1,
-                        line_number_width
+                        line_number_width,
+                        sep
                     );
                     let mark = self.gutter_mark(cursor_beg.logical_pos.y);
                     if mark != GutterMark::None {
@@ -1743,14 +1766,28 @@ impl TextBuffer {
                 } else {
                     // Wrapped line? Place " ... | " in the margin.
                     let number_width = (cursor_beg.logical_pos.y + 1).ilog10() as usize + 1;
-                    arena_write_fmt!(
-                        &*scratch,
-                        line,
-                        "{0:1$}{0:∙<2$} │ ",
-                        "",
-                        line_number_width - number_width,
-                        number_width
-                    );
+                    let sep = crate::glyphs::box_v();
+                    if crate::glyphs::ascii_only() {
+                        arena_write_fmt!(
+                            &*scratch,
+                            line,
+                            "{0:1$}{0:.<2$} {3} ",
+                            "",
+                            line_number_width - number_width,
+                            number_width,
+                            sep
+                        );
+                    } else {
+                        arena_write_fmt!(
+                            &*scratch,
+                            line,
+                            "{0:1$}{0:∙<2$} {3} ",
+                            "",
+                            line_number_width - number_width,
+                            number_width,
+                            sep
+                        );
+                    }
                     // Blending in the background color will "dim" the indicator dots.
                     let left = destination.left;
                     let top = destination.top + y;
@@ -1882,7 +1919,7 @@ impl TextBuffer {
                     if cursor_next.visual_pos.x > origin.x {
                         let overlap = cursor_next.visual_pos.x - origin.x;
                         debug_assert!((1..=7).contains(&overlap));
-                        line.push_str(&*scratch, &TAB_WHITESPACE[..overlap as usize]);
+                        line.push_str(&*scratch, &tab_whitespace()[..overlap as usize]);
                         cursor_beg = cursor_next;
                     }
                 }
@@ -1907,7 +1944,7 @@ impl TextBuffer {
                         if ch == ' ' || ch == '\t' {
                             let is_tab = ch == '\t';
                             let visualize = selection_off.contains(&global_off);
-                            let mut whitespace = TAB_WHITESPACE;
+                            let mut whitespace = tab_whitespace();
                             let mut prefix_add = 0;
 
                             if is_tab || visualize {
@@ -1924,11 +1961,8 @@ impl TextBuffer {
                             if visualize {
                                 // If the whitespace is part of the selection,
                                 // we replace " " with "･" and "\t" with "￫".
-                                (whitespace, prefix_add) = if is_tab {
-                                    (VISUAL_TAB, VISUAL_TAB_PREFIX_ADD)
-                                } else {
-                                    (VISUAL_SPACE, VISUAL_SPACE_PREFIX_ADD)
-                                };
+                                (whitespace, prefix_add) =
+                                    if is_tab { visual_tab() } else { visual_space() };
 
                                 // Make the visualized characters slightly gray.
                                 let visualizer_rect = {
@@ -2015,8 +2049,14 @@ impl TextBuffer {
                 let (fg, glyph) = match mark {
                     GutterMark::Added => (fb.indexed(IndexedColor::BrightGreen), None),
                     GutterMark::Modified => (fb.indexed(IndexedColor::BrightYellow), None),
-                    GutterMark::DeletedAbove => (fb.indexed(IndexedColor::BrightRed), Some("▴")),
-                    GutterMark::DeletedBelow => (fb.indexed(IndexedColor::BrightRed), Some("▾")),
+                    GutterMark::DeletedAbove => (
+                        fb.indexed(IndexedColor::BrightRed),
+                        Some(crate::glyphs::gutter_deleted_above()),
+                    ),
+                    GutterMark::DeletedBelow => (
+                        fb.indexed(IndexedColor::BrightRed),
+                        Some(crate::glyphs::gutter_deleted_below()),
+                    ),
                     GutterMark::None => continue,
                 };
                 if let Some(g) = glyph {
@@ -2331,7 +2371,7 @@ impl TextBuffer {
                 // Now replace tabs with spaces.
                 while line_off < line.len() && line[line_off] == b'\t' {
                     let spaces = self.tab_size_eval(self.cursor.column);
-                    let spaces = &TAB_WHITESPACE.as_bytes()[..spaces as usize];
+                    let spaces = &tab_whitespace().as_bytes()[..spaces as usize];
                     self.edit_write(spaces);
                     line_off += 1;
                 }

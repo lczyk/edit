@@ -293,26 +293,35 @@ impl Framebuffer {
         self.blend_bg(track_clipped, self.indexed(IndexedColor::BrightBlack));
         self.blend_fg(track_clipped, self.indexed(IndexedColor::BrightWhite));
 
+        let ascii = crate::glyphs::ascii_only();
+        let full_block: &str = if ascii { "#" } else { "█" };
+
         // Draw the full blocks.
         for y in thumb_top..thumb_bottom {
-            self.replace_text(y, track_clipped.left, track_clipped.right, "█");
+            self.replace_text(y, track_clipped.left, track_clipped.right, full_block);
         }
 
         // Draw the top/bottom cell of the thumb.
         // U+2581 to U+2588, 1/8th block to 8/8th block elements glyphs: ▁▂▃▄▅▆▇█
-        // In UTF8: E2 96 81 to E2 96 88
+        // In UTF8: E2 96 81 to E2 96 88. Under ascii mode we just use "#".
         let mut fract_buf = [0xE2, 0x96, 0x88];
         if top_fract != 0 {
-            fract_buf[2] = (0x88 - top_fract) as u8;
-            self.replace_text(thumb_top - 1, track_clipped.left, track_clipped.right, unsafe {
-                std::str::from_utf8_unchecked(&fract_buf)
-            });
+            let glyph: &str = if ascii {
+                full_block
+            } else {
+                fract_buf[2] = (0x88 - top_fract) as u8;
+                unsafe { std::str::from_utf8_unchecked(&fract_buf) }
+            };
+            self.replace_text(thumb_top - 1, track_clipped.left, track_clipped.right, glyph);
         }
         if bottom_fract != 0 {
-            fract_buf[2] = (0x88 - bottom_fract) as u8;
-            self.replace_text(thumb_bottom, track_clipped.left, track_clipped.right, unsafe {
-                std::str::from_utf8_unchecked(&fract_buf)
-            });
+            let glyph: &str = if ascii {
+                full_block
+            } else {
+                fract_buf[2] = (0x88 - bottom_fract) as u8;
+                unsafe { std::str::from_utf8_unchecked(&fract_buf) }
+            };
+            self.replace_text(thumb_bottom, track_clipped.left, track_clipped.right, glyph);
             let rect = Rect {
                 left: track_clipped.left,
                 top: thumb_bottom,
