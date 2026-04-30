@@ -274,15 +274,16 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 
     match path {
         Some(p) => {
-            // Refuse to create a new file whose name starts with `-`. These
-            // get mistaken for cli flags by the next tool (`rm --foo`, etc.).
-            // Existing files with such names still open. Override with
-            // `--quirks=weird-filenames`.
+            // Refuse filenames containing characters outside the safe set
+            // (alphanumeric + `.` `-` `_` `~`). Override with
+            // `--quirks=weird-filenames`. Catches both new-file creation
+            // and existing files (rare, but they may have ended up with
+            // surprising names from another tool).
             let (file_path, _) = documents::parse_filename_goto(&p);
             let name = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-            if name.starts_with('-') && !quirks.contains("weird-filenames") && !file_path.exists() {
+            if !quirks.contains("weird-filenames") && !is_safe_filename(name) {
                 sys::write_stdout(&format!(
-                    "edit: refusing to create new file {name:?} (filename starts with `-`)\n\
+                    "edit: refusing filename {name:?} (only [A-Za-z0-9._\\-~] are accepted)\n\
                      pass `--quirks=weird-filenames` to allow\n"
                 ));
                 return Ok(None);
@@ -296,6 +297,11 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     }
 }
 
+fn is_safe_filename(name: &str) -> bool {
+    !name.is_empty()
+        && name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~'))
+}
+
 fn print_help() {
     sys::write_stdout(concat!(
         "Usage: edit [OPTIONS] [--] FILE[:LINE[:COLUMN]]\n",
@@ -306,13 +312,9 @@ fn print_help() {
         "                     file names even if they start with `-`.\n",
         "                     Example: `edit -- --version` opens a file called `--version`.\n",
         "    --quirks=LIST    Comma-separated opt-in toggles for non-default behaviour.\n",
-        "                     Repeatable; tokens accumulate into a set. A `-` prefix\n",
-        "                     removes a previously-added quirk\n",
-        "                     (e.g. `--quirks=foo,bar --quirks=-foo` -> {bar}).\n",
         "                     Known quirks:\n",
-        "                       weird-filenames -- allow creating files whose names\n",
-        "                                          start with `-`. Existing files with\n",
-        "                                          such names always open.\n",
+        "                       weird-filenames -- allow filenames containing characters\n",
+        "                                          outside the safe set [A-Za-z0-9._\\-~].\n",
         "                       ascii           -- render UI with ASCII glyphs only\n",
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
@@ -678,5 +680,44 @@ fn sanitize_control_chars(text: &str) -> Cow<'_, str> {
         Cow::Owned(sanitized)
     } else {
         Cow::Borrowed(text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_safe_filename;
+
+    #[test]
+    fn safe_filenames_accepted() {
+        for name in [
+            "foo",
+            "foo.txt",
+            "Foo_Bar.tar.gz",
+            "_underscore",
+            "-leading-dash.txt",
+            "..tilde~name~",
+            "0123",
+            "a.b-c_d~e",
+        ] {
+            assert!(is_safe_filename(name), "expected {name:?} to be safe");
+        }
+    }
+
+    #[test]
+    fn unsafe_filenames_rejected() {
+        for name in [
+            "",
+            "with space.txt",
+            "a/b",
+            "a\\b",
+            "foo:bar",
+            "foo\"bar",
+            "foo|bar",
+            "foo$bar",
+            "héllo.txt",
+            "newline\n",
+        ] {
+            assert!(!is_safe_filename(name), "expected {name:?} to be unsafe");
+        }
     }
 }
