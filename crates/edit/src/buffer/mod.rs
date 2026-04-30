@@ -2042,13 +2042,23 @@ impl TextBuffer {
 
         // Paint per-line gutter marks at full saturation, after the tint.
         // The `│` separator sits at `margin_width - 2`.
+        // When colours are suppressed, Added/Modified would be invisible
+        // (they normally just recolour `│`); fall back to distinct glyphs
+        // so the cue survives.
         if self.margin_width >= 2 && !gutter_paint.is_empty() {
             let mark_x = destination.left + self.margin_width - 2;
+            let no_color = crate::glyphs::no_color();
             for (y, mark) in &gutter_paint {
                 let cell = Rect { left: mark_x, top: *y, right: mark_x + 1, bottom: *y + 1 };
                 let (fg, glyph) = match mark {
-                    GutterMark::Added => (fb.indexed(IndexedColor::BrightGreen), None),
-                    GutterMark::Modified => (fb.indexed(IndexedColor::BrightYellow), None),
+                    GutterMark::Added => (
+                        fb.indexed(IndexedColor::BrightGreen),
+                        if no_color { Some("+") } else { None },
+                    ),
+                    GutterMark::Modified => (
+                        fb.indexed(IndexedColor::BrightYellow),
+                        if no_color { Some("~") } else { None },
+                    ),
                     GutterMark::DeletedAbove => (
                         fb.indexed(IndexedColor::BrightRed),
                         Some(crate::glyphs::gutter_deleted_above()),
