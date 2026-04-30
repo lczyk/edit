@@ -1,10 +1,15 @@
-//! UI glyphs with an ASCII-only toggle. By default returns the unicode
-//! variant; when [`set_ascii_only`] is set, the helpers fall back to ASCII
-//! forms (driven by the `--quirks=ascii` cli flag).
+//! Render-time quirks. Two independent toggles, both wired up by
+//! `--quirks=...` cli flags:
+//!
+//! - [`set_ascii_only`] / [`ascii_only`] -- swap unicode glyphs for ASCII
+//!   fall-backs across the UI.
+//! - [`set_no_color`] / [`no_color`] -- suppress all SGR colour output
+//!   (text attributes like bold/italic still emitted).
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static ASCII_ONLY: AtomicBool = AtomicBool::new(false);
+static NO_COLOR: AtomicBool = AtomicBool::new(false);
 
 pub fn set_ascii_only(enabled: bool) {
     ASCII_ONLY.store(enabled, Ordering::Relaxed);
@@ -13,6 +18,15 @@ pub fn set_ascii_only(enabled: bool) {
 #[inline]
 pub fn ascii_only() -> bool {
     ASCII_ONLY.load(Ordering::Relaxed)
+}
+
+pub fn set_no_color(enabled: bool) {
+    NO_COLOR.store(enabled, Ordering::Relaxed);
+}
+
+#[inline]
+pub fn no_color() -> bool {
+    NO_COLOR.load(Ordering::Relaxed)
 }
 
 pub fn box_h() -> char {
@@ -153,5 +167,37 @@ mod tests {
         assert_ascii_glyphs();
         set_ascii_only(false);
         assert_unicode_glyphs();
+    }
+
+    #[test]
+    fn no_color_default_off() {
+        let _g = LOCK.lock().unwrap();
+        set_no_color(false);
+        assert!(!no_color());
+    }
+
+    #[test]
+    fn no_color_toggle_round_trip() {
+        let _g = LOCK.lock().unwrap();
+        set_no_color(false);
+        assert!(!no_color());
+        set_no_color(true);
+        assert!(no_color());
+        set_no_color(false);
+        assert!(!no_color());
+    }
+
+    #[test]
+    fn no_color_independent_of_ascii_only() {
+        let _g = LOCK.lock().unwrap();
+        set_ascii_only(false);
+        set_no_color(true);
+        assert!(!ascii_only());
+        assert!(no_color());
+        set_no_color(false);
+        set_ascii_only(true);
+        assert!(ascii_only());
+        assert!(!no_color());
+        set_ascii_only(false);
     }
 }

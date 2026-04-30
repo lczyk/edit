@@ -586,6 +586,9 @@ impl Framebuffer {
         fg: bool,
         mut color: StraightRgba,
     ) {
+        if crate::glyphs::no_color() {
+            return;
+        }
         let typ = if fg { '3' } else { '4' };
 
         // Some terminals support transparent backgrounds which are used
