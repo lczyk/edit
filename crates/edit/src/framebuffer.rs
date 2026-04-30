@@ -484,7 +484,7 @@ impl Framebuffer {
             let mut cfg = MeasurementConfig::new(&line_bytes);
             let mut chunk_end = 0;
 
-            if result.is_empty() {
+            if result.is_empty() && !crate::glyphs::no_color() {
                 result.push_str(arena, "\x1b[m");
             }
             arena_write_fmt!(arena, result, "\x1b[{};1H", y + 1);
@@ -514,33 +514,35 @@ impl Framebuffer {
                 }
 
                 if last_attr != attr {
-                    let diff = last_attr ^ attr;
-                    if diff.is(Attributes::Bold) {
-                        if attr.is(Attributes::Bold) {
-                            result.push_str(arena, "\x1b[1m");
-                        } else {
-                            result.push_str(arena, "\x1b[22m");
+                    if !crate::glyphs::no_color() {
+                        let diff = last_attr ^ attr;
+                        if diff.is(Attributes::Bold) {
+                            if attr.is(Attributes::Bold) {
+                                result.push_str(arena, "\x1b[1m");
+                            } else {
+                                result.push_str(arena, "\x1b[22m");
+                            }
                         }
-                    }
-                    if diff.is(Attributes::Italic) {
-                        if attr.is(Attributes::Italic) {
-                            result.push_str(arena, "\x1b[3m");
-                        } else {
-                            result.push_str(arena, "\x1b[23m");
+                        if diff.is(Attributes::Italic) {
+                            if attr.is(Attributes::Italic) {
+                                result.push_str(arena, "\x1b[3m");
+                            } else {
+                                result.push_str(arena, "\x1b[23m");
+                            }
                         }
-                    }
-                    if diff.is(Attributes::Underlined) {
-                        if attr.is(Attributes::Underlined) {
-                            result.push_str(arena, "\x1b[4m");
-                        } else {
-                            result.push_str(arena, "\x1b[24m");
+                        if diff.is(Attributes::Underlined) {
+                            if attr.is(Attributes::Underlined) {
+                                result.push_str(arena, "\x1b[4m");
+                            } else {
+                                result.push_str(arena, "\x1b[24m");
+                            }
                         }
-                    }
-                    if diff.is(Attributes::Strikethrough) {
-                        if attr.is(Attributes::Strikethrough) {
-                            result.push_str(arena, "\x1b[9m");
-                        } else {
-                            result.push_str(arena, "\x1b[29m");
+                        if diff.is(Attributes::Strikethrough) {
+                            if attr.is(Attributes::Strikethrough) {
+                                result.push_str(arena, "\x1b[9m");
+                            } else {
+                                result.push_str(arena, "\x1b[29m");
+                            }
                         }
                     }
                     last_attr = attr;
