@@ -960,7 +960,28 @@ impl Tui {
         self.framebuffer.blend_fg(outer_clipped, node.attributes.fg);
 
         if node.attributes.reverse {
-            self.framebuffer.reverse(outer_clipped);
+            if crate::glyphs::no_color() {
+                // Reverse-video is invisible without SGR; wrap the rect's
+                // first/last cell with `[` `]` so focus is still legible.
+                if outer_clipped.right - outer_clipped.left >= 2 {
+                    for y in outer_clipped.top..outer_clipped.bottom {
+                        self.framebuffer.replace_text(
+                            y,
+                            outer_clipped.left,
+                            outer_clipped.left + 1,
+                            "[",
+                        );
+                        self.framebuffer.replace_text(
+                            y,
+                            outer_clipped.right - 1,
+                            outer_clipped.right,
+                            "]",
+                        );
+                    }
+                }
+            } else {
+                self.framebuffer.reverse(outer_clipped);
+            }
         }
 
         let inner = node.inner;
@@ -3159,6 +3180,9 @@ impl<'a> Context<'a, '_> {
             if self.is_focused() {
                 self.attr_background_rgba(self.indexed(IndexedColor::Green));
                 self.attr_foreground_rgba(self.contrasted(self.indexed(IndexedColor::Green)));
+                if crate::glyphs::no_color() {
+                    self.attr_reverse();
+                }
             }
 
             self.next_block_id_mixin(mixin);
@@ -3213,6 +3237,9 @@ impl<'a> Context<'a, '_> {
         if self.is_focused() {
             self.attr_background_rgba(self.indexed(IndexedColor::Green));
             self.attr_foreground_rgba(self.contrasted(self.indexed(IndexedColor::Green)));
+            if crate::glyphs::no_color() {
+                self.attr_reverse();
+            }
         }
 
         let clicked =
