@@ -302,8 +302,11 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 /// - have at most one leading dot (`.gitignore` ok, `..tilde` not).
 /// - not start with `-` (would be confused with a cli flag downstream).
 /// - contain at least one ASCII letter (`123` is weird).
-/// - contain only `[A-Za-z0-9._\-~+]` -- ASCII only, no unicode (emoji,
-///   accented characters, CJK etc. are all weird).
+/// - be ASCII only (no unicode -- emoji, accented chars, CJK are weird).
+/// - have a stem from `[A-Za-z0-9_+-]` and only alphanumeric extension
+///   parts. Splitting on `.` after stripping any single leading dot:
+///   the first segment is the stem; the rest are extensions and must be
+///   plain alphanumerics (so `foo.tar.gz` is fine, `foo.b-c~d` is not).
 ///
 /// Override with `--quirks=weird-filenames`.
 fn is_safe_filename(name: &str) -> bool {
@@ -316,7 +319,18 @@ fn is_safe_filename(name: &str) -> bool {
     if !name.bytes().any(|b| b.is_ascii_alphabetic()) {
         return false;
     }
-    name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~' | b'+'))
+
+    let body = name.strip_prefix('.').unwrap_or(name);
+    let mut parts = body.split('.');
+    let Some(stem) = parts.next() else {
+        return false;
+    };
+    if stem.is_empty()
+        || !stem.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'+'))
+    {
+        return false;
+    }
+    parts.all(|ext| !ext.is_empty() && ext.bytes().all(|b| b.is_ascii_alphanumeric()))
 }
 
 fn print_help() {
@@ -331,12 +345,13 @@ fn print_help() {
         "    --quirks=LIST    Comma-separated opt-in toggles for non-default behaviour.\n",
         "                     Known quirks:\n",
         "                       weird-filenames -- allow weird filenames. without this\n",
-        "                                          quirk, names must contain only ascii\n",
-        "                                          [A-Za-z0-9._\\-~+], not start with\n",
-        "                                          `-`, have at most one leading dot,\n",
-        "                                          must contain at least one letter, and\n",
-        "                                          not be `.` or `..`. unicode (emoji,\n",
-        "                                          accented chars, etc.) is rejected.\n",
+        "                                          quirk, names are ASCII-only, must\n",
+        "                                          contain a letter, must not start with\n",
+        "                                          `-`, must have at most one leading\n",
+        "                                          dot, must not be `.` or `..`, and\n",
+        "                                          dot-separated parts are constrained:\n",
+        "                                          stem is [A-Za-z0-9_+-], extension(s)\n",
+        "                                          are alphanumeric only.\n",
         "                       ascii           -- render UI with ASCII glyphs only\n",
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
@@ -716,11 +731,12 @@ mod tests {
             "foo.txt",
             "Foo_Bar.tar.gz",
             "_underscore",
-            "a.b-c_d~e",
             "v2",
             "1.txt",
             "foo+bar.tar.gz",
+            "my-file_v2.tar.gz",
             ".gitignore",
+            ".env.local",
         ] {
             assert!(is_safe_filename(name), "expected {name:?} to be safe");
         }
@@ -733,7 +749,11 @@ mod tests {
             ".",
             "..",
             "...foo",
-            "..tilde~name~",
+            "..tilde",
+            "tilde~mid",
+            "trailing~",
+            "foo.b-c_d",
+            "foo..txt",
             "-leading-dash.txt",
             "--double-dash",
             "with space.txt",
