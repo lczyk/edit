@@ -302,7 +302,8 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 /// - have at most one leading dot (`.gitignore` ok, `..tilde` not).
 /// - not start with `-` (would be confused with a cli flag downstream).
 /// - contain at least one ASCII letter (`123` is weird).
-/// - contain only `[A-Za-z0-9._\-~+]`.
+/// - contain only `[A-Za-z0-9._\-~+]` -- ASCII only, no unicode (emoji,
+///   accented characters, CJK etc. are all weird).
 ///
 /// Override with `--quirks=weird-filenames`.
 fn is_safe_filename(name: &str) -> bool {
@@ -330,11 +331,12 @@ fn print_help() {
         "    --quirks=LIST    Comma-separated opt-in toggles for non-default behaviour.\n",
         "                     Known quirks:\n",
         "                       weird-filenames -- allow weird filenames. without this\n",
-        "                                          quirk, names must contain only\n",
+        "                                          quirk, names must contain only ascii\n",
         "                                          [A-Za-z0-9._\\-~+], not start with\n",
         "                                          `-`, have at most one leading dot,\n",
         "                                          must contain at least one letter, and\n",
-        "                                          not be `.` or `..`.\n",
+        "                                          not be `.` or `..`. unicode (emoji,\n",
+        "                                          accented chars, etc.) is rejected.\n",
         "                       ascii           -- render UI with ASCII glyphs only\n",
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
@@ -749,6 +751,9 @@ mod tests {
             "0123",
             "42",
             "héllo.txt",
+            "résumé.pdf",
+            "файл.txt",
+            "你好.md",
             "rocket🚀.txt",
             "💀",
             "newline\n",
