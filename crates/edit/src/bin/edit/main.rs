@@ -749,6 +749,8 @@ mod tests {
             "0123",
             "42",
             "héllo.txt",
+            "rocket🚀.txt",
+            "💀",
             "newline\n",
         ] {
             assert!(!is_safe_filename(name), "expected {name:?} to be unsafe");
