@@ -299,17 +299,20 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 /// Safe-filename gate. A filename must:
 /// - be non-empty.
 /// - not be `.` or `..` (those name directories, not files).
+/// - have at most one leading dot (`.gitignore` ok, `..tilde` not).
 /// - not start with `-` (would be confused with a cli flag downstream).
-/// - contain only `[A-Za-z0-9._\-~+@=]`.
+/// - contain only `[A-Za-z0-9._\-~+@]`.
 ///
 /// Override with `--quirks=weird-filenames`.
 fn is_safe_filename(name: &str) -> bool {
     if name.is_empty() || name == "." || name == ".." || name.starts_with('-') {
         return false;
     }
-    name.bytes().all(|b| {
-        b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~' | b'+' | b'@' | b'=')
-    })
+    if name.starts_with("..") {
+        return false;
+    }
+    name.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~' | b'+' | b'@'))
 }
 
 fn print_help() {
@@ -325,8 +328,9 @@ fn print_help() {
         "                     Known quirks:\n",
         "                       weird-filenames -- allow weird filenames. without this\n",
         "                                          quirk, names must contain only\n",
-        "                                          [A-Za-z0-9._\\-~+@=], not start with\n",
-        "                                          `-`, and not be `.` or `..`.\n",
+        "                                          [A-Za-z0-9._\\-~+@], not start with\n",
+        "                                          `-`, have at most one leading dot,\n",
+        "                                          and not be `.` or `..`.\n",
         "                       ascii           -- render UI with ASCII glyphs only\n",
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
@@ -706,12 +710,10 @@ mod tests {
             "foo.txt",
             "Foo_Bar.tar.gz",
             "_underscore",
-            "..tilde~name~",
             "0123",
             "a.b-c_d~e",
             "foo+bar.tar.gz",
             "user@host.txt",
-            "key=value.conf",
             ".gitignore",
         ] {
             assert!(is_safe_filename(name), "expected {name:?} to be safe");
@@ -724,6 +726,8 @@ mod tests {
             "",
             ".",
             "..",
+            "...foo",
+            "..tilde~name~",
             "-leading-dash.txt",
             "--double-dash",
             "with space.txt",
@@ -736,6 +740,7 @@ mod tests {
             "foo#bar",
             "foo,bar",
             "foo(bar)",
+            "key=value.conf",
             "héllo.txt",
             "newline\n",
         ] {
