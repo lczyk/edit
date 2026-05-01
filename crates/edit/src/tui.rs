@@ -1045,16 +1045,19 @@ impl Tui {
         }
 
         // Under nocolor, the usual bg/fg/reverse focus cues are invisible.
-        // Overlay `<>` on the focused leaf node so focus stays legible.
+        // Overlay `<>` on the focused leaf -- but only for single-line
+        // widgets (buttons, menu items). Multi-line content like the
+        // textarea would otherwise get markers down the entire visible
+        // body, which is wrong.
         if crate::glyphs::no_color()
             && self.is_node_focused(node.id)
             && outer_clipped.right - outer_clipped.left >= 2
-            && outer_clipped.bottom - outer_clipped.top >= 1
+            && outer_clipped.bottom - outer_clipped.top == 1
+            && !matches!(node.content, NodeContent::Textarea(_) | NodeContent::Scrollarea(_))
         {
-            for y in outer_clipped.top..outer_clipped.bottom {
-                self.framebuffer.replace_text(y, outer_clipped.left, outer_clipped.left + 1, "<");
-                self.framebuffer.replace_text(y, outer_clipped.right - 1, outer_clipped.right, ">");
-            }
+            let y = outer_clipped.top;
+            self.framebuffer.replace_text(y, outer_clipped.left, outer_clipped.left + 1, "<");
+            self.framebuffer.replace_text(y, outer_clipped.right - 1, outer_clipped.right, ">");
         }
     }
 
