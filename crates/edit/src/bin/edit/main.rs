@@ -274,16 +274,15 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 
     match path {
         Some(p) => {
-            // Refuse filenames containing characters outside the safe set
-            // (alphanumeric + `.` `-` `_` `~`). Override with
-            // `--quirks=weird-filenames`. Catches both new-file creation
-            // and existing files (rare, but they may have ended up with
-            // surprising names from another tool).
+            // Refuse weird filenames (see [`is_safe_filename`]). Catches
+            // creation of new files with surprising names and rare-but-real
+            // existing files with weird names (e.g. left behind by a buggy
+            // tool). Override with `--quirks=weird-filenames`.
             let (file_path, _) = documents::parse_filename_goto(&p);
             let name = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
             if !quirks.contains("weird-filenames") && !is_safe_filename(name) {
                 sys::write_stdout(&format!(
-                    "edit: refusing filename {name:?} (only [A-Za-z0-9._\\-~] are accepted)\n\
+                    "edit: refusing filename {name:?}\n\
                      pass `--quirks=weird-filenames` to allow\n"
                 ));
                 return Ok(None);
@@ -297,9 +296,20 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     }
 }
 
+/// Safe-filename gate. A filename must:
+/// - be non-empty.
+/// - not be `.` or `..` (those name directories, not files).
+/// - not start with `-` (would be confused with a cli flag downstream).
+/// - contain only `[A-Za-z0-9._\-~+@=]`.
+///
+/// Override with `--quirks=weird-filenames`.
 fn is_safe_filename(name: &str) -> bool {
-    !name.is_empty()
-        && name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~'))
+    if name.is_empty() || name == "." || name == ".." || name.starts_with('-') {
+        return false;
+    }
+    name.bytes().all(|b| {
+        b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'~' | b'+' | b'@' | b'=')
+    })
 }
 
 fn print_help() {
@@ -313,8 +323,10 @@ fn print_help() {
         "                     Example: `edit -- --version` opens a file called `--version`.\n",
         "    --quirks=LIST    Comma-separated opt-in toggles for non-default behaviour.\n",
         "                     Known quirks:\n",
-        "                       weird-filenames -- allow filenames containing characters\n",
-        "                                          outside the safe set [A-Za-z0-9._\\-~].\n",
+        "                       weird-filenames -- allow weird filenames. without this\n",
+        "                                          quirk, names must contain only\n",
+        "                                          [A-Za-z0-9._\\-~+@=], not start with\n",
+        "                                          `-`, and not be `.` or `..`.\n",
         "                       ascii           -- render UI with ASCII glyphs only\n",
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
@@ -694,10 +706,13 @@ mod tests {
             "foo.txt",
             "Foo_Bar.tar.gz",
             "_underscore",
-            "-leading-dash.txt",
             "..tilde~name~",
             "0123",
             "a.b-c_d~e",
+            "foo+bar.tar.gz",
+            "user@host.txt",
+            "key=value.conf",
+            ".gitignore",
         ] {
             assert!(is_safe_filename(name), "expected {name:?} to be safe");
         }
@@ -707,6 +722,10 @@ mod tests {
     fn unsafe_filenames_rejected() {
         for name in [
             "",
+            ".",
+            "..",
+            "-leading-dash.txt",
+            "--double-dash",
             "with space.txt",
             "a/b",
             "a\\b",
@@ -714,6 +733,9 @@ mod tests {
             "foo\"bar",
             "foo|bar",
             "foo$bar",
+            "foo#bar",
+            "foo,bar",
+            "foo(bar)",
             "héllo.txt",
             "newline\n",
         ] {
