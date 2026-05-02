@@ -1,7 +1,22 @@
 use std::ffi::OsStr;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::io;
+
+static ALLOW_CREATE: AtomicBool = AtomicBool::new(false);
+
+/// Set by [`crate::parse_args`] from `--quirks=allow-create`. When false (the
+/// default), edit refuses to open a path that doesn't exist and refuses to
+/// save into a file that doesn't exist on disk. Directory creation is never
+/// permitted -- not even with the quirk on.
+pub fn set_allow_create(enabled: bool) {
+    ALLOW_CREATE.store(enabled, Ordering::Relaxed);
+}
+
+pub fn allow_create() -> bool {
+    ALLOW_CREATE.load(Ordering::Relaxed)
+}
 
 use edit::buffer::{RcTextBuffer, TextBuffer};
 use edit::helpers::{CoordType, Point};
@@ -190,15 +205,16 @@ fn create_buffer() -> apperr::Result<RcTextBuffer> {
 }
 
 fn open_for_writing(path: &Path) -> apperr::Result<File> {
-    // It is worth doing an existence check because it is significantly
-    // faster than calling mkdir() and letting it fail.
-    if let Some(parent) = path.parent()
-        && !parent.exists()
-    {
-        fs::create_dir_all(parent)?;
+    // edit never creates parent directories. Saving into a path with a
+    // missing parent always fails -- regardless of the `allow-create` quirk.
+    let mut opts = OpenOptions::new();
+    opts.write(true).truncate(true);
+    if allow_create() {
+        opts.create(true);
+    } else {
+        opts.create(false);
     }
-
-    File::create(path).map_err(apperr::Error::from)
+    opts.open(path).map_err(apperr::Error::from)
 }
 
 /// Hardcoded line-comment token for files lsh doesn't recognise. lsh stays

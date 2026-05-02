@@ -21,7 +21,7 @@ use std::time::Duration;
 use std::{env, process};
 
 /// Opt-in toggles for non-default behaviour. Parsed from `--quirks=a,b,c`.
-const KNOWN_QUIRKS: &[&str] = &["weird-filenames", "ascii", "nocolor"];
+const KNOWN_QUIRKS: &[&str] = &["weird-filenames", "ascii", "nocolor", "allow-create"];
 
 use draw_editor::*;
 use draw_menubar::*;
@@ -271,6 +271,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     // Apply quirks that affect global rendering state.
     edit::glyphs::set_ascii_only(quirks.contains("ascii"));
     edit::glyphs::set_no_color(quirks.contains("nocolor"));
+    documents::set_allow_create(quirks.contains("allow-create"));
 
     match path {
         Some(p) => {
@@ -284,6 +285,16 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 sys::write_stdout(&format!(
                     "edit: refusing filename {name:?}\n\
                      pass `--quirks=weird-filenames` to allow\n"
+                ));
+                return Ok(None);
+            }
+            // Refuse to create new files unless `--quirks=allow-create`.
+            // edit never creates directories regardless of this quirk.
+            if !quirks.contains("allow-create") && !file_path.exists() {
+                let display = file_path.display();
+                sys::write_stdout(&format!(
+                    "edit: refusing to create new file: {display}\n\
+                     pass `--quirks=allow-create` to allow\n"
                 ));
                 return Ok(None);
             }
@@ -356,6 +367,11 @@ fn print_help() {
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
         "                                          (text attributes still emitted).\n",
+        "                       allow-create    -- allow creating new files. without this\n",
+        "                                          quirk, edit refuses to open a path that\n",
+        "                                          does not exist and refuses to save into\n",
+        "                                          a missing file. edit never creates\n",
+        "                                          directories regardless of this quirk.\n",
         "\n",
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",
