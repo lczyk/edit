@@ -8,19 +8,19 @@
 # Set a value to "" to leave an action unbound.
 
 [keybindings]
-exit             = "Ctrl+Q"
+exit             = "Cmd+Q"
 
-undo             = "Ctrl+Z"
-redo             = "Ctrl+Y"
-cut              = "Ctrl+X"
-copy             = "Ctrl+C"
-paste            = "Ctrl+V"
-select_all       = "Ctrl+A"
-find             = "Ctrl+F"
-replace          = "Ctrl+R"
+undo             = "Cmd+Z"
+redo             = "Cmd+Shift+Z"
+cut              = "Cmd+X"
+copy             = "Cmd+C"
+paste            = "Cmd+V"
+select_all       = "Cmd+A"
+find             = "Cmd+F"
+replace          = "Cmd+R"
 
 focus_statusbar  = ""
-go_to_line       = "Ctrl+G"
+go_to_line       = "Cmd+G"
 toggle_word_wrap = "Alt+Z"
 
 open_about       = ""

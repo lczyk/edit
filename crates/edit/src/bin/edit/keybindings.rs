@@ -367,7 +367,12 @@ mod tests {
     #[test]
     fn default_toml_parses() {
         let kb = Keybindings::from_defaults();
-        assert_eq!(kb.chord(Action::Exit), kbmod::CTRL | vk::Q);
+        let primary = if cfg!(any(target_os = "macos", target_os = "ios")) {
+            kbmod::CMD
+        } else {
+            kbmod::CTRL
+        };
+        assert_eq!(kb.chord(Action::Exit), primary | vk::Q);
         assert_eq!(kb.chord(Action::FocusMenubar), vk::F10);
     }
 

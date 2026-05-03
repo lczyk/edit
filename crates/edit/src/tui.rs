@@ -163,6 +163,10 @@ const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
 const SHIFT_TAB: InputKey = vk::TAB.with_modifiers(kbmod::SHIFT);
 const KBMOD_FOR_WORD_NAV: InputKeyMod =
     if cfg!(any(target_os = "macos", target_os = "ios")) { kbmod::ALT } else { kbmod::CTRL };
+// Primary application modifier: Cmd on macOS, Ctrl elsewhere. Used for
+// the standard Cut/Copy/Paste/Undo/Redo/SelectAll chords in the textarea.
+const KBMOD_PRIMARY: InputKeyMod =
+    if cfg!(any(target_os = "macos", target_os = "ios")) { kbmod::CMD } else { kbmod::CTRL };
 
 type Input<'input> = input::Input<'input>;
 type InputKey = input::InputKey;
@@ -560,7 +564,7 @@ impl Tui {
                 let clipboard = self.clipboard_mut();
                 clipboard.write(paste);
                 clipboard.mark_as_synchronized();
-                input_keyboard = Some(kbmod::CTRL | vk::V);
+                input_keyboard = Some(KBMOD_PRIMARY | vk::V);
             }
             Some(Input::Keyboard(keyboard)) => {
                 input_keyboard = Some(keyboard);
@@ -2380,7 +2384,7 @@ impl<'a> Context<'a, '_> {
 
             match key {
                 vk::BACK => {
-                    let granularity = if modifiers == kbmod::CTRL {
+                    let granularity = if modifiers == KBMOD_FOR_WORD_NAV {
                         CursorMovement::Word
                     } else {
                         CursorMovement::Grapheme
@@ -2681,11 +2685,11 @@ impl<'a> Context<'a, '_> {
                 },
                 vk::DELETE => match modifiers {
                     kbmod::SHIFT => tb.cut(self.clipboard_mut()),
-                    kbmod::CTRL => tb.delete(CursorMovement::Word, 1),
+                    m if m == KBMOD_FOR_WORD_NAV => tb.delete(CursorMovement::Word, 1),
                     _ => tb.delete(CursorMovement::Grapheme, 1),
                 },
                 vk::A => match modifiers {
-                    kbmod::CTRL => tb.select_all(),
+                    m if m == KBMOD_PRIMARY => tb.select_all(),
                     _ => return false,
                 },
                 vk::B => match modifiers {
@@ -2713,24 +2717,24 @@ impl<'a> Context<'a, '_> {
                     _ => return false,
                 },
                 vk::X => match modifiers {
-                    kbmod::CTRL => tb.cut(self.clipboard_mut()),
+                    m if m == KBMOD_PRIMARY => tb.cut(self.clipboard_mut()),
                     _ => return false,
                 },
                 vk::C => match modifiers {
-                    kbmod::CTRL => tb.copy(self.clipboard_mut()),
+                    m if m == KBMOD_PRIMARY => tb.copy(self.clipboard_mut()),
                     _ => return false,
                 },
                 vk::V => match modifiers {
-                    kbmod::CTRL => tb.paste(self.clipboard_ref()),
+                    m if m == KBMOD_PRIMARY => tb.paste(self.clipboard_ref()),
                     _ => return false,
                 },
                 vk::Y => match modifiers {
-                    kbmod::CTRL => tb.redo(),
+                    m if m == KBMOD_PRIMARY => tb.redo(),
                     _ => return false,
                 },
                 vk::Z => match modifiers {
-                    kbmod::CTRL => tb.undo(),
-                    kbmod::CTRL_SHIFT => tb.redo(),
+                    m if m == KBMOD_PRIMARY => tb.undo(),
+                    m if m == KBMOD_PRIMARY | kbmod::SHIFT => tb.redo(),
                     kbmod::ALT => tb.set_word_wrap(!tb.is_word_wrap_enabled()),
                     _ => return false,
                 },
