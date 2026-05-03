@@ -1,0 +1,12 @@
+[book]
+title = "edit knowledge base"
+authors = ["@lczyk"]
+language = "en-gb"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "coal"
+preferred-dark-theme = "coal"

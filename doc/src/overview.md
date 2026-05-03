@@ -1,0 +1,23 @@
+<!-- cspell:ignore bindable mdbook -->
+
+# Overview
+
+Knowledge base for the `edit` terminal editor (private fork of Microsoft's `edit`).
+
+This book collects notes that don't belong in the source tree itself: terminal interop quirks, per-terminal configuration, design notes that grew past a single comment. Source-of-truth for code conventions still lives in [`AGENTS.md`](https://github.com/lczyk/edit/blob/main/AGENTS.md) at the repo root.
+
+## Sections
+
+- [Keybindings](./keybindings.md) -- config file format, what's bindable, chord syntax, the Cmd modifier on macOS.
+- [Terminal Keyboard](./terminal-keyboard.md) -- why some chords (`Cmd+C`, `Option+Backspace`, ...) don't reach `edit` out of the box, and how to fix it per terminal.
+  - [Alacritty](./alacritty.md) -- concrete config snippets for Alacritty on macOS.
+- [Dev Input Log](./dev-input-log.md) -- `--logfile` JSONL stream for the "I pressed X, expected Y" feedback loop.
+
+## Build
+
+```sh
+make docs-serve   # live-reload at http://localhost:3000
+make docs-build   # one-shot HTML into doc/book/
+```
+
+`mdbook` must be on `$PATH` (`cargo install mdbook`).

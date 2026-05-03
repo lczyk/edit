@@ -1,4 +1,4 @@
-# cspell:ignore gsub rustup
+# cspell:ignore gsub mdbook rustup
 .SUFFIXES:
 
 help:
@@ -73,6 +73,28 @@ spellcheck:  ## Spellcheck sources and docs with cspell (via npx)
 .PHONY: clean
 clean:  ## Remove the target/ directory
 	cargo clean
+
+.PHONY: docs-build
+docs-build:  ## Build the mdBook knowledge base into doc/book/
+	@if ! command -v mdbook >/dev/null 2>&1; then \
+		echo "error: mdbook not installed."; \
+		echo "  install: cargo install mdbook"; \
+		exit 1; \
+	fi
+	mdbook build doc
+
+.PHONY: docs-serve
+docs-serve:  ## Serve the mdBook knowledge base with live reload
+	@if ! command -v mdbook >/dev/null 2>&1; then \
+		echo "error: mdbook not installed."; \
+		echo "  install: cargo install mdbook"; \
+		exit 1; \
+	fi
+	mdbook serve doc --open
+
+.PHONY: docs-clean
+docs-clean:  ## Remove the built mdBook output
+	rm -rf doc/book
 
 .PHONY: verify
 verify: fmt-check clippy test spellcheck  ## Run the full pre-commit gate (fmt, clippy, test, spellcheck)
