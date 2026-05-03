@@ -423,6 +423,8 @@ impl<'input> Iterator for Stream<'_, '_, 'input> {
                     match ch {
                         '\0' => return Some(Input::Keyboard(vk::ESCAPE)),
                         '\n' => return Some(Input::Keyboard(kbmod::CTRL_ALT | vk::RETURN)),
+                        // ESC + DEL: terminals send this for Alt+Backspace.
+                        '\x7f' => return Some(Input::Keyboard(kbmod::ALT | vk::BACK)),
                         ' '..='~' => {
                             let ch = ch as u32;
                             let key = ch & !0x20; // Shift a-z to A-Z
