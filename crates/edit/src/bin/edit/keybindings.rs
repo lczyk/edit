@@ -381,6 +381,35 @@ mod tests {
     }
 
     #[test]
+    fn default_standard_chords_use_primary_modifier() {
+        let kb = Keybindings::from_defaults();
+        let primary = if cfg!(any(target_os = "macos", target_os = "ios")) {
+            kbmod::CMD
+        } else {
+            kbmod::CTRL
+        };
+        assert_eq!(kb.chord(Action::Undo), primary | vk::Z);
+        assert_eq!(kb.chord(Action::Cut), primary | vk::X);
+        assert_eq!(kb.chord(Action::Copy), primary | vk::C);
+        assert_eq!(kb.chord(Action::Paste), primary | vk::V);
+        assert_eq!(kb.chord(Action::SelectAll), primary | vk::A);
+        assert_eq!(kb.chord(Action::Find), primary | vk::F);
+    }
+
+    #[test]
+    fn default_delete_to_line_edge_chords() {
+        let kb = Keybindings::from_defaults();
+        if cfg!(any(target_os = "macos", target_os = "ios")) {
+            assert_eq!(kb.chord(Action::DeleteToLineStart), kbmod::CMD | vk::BACK);
+            assert_eq!(kb.chord(Action::DeleteToLineEnd), kbmod::CMD | vk::DELETE);
+        } else {
+            // Unbound on Linux by default (vscode does the same).
+            assert_eq!(kb.chord(Action::DeleteToLineStart), vk::NULL);
+            assert_eq!(kb.chord(Action::DeleteToLineEnd), vk::NULL);
+        }
+    }
+
+    #[test]
     fn parse_chord_roundtrip() {
         assert_eq!(parse_chord("Ctrl+S"), Some(kbmod::CTRL | vk::S));
         assert_eq!(parse_chord("Cmd+Shift+P"), Some(kbmod::CMD | kbmod::SHIFT | vk::P));

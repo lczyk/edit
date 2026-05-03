@@ -701,3 +701,50 @@ impl<'input> Stream<'_, '_, 'input> {
         modifiers
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vt;
+
+    fn parse_one(bytes: &str) -> Option<Input<'_>> {
+        let mut vt_parser = vt::Parser::new();
+        let mut in_parser = Parser::new();
+        let stream = vt_parser.parse(bytes);
+        in_parser.parse(stream).next()
+    }
+
+    fn key(input: Option<Input<'_>>) -> InputKey {
+        match input {
+            Some(Input::Keyboard(k)) => k,
+            _ => panic!("expected keyboard input"),
+        }
+    }
+
+    #[test]
+    fn bare_del_decodes_as_backspace() {
+        assert_eq!(key(parse_one("\x7f")), vk::BACK);
+    }
+
+    #[test]
+    fn esc_del_decodes_as_alt_backspace() {
+        assert_eq!(key(parse_one("\x1b\x7f")), kbmod::ALT | vk::BACK);
+    }
+
+    #[test]
+    fn esc_letter_decodes_as_alt_letter() {
+        assert_eq!(key(parse_one("\x1bb")), kbmod::ALT | vk::B);
+    }
+
+    #[test]
+    fn kitty_csi_u_backspace_with_alt() {
+        // CSI 127 ; 3 u  -> Alt+Backspace under the kitty keyboard protocol.
+        assert_eq!(key(parse_one("\x1b[127;3u")), kbmod::ALT | vk::BACK);
+    }
+
+    #[test]
+    fn kitty_csi_u_letter_with_cmd() {
+        // CSI 99 ; 9 u  -> Cmd+C (modifier 9 - 1 = 8 = Super bit).
+        assert_eq!(key(parse_one("\x1b[99;9u")), kbmod::CMD | vk::C);
+    }
+}
