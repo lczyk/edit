@@ -43,8 +43,8 @@ clippy:  ## Clippy with warnings denied (CI bar)
 test:  ## Run the test suite with all features enabled
 	cargo test --all-features
 
-.PHONY: fmt
-fmt:  ## Format the workspace with rustfmt
+.PHONY: format
+format:  ## Format the workspace with rustfmt
 	cargo fmt --all
 
 .PHONY: fmt-check
