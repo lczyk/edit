@@ -29,7 +29,41 @@ ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades grace
 
 `kbmod::CMD` is available alongside `CTRL`/`ALT`/`SHIFT` and maps to the Super modifier in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 (disambiguate escape codes) on startup via `CSI > 1 u` in `setup_terminal` and pops on exit via `CSI < u`.
 
-Reaches the editor only when (a) the terminal supports the protocol and (b) the terminal forwards Cmd rather than binding it at the window level. Known-good: Ghostty, kitty, WezTerm, Alacritty ≥ 0.14. Any built-in terminal shortcut (Cmd+Q, Cmd+C, …) must be cleared in the terminal's config before that chord reaches the editor.
+Reaches the editor only when (a) the terminal supports the protocol and (b) the terminal forwards Cmd rather than binding it at the window level. Known-good: Ghostty, kitty, WezTerm, Alacritty >= 0.14. Any built-in terminal shortcut (Cmd+Q, Cmd+C, ...) must be cleared in the terminal's config before that chord reaches the editor.
+
+### Terminals swallow chords
+
+Most macOS terminals reserve common Cmd chords for native actions and do **not** forward them to the running app, even with the kitty keyboard protocol active. Symptoms: a chord that should be bound in `keybindings.macos.toml` does nothing, while a sibling chord (e.g. `Cmd+X` works but `Cmd+C` does not) goes through fine. The asymmetry is the giveaway -- it means the terminal claimed the chord, not edit.
+
+Common offenders on macOS:
+
+- `Cmd+C` -- copy terminal selection to OS clipboard.
+- `Cmd+V` -- paste OS clipboard as bracketed paste (edit's bracketed-paste path catches this and treats it as paste; usually fine).
+- `Cmd+F` -- terminal search.
+- `Cmd+Q` -- quit terminal.
+- `Cmd+N` / `Cmd+T` -- new window / tab.
+
+Fix is per-terminal. For Alacritty, add to `~/.config/alacritty/alacritty.toml`:
+
+```toml
+# Cmd+C -- forward to running program instead of Alacritty's built-in Copy.
+[[keyboard.bindings]]
+key = "C"
+mods = "Command"
+action = "ReceiveChar"
+
+# Cmd+F -- send Ctrl+F (0x06) to the running program instead of SearchForward.
+[[keyboard.bindings]]
+key = "F"
+mods = "Command"
+chars = ""
+```
+
+`ReceiveChar` lets the chord pass through; with kitty keyboard protocol active it gets encoded as a CSI sequence that decodes to `kbmod::CMD | vk::C` in the editor. `chars = "..."` is the older alacritty pattern -- emits literal bytes -- useful when the app expects `Ctrl+<key>` semantics rather than the kitty `Cmd+<key>` encoding.
+
+Reload alacritty config with `Ctrl+Shift+R` (or restart) after editing.
+
+For other terminals (Ghostty, kitty, WezTerm) the equivalent is `unbind` / `discard_event` / config override of the relevant key. Check the terminal's docs.
 
 ## Keybindings
 
