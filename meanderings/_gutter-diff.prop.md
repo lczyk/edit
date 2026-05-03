@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 date: 2026-04-30
 description: vscode-style per-line gutter marks for git changes (added/modified/deleted vs HEAD)
 ---
