@@ -306,6 +306,7 @@ pub struct TextBuffer {
     preferred_column: CoordType,
 
     wants_cursor_visibility: bool,
+    wants_scroll_delta_y: CoordType,
 
     /// Indexed by logical line `y`. Empty means "no marks". May be shorter
     /// or longer than the current logical line count if a refresh is
@@ -363,6 +364,7 @@ impl TextBuffer {
             preferred_column: 0,
 
             wants_cursor_visibility: false,
+            wants_scroll_delta_y: 0,
 
             gutter_marks: Vec::new(),
         })
@@ -602,6 +604,18 @@ impl TextBuffer {
     /// For the TUI code to retrieve a prior [`TextBuffer::make_cursor_visible()`] request.
     pub fn take_cursor_visibility_request(&mut self) -> bool {
         mem::take(&mut self.wants_cursor_visibility)
+    }
+
+    /// Ask the TUI system to shift the viewport by `dy` visual rows while
+    /// leaving the cursor at the same on-screen position. Pairs with a cursor
+    /// motion of the same delta in the caller.
+    pub fn request_scroll_delta_y(&mut self, dy: CoordType) {
+        self.wants_scroll_delta_y = self.wants_scroll_delta_y.saturating_add(dy);
+    }
+
+    /// For the TUI code to retrieve a prior [`TextBuffer::request_scroll_delta_y()`] request.
+    pub fn take_scroll_delta_y_request(&mut self) -> CoordType {
+        mem::take(&mut self.wants_scroll_delta_y)
     }
 
     /// Is word-wrap enabled?

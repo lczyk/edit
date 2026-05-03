@@ -490,7 +490,7 @@ fn small_jump(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
     let max_y = (tb.visual_line_count() - 1).max(0);
     let y = (tb.cursor_visual_pos().y + delta).clamp(0, max_y);
     tb.cursor_move_to_visual(Point { x, y });
-    tb.make_cursor_visible();
+    tb.request_scroll_delta_y(delta);
 }
 
 fn small_jump_select(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
@@ -498,7 +498,7 @@ fn small_jump_select(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
     let max_y = (tb.visual_line_count() - 1).max(0);
     let y = (tb.cursor_visual_pos().y + delta).clamp(0, max_y);
     tb.selection_update_visual(Point { x, y });
-    tb.make_cursor_visible();
+    tb.request_scroll_delta_y(delta);
 }
 
 fn smart_line_start(tb: &mut edit::buffer::TextBuffer, select: bool) {
