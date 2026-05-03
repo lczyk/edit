@@ -44,3 +44,7 @@ line_start              = "Cmd+Left"
 line_end                = "Cmd+Right"
 line_start_select       = "Cmd+Shift+Left"
 line_end_select         = "Cmd+Shift+Right"
+
+# Delete from cursor to start/end of the current logical line.
+delete_to_line_start    = "Cmd+Back"
+delete_to_line_end      = "Cmd+Delete"

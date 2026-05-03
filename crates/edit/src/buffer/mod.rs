@@ -2539,6 +2539,41 @@ impl TextBuffer {
         self.set_selection(None);
     }
 
+    /// Deletes from the cursor to the start (`forward = false`) or end
+    /// (`forward = true`) of the current logical line. Mirrors vscode
+    /// `deleteAllLeft` / `deleteAllRight`. Stays within the current line --
+    /// at column 0 going backward (or line end going forward), it is a noop.
+    /// If there is a selection, it is deleted instead.
+    pub fn delete_to_line_edge(&mut self, forward: bool) {
+        if self.read_only {
+            return;
+        }
+
+        let mut beg;
+        let mut end;
+
+        if let Some(r) = self.selection_range_internal(false) {
+            (beg, end) = r;
+        } else {
+            beg = self.cursor;
+            let target =
+                Point { x: if forward { CoordType::MAX } else { 0 }, y: beg.logical_pos.y };
+            end = self.cursor_move_to_logical_internal(beg, target);
+            if beg.offset == end.offset {
+                return;
+            }
+            if beg.offset > end.offset {
+                mem::swap(&mut beg, &mut end);
+            }
+        }
+
+        self.edit_begin(HistoryType::Delete, beg);
+        self.edit_delete(end);
+        self.edit_end();
+
+        self.set_selection(None);
+    }
+
     /// Returns the logical position of the first character on this line.
     /// Return `.x == 0` if there are no non-whitespace characters.
     pub fn indent_end_logical_pos(&self) -> Point {
@@ -3793,6 +3828,67 @@ mod tests {
         tb.set_read_only(true);
         tb.delete_lines();
         assert_eq!(dump(&tb), "foo\n");
+    }
+
+    #[test]
+    fn delete_to_line_edge_forward_mid_line() {
+        let mut tb = buf_with("foobar\nbaz\n");
+        tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+        tb.delete_to_line_edge(true);
+        assert_eq!(dump(&tb), "foo\nbaz\n");
+        assert_eq!(tb.cursor_logical_pos(), Point { x: 3, y: 0 });
+    }
+
+    #[test]
+    fn delete_to_line_edge_backward_mid_line() {
+        let mut tb = buf_with("foobar\nbaz\n");
+        tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+        tb.delete_to_line_edge(false);
+        assert_eq!(dump(&tb), "bar\nbaz\n");
+        assert_eq!(tb.cursor_logical_pos(), Point { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn delete_to_line_edge_forward_at_line_end_is_noop() {
+        let mut tb = buf_with("foo\nbar\n");
+        tb.cursor_move_to_logical(Point { x: CoordType::MAX, y: 0 });
+        tb.delete_to_line_edge(true);
+        assert_eq!(dump(&tb), "foo\nbar\n");
+    }
+
+    #[test]
+    fn delete_to_line_edge_backward_at_col_zero_is_noop() {
+        let mut tb = buf_with("foo\nbar\n");
+        tb.cursor_move_to_logical(Point { x: 0, y: 1 });
+        tb.delete_to_line_edge(false);
+        assert_eq!(dump(&tb), "foo\nbar\n");
+    }
+
+    #[test]
+    fn delete_to_line_edge_with_selection_deletes_selection() {
+        let mut tb = buf_with("abcdef\n");
+        select(&mut tb, Point { x: 1, y: 0 }, Point { x: 4, y: 0 });
+        tb.delete_to_line_edge(true);
+        assert_eq!(dump(&tb), "aef\n");
+    }
+
+    #[test]
+    fn delete_to_line_edge_read_only_is_noop() {
+        let mut tb = buf_with("foo\n");
+        tb.set_read_only(true);
+        tb.cursor_move_to_logical(Point { x: 1, y: 0 });
+        tb.delete_to_line_edge(true);
+        assert_eq!(dump(&tb), "foo\n");
+    }
+
+    #[test]
+    fn delete_to_line_edge_undo_reverts() {
+        let mut tb = buf_with("foobar\n");
+        tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+        tb.delete_to_line_edge(true);
+        assert_eq!(dump(&tb), "foo\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "foobar\n");
     }
 
     #[test]

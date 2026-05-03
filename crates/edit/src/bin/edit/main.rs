@@ -478,6 +478,10 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         smart_line_start(&mut state.document.buffer.borrow_mut(), true);
     } else if ctx.consume_shortcut(chord(Action::LineEndSelect)) {
         line_end(&mut state.document.buffer.borrow_mut(), true);
+    } else if ctx.consume_shortcut(chord(Action::DeleteToLineStart)) {
+        state.document.buffer.borrow_mut().delete_to_line_edge(false);
+    } else if ctx.consume_shortcut(chord(Action::DeleteToLineEnd)) {
+        state.document.buffer.borrow_mut().delete_to_line_edge(true);
     } else {
         return;
     }
