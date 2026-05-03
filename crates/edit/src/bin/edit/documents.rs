@@ -1,8 +1,8 @@
 use std::ffi::OsStr;
 use std::fs::{File, OpenOptions};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::io;
 
 static ALLOW_CREATE: AtomicBool = AtomicBool::new(false);
 
