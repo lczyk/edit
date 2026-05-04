@@ -1,167 +1,167 @@
-   1 other                  <?
-   1 constant.language      xml
-   1 other                   
-   1 variable               version
-   1 other                  =
-   1 string                 "1.0"
-   1 other                   
-   1 variable               encoding
-   1 other                  =
-   1 string                 "UTF-8"
-   1 other                   
-   1 variable               standalone
-   1 other                  =
-   1 string                 "yes"
-   1 other                  ?>
-   2 other                  <!DOCTYPE root [
-   3 other                    <!ENTITY custom "Custom Entity">
-   4 other                  ]>
-   5 comment                <!-- Root comment with special chars: <>&"' -->
-   6 other                  <?
-   6 constant.language      processing-instruction
-   6 other                   
-   6 variable               target
-   6 other                  =
-   6 string                 "value"
-   6 other                  ?>
-   7 other                  <
-   7 constant.language      root
-   7 other                   
-   7 variable               xmlns
-   7 other                  =
-   7 string                 "http://default.namespace"
-   7 other                   
-   7 variable               xmlns:ns
-   7 other                  =
-   7 string                 "http://custom.namespace"
-   7 other                  >
-   8 other                    
-   8 comment                <!-- Elements and attributes -->
-   9 other                    <
-   9 constant.language      element
-   9 other                   
-   9 variable               attribute
-   9 other                  =
-   9 string                 "value"
-   9 other                   
-   9 variable               ns:attr
-   9 other                  =
-   9 string                 'single-quoted'
-   9 other                   
-   9 variable               empty-attr
-   9 other                  =
-   9 string                 ""
-   9 other                  >
-  10 other                      <
-  10 constant.language      self-closing
-  10 other                   
-  10 variable               id
-  10 other                  =
-  10 string                 "123"
-  10 other                   />
-  11 other                      <
-  11 constant.language      nested
-  11 other                  >Text 
-  11 constant.numeric       &amp;
-  11 other                   
-  11 constant.numeric       &lt;
-  11 other                   
-  11 constant.numeric       &gt;
-  11 other                   
-  11 constant.numeric       &quot;
-  11 other                   
-  11 constant.numeric       &apos;
-  11 other                   content</
-  11 constant.language      nested
-  11 other                  >
-  12 other                      <
-  12 constant.language      entity
-  12 other                  >
-  12 constant.numeric       &custom;
-  12 other                  </
-  12 constant.language      entity
-  12 other                  >
-  13 other                    </
-  13 constant.language      element
-  13 other                  >
-  15 other                    
-  15 comment                <!-- CDATA section -->
-  16 other                    <
-  16 constant.language      script
-  16 other                  >
-  16 string                 <![CDATA[
-  17 string                     function test() {
-  18 string                       return x < 10 && y > 5;
-  19 string                     }
-  20 string                   ]]>
-  20 other                  </
-  20 constant.language      script
-  20 other                  >
-  22 other                    
-  22 comment                <!-- Mixed content -->
-  23 other                    <
-  23 constant.language      mixed
-  23 other                  >Text before <
-  23 constant.language      tag
-  23 other                  >inline</
-  23 constant.language      tag
-  23 other                  > text after</
-  23 constant.language      mixed
-  23 other                  >
-  25 other                    
-  25 comment                <!-- Numeric character references -->
-  26 other                    <
-  26 constant.language      chars
-  26 other                  >
-  26 constant.numeric       &#65;
-  26 other                   
-  26 constant.numeric       &#x41;
-  26 other                   
-  26 constant.numeric       &#x1F600;
-  26 other                  </
-  26 constant.language      chars
-  26 other                  >
-  28 other                    
-  28 comment                <!-- Edge cases -->
-  29 other                    <
-  29 constant.language      edge-cases
-  29 other                  >
-  30 other                      <
-  30 constant.language      empty
-  30 other                  ></
-  30 constant.language      empty
-  30 other                  >
-  31 other                      <
-  31 constant.language      whitespace
-  31 other                  >   </
-  31 constant.language      whitespace
-  31 other                  >
-  32 other                      <
-  32 constant.language      special-chars
-  32 other                  >!@#$%^*()_+-={}[]|\\:;"'
-  32 constant.numeric       &lt;
-  32 constant.numeric       &gt;
-  32 other                  ,.</
-  32 constant.language      special-chars
-  32 other                  >
-  33 other                    </
-  33 constant.language      edge-cases
-  33 other                  >
-  35 other                    
-  35 comment                <!-- Nested namespaces -->
-  36 other                    <
-  36 constant.language      ns:custom
-  36 other                   
-  36 variable               ns:id
-  36 other                  =
-  36 string                 "namespaced"
-  36 other                  >
-  37 other                      <
-  37 constant.language      ns:child
-  37 other                   />
-  38 other                    </
-  38 constant.language      ns:custom
-  38 other                  >
-  39 other                  </
-  39 constant.language      root
-  39 other                  >
+{"line":1,"kind":"other","text":"<?"}
+{"line":1,"kind":"constant.language","text":"xml"}
+{"line":1,"kind":"other","text":" "}
+{"line":1,"kind":"variable","text":"version"}
+{"line":1,"kind":"other","text":"="}
+{"line":1,"kind":"string","text":"\"1.0\""}
+{"line":1,"kind":"other","text":" "}
+{"line":1,"kind":"variable","text":"encoding"}
+{"line":1,"kind":"other","text":"="}
+{"line":1,"kind":"string","text":"\"UTF-8\""}
+{"line":1,"kind":"other","text":" "}
+{"line":1,"kind":"variable","text":"standalone"}
+{"line":1,"kind":"other","text":"="}
+{"line":1,"kind":"string","text":"\"yes\""}
+{"line":1,"kind":"other","text":"?>"}
+{"line":2,"kind":"other","text":"<!DOCTYPE root ["}
+{"line":3,"kind":"other","text":"  <!ENTITY custom \"Custom Entity\">"}
+{"line":4,"kind":"other","text":"]>"}
+{"line":5,"kind":"comment","text":"<!-- Root comment with special chars: <>&\"' -->"}
+{"line":6,"kind":"other","text":"<?"}
+{"line":6,"kind":"constant.language","text":"processing-instruction"}
+{"line":6,"kind":"other","text":" "}
+{"line":6,"kind":"variable","text":"target"}
+{"line":6,"kind":"other","text":"="}
+{"line":6,"kind":"string","text":"\"value\""}
+{"line":6,"kind":"other","text":"?>"}
+{"line":7,"kind":"other","text":"<"}
+{"line":7,"kind":"constant.language","text":"root"}
+{"line":7,"kind":"other","text":" "}
+{"line":7,"kind":"variable","text":"xmlns"}
+{"line":7,"kind":"other","text":"="}
+{"line":7,"kind":"string","text":"\"http://default.namespace\""}
+{"line":7,"kind":"other","text":" "}
+{"line":7,"kind":"variable","text":"xmlns:ns"}
+{"line":7,"kind":"other","text":"="}
+{"line":7,"kind":"string","text":"\"http://custom.namespace\""}
+{"line":7,"kind":"other","text":">"}
+{"line":8,"kind":"other","text":"  "}
+{"line":8,"kind":"comment","text":"<!-- Elements and attributes -->"}
+{"line":9,"kind":"other","text":"  <"}
+{"line":9,"kind":"constant.language","text":"element"}
+{"line":9,"kind":"other","text":" "}
+{"line":9,"kind":"variable","text":"attribute"}
+{"line":9,"kind":"other","text":"="}
+{"line":9,"kind":"string","text":"\"value\""}
+{"line":9,"kind":"other","text":" "}
+{"line":9,"kind":"variable","text":"ns:attr"}
+{"line":9,"kind":"other","text":"="}
+{"line":9,"kind":"string","text":"'single-quoted'"}
+{"line":9,"kind":"other","text":" "}
+{"line":9,"kind":"variable","text":"empty-attr"}
+{"line":9,"kind":"other","text":"="}
+{"line":9,"kind":"string","text":"\"\""}
+{"line":9,"kind":"other","text":">"}
+{"line":10,"kind":"other","text":"    <"}
+{"line":10,"kind":"constant.language","text":"self-closing"}
+{"line":10,"kind":"other","text":" "}
+{"line":10,"kind":"variable","text":"id"}
+{"line":10,"kind":"other","text":"="}
+{"line":10,"kind":"string","text":"\"123\""}
+{"line":10,"kind":"other","text":" />"}
+{"line":11,"kind":"other","text":"    <"}
+{"line":11,"kind":"constant.language","text":"nested"}
+{"line":11,"kind":"other","text":">Text "}
+{"line":11,"kind":"constant.numeric","text":"&amp;"}
+{"line":11,"kind":"other","text":" "}
+{"line":11,"kind":"constant.numeric","text":"&lt;"}
+{"line":11,"kind":"other","text":" "}
+{"line":11,"kind":"constant.numeric","text":"&gt;"}
+{"line":11,"kind":"other","text":" "}
+{"line":11,"kind":"constant.numeric","text":"&quot;"}
+{"line":11,"kind":"other","text":" "}
+{"line":11,"kind":"constant.numeric","text":"&apos;"}
+{"line":11,"kind":"other","text":" content</"}
+{"line":11,"kind":"constant.language","text":"nested"}
+{"line":11,"kind":"other","text":">"}
+{"line":12,"kind":"other","text":"    <"}
+{"line":12,"kind":"constant.language","text":"entity"}
+{"line":12,"kind":"other","text":">"}
+{"line":12,"kind":"constant.numeric","text":"&custom;"}
+{"line":12,"kind":"other","text":"</"}
+{"line":12,"kind":"constant.language","text":"entity"}
+{"line":12,"kind":"other","text":">"}
+{"line":13,"kind":"other","text":"  </"}
+{"line":13,"kind":"constant.language","text":"element"}
+{"line":13,"kind":"other","text":">"}
+{"line":15,"kind":"other","text":"  "}
+{"line":15,"kind":"comment","text":"<!-- CDATA section -->"}
+{"line":16,"kind":"other","text":"  <"}
+{"line":16,"kind":"constant.language","text":"script"}
+{"line":16,"kind":"other","text":">"}
+{"line":16,"kind":"string","text":"<![CDATA["}
+{"line":17,"kind":"string","text":"    function test() {"}
+{"line":18,"kind":"string","text":"      return x < 10 && y > 5;"}
+{"line":19,"kind":"string","text":"    }"}
+{"line":20,"kind":"string","text":"  ]]>"}
+{"line":20,"kind":"other","text":"</"}
+{"line":20,"kind":"constant.language","text":"script"}
+{"line":20,"kind":"other","text":">"}
+{"line":22,"kind":"other","text":"  "}
+{"line":22,"kind":"comment","text":"<!-- Mixed content -->"}
+{"line":23,"kind":"other","text":"  <"}
+{"line":23,"kind":"constant.language","text":"mixed"}
+{"line":23,"kind":"other","text":">Text before <"}
+{"line":23,"kind":"constant.language","text":"tag"}
+{"line":23,"kind":"other","text":">inline</"}
+{"line":23,"kind":"constant.language","text":"tag"}
+{"line":23,"kind":"other","text":"> text after</"}
+{"line":23,"kind":"constant.language","text":"mixed"}
+{"line":23,"kind":"other","text":">"}
+{"line":25,"kind":"other","text":"  "}
+{"line":25,"kind":"comment","text":"<!-- Numeric character references -->"}
+{"line":26,"kind":"other","text":"  <"}
+{"line":26,"kind":"constant.language","text":"chars"}
+{"line":26,"kind":"other","text":">"}
+{"line":26,"kind":"constant.numeric","text":"&#65;"}
+{"line":26,"kind":"other","text":" "}
+{"line":26,"kind":"constant.numeric","text":"&#x41;"}
+{"line":26,"kind":"other","text":" "}
+{"line":26,"kind":"constant.numeric","text":"&#x1F600;"}
+{"line":26,"kind":"other","text":"</"}
+{"line":26,"kind":"constant.language","text":"chars"}
+{"line":26,"kind":"other","text":">"}
+{"line":28,"kind":"other","text":"  "}
+{"line":28,"kind":"comment","text":"<!-- Edge cases -->"}
+{"line":29,"kind":"other","text":"  <"}
+{"line":29,"kind":"constant.language","text":"edge-cases"}
+{"line":29,"kind":"other","text":">"}
+{"line":30,"kind":"other","text":"    <"}
+{"line":30,"kind":"constant.language","text":"empty"}
+{"line":30,"kind":"other","text":"></"}
+{"line":30,"kind":"constant.language","text":"empty"}
+{"line":30,"kind":"other","text":">"}
+{"line":31,"kind":"other","text":"    <"}
+{"line":31,"kind":"constant.language","text":"whitespace"}
+{"line":31,"kind":"other","text":">   </"}
+{"line":31,"kind":"constant.language","text":"whitespace"}
+{"line":31,"kind":"other","text":">"}
+{"line":32,"kind":"other","text":"    <"}
+{"line":32,"kind":"constant.language","text":"special-chars"}
+{"line":32,"kind":"other","text":">!@#$%^*()_+-={}[]|\\:;\"'"}
+{"line":32,"kind":"constant.numeric","text":"&lt;"}
+{"line":32,"kind":"constant.numeric","text":"&gt;"}
+{"line":32,"kind":"other","text":",.</"}
+{"line":32,"kind":"constant.language","text":"special-chars"}
+{"line":32,"kind":"other","text":">"}
+{"line":33,"kind":"other","text":"  </"}
+{"line":33,"kind":"constant.language","text":"edge-cases"}
+{"line":33,"kind":"other","text":">"}
+{"line":35,"kind":"other","text":"  "}
+{"line":35,"kind":"comment","text":"<!-- Nested namespaces -->"}
+{"line":36,"kind":"other","text":"  <"}
+{"line":36,"kind":"constant.language","text":"ns:custom"}
+{"line":36,"kind":"other","text":" "}
+{"line":36,"kind":"variable","text":"ns:id"}
+{"line":36,"kind":"other","text":"="}
+{"line":36,"kind":"string","text":"\"namespaced\""}
+{"line":36,"kind":"other","text":">"}
+{"line":37,"kind":"other","text":"    <"}
+{"line":37,"kind":"constant.language","text":"ns:child"}
+{"line":37,"kind":"other","text":" />"}
+{"line":38,"kind":"other","text":"  </"}
+{"line":38,"kind":"constant.language","text":"ns:custom"}
+{"line":38,"kind":"other","text":">"}
+{"line":39,"kind":"other","text":"</"}
+{"line":39,"kind":"constant.language","text":"root"}
+{"line":39,"kind":"other","text":">"}

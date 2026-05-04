@@ -1,55 +1,55 @@
-   1 comment                # Build configuration
-   2 variable               CC
-   2 other                   := gcc
-   3 variable               CFLAGS
-   3 other                   ?= -O2 -Wall
-   4 variable               SRC
-   4 other                   := main.c util.c
-   5 variable               OBJ
-   5 other                   := 
-   5 variable               $(
-   5 other                  SRC:.c=.o)
-   6 variable               TARGET
-   6 other                   = app
-   8 method                 .PHONY
-   8 other                  : all clean
-  10 method                 all
-  10 other                  : 
-  10 variable               $(TARGET)
-  12 method                 $(TARGET)
-  12 other                  : 
-  12 variable               $(OBJ)
-  13 other                  \t
-  13 variable               $(CC)
-  13 other                   
-  13 variable               $(CFLAGS)
-  13 other                   -o 
-  13 variable               $@
-  13 other                   
-  13 variable               $^
-  15 method                 %.o
-  15 other                  : %.c
-  16 other                  \t
-  16 variable               $(CC)
-  16 other                   
-  16 variable               $(CFLAGS)
-  16 other                   -c -o 
-  16 variable               $@
-  16 other                   
-  16 variable               $<
-  18 method                 clean:
-  19 other                  \trm -f 
-  19 variable               $(OBJ)
-  19 other                   
-  19 variable               $(TARGET)
-  21 keyword.control        ifeq
-  21 other                   (
-  21 variable               $(DEBUG)
-  21 other                  ,
-  21 constant.numeric       1
-  21 other                  )
-  22 variable               CFLAGS
-  22 other                   += -g
-  23 keyword.control        endif
-  25 keyword.control        include
-  25 other                   config.mk
+{"line":1,"kind":"comment","text":"# Build configuration"}
+{"line":2,"kind":"variable","text":"CC"}
+{"line":2,"kind":"other","text":" := gcc"}
+{"line":3,"kind":"variable","text":"CFLAGS"}
+{"line":3,"kind":"other","text":" ?= -O2 -Wall"}
+{"line":4,"kind":"variable","text":"SRC"}
+{"line":4,"kind":"other","text":" := main.c util.c"}
+{"line":5,"kind":"variable","text":"OBJ"}
+{"line":5,"kind":"other","text":" := "}
+{"line":5,"kind":"variable","text":"$("}
+{"line":5,"kind":"other","text":"SRC:.c=.o)"}
+{"line":6,"kind":"variable","text":"TARGET"}
+{"line":6,"kind":"other","text":" = app"}
+{"line":8,"kind":"method","text":".PHONY"}
+{"line":8,"kind":"other","text":": all clean"}
+{"line":10,"kind":"method","text":"all"}
+{"line":10,"kind":"other","text":": "}
+{"line":10,"kind":"variable","text":"$(TARGET)"}
+{"line":12,"kind":"method","text":"$(TARGET)"}
+{"line":12,"kind":"other","text":": "}
+{"line":12,"kind":"variable","text":"$(OBJ)"}
+{"line":13,"kind":"other","text":"\t"}
+{"line":13,"kind":"variable","text":"$(CC)"}
+{"line":13,"kind":"other","text":" "}
+{"line":13,"kind":"variable","text":"$(CFLAGS)"}
+{"line":13,"kind":"other","text":" -o "}
+{"line":13,"kind":"variable","text":"$@"}
+{"line":13,"kind":"other","text":" "}
+{"line":13,"kind":"variable","text":"$^"}
+{"line":15,"kind":"method","text":"%.o"}
+{"line":15,"kind":"other","text":": %.c"}
+{"line":16,"kind":"other","text":"\t"}
+{"line":16,"kind":"variable","text":"$(CC)"}
+{"line":16,"kind":"other","text":" "}
+{"line":16,"kind":"variable","text":"$(CFLAGS)"}
+{"line":16,"kind":"other","text":" -c -o "}
+{"line":16,"kind":"variable","text":"$@"}
+{"line":16,"kind":"other","text":" "}
+{"line":16,"kind":"variable","text":"$<"}
+{"line":18,"kind":"method","text":"clean:"}
+{"line":19,"kind":"other","text":"\trm -f "}
+{"line":19,"kind":"variable","text":"$(OBJ)"}
+{"line":19,"kind":"other","text":" "}
+{"line":19,"kind":"variable","text":"$(TARGET)"}
+{"line":21,"kind":"keyword.control","text":"ifeq"}
+{"line":21,"kind":"other","text":" ("}
+{"line":21,"kind":"variable","text":"$(DEBUG)"}
+{"line":21,"kind":"other","text":","}
+{"line":21,"kind":"constant.numeric","text":"1"}
+{"line":21,"kind":"other","text":")"}
+{"line":22,"kind":"variable","text":"CFLAGS"}
+{"line":22,"kind":"other","text":" += -g"}
+{"line":23,"kind":"keyword.control","text":"endif"}
+{"line":25,"kind":"keyword.control","text":"include"}
+{"line":25,"kind":"other","text":" config.mk"}

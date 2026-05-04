@@ -68,19 +68,31 @@ fn snap_path(fixture: &Path) -> PathBuf {
     p
 }
 
-fn escape(s: &[u8]) -> String {
-    let mut out = String::with_capacity(s.len());
-    for &b in s {
-        match b {
-            b'\\' => out.push_str("\\\\"),
-            b'\t' => out.push_str("\\t"),
-            b'\n' => out.push_str("\\n"),
-            b'\r' => out.push_str("\\r"),
-            0x20..=0x7e => out.push(b as char),
-            _ => out.push_str(&format!("\\x{b:02x}")),
+/// Append `s` as a JSON string literal (with surrounding quotes) onto `out`.
+/// Bytes are decoded as UTF-8 with lossy replacement; invalid sequences
+/// become U+FFFD before being JSON-encoded.
+fn json_str(out: &mut String, s: &[u8]) {
+    out.push('"');
+    for c in String::from_utf8_lossy(s).chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
         }
     }
-    out
+    out.push('"');
+}
+
+fn snap_line(out: &mut String, lineno: usize, kind: &str, text: &[u8]) {
+    out.push_str(&format!("{{\"line\":{lineno},\"kind\":"));
+    json_str(out, kind.as_bytes());
+    out.push_str(",\"text\":");
+    json_str(out, text);
+    out.push_str("}\n");
 }
 
 fn fixtures_root() -> PathBuf {
@@ -162,7 +174,7 @@ fn golden() {
                     continue;
                 }
                 let kind = kind_names.get(curr.kind as usize).copied().unwrap_or("?");
-                snap.push_str(&format!("{:>4} {:<22} {}\n", lineno + 1, kind, escape(text)));
+                snap_line(&mut snap, lineno + 1, kind, text);
             }
         }
 

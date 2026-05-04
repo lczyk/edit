@@ -1,10 +1,10 @@
-   1 markup.heading         # fenced
-   3 other                  ```python
-   4 keyword.other          def
-   4 other                   
-   4 method                 greet
-   4 other                  (name):
-   5 other                      
-   5 keyword.control        return
-   5 other                   name
-   6 other                  ```
+{"line":1,"kind":"markup.heading","text":"# fenced"}
+{"line":3,"kind":"other","text":"```python"}
+{"line":4,"kind":"keyword.other","text":"def"}
+{"line":4,"kind":"other","text":" "}
+{"line":4,"kind":"method","text":"greet"}
+{"line":4,"kind":"other","text":"(name):"}
+{"line":5,"kind":"other","text":"    "}
+{"line":5,"kind":"keyword.control","text":"return"}
+{"line":5,"kind":"other","text":" name"}
+{"line":6,"kind":"other","text":"```"}

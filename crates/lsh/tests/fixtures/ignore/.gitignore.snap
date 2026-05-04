@@ -1,11 +1,11 @@
-   1 comment                # Build artefacts
-   2 other                  target/
-   3 other                  *.o
-   4 other                  *.so
-   6 comment                # Editor scratch
-   7 other                  .vscode/
-   8 other                  .idea/
-   9 other                  *.swp
-  11 comment                # Logs
-  12 other                  *.log
-  13 other                  !important.log
+{"line":1,"kind":"comment","text":"# Build artefacts"}
+{"line":2,"kind":"other","text":"target/"}
+{"line":3,"kind":"other","text":"*.o"}
+{"line":4,"kind":"other","text":"*.so"}
+{"line":6,"kind":"comment","text":"# Editor scratch"}
+{"line":7,"kind":"other","text":".vscode/"}
+{"line":8,"kind":"other","text":".idea/"}
+{"line":9,"kind":"other","text":"*.swp"}
+{"line":11,"kind":"comment","text":"# Logs"}
+{"line":12,"kind":"other","text":"*.log"}
+{"line":13,"kind":"other","text":"!important.log"}

@@ -1,92 +1,92 @@
-   1 other                  {
-   2 other                      
-   2 comment                // Object with various value types
-   3 other                      
-   3 string                 "string"
-   3 other                  : 
-   3 string                 "Hello, world!"
-   3 other                  , 
-   3 comment                // string literal
-   4 other                      
-   4 string                 "numberInt"
-   4 other                  : 
-   4 constant.numeric       42
-   4 other                  , 
-   4 comment                // integer number
-   5 other                      
-   5 string                 "numberFloat"
-   5 other                  : 
-   5 constant.numeric       -3.14e+2
-   5 other                  , 
-   5 comment                // floating point with exponent
-   6 other                      
-   6 string                 "booleanTrue"
-   6 other                  : 
-   6 constant.language      true
-   6 other                  , 
-   6 comment                // boolean true
-   7 other                      
-   7 string                 "booleanFalse"
-   7 other                  : 
-   7 constant.language      false
-   7 other                  , 
-   7 comment                // boolean false
-   8 other                      
-   8 string                 "nullValue"
-   8 other                  : 
-   8 constant.language      null
-   8 other                  , 
-   8 comment                // null literal
-   9 other                      
-   9 string                 "array"
-   9 other                  : [
-  10 other                          
-  10 string                 "item1"
-  10 other                  , 
-  10 comment                // string in array
-  11 other                          
-  11 constant.numeric       2
-  11 other                  , 
-  11 comment                // number in array
-  12 other                          
-  12 constant.language      false
-  12 other                  , 
-  12 comment                // boolean in array
-  13 other                          
-  13 constant.language      null
-  13 other                  , 
-  13 comment                // null in array
-  14 other                          {
-  15 other                              
-  15 string                 "nested"
-  15 other                  : 
-  15 string                 "object"
-  16 other                          } 
-  16 comment                // object in array
-  17 other                      ],
-  18 other                      
-  18 string                 "emptyObject"
-  18 other                  : {}, 
-  18 comment                // empty object
-  19 other                      
-  19 string                 "emptyArray"
-  19 other                  : [], 
-  19 comment                // empty array
-  20 other                      
-  20 comment                /* Multi-line comment:
-  21 comment                         This is a block comment
-  22 comment                         inside JSONC.
-  23 comment                    */
-  24 other                      
-  24 string                 "unicodeString"
-  24 other                  : 
-  24 string                 "Emoji: \\uD83D\\uDE03"
-  24 other                  , 
-  24 comment                // Unicode escape
-  25 other                      
-  25 string                 "escapedChars"
-  25 other                  : 
-  25 string                 "Line1\\nLine2\\tTabbed\\\\Backslash\\"Quote"
-  25 other                   
-  25 comment                // Escaped characters
-  26 other                  }
+{"line":1,"kind":"other","text":"{"}
+{"line":2,"kind":"other","text":"    "}
+{"line":2,"kind":"comment","text":"// Object with various value types"}
+{"line":3,"kind":"other","text":"    "}
+{"line":3,"kind":"string","text":"\"string\""}
+{"line":3,"kind":"other","text":": "}
+{"line":3,"kind":"string","text":"\"Hello, world!\""}
+{"line":3,"kind":"other","text":", "}
+{"line":3,"kind":"comment","text":"// string literal"}
+{"line":4,"kind":"other","text":"    "}
+{"line":4,"kind":"string","text":"\"numberInt\""}
+{"line":4,"kind":"other","text":": "}
+{"line":4,"kind":"constant.numeric","text":"42"}
+{"line":4,"kind":"other","text":", "}
+{"line":4,"kind":"comment","text":"// integer number"}
+{"line":5,"kind":"other","text":"    "}
+{"line":5,"kind":"string","text":"\"numberFloat\""}
+{"line":5,"kind":"other","text":": "}
+{"line":5,"kind":"constant.numeric","text":"-3.14e+2"}
+{"line":5,"kind":"other","text":", "}
+{"line":5,"kind":"comment","text":"// floating point with exponent"}
+{"line":6,"kind":"other","text":"    "}
+{"line":6,"kind":"string","text":"\"booleanTrue\""}
+{"line":6,"kind":"other","text":": "}
+{"line":6,"kind":"constant.language","text":"true"}
+{"line":6,"kind":"other","text":", "}
+{"line":6,"kind":"comment","text":"// boolean true"}
+{"line":7,"kind":"other","text":"    "}
+{"line":7,"kind":"string","text":"\"booleanFalse\""}
+{"line":7,"kind":"other","text":": "}
+{"line":7,"kind":"constant.language","text":"false"}
+{"line":7,"kind":"other","text":", "}
+{"line":7,"kind":"comment","text":"// boolean false"}
+{"line":8,"kind":"other","text":"    "}
+{"line":8,"kind":"string","text":"\"nullValue\""}
+{"line":8,"kind":"other","text":": "}
+{"line":8,"kind":"constant.language","text":"null"}
+{"line":8,"kind":"other","text":", "}
+{"line":8,"kind":"comment","text":"// null literal"}
+{"line":9,"kind":"other","text":"    "}
+{"line":9,"kind":"string","text":"\"array\""}
+{"line":9,"kind":"other","text":": ["}
+{"line":10,"kind":"other","text":"        "}
+{"line":10,"kind":"string","text":"\"item1\""}
+{"line":10,"kind":"other","text":", "}
+{"line":10,"kind":"comment","text":"// string in array"}
+{"line":11,"kind":"other","text":"        "}
+{"line":11,"kind":"constant.numeric","text":"2"}
+{"line":11,"kind":"other","text":", "}
+{"line":11,"kind":"comment","text":"// number in array"}
+{"line":12,"kind":"other","text":"        "}
+{"line":12,"kind":"constant.language","text":"false"}
+{"line":12,"kind":"other","text":", "}
+{"line":12,"kind":"comment","text":"// boolean in array"}
+{"line":13,"kind":"other","text":"        "}
+{"line":13,"kind":"constant.language","text":"null"}
+{"line":13,"kind":"other","text":", "}
+{"line":13,"kind":"comment","text":"// null in array"}
+{"line":14,"kind":"other","text":"        {"}
+{"line":15,"kind":"other","text":"            "}
+{"line":15,"kind":"string","text":"\"nested\""}
+{"line":15,"kind":"other","text":": "}
+{"line":15,"kind":"string","text":"\"object\""}
+{"line":16,"kind":"other","text":"        } "}
+{"line":16,"kind":"comment","text":"// object in array"}
+{"line":17,"kind":"other","text":"    ],"}
+{"line":18,"kind":"other","text":"    "}
+{"line":18,"kind":"string","text":"\"emptyObject\""}
+{"line":18,"kind":"other","text":": {}, "}
+{"line":18,"kind":"comment","text":"// empty object"}
+{"line":19,"kind":"other","text":"    "}
+{"line":19,"kind":"string","text":"\"emptyArray\""}
+{"line":19,"kind":"other","text":": [], "}
+{"line":19,"kind":"comment","text":"// empty array"}
+{"line":20,"kind":"other","text":"    "}
+{"line":20,"kind":"comment","text":"/* Multi-line comment:"}
+{"line":21,"kind":"comment","text":"         This is a block comment"}
+{"line":22,"kind":"comment","text":"         inside JSONC."}
+{"line":23,"kind":"comment","text":"    */"}
+{"line":24,"kind":"other","text":"    "}
+{"line":24,"kind":"string","text":"\"unicodeString\""}
+{"line":24,"kind":"other","text":": "}
+{"line":24,"kind":"string","text":"\"Emoji: \\uD83D\\uDE03\""}
+{"line":24,"kind":"other","text":", "}
+{"line":24,"kind":"comment","text":"// Unicode escape"}
+{"line":25,"kind":"other","text":"    "}
+{"line":25,"kind":"string","text":"\"escapedChars\""}
+{"line":25,"kind":"other","text":": "}
+{"line":25,"kind":"string","text":"\"Line1\\nLine2\\tTabbed\\\\Backslash\\\"Quote\""}
+{"line":25,"kind":"other","text":" "}
+{"line":25,"kind":"comment","text":"// Escaped characters"}
+{"line":26,"kind":"other","text":"}"}

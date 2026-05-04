@@ -1,86 +1,86 @@
-   1 keyword.control        pick
-   1 constant.numeric        3f9d2ab
-   1 comment                 # chore(ci): add initial pipeline
-   2 keyword.control        pick
-   2 constant.numeric        e12c0ff
-   2 comment                 # feat(io): introduce streaming reader
-   3 keyword.control        reword
-   3 constant.numeric        7ac14d0
-   3 comment                 feat(io): add zero-copy buffered writer
-   4 keyword.control        edit
-   4 constant.numeric        4d92b67
-   4 comment                 fix(io): handle partial UTF-8 sequences at buffer boundary
-   5 keyword.control        pick
-   5 constant.numeric        8bb3a21
-   5 comment                 docs: expand README performance section
-   6 keyword.control        squash
-   6 constant.numeric        1c02f55
-   6 comment                 docs: tidy wording in performance section
-   7 keyword.control        pick
-   7 constant.numeric        54ae91b
-   7 comment                 feat(cli): add --color=auto detection
-   8 keyword.control        fixup
-   8 constant.numeric        0b77c3e
-   8 comment                 feat(cli): typo in help text
-   9 keyword.control        fixup
-   9 constant.numeric        -c
-   9 comment                 2f4e8ab feat(cli): adjust arg parsing error message
-  10 keyword.control        pick
-  10 constant.numeric        6d8e5f1
-  10 comment                 refactor(core): split large module into submodules
-  11 keyword.control        break
-  12 keyword.control        pick
-  12 constant.numeric        a41e9d3
-  12 comment                 test(core): add regression tests for issue #410
-  13 keyword.control        exec
-  13 comment                 cargo test --package edit --lib --quiet
-  14 keyword.control        pick
-  14 constant.numeric        c3bb921
-  14 comment                 perf(render): SIMD accelerate line diffing
-  15 keyword.control        drop
-  15 constant.numeric        91d0f2e
-  15 comment                 debug(render): temporary logging (to be dropped)
-  16 other                  label pre-merge-split
-  17 keyword.control        pick
-  17 constant.numeric        d2f7ac4
-  17 comment                 feat(ui): add mouse wheel smooth scrolling
-  18 keyword.control        pick
-  18 constant.numeric        f1a4bd9
-  18 comment                 feat(ui): add high-DPI awareness
-  19 other                  label post-ui
-  20 other                  update-ref refs/heads/feature/ui-stack-post
-  21 other                  reset pre-merge-split
-  22 other                  merge -C 5ab77e3 post-ui # Merge UI feature stack
-  23 keyword.control        pick
-  23 constant.numeric        d8c4b91
-  23 comment                 build: bump version to 0.9.0
-  25 comment                # Rebase 3f9d2ab..d8c4b91 onto d8c4b91 (18 commands)
-  26 comment                #
-  27 comment                # Commands:
-  28 comment                # p, pick <commit> = use commit
-  29 comment                # r, reword <commit> = use commit, but edit the commit message
-  30 comment                # e, edit <commit> = use commit, but stop for amending
-  31 comment                # s, squash <commit> = use commit, but meld into previous commit
-  32 comment                # f, fixup [-C | -c] <commit> = like "squash" but keep only the previous
-  33 comment                #                    commit's log message, unless -C is used, in which case
-  34 comment                #                    keep only this commit's message; -c is same as -C but
-  35 comment                #                    opens the editor
-  36 comment                # x, exec <command> = run command (the rest of the line) using shell
-  37 comment                # b, break = stop here (continue rebase later with 'git rebase --continue')
-  38 comment                # d, drop <commit> = remove commit
-  39 comment                # l, label <label> = label current HEAD with a name
-  40 comment                # t, reset <label> = reset HEAD to a label
-  41 comment                # m, merge [-C <commit> | -c <commit>] <label> [# <oneline>]
-  42 comment                #         create a merge commit using the original merge commit's
-  43 comment                #         message (or the oneline, if no original merge commit was
-  44 comment                #         specified); use -c <commit> to reword the commit message
-  45 comment                # u, update-ref <ref> = track a placeholder for the <ref> to be updated
-  46 comment                #                       to this position in the new commits. The <ref> is
-  47 comment                #                       updated at the end of the rebase
-  48 comment                #
-  49 comment                # These lines can be re-ordered; they are executed from top to bottom.
-  50 comment                #
-  51 comment                # If you remove a line here THAT COMMIT WILL BE LOST.
-  52 comment                #
-  53 comment                # However, if you remove everything, the rebase will be aborted.
-  54 comment                #
+{"line":1,"kind":"keyword.control","text":"pick"}
+{"line":1,"kind":"constant.numeric","text":" 3f9d2ab"}
+{"line":1,"kind":"comment","text":" # chore(ci): add initial pipeline"}
+{"line":2,"kind":"keyword.control","text":"pick"}
+{"line":2,"kind":"constant.numeric","text":" e12c0ff"}
+{"line":2,"kind":"comment","text":" # feat(io): introduce streaming reader"}
+{"line":3,"kind":"keyword.control","text":"reword"}
+{"line":3,"kind":"constant.numeric","text":" 7ac14d0"}
+{"line":3,"kind":"comment","text":" feat(io): add zero-copy buffered writer"}
+{"line":4,"kind":"keyword.control","text":"edit"}
+{"line":4,"kind":"constant.numeric","text":" 4d92b67"}
+{"line":4,"kind":"comment","text":" fix(io): handle partial UTF-8 sequences at buffer boundary"}
+{"line":5,"kind":"keyword.control","text":"pick"}
+{"line":5,"kind":"constant.numeric","text":" 8bb3a21"}
+{"line":5,"kind":"comment","text":" docs: expand README performance section"}
+{"line":6,"kind":"keyword.control","text":"squash"}
+{"line":6,"kind":"constant.numeric","text":" 1c02f55"}
+{"line":6,"kind":"comment","text":" docs: tidy wording in performance section"}
+{"line":7,"kind":"keyword.control","text":"pick"}
+{"line":7,"kind":"constant.numeric","text":" 54ae91b"}
+{"line":7,"kind":"comment","text":" feat(cli): add --color=auto detection"}
+{"line":8,"kind":"keyword.control","text":"fixup"}
+{"line":8,"kind":"constant.numeric","text":" 0b77c3e"}
+{"line":8,"kind":"comment","text":" feat(cli): typo in help text"}
+{"line":9,"kind":"keyword.control","text":"fixup"}
+{"line":9,"kind":"constant.numeric","text":" -c"}
+{"line":9,"kind":"comment","text":" 2f4e8ab feat(cli): adjust arg parsing error message"}
+{"line":10,"kind":"keyword.control","text":"pick"}
+{"line":10,"kind":"constant.numeric","text":" 6d8e5f1"}
+{"line":10,"kind":"comment","text":" refactor(core): split large module into submodules"}
+{"line":11,"kind":"keyword.control","text":"break"}
+{"line":12,"kind":"keyword.control","text":"pick"}
+{"line":12,"kind":"constant.numeric","text":" a41e9d3"}
+{"line":12,"kind":"comment","text":" test(core): add regression tests for issue #410"}
+{"line":13,"kind":"keyword.control","text":"exec"}
+{"line":13,"kind":"comment","text":" cargo test --package edit --lib --quiet"}
+{"line":14,"kind":"keyword.control","text":"pick"}
+{"line":14,"kind":"constant.numeric","text":" c3bb921"}
+{"line":14,"kind":"comment","text":" perf(render): SIMD accelerate line diffing"}
+{"line":15,"kind":"keyword.control","text":"drop"}
+{"line":15,"kind":"constant.numeric","text":" 91d0f2e"}
+{"line":15,"kind":"comment","text":" debug(render): temporary logging (to be dropped)"}
+{"line":16,"kind":"other","text":"label pre-merge-split"}
+{"line":17,"kind":"keyword.control","text":"pick"}
+{"line":17,"kind":"constant.numeric","text":" d2f7ac4"}
+{"line":17,"kind":"comment","text":" feat(ui): add mouse wheel smooth scrolling"}
+{"line":18,"kind":"keyword.control","text":"pick"}
+{"line":18,"kind":"constant.numeric","text":" f1a4bd9"}
+{"line":18,"kind":"comment","text":" feat(ui): add high-DPI awareness"}
+{"line":19,"kind":"other","text":"label post-ui"}
+{"line":20,"kind":"other","text":"update-ref refs/heads/feature/ui-stack-post"}
+{"line":21,"kind":"other","text":"reset pre-merge-split"}
+{"line":22,"kind":"other","text":"merge -C 5ab77e3 post-ui # Merge UI feature stack"}
+{"line":23,"kind":"keyword.control","text":"pick"}
+{"line":23,"kind":"constant.numeric","text":" d8c4b91"}
+{"line":23,"kind":"comment","text":" build: bump version to 0.9.0"}
+{"line":25,"kind":"comment","text":"# Rebase 3f9d2ab..d8c4b91 onto d8c4b91 (18 commands)"}
+{"line":26,"kind":"comment","text":"#"}
+{"line":27,"kind":"comment","text":"# Commands:"}
+{"line":28,"kind":"comment","text":"# p, pick <commit> = use commit"}
+{"line":29,"kind":"comment","text":"# r, reword <commit> = use commit, but edit the commit message"}
+{"line":30,"kind":"comment","text":"# e, edit <commit> = use commit, but stop for amending"}
+{"line":31,"kind":"comment","text":"# s, squash <commit> = use commit, but meld into previous commit"}
+{"line":32,"kind":"comment","text":"# f, fixup [-C | -c] <commit> = like \"squash\" but keep only the previous"}
+{"line":33,"kind":"comment","text":"#                    commit's log message, unless -C is used, in which case"}
+{"line":34,"kind":"comment","text":"#                    keep only this commit's message; -c is same as -C but"}
+{"line":35,"kind":"comment","text":"#                    opens the editor"}
+{"line":36,"kind":"comment","text":"# x, exec <command> = run command (the rest of the line) using shell"}
+{"line":37,"kind":"comment","text":"# b, break = stop here (continue rebase later with 'git rebase --continue')"}
+{"line":38,"kind":"comment","text":"# d, drop <commit> = remove commit"}
+{"line":39,"kind":"comment","text":"# l, label <label> = label current HEAD with a name"}
+{"line":40,"kind":"comment","text":"# t, reset <label> = reset HEAD to a label"}
+{"line":41,"kind":"comment","text":"# m, merge [-C <commit> | -c <commit>] <label> [# <oneline>]"}
+{"line":42,"kind":"comment","text":"#         create a merge commit using the original merge commit's"}
+{"line":43,"kind":"comment","text":"#         message (or the oneline, if no original merge commit was"}
+{"line":44,"kind":"comment","text":"#         specified); use -c <commit> to reword the commit message"}
+{"line":45,"kind":"comment","text":"# u, update-ref <ref> = track a placeholder for the <ref> to be updated"}
+{"line":46,"kind":"comment","text":"#                       to this position in the new commits. The <ref> is"}
+{"line":47,"kind":"comment","text":"#                       updated at the end of the rebase"}
+{"line":48,"kind":"comment","text":"#"}
+{"line":49,"kind":"comment","text":"# These lines can be re-ordered; they are executed from top to bottom."}
+{"line":50,"kind":"comment","text":"#"}
+{"line":51,"kind":"comment","text":"# If you remove a line here THAT COMMIT WILL BE LOST."}
+{"line":52,"kind":"comment","text":"#"}
+{"line":53,"kind":"comment","text":"# However, if you remove everything, the rebase will be aborted."}
+{"line":54,"kind":"comment","text":"#"}

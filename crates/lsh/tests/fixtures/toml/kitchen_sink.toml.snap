@@ -1,46 +1,46 @@
-   1 comment                # Single-line comment
-   3 variable               title
-   3 other                   = 
-   3 string                 "TOML Example"
-   4 variable               enabled
-   4 other                   = 
-   4 constant.language      true
-   5 variable               count
-   5 other                   = 
-   5 constant.numeric       42
-   6 variable               pi
-   6 other                   = 
-   6 constant.numeric       3.14
-   7 variable               hex
-   7 other                   = 
-   7 constant.numeric       0xff
-   8 variable               when
-   8 other                   = 
-   8 constant.numeric       1979-05-27T07:32:00Z
-  10 meta.header            [owner]
-  11 variable               name
-  11 other                   = 
-  11 string                 "Tom"
-  12 variable               dob
-  12 other                   = 
-  12 constant.numeric       1979-05-27
-  14 meta.header            [[servers]]
-  15 variable               ip
-  15 other                   = 
-  15 string                 "10.0.0.1"
-  16 variable               role
-  16 other                   = 
-  16 string                 "frontend"
-  18 meta.header            [[servers]]
-  19 variable               ip
-  19 other                   = 
-  19 string                 "10.0.0.2"
-  20 variable               role
-  20 other                   = 
-  20 string                 "backend"
-  22 variable               multiline
-  22 other                   = 
-  22 string                 """
-  23 string                 line one
-  24 string                 line two
-  25 string                 """
+{"line":1,"kind":"comment","text":"# Single-line comment"}
+{"line":3,"kind":"variable","text":"title"}
+{"line":3,"kind":"other","text":" = "}
+{"line":3,"kind":"string","text":"\"TOML Example\""}
+{"line":4,"kind":"variable","text":"enabled"}
+{"line":4,"kind":"other","text":" = "}
+{"line":4,"kind":"constant.language","text":"true"}
+{"line":5,"kind":"variable","text":"count"}
+{"line":5,"kind":"other","text":" = "}
+{"line":5,"kind":"constant.numeric","text":"42"}
+{"line":6,"kind":"variable","text":"pi"}
+{"line":6,"kind":"other","text":" = "}
+{"line":6,"kind":"constant.numeric","text":"3.14"}
+{"line":7,"kind":"variable","text":"hex"}
+{"line":7,"kind":"other","text":" = "}
+{"line":7,"kind":"constant.numeric","text":"0xff"}
+{"line":8,"kind":"variable","text":"when"}
+{"line":8,"kind":"other","text":" = "}
+{"line":8,"kind":"constant.numeric","text":"1979-05-27T07:32:00Z"}
+{"line":10,"kind":"meta.header","text":"[owner]"}
+{"line":11,"kind":"variable","text":"name"}
+{"line":11,"kind":"other","text":" = "}
+{"line":11,"kind":"string","text":"\"Tom\""}
+{"line":12,"kind":"variable","text":"dob"}
+{"line":12,"kind":"other","text":" = "}
+{"line":12,"kind":"constant.numeric","text":"1979-05-27"}
+{"line":14,"kind":"meta.header","text":"[[servers]]"}
+{"line":15,"kind":"variable","text":"ip"}
+{"line":15,"kind":"other","text":" = "}
+{"line":15,"kind":"string","text":"\"10.0.0.1\""}
+{"line":16,"kind":"variable","text":"role"}
+{"line":16,"kind":"other","text":" = "}
+{"line":16,"kind":"string","text":"\"frontend\""}
+{"line":18,"kind":"meta.header","text":"[[servers]]"}
+{"line":19,"kind":"variable","text":"ip"}
+{"line":19,"kind":"other","text":" = "}
+{"line":19,"kind":"string","text":"\"10.0.0.2\""}
+{"line":20,"kind":"variable","text":"role"}
+{"line":20,"kind":"other","text":" = "}
+{"line":20,"kind":"string","text":"\"backend\""}
+{"line":22,"kind":"variable","text":"multiline"}
+{"line":22,"kind":"other","text":" = "}
+{"line":22,"kind":"string","text":"\"\"\""}
+{"line":23,"kind":"string","text":"line one"}
+{"line":24,"kind":"string","text":"line two"}
+{"line":25,"kind":"string","text":"\"\"\""}

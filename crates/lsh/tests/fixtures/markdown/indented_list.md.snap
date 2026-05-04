@@ -1,10 +1,10 @@
-   1 markup.list            - 
-   1 other                  top
-   3 markup.list            - 
-   3 other                  outer
-   4 markup.list                - 
-   4 markup.bold            **xboldindent4x**
-   6 markup.list            - 
-   6 other                  outer
-   7 markup.list                    - 
-   7 markup.bold            **xboldindent8x**
+{"line":1,"kind":"markup.list","text":"- "}
+{"line":1,"kind":"other","text":"top"}
+{"line":3,"kind":"markup.list","text":"- "}
+{"line":3,"kind":"other","text":"outer"}
+{"line":4,"kind":"markup.list","text":"    - "}
+{"line":4,"kind":"markup.bold","text":"**xboldindent4x**"}
+{"line":6,"kind":"markup.list","text":"- "}
+{"line":6,"kind":"other","text":"outer"}
+{"line":7,"kind":"markup.list","text":"        - "}
+{"line":7,"kind":"markup.bold","text":"**xboldindent8x**"}

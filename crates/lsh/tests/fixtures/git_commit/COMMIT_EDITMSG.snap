@@ -1,64 +1,64 @@
-   1 other                  lsh: flip legacy flag, add follow-up hook & diff test
-   3 other                  Refactors placeholder logic and introduces a lightweight follow-up hook.
-   4 other                  Adds diff highlighting test and removes outdated asset to streamline visuals.
-   6 comment                # Please enter the commit message for your changes. Lines starting
-   7 comment                # with '#' will be ignored, and an empty message aborts the commit.
-   8 comment                #
-   9 comment                # On branch foobar
-  10 comment                # Your branch is up to date with 'origin/foobar'.
-  11 comment                #
-  12 comment                # Changes to be committed:
-  13 comment                #\t
-  13 markup.changed         renamed:    foo.rs -> bar.rs
-  14 comment                #\t
-  14 markup.changed         modified:   src/lsh/definitions.rs
-  15 comment                #\t
-  15 markup.deleted         deleted:    assets/old_logo.svg
-  16 comment                #\t
-  16 markup.inserted        new file:   baz.rs
-  17 comment                #
-  18 comment                # ------------------------ >8 ------------------------
-  19 comment                # Do not modify or remove the line above.
-  20 comment                # Everything below it will be ignored.
-  21 meta.header            diff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs
-  22 other                  index a1b2c3d..d4c3b2a 100644
-  23 meta.header            --- a/src/lsh/definitions.rs
-  24 meta.header            +++ b/src/lsh/definitions.rs
-  25 other                  @@ -12,9 +12,11 @@ // context line 12
-  26 other                   // context line 13
-  27 markup.deleted         -// old placeholder logic A
-  28 markup.deleted         -const LEGACY_FLAG: bool = true;
-  29 markup.deleted         -// end legacy block
-  30 markup.inserted        +// updated placeholder logic A
-  31 markup.inserted        +const LEGACY_FLAG: bool = false; // flipped for test
-  32 markup.inserted        +// added note: migration in progress
-  33 markup.inserted        +// end legacy block
-  34 other                   // context line 19
-  35 other                   // context line 20
-  36 other                  @@ -42,7 +44,12 @@ // context line 42
-  37 other                   // context line 43
-  38 markup.deleted         -    do_placeholder_action(alpha, beta);
-  39 markup.inserted        +    // Split actions for clarity
-  40 markup.inserted        +    do_placeholder_prepare(alpha);
-  41 markup.inserted        +    do_placeholder_action(alpha, beta);
-  42 markup.inserted        +    if (enable_extra()) {
-  43 markup.inserted        +        do_placeholder_followup(beta);
-  44 markup.inserted        +    }
-  45 other                   // context line 50
-  46 other                   // context line 51
-  47 other                   // context line 52
-  48 other                  @@ -90,6 +97,15 @@ // context line 90
-  49 other                   // context line 91
-  50 other                   // context line 92
-  51 markup.inserted        +/// Added lightweight fake helper
-  52 markup.inserted        +fn enable_extra() -> bool {
-  53 markup.inserted        +    // Pretend this consults a config value
-  54 markup.inserted        +    true
-  55 markup.inserted        +}
-  56 markup.inserted        +
-  57 markup.inserted        +// Temporary debug instrumentation (to be removed)
-  58 markup.inserted        +const _DEBUG_HOOK: &str = "lsh:extra";
-  59 markup.inserted        +
-  60 other                   // context line 93
-  61 other                   // context line 94
-  62 other                   // context line 95
+{"line":1,"kind":"other","text":"lsh: flip legacy flag, add follow-up hook & diff test"}
+{"line":3,"kind":"other","text":"Refactors placeholder logic and introduces a lightweight follow-up hook."}
+{"line":4,"kind":"other","text":"Adds diff highlighting test and removes outdated asset to streamline visuals."}
+{"line":6,"kind":"comment","text":"# Please enter the commit message for your changes. Lines starting"}
+{"line":7,"kind":"comment","text":"# with '#' will be ignored, and an empty message aborts the commit."}
+{"line":8,"kind":"comment","text":"#"}
+{"line":9,"kind":"comment","text":"# On branch foobar"}
+{"line":10,"kind":"comment","text":"# Your branch is up to date with 'origin/foobar'."}
+{"line":11,"kind":"comment","text":"#"}
+{"line":12,"kind":"comment","text":"# Changes to be committed:"}
+{"line":13,"kind":"comment","text":"#\t"}
+{"line":13,"kind":"markup.changed","text":"renamed:    foo.rs -> bar.rs"}
+{"line":14,"kind":"comment","text":"#\t"}
+{"line":14,"kind":"markup.changed","text":"modified:   src/lsh/definitions.rs"}
+{"line":15,"kind":"comment","text":"#\t"}
+{"line":15,"kind":"markup.deleted","text":"deleted:    assets/old_logo.svg"}
+{"line":16,"kind":"comment","text":"#\t"}
+{"line":16,"kind":"markup.inserted","text":"new file:   baz.rs"}
+{"line":17,"kind":"comment","text":"#"}
+{"line":18,"kind":"comment","text":"# ------------------------ >8 ------------------------"}
+{"line":19,"kind":"comment","text":"# Do not modify or remove the line above."}
+{"line":20,"kind":"comment","text":"# Everything below it will be ignored."}
+{"line":21,"kind":"meta.header","text":"diff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs"}
+{"line":22,"kind":"other","text":"index a1b2c3d..d4c3b2a 100644"}
+{"line":23,"kind":"meta.header","text":"--- a/src/lsh/definitions.rs"}
+{"line":24,"kind":"meta.header","text":"+++ b/src/lsh/definitions.rs"}
+{"line":25,"kind":"other","text":"@@ -12,9 +12,11 @@ // context line 12"}
+{"line":26,"kind":"other","text":" // context line 13"}
+{"line":27,"kind":"markup.deleted","text":"-// old placeholder logic A"}
+{"line":28,"kind":"markup.deleted","text":"-const LEGACY_FLAG: bool = true;"}
+{"line":29,"kind":"markup.deleted","text":"-// end legacy block"}
+{"line":30,"kind":"markup.inserted","text":"+// updated placeholder logic A"}
+{"line":31,"kind":"markup.inserted","text":"+const LEGACY_FLAG: bool = false; // flipped for test"}
+{"line":32,"kind":"markup.inserted","text":"+// added note: migration in progress"}
+{"line":33,"kind":"markup.inserted","text":"+// end legacy block"}
+{"line":34,"kind":"other","text":" // context line 19"}
+{"line":35,"kind":"other","text":" // context line 20"}
+{"line":36,"kind":"other","text":"@@ -42,7 +44,12 @@ // context line 42"}
+{"line":37,"kind":"other","text":" // context line 43"}
+{"line":38,"kind":"markup.deleted","text":"-    do_placeholder_action(alpha, beta);"}
+{"line":39,"kind":"markup.inserted","text":"+    // Split actions for clarity"}
+{"line":40,"kind":"markup.inserted","text":"+    do_placeholder_prepare(alpha);"}
+{"line":41,"kind":"markup.inserted","text":"+    do_placeholder_action(alpha, beta);"}
+{"line":42,"kind":"markup.inserted","text":"+    if (enable_extra()) {"}
+{"line":43,"kind":"markup.inserted","text":"+        do_placeholder_followup(beta);"}
+{"line":44,"kind":"markup.inserted","text":"+    }"}
+{"line":45,"kind":"other","text":" // context line 50"}
+{"line":46,"kind":"other","text":" // context line 51"}
+{"line":47,"kind":"other","text":" // context line 52"}
+{"line":48,"kind":"other","text":"@@ -90,6 +97,15 @@ // context line 90"}
+{"line":49,"kind":"other","text":" // context line 91"}
+{"line":50,"kind":"other","text":" // context line 92"}
+{"line":51,"kind":"markup.inserted","text":"+/// Added lightweight fake helper"}
+{"line":52,"kind":"markup.inserted","text":"+fn enable_extra() -> bool {"}
+{"line":53,"kind":"markup.inserted","text":"+    // Pretend this consults a config value"}
+{"line":54,"kind":"markup.inserted","text":"+    true"}
+{"line":55,"kind":"markup.inserted","text":"+}"}
+{"line":56,"kind":"markup.inserted","text":"+"}
+{"line":57,"kind":"markup.inserted","text":"+// Temporary debug instrumentation (to be removed)"}
+{"line":58,"kind":"markup.inserted","text":"+const _DEBUG_HOOK: &str = \"lsh:extra\";"}
+{"line":59,"kind":"markup.inserted","text":"+"}
+{"line":60,"kind":"other","text":" // context line 93"}
+{"line":61,"kind":"other","text":" // context line 94"}
+{"line":62,"kind":"other","text":" // context line 95"}

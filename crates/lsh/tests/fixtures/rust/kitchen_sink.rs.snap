@@ -1,107 +1,107 @@
-   1 comment                // Line comment
-   2 comment                //! Inner doc
-   3 comment                /// Outer doc
-   4 comment                /* block comment */
-   6 keyword.other          use
-   6 other                   std::collections::HashMap;
-   8 keyword.other          const
-   8 other                   MAX: 
-   8 keyword.other          u32
-   8 other                   = 
-   8 constant.numeric       42
-   8 other                  ;
-  10 markup.link            #[derive(Clone, Debug)]
-  11 keyword.other          pub
-  11 other                   
-  11 keyword.other          struct
-  11 other                   Point<
-  11 keyword.other          'a
-  11 other                  > {
-  12 other                      
-  12 keyword.other          pub
-  12 other                   name: &
-  12 keyword.other          'a
-  12 other                   
-  12 keyword.other          str
-  12 other                  ,
-  13 other                      
-  13 keyword.other          pub
-  13 other                   value: 
-  13 keyword.other          f64
-  13 other                  ,
-  14 other                  }
-  16 keyword.other          fn
-  16 other                   
-  16 method                 main
-  16 other                  () {
-  17 other                      
-  17 keyword.other          let
-  17 other                   s = 
-  17 string                 "hello"
-  17 other                  ;
-  18 other                      
-  18 keyword.other          let
-  18 other                   raw = 
-  18 string                 r#"raw"#
-  18 other                  ;
-  19 other                      
-  19 keyword.other          let
-  19 other                   c = 
-  19 string                 'x'
-  19 other                  ;
-  20 other                      
-  20 keyword.other          let
-  20 other                   n: 
-  20 keyword.other          i64
-  20 other                   = 
-  20 constant.numeric       0xff_u32
-  20 other                   
-  20 keyword.control        as
-  20 other                   
-  20 keyword.other          i64
-  20 other                  ;
-  21 other                      
-  21 keyword.other          let
-  21 other                   v = 
-  21 method                 vec
-  21 other                  ![
-  21 constant.numeric       1
-  21 other                  , 
-  21 constant.numeric       2
-  21 other                  , 
-  21 constant.numeric       3
-  21 other                  ];
-  23 other                      
-  23 keyword.control        if
-  23 other                   
-  23 keyword.other          let
-  23 other                   
-  23 constant.language      Some
-  23 other                  (x) = v.
-  23 method                 first
-  23 other                  () {
-  24 other                          
-  24 method                 println
-  24 other                  !(
-  24 string                 "{}"
-  24 other                  , x);
-  25 other                      } 
-  25 keyword.control        else
-  25 other                   {
-  26 other                          
-  26 keyword.control        return
-  26 other                  ;
-  27 other                      }
-  29 other                      
-  29 keyword.control        match
-  29 other                   n {
-  30 other                          
-  30 constant.numeric       0
-  30 other                   => (),
-  31 other                          
-  31 constant.numeric       _
-  31 other                   => 
-  31 method                 unreachable
-  31 other                  !(),
-  32 other                      }
-  33 other                  }
+{"line":1,"kind":"comment","text":"// Line comment"}
+{"line":2,"kind":"comment","text":"//! Inner doc"}
+{"line":3,"kind":"comment","text":"/// Outer doc"}
+{"line":4,"kind":"comment","text":"/* block comment */"}
+{"line":6,"kind":"keyword.other","text":"use"}
+{"line":6,"kind":"other","text":" std::collections::HashMap;"}
+{"line":8,"kind":"keyword.other","text":"const"}
+{"line":8,"kind":"other","text":" MAX: "}
+{"line":8,"kind":"keyword.other","text":"u32"}
+{"line":8,"kind":"other","text":" = "}
+{"line":8,"kind":"constant.numeric","text":"42"}
+{"line":8,"kind":"other","text":";"}
+{"line":10,"kind":"markup.link","text":"#[derive(Clone, Debug)]"}
+{"line":11,"kind":"keyword.other","text":"pub"}
+{"line":11,"kind":"other","text":" "}
+{"line":11,"kind":"keyword.other","text":"struct"}
+{"line":11,"kind":"other","text":" Point<"}
+{"line":11,"kind":"keyword.other","text":"'a"}
+{"line":11,"kind":"other","text":"> {"}
+{"line":12,"kind":"other","text":"    "}
+{"line":12,"kind":"keyword.other","text":"pub"}
+{"line":12,"kind":"other","text":" name: &"}
+{"line":12,"kind":"keyword.other","text":"'a"}
+{"line":12,"kind":"other","text":" "}
+{"line":12,"kind":"keyword.other","text":"str"}
+{"line":12,"kind":"other","text":","}
+{"line":13,"kind":"other","text":"    "}
+{"line":13,"kind":"keyword.other","text":"pub"}
+{"line":13,"kind":"other","text":" value: "}
+{"line":13,"kind":"keyword.other","text":"f64"}
+{"line":13,"kind":"other","text":","}
+{"line":14,"kind":"other","text":"}"}
+{"line":16,"kind":"keyword.other","text":"fn"}
+{"line":16,"kind":"other","text":" "}
+{"line":16,"kind":"method","text":"main"}
+{"line":16,"kind":"other","text":"() {"}
+{"line":17,"kind":"other","text":"    "}
+{"line":17,"kind":"keyword.other","text":"let"}
+{"line":17,"kind":"other","text":" s = "}
+{"line":17,"kind":"string","text":"\"hello\""}
+{"line":17,"kind":"other","text":";"}
+{"line":18,"kind":"other","text":"    "}
+{"line":18,"kind":"keyword.other","text":"let"}
+{"line":18,"kind":"other","text":" raw = "}
+{"line":18,"kind":"string","text":"r#\"raw\"#"}
+{"line":18,"kind":"other","text":";"}
+{"line":19,"kind":"other","text":"    "}
+{"line":19,"kind":"keyword.other","text":"let"}
+{"line":19,"kind":"other","text":" c = "}
+{"line":19,"kind":"string","text":"'x'"}
+{"line":19,"kind":"other","text":";"}
+{"line":20,"kind":"other","text":"    "}
+{"line":20,"kind":"keyword.other","text":"let"}
+{"line":20,"kind":"other","text":" n: "}
+{"line":20,"kind":"keyword.other","text":"i64"}
+{"line":20,"kind":"other","text":" = "}
+{"line":20,"kind":"constant.numeric","text":"0xff_u32"}
+{"line":20,"kind":"other","text":" "}
+{"line":20,"kind":"keyword.control","text":"as"}
+{"line":20,"kind":"other","text":" "}
+{"line":20,"kind":"keyword.other","text":"i64"}
+{"line":20,"kind":"other","text":";"}
+{"line":21,"kind":"other","text":"    "}
+{"line":21,"kind":"keyword.other","text":"let"}
+{"line":21,"kind":"other","text":" v = "}
+{"line":21,"kind":"method","text":"vec"}
+{"line":21,"kind":"other","text":"!["}
+{"line":21,"kind":"constant.numeric","text":"1"}
+{"line":21,"kind":"other","text":", "}
+{"line":21,"kind":"constant.numeric","text":"2"}
+{"line":21,"kind":"other","text":", "}
+{"line":21,"kind":"constant.numeric","text":"3"}
+{"line":21,"kind":"other","text":"];"}
+{"line":23,"kind":"other","text":"    "}
+{"line":23,"kind":"keyword.control","text":"if"}
+{"line":23,"kind":"other","text":" "}
+{"line":23,"kind":"keyword.other","text":"let"}
+{"line":23,"kind":"other","text":" "}
+{"line":23,"kind":"constant.language","text":"Some"}
+{"line":23,"kind":"other","text":"(x) = v."}
+{"line":23,"kind":"method","text":"first"}
+{"line":23,"kind":"other","text":"() {"}
+{"line":24,"kind":"other","text":"        "}
+{"line":24,"kind":"method","text":"println"}
+{"line":24,"kind":"other","text":"!("}
+{"line":24,"kind":"string","text":"\"{}\""}
+{"line":24,"kind":"other","text":", x);"}
+{"line":25,"kind":"other","text":"    } "}
+{"line":25,"kind":"keyword.control","text":"else"}
+{"line":25,"kind":"other","text":" {"}
+{"line":26,"kind":"other","text":"        "}
+{"line":26,"kind":"keyword.control","text":"return"}
+{"line":26,"kind":"other","text":";"}
+{"line":27,"kind":"other","text":"    }"}
+{"line":29,"kind":"other","text":"    "}
+{"line":29,"kind":"keyword.control","text":"match"}
+{"line":29,"kind":"other","text":" n {"}
+{"line":30,"kind":"other","text":"        "}
+{"line":30,"kind":"constant.numeric","text":"0"}
+{"line":30,"kind":"other","text":" => (),"}
+{"line":31,"kind":"other","text":"        "}
+{"line":31,"kind":"constant.numeric","text":"_"}
+{"line":31,"kind":"other","text":" => "}
+{"line":31,"kind":"method","text":"unreachable"}
+{"line":31,"kind":"other","text":"!(),"}
+{"line":32,"kind":"other","text":"    }"}
+{"line":33,"kind":"other","text":"}"}

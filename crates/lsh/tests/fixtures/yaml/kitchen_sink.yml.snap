@@ -1,74 +1,74 @@
-   1 comment                # This is a comment
-   2 other                  ---
-   3 other                  string: 
-   3 string                 "Hello, world!"
-   4 other                  plain: 
-   4 string                 plainValue
-   5 other                  multiline: |
-   6 string                   This is a
-   7 string                   true
-   8 string                   multiline string.
-   9 other                  folded: >
-  10 string                   This is a
-  11 string                   true
-  12 string                   folded string.
-  13 other                  number_int: 
-  13 constant.numeric       42
-  14 other                  number_float: 
-  14 constant.numeric       3.1415
-  15 other                  number_scientific: 
-  15 constant.numeric       1.23e45
-  16 other                  number_negative: 
-  16 constant.numeric       -7
-  17 other                  boolean_true: 
-  17 constant.language      true
-  18 other                  boolean_false: 
-  18 constant.language      false
-  19 other                  null_value: 
-  19 constant.language      null
-  20 other                  explicit_null: 
-  20 constant.language      ~
-  21 other                  date: 
-  21 string                 2024-06-01
-  22 other                  timestamp: 
-  22 string                 2024-06-01T12:34:56Z
-  23 other                  confusable_string_number: 
-  23 string                 1.23e45 1.23e45 
-  23 comment                # This is a comment
-  24 other                  sequence:
-  25 other                    - 
-  25 string                 item1
-  26 other                    - 
-  26 string                 item2
-  27 other                    - 
-  27 constant.numeric       3
-  28 other                    - 
-  28 constant.language      true
-  29 other                  mapping:
-  30 other                    key1: 
-  30 string                 value1
-  31 other                    key2: 
-  31 string                 value2
-  32 other                  nested:
-  33 other                    - name: 
-  33 string                 Alice
-  34 other                      age: 
-  34 constant.numeric       30
-  35 other                      married: 
-  35 constant.language      false
-  36 other                    - name: 
-  36 string                 Bob
-  37 other                      age: 
-  37 constant.numeric       25
-  38 other                      married: 
-  38 constant.language      true
-  39 other                  empty_sequence: 
-  39 string                 [foo, 123, bar]
-  40 other                  empty_mapping: 
-  40 string                 { foo: bar }
-  41 other                  literal_colon: 
-  41 string                 "value:with:colons"
-  42 other                  literal_dash: 
-  42 string                 "-not-a-sequence"
-  43 other                  special_chars: 
-  43 string                 "Tab:\\t Newline:\\n Unicode:\\u2713"
+{"line":1,"kind":"comment","text":"# This is a comment"}
+{"line":2,"kind":"other","text":"---"}
+{"line":3,"kind":"other","text":"string: "}
+{"line":3,"kind":"string","text":"\"Hello, world!\""}
+{"line":4,"kind":"other","text":"plain: "}
+{"line":4,"kind":"string","text":"plainValue"}
+{"line":5,"kind":"other","text":"multiline: |"}
+{"line":6,"kind":"string","text":"  This is a"}
+{"line":7,"kind":"string","text":"  true"}
+{"line":8,"kind":"string","text":"  multiline string."}
+{"line":9,"kind":"other","text":"folded: >"}
+{"line":10,"kind":"string","text":"  This is a"}
+{"line":11,"kind":"string","text":"  true"}
+{"line":12,"kind":"string","text":"  folded string."}
+{"line":13,"kind":"other","text":"number_int: "}
+{"line":13,"kind":"constant.numeric","text":"42"}
+{"line":14,"kind":"other","text":"number_float: "}
+{"line":14,"kind":"constant.numeric","text":"3.1415"}
+{"line":15,"kind":"other","text":"number_scientific: "}
+{"line":15,"kind":"constant.numeric","text":"1.23e45"}
+{"line":16,"kind":"other","text":"number_negative: "}
+{"line":16,"kind":"constant.numeric","text":"-7"}
+{"line":17,"kind":"other","text":"boolean_true: "}
+{"line":17,"kind":"constant.language","text":"true"}
+{"line":18,"kind":"other","text":"boolean_false: "}
+{"line":18,"kind":"constant.language","text":"false"}
+{"line":19,"kind":"other","text":"null_value: "}
+{"line":19,"kind":"constant.language","text":"null"}
+{"line":20,"kind":"other","text":"explicit_null: "}
+{"line":20,"kind":"constant.language","text":"~"}
+{"line":21,"kind":"other","text":"date: "}
+{"line":21,"kind":"string","text":"2024-06-01"}
+{"line":22,"kind":"other","text":"timestamp: "}
+{"line":22,"kind":"string","text":"2024-06-01T12:34:56Z"}
+{"line":23,"kind":"other","text":"confusable_string_number: "}
+{"line":23,"kind":"string","text":"1.23e45 1.23e45 "}
+{"line":23,"kind":"comment","text":"# This is a comment"}
+{"line":24,"kind":"other","text":"sequence:"}
+{"line":25,"kind":"other","text":"  - "}
+{"line":25,"kind":"string","text":"item1"}
+{"line":26,"kind":"other","text":"  - "}
+{"line":26,"kind":"string","text":"item2"}
+{"line":27,"kind":"other","text":"  - "}
+{"line":27,"kind":"constant.numeric","text":"3"}
+{"line":28,"kind":"other","text":"  - "}
+{"line":28,"kind":"constant.language","text":"true"}
+{"line":29,"kind":"other","text":"mapping:"}
+{"line":30,"kind":"other","text":"  key1: "}
+{"line":30,"kind":"string","text":"value1"}
+{"line":31,"kind":"other","text":"  key2: "}
+{"line":31,"kind":"string","text":"value2"}
+{"line":32,"kind":"other","text":"nested:"}
+{"line":33,"kind":"other","text":"  - name: "}
+{"line":33,"kind":"string","text":"Alice"}
+{"line":34,"kind":"other","text":"    age: "}
+{"line":34,"kind":"constant.numeric","text":"30"}
+{"line":35,"kind":"other","text":"    married: "}
+{"line":35,"kind":"constant.language","text":"false"}
+{"line":36,"kind":"other","text":"  - name: "}
+{"line":36,"kind":"string","text":"Bob"}
+{"line":37,"kind":"other","text":"    age: "}
+{"line":37,"kind":"constant.numeric","text":"25"}
+{"line":38,"kind":"other","text":"    married: "}
+{"line":38,"kind":"constant.language","text":"true"}
+{"line":39,"kind":"other","text":"empty_sequence: "}
+{"line":39,"kind":"string","text":"[foo, 123, bar]"}
+{"line":40,"kind":"other","text":"empty_mapping: "}
+{"line":40,"kind":"string","text":"{ foo: bar }"}
+{"line":41,"kind":"other","text":"literal_colon: "}
+{"line":41,"kind":"string","text":"\"value:with:colons\""}
+{"line":42,"kind":"other","text":"literal_dash: "}
+{"line":42,"kind":"string","text":"\"-not-a-sequence\""}
+{"line":43,"kind":"other","text":"special_chars: "}
+{"line":43,"kind":"string","text":"\"Tab:\\t Newline:\\n Unicode:\\u2713\""}

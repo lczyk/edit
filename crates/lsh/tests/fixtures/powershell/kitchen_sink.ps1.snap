@@ -1,208 +1,208 @@
-   1 comment                # Single-line comment
-   3 comment                <#
-   4 comment                Multi-line
-   5 comment                comment
-   6 comment                #>
-   8 keyword.other          function
-   8 other                   
-   8 method                 Get-SampleData
-   8 other                   {
-   9 other                      
-   9 keyword.other          param
-   9 other                  (
-  10 other                          [string]
-  10 variable               $Name
-  10 other                   = 
-  10 string                 "World"
-  10 other                  , 
-  10 comment                # String literal, parameter
-  11 other                          [int]
-  11 variable               $Count
-  11 other                   = 
-  11 constant.numeric       3
-  12 other                      )
-  14 other                      
-  14 variable               $array
-  14 other                   = @(
-  14 constant.numeric       1
-  14 other                  , 
-  14 constant.numeric       2
-  14 other                  , 
-  14 constant.numeric       3
-  14 other                  ) 
-  14 comment                # Array literal
-  15 other                      
-  15 variable               $hashtable
-  15 other                   = @{ Key1 = 
-  15 string                 'Value1'
-  15 other                  ; Key2 = 
-  15 constant.numeric       42
-  15 other                   } 
-  15 comment                # Hashtable literal
-  17 other                      
-  17 variable               $nullVar
-  17 other                   = 
-  17 constant.language      $null
-  18 other                      
-  18 variable               $boolTrue
-  18 other                   = 
-  18 constant.language      $true
-  19 other                      
-  19 variable               $boolFalse
-  19 other                   = 
-  19 constant.language      $false
-  21 other                      
-  21 variable               $regexMatch
-  21 other                   = 
-  21 string                 "abc123"
-  21 other                   -match 
-  21 string                 '\\d+'
-  21 other                   
-  21 comment                # Regex literal
-  23 other                      
-  23 keyword.control        for
-  23 other                   (
-  23 variable               $i
-  23 other                   = 
-  23 constant.numeric       0
-  23 other                  ; 
-  23 variable               $i
-  23 other                   -lt 
-  23 variable               $Count
-  23 other                  ; 
-  23 variable               $i
-  23 other                  ++) {
-  24 other                          
-  24 method                 Write-Host
-  24 other                   
-  24 string                 "Hello, $Name! Iteration: $i"
-  24 other                   
-  24 comment                # Variable interpolation, string
-  25 other                      }
-  27 other                      
-  27 keyword.control        if
-  27 other                   (
-  27 variable               $hashtable
-  27 other                  .Key2 -eq 
-  27 constant.numeric       42
-  27 other                  ) {
-  28 other                          
-  28 method                 Write-Output
-  28 other                   
-  28 string                 "Hashtable value is 42"
-  29 other                      }
-  30 other                      
-  30 keyword.control        elseif
-  30 other                   (
-  30 variable               $hashtable
-  30 other                  .Key2 -gt 
-  30 constant.numeric       40
-  30 other                  ) {
-  31 other                          
-  31 method                 Write-Output
-  31 other                   
-  31 string                 "Hashtable value is greater than 40"
-  32 other                      }
-  33 other                      
-  33 keyword.control        else
-  33 other                   {
-  34 other                          
-  34 method                 Write-Output
-  34 other                   
-  34 string                 "Hashtable value is less than or equal to 40"
-  35 other                      }
-  37 other                      
-  37 keyword.control        switch
-  37 other                   (
-  37 variable               $Name
-  37 other                  ) {
-  38 other                          
-  38 string                 "World"
-  38 other                   { 
-  38 method                 Write-Host
-  38 other                   
-  38 string                 "Default name used."
-  38 other                   }
-  39 other                          
-  39 keyword.control        default
-  39 other                   { 
-  39 method                 Write-Host
-  39 other                   
-  39 string                 "Custom name: $Name"
-  39 other                   }
-  40 other                      }
-  42 other                      
-  42 keyword.control        try
-  42 other                   {
-  43 other                          
-  43 keyword.control        throw
-  43 other                   
-  43 string                 "An error occurred"
-  44 other                      }
-  45 other                      
-  45 keyword.control        catch
-  45 other                   {
-  46 other                          
-  46 method                 Write-Warning
-  46 other                   
-  46 variable               $_
-  47 other                      }
-  48 other                      
-  48 keyword.control        finally
-  48 other                   {
-  49 other                          
-  49 method                 Write-Verbose
-  49 other                   
-  49 string                 "Finally block executed"
-  50 other                      }
-  52 other                      
-  52 variable               $script:globalVar
-  52 other                   = 
-  52 constant.numeric       99
-  52 other                   
-  52 comment                # Scope modifier
-  54 other                      
-  54 comment                # Here-String
-  55 other                      
-  55 variable               $hereString
-  55 other                   = 
-  55 string                 @"
-  56 string                 This is a here-string.
-  57 string                 Name: $Name
-  58 string                 "@
-  60 other                      
-  60 keyword.control        return
-  60 other                   
-  60 variable               $hereString
-  61 other                  }
-  63 comment                # Command invocation, pipeline, splatting
-  64 variable               $paramSplat
-  64 other                   = @{
-  65 other                      Name  = 
-  65 string                 'PowerShell'
-  66 other                      Count = 
-  66 constant.numeric       2
-  67 other                  }
-  68 method                 Get-SampleData
-  68 other                   
-  68 variable               @paramSplat
-  68 other                   | 
-  68 method                 Out-File
-  68 other                   -FilePath 
-  68 string                 "./output.txt"
-  70 comment                # Type literal, member access, method call
-  71 other                  [System.DateTime]::Now.ToString(
-  71 string                 "yyyy-MM-dd"
-  71 other                  )
-  73 comment                # Subexpression
-  74 method                 Write-Host
-  74 other                   
-  74 string                 "2 + 2 = $($array[0] + $array[1])"
-  76 comment                # Command substitution
-  77 variable               $pwdPath
-  77 other                   = $(
-  77 method                 Get-Location
-  77 other                  ).Path
-  78 method                 Write-Host
-  78 other                   
-  78 string                 "Current directory: $pwdPath"
+{"line":1,"kind":"comment","text":"# Single-line comment"}
+{"line":3,"kind":"comment","text":"<#"}
+{"line":4,"kind":"comment","text":"Multi-line"}
+{"line":5,"kind":"comment","text":"comment"}
+{"line":6,"kind":"comment","text":"#>"}
+{"line":8,"kind":"keyword.other","text":"function"}
+{"line":8,"kind":"other","text":" "}
+{"line":8,"kind":"method","text":"Get-SampleData"}
+{"line":8,"kind":"other","text":" {"}
+{"line":9,"kind":"other","text":"    "}
+{"line":9,"kind":"keyword.other","text":"param"}
+{"line":9,"kind":"other","text":"("}
+{"line":10,"kind":"other","text":"        [string]"}
+{"line":10,"kind":"variable","text":"$Name"}
+{"line":10,"kind":"other","text":" = "}
+{"line":10,"kind":"string","text":"\"World\""}
+{"line":10,"kind":"other","text":", "}
+{"line":10,"kind":"comment","text":"# String literal, parameter"}
+{"line":11,"kind":"other","text":"        [int]"}
+{"line":11,"kind":"variable","text":"$Count"}
+{"line":11,"kind":"other","text":" = "}
+{"line":11,"kind":"constant.numeric","text":"3"}
+{"line":12,"kind":"other","text":"    )"}
+{"line":14,"kind":"other","text":"    "}
+{"line":14,"kind":"variable","text":"$array"}
+{"line":14,"kind":"other","text":" = @("}
+{"line":14,"kind":"constant.numeric","text":"1"}
+{"line":14,"kind":"other","text":", "}
+{"line":14,"kind":"constant.numeric","text":"2"}
+{"line":14,"kind":"other","text":", "}
+{"line":14,"kind":"constant.numeric","text":"3"}
+{"line":14,"kind":"other","text":") "}
+{"line":14,"kind":"comment","text":"# Array literal"}
+{"line":15,"kind":"other","text":"    "}
+{"line":15,"kind":"variable","text":"$hashtable"}
+{"line":15,"kind":"other","text":" = @{ Key1 = "}
+{"line":15,"kind":"string","text":"'Value1'"}
+{"line":15,"kind":"other","text":"; Key2 = "}
+{"line":15,"kind":"constant.numeric","text":"42"}
+{"line":15,"kind":"other","text":" } "}
+{"line":15,"kind":"comment","text":"# Hashtable literal"}
+{"line":17,"kind":"other","text":"    "}
+{"line":17,"kind":"variable","text":"$nullVar"}
+{"line":17,"kind":"other","text":" = "}
+{"line":17,"kind":"constant.language","text":"$null"}
+{"line":18,"kind":"other","text":"    "}
+{"line":18,"kind":"variable","text":"$boolTrue"}
+{"line":18,"kind":"other","text":" = "}
+{"line":18,"kind":"constant.language","text":"$true"}
+{"line":19,"kind":"other","text":"    "}
+{"line":19,"kind":"variable","text":"$boolFalse"}
+{"line":19,"kind":"other","text":" = "}
+{"line":19,"kind":"constant.language","text":"$false"}
+{"line":21,"kind":"other","text":"    "}
+{"line":21,"kind":"variable","text":"$regexMatch"}
+{"line":21,"kind":"other","text":" = "}
+{"line":21,"kind":"string","text":"\"abc123\""}
+{"line":21,"kind":"other","text":" -match "}
+{"line":21,"kind":"string","text":"'\\d+'"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"comment","text":"# Regex literal"}
+{"line":23,"kind":"other","text":"    "}
+{"line":23,"kind":"keyword.control","text":"for"}
+{"line":23,"kind":"other","text":" ("}
+{"line":23,"kind":"variable","text":"$i"}
+{"line":23,"kind":"other","text":" = "}
+{"line":23,"kind":"constant.numeric","text":"0"}
+{"line":23,"kind":"other","text":"; "}
+{"line":23,"kind":"variable","text":"$i"}
+{"line":23,"kind":"other","text":" -lt "}
+{"line":23,"kind":"variable","text":"$Count"}
+{"line":23,"kind":"other","text":"; "}
+{"line":23,"kind":"variable","text":"$i"}
+{"line":23,"kind":"other","text":"++) {"}
+{"line":24,"kind":"other","text":"        "}
+{"line":24,"kind":"method","text":"Write-Host"}
+{"line":24,"kind":"other","text":" "}
+{"line":24,"kind":"string","text":"\"Hello, $Name! Iteration: $i\""}
+{"line":24,"kind":"other","text":" "}
+{"line":24,"kind":"comment","text":"# Variable interpolation, string"}
+{"line":25,"kind":"other","text":"    }"}
+{"line":27,"kind":"other","text":"    "}
+{"line":27,"kind":"keyword.control","text":"if"}
+{"line":27,"kind":"other","text":" ("}
+{"line":27,"kind":"variable","text":"$hashtable"}
+{"line":27,"kind":"other","text":".Key2 -eq "}
+{"line":27,"kind":"constant.numeric","text":"42"}
+{"line":27,"kind":"other","text":") {"}
+{"line":28,"kind":"other","text":"        "}
+{"line":28,"kind":"method","text":"Write-Output"}
+{"line":28,"kind":"other","text":" "}
+{"line":28,"kind":"string","text":"\"Hashtable value is 42\""}
+{"line":29,"kind":"other","text":"    }"}
+{"line":30,"kind":"other","text":"    "}
+{"line":30,"kind":"keyword.control","text":"elseif"}
+{"line":30,"kind":"other","text":" ("}
+{"line":30,"kind":"variable","text":"$hashtable"}
+{"line":30,"kind":"other","text":".Key2 -gt "}
+{"line":30,"kind":"constant.numeric","text":"40"}
+{"line":30,"kind":"other","text":") {"}
+{"line":31,"kind":"other","text":"        "}
+{"line":31,"kind":"method","text":"Write-Output"}
+{"line":31,"kind":"other","text":" "}
+{"line":31,"kind":"string","text":"\"Hashtable value is greater than 40\""}
+{"line":32,"kind":"other","text":"    }"}
+{"line":33,"kind":"other","text":"    "}
+{"line":33,"kind":"keyword.control","text":"else"}
+{"line":33,"kind":"other","text":" {"}
+{"line":34,"kind":"other","text":"        "}
+{"line":34,"kind":"method","text":"Write-Output"}
+{"line":34,"kind":"other","text":" "}
+{"line":34,"kind":"string","text":"\"Hashtable value is less than or equal to 40\""}
+{"line":35,"kind":"other","text":"    }"}
+{"line":37,"kind":"other","text":"    "}
+{"line":37,"kind":"keyword.control","text":"switch"}
+{"line":37,"kind":"other","text":" ("}
+{"line":37,"kind":"variable","text":"$Name"}
+{"line":37,"kind":"other","text":") {"}
+{"line":38,"kind":"other","text":"        "}
+{"line":38,"kind":"string","text":"\"World\""}
+{"line":38,"kind":"other","text":" { "}
+{"line":38,"kind":"method","text":"Write-Host"}
+{"line":38,"kind":"other","text":" "}
+{"line":38,"kind":"string","text":"\"Default name used.\""}
+{"line":38,"kind":"other","text":" }"}
+{"line":39,"kind":"other","text":"        "}
+{"line":39,"kind":"keyword.control","text":"default"}
+{"line":39,"kind":"other","text":" { "}
+{"line":39,"kind":"method","text":"Write-Host"}
+{"line":39,"kind":"other","text":" "}
+{"line":39,"kind":"string","text":"\"Custom name: $Name\""}
+{"line":39,"kind":"other","text":" }"}
+{"line":40,"kind":"other","text":"    }"}
+{"line":42,"kind":"other","text":"    "}
+{"line":42,"kind":"keyword.control","text":"try"}
+{"line":42,"kind":"other","text":" {"}
+{"line":43,"kind":"other","text":"        "}
+{"line":43,"kind":"keyword.control","text":"throw"}
+{"line":43,"kind":"other","text":" "}
+{"line":43,"kind":"string","text":"\"An error occurred\""}
+{"line":44,"kind":"other","text":"    }"}
+{"line":45,"kind":"other","text":"    "}
+{"line":45,"kind":"keyword.control","text":"catch"}
+{"line":45,"kind":"other","text":" {"}
+{"line":46,"kind":"other","text":"        "}
+{"line":46,"kind":"method","text":"Write-Warning"}
+{"line":46,"kind":"other","text":" "}
+{"line":46,"kind":"variable","text":"$_"}
+{"line":47,"kind":"other","text":"    }"}
+{"line":48,"kind":"other","text":"    "}
+{"line":48,"kind":"keyword.control","text":"finally"}
+{"line":48,"kind":"other","text":" {"}
+{"line":49,"kind":"other","text":"        "}
+{"line":49,"kind":"method","text":"Write-Verbose"}
+{"line":49,"kind":"other","text":" "}
+{"line":49,"kind":"string","text":"\"Finally block executed\""}
+{"line":50,"kind":"other","text":"    }"}
+{"line":52,"kind":"other","text":"    "}
+{"line":52,"kind":"variable","text":"$script:globalVar"}
+{"line":52,"kind":"other","text":" = "}
+{"line":52,"kind":"constant.numeric","text":"99"}
+{"line":52,"kind":"other","text":" "}
+{"line":52,"kind":"comment","text":"# Scope modifier"}
+{"line":54,"kind":"other","text":"    "}
+{"line":54,"kind":"comment","text":"# Here-String"}
+{"line":55,"kind":"other","text":"    "}
+{"line":55,"kind":"variable","text":"$hereString"}
+{"line":55,"kind":"other","text":" = "}
+{"line":55,"kind":"string","text":"@\""}
+{"line":56,"kind":"string","text":"This is a here-string."}
+{"line":57,"kind":"string","text":"Name: $Name"}
+{"line":58,"kind":"string","text":"\"@"}
+{"line":60,"kind":"other","text":"    "}
+{"line":60,"kind":"keyword.control","text":"return"}
+{"line":60,"kind":"other","text":" "}
+{"line":60,"kind":"variable","text":"$hereString"}
+{"line":61,"kind":"other","text":"}"}
+{"line":63,"kind":"comment","text":"# Command invocation, pipeline, splatting"}
+{"line":64,"kind":"variable","text":"$paramSplat"}
+{"line":64,"kind":"other","text":" = @{"}
+{"line":65,"kind":"other","text":"    Name  = "}
+{"line":65,"kind":"string","text":"'PowerShell'"}
+{"line":66,"kind":"other","text":"    Count = "}
+{"line":66,"kind":"constant.numeric","text":"2"}
+{"line":67,"kind":"other","text":"}"}
+{"line":68,"kind":"method","text":"Get-SampleData"}
+{"line":68,"kind":"other","text":" "}
+{"line":68,"kind":"variable","text":"@paramSplat"}
+{"line":68,"kind":"other","text":" | "}
+{"line":68,"kind":"method","text":"Out-File"}
+{"line":68,"kind":"other","text":" -FilePath "}
+{"line":68,"kind":"string","text":"\"./output.txt\""}
+{"line":70,"kind":"comment","text":"# Type literal, member access, method call"}
+{"line":71,"kind":"other","text":"[System.DateTime]::Now.ToString("}
+{"line":71,"kind":"string","text":"\"yyyy-MM-dd\""}
+{"line":71,"kind":"other","text":")"}
+{"line":73,"kind":"comment","text":"# Subexpression"}
+{"line":74,"kind":"method","text":"Write-Host"}
+{"line":74,"kind":"other","text":" "}
+{"line":74,"kind":"string","text":"\"2 + 2 = $($array[0] + $array[1])\""}
+{"line":76,"kind":"comment","text":"# Command substitution"}
+{"line":77,"kind":"variable","text":"$pwdPath"}
+{"line":77,"kind":"other","text":" = $("}
+{"line":77,"kind":"method","text":"Get-Location"}
+{"line":77,"kind":"other","text":").Path"}
+{"line":78,"kind":"method","text":"Write-Host"}
+{"line":78,"kind":"other","text":" "}
+{"line":78,"kind":"string","text":"\"Current directory: $pwdPath\""}

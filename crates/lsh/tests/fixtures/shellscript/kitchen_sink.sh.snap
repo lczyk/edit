@@ -1,479 +1,479 @@
-   1 comment                #!/bin/bash
-   3 comment                # Numbers
-   4 constant.numeric       42
-   5 constant.numeric       3.14
-   6 constant.numeric       -7
-   7 constant.numeric       0xFF
-   8 constant.numeric       0777
-   9 constant.numeric       2
-   9 comment                #1010
-  11 comment                # Constants
-  12 constant.language      true
-  13 constant.language      false
-  15 comment                # Single-quoted strings
-  16 other                  echo 
-  16 string                 'hello world'
-  17 other                  echo 
-  17 string                 'it'
-  17 other                  \\
-  17 string                 ''
-  17 other                  s a trap'
-  19 comment                # Double-quoted strings
-  20 other                  echo 
-  20 string                 "hello 
-  20 variable               $USER
-  20 string                 "
-  21 other                  echo 
-  21 string                 "home is 
-  21 variable               ${HOME}
-  21 string                 "
-  22 other                  echo 
-  22 string                 "escaped \\$ and \\" and \\\\"
-  23 other                  echo 
-  23 string                 "subshell: 
-  23 variable               $(whoami)
-  23 string                 "
-  24 other                  echo 
-  24 string                 "arithmetic: 
-  24 variable               $((1 + 2))
-  24 string                 "
-  25 other                  echo 
-  25 string                 "positional: 
-  25 variable               $1
-  25 string                  
-  25 variable               $#
-  25 string                  
-  25 variable               $?
-  25 string                  
-  25 variable               $!
-  25 string                  
-  25 variable               $@
-  25 string                  
-  25 variable               $0
-  25 string                  
-  25 variable               $$
-  25 string                  
-  25 variable               $-
-  25 string                 "
-  27 comment                # ANSI-C quoting
-  28 other                  echo 
-  28 string                 $'tab:\\there\\nnewline'
-  29 other                  echo 
-  29 string                 $'escape sequences: \\a \\b \\e \\f \\r \\t \\v \\\\\\\\ \\''
-  31 comment                # Backtick interpolation
-  32 other                  echo 
-  32 string                 "today is `date +%Y-%m-%d`"
-  34 comment                # Control flow
-  35 keyword.control        if
-  35 other                   [ -f /etc/passwd ]; 
-  35 keyword.control        then
-  36 other                      echo 
-  36 string                 "exists"
-  37 keyword.control        elif
-  37 other                   [ -d /tmp ]; 
-  37 keyword.control        then
-  38 other                      echo 
-  38 string                 "tmp exists"
-  39 keyword.control        else
-  40 other                      echo 
-  40 string                 "neither"
-  41 keyword.control        fi
-  43 keyword.control        for
-  43 other                   i 
-  43 keyword.control        in
-  43 other                   
-  43 constant.numeric       1
-  43 other                   
-  43 constant.numeric       2
-  43 other                   
-  43 constant.numeric       3
-  43 other                  ; 
-  43 keyword.control        do
-  44 other                      echo 
-  44 string                 "
-  44 variable               $i
-  44 string                 "
-  45 other                      
-  45 keyword.control        continue
-  46 keyword.control        done
-  48 keyword.control        for
-  48 other                   ((i = 
-  48 constant.numeric       0
-  48 other                  ; i < 
-  48 constant.numeric       3
-  48 other                  ; i++)); 
-  48 keyword.control        do
-  49 other                      
-  49 keyword.control        break
-  50 keyword.control        done
-  52 keyword.control        while
-  52 other                   
-  52 constant.language      true
-  52 other                  ; 
-  52 keyword.control        do
-  53 other                      
-  53 keyword.control        break
-  54 keyword.control        done
-  56 keyword.control        until
-  56 other                   
-  56 constant.language      false
-  56 other                  ; 
-  56 keyword.control        do
-  57 other                      
-  57 keyword.control        break
-  58 keyword.control        done
-  60 keyword.control        case
-  60 other                   
-  60 string                 "
-  60 variable               $1
-  60 string                 "
-  60 other                   
-  60 keyword.control        in
-  61 other                      start) echo 
-  61 string                 "starting"
-  61 other                   ;;
-  62 other                      stop)  echo 
-  62 string                 "stopping"
-  62 other                   ;;
-  63 other                      *)     echo 
-  63 string                 "unknown"
-  63 other                    ;;
-  64 keyword.control        esac
-  66 keyword.control        select
-  66 other                   opt 
-  66 keyword.control        in
-  66 other                   
-  66 string                 "yes"
-  66 other                   
-  66 string                 "no"
-  66 other                   
-  66 string                 "quit"
-  66 other                  ; 
-  66 keyword.control        do
-  67 other                      echo 
-  67 string                 "
-  67 variable               $opt
-  67 string                 "
-  68 other                      
-  68 keyword.control        break
-  69 keyword.control        done
-  71 keyword.control        time
-  71 other                   ls -la
-  73 comment                # Test expressions
-  74 other                  [ -f /etc/passwd ]
-  75 other                  [ -d /tmp ]
-  76 other                  [ -z 
-  76 string                 "
-  76 variable               $var
-  76 string                 "
-  76 other                   ]
-  77 other                  [ -n 
-  77 string                 "
-  77 variable               $var
-  77 string                 "
-  77 other                   ]
-  78 other                  [ 
-  78 string                 "
-  78 variable               $a
-  78 string                 "
-  78 other                   = 
-  78 string                 "
-  78 variable               $b
-  78 string                 "
-  78 other                   ]
-  79 other                  [ 
-  79 string                 "
-  79 variable               $a
-  79 string                 "
-  79 other                   != 
-  79 string                 "
-  79 variable               $b
-  79 string                 "
-  79 other                   ]
-  80 other                  [ 
-  80 string                 "
-  80 variable               $a
-  80 string                 "
-  80 other                   -eq 
-  80 constant.numeric       1
-  80 other                   ]
-  81 other                  [ 
-  81 string                 "
-  81 variable               $a
-  81 string                 "
-  81 other                   -ne 
-  81 constant.numeric       2
-  81 other                   ]
-  82 other                  [ 
-  82 string                 "
-  82 variable               $a
-  82 string                 "
-  82 other                   -lt 
-  82 constant.numeric       3
-  82 other                   ]
-  83 other                  [ 
-  83 string                 "
-  83 variable               $a
-  83 string                 "
-  83 other                   -gt 
-  83 constant.numeric       4
-  83 other                   ]
-  84 other                  [ 
-  84 string                 "
-  84 variable               $a
-  84 string                 "
-  84 other                   -le 
-  84 constant.numeric       5
-  84 other                   ]
-  85 other                  [ 
-  85 string                 "
-  85 variable               $a
-  85 string                 "
-  85 other                   -ge 
-  85 constant.numeric       6
-  85 other                   ]
-  86 other                  [[ 
-  86 string                 "
-  86 variable               $name
-  86 string                 "
-  86 other                   == *.txt ]]
-  87 other                  [[ 
-  87 string                 "
-  87 variable               $name
-  87 string                 "
-  87 other                   =~ ^[
-  87 constant.numeric       0
-  87 constant.numeric       -9
-  87 other                  ]+$ ]]
-  88 other                  [[ -f /etc/passwd && -d /tmp ]]
-  89 other                  [[ -f /etc/passwd || -d /tmp ]]
-  91 comment                # Heredocs
-  92 other                  cat <<EOF
-  93 string                 Hello $USER
-  94 string                 Your shell is $SHELL
-  95 other                  EOF
-  97 other                  cat <<'EOF'
-  98 string                 No $interpolation here
-  99 other                  EOF
- 101 other                  cat <<-EOF
- 102 string                 \tIndented heredoc (tabs stripped)
- 103 other                  EOF
- 105 comment                # Herestrings
- 106 other                  cat <<< 
- 106 string                 "hello world"
- 107 other                  cat <<< 
- 107 string                 'no interpolation'
- 108 other                  cat <<< 
- 108 variable               $name
- 110 comment                # Variables
- 111 other                  name=
- 111 string                 "world"
- 112 other                  echo 
- 112 variable               $name
- 113 other                  echo 
- 113 variable               ${name}
- 114 other                  echo 
- 114 variable               ${name:-default}
- 115 other                  echo 
- 115 variable               ${name:=fallback}
- 116 other                  echo 
- 116 variable               ${name:+alternate}
- 117 other                  echo 
- 117 variable               ${name:?error}
- 118 other                  echo 
- 118 variable               ${#name}
- 119 other                  echo 
- 119 variable               ${name%.*}
- 120 other                  echo 
- 120 variable               ${name%%.*}
- 121 other                  echo 
- 121 variable               ${name#*/}
- 122 other                  echo 
- 122 variable               ${name##*/}
- 123 other                  echo 
- 123 variable               ${name/old/new}
- 124 other                  echo 
- 124 variable               ${name//old/new}
- 125 other                  array=(one two three)
- 126 other                  echo 
- 126 variable               ${array[0]}
- 127 other                  echo 
- 127 variable               ${array[@]}
- 128 other                  echo 
- 128 variable               ${!array[@]}
- 129 other                  echo 
- 129 variable               ${#array[@]}
- 131 comment                # Arithmetic
- 132 other                  echo 
- 132 variable               $((2 + 3))
- 133 other                  echo 
- 133 variable               $((a * b))
- 134 other                  (( count++ ))
- 135 other                  (( x = 
- 135 constant.numeric       5
- 135 other                  , y = 
- 135 constant.numeric       10
- 135 other                   ))
- 136 other                  (( x <<= 
- 136 constant.numeric       2
- 136 other                   ))
- 137 other                  (( x >>= 
- 137 constant.numeric       1
- 137 other                   ))
- 138 other                  (( x &= 
- 138 constant.numeric       0xFF
- 138 other                   ))
- 140 comment                # Redirections
- 141 other                  echo 
- 141 string                 "out"
- 141 other                   > /dev/null
- 142 other                  echo 
- 142 string                 "append"
- 142 other                   >> /tmp/log
- 143 other                  cat < /etc/passwd
- 144 other                  echo 
- 144 string                 "stderr"
- 144 other                   
- 144 constant.numeric       2
- 144 other                  > /dev/null
- 145 other                  echo 
- 145 string                 "both"
- 145 other                   &> /dev/null
- 146 other                  echo 
- 146 string                 "dup"
- 146 other                   
- 146 constant.numeric       2
- 146 other                  >&
- 146 constant.numeric       1
- 147 other                  exec 
- 147 constant.numeric       3
- 147 other                  <> /tmp/fd3
- 149 comment                # Process substitution
- 150 other                  diff <(ls /bin) <(ls /usr/bin)
- 151 other                  tee >(grep error > errors.log) > /dev/null
- 153 comment                # Pipelines and logical operators
- 154 other                  echo hello | cat
- 155 other                  echo hello |& cat
- 156 other                  ls && echo ok
- 157 other                  ls || echo fail
- 158 other                  sleep 
- 158 constant.numeric       10
- 158 other                   &
- 160 comment                # Subshells and group commands
- 161 other                  (cd /tmp && ls)
- 162 other                  { echo one; echo two; }
- 164 comment                # Extended globbing
- 165 other                  shopt -s extglob
- 166 other                  ls *.txt
- 167 other                  ls ?(a|b)
- 168 other                  ls *(a|b)
- 169 other                  ls +(a|b)
- 170 other                  ls @(a|b)
- 171 other                  ls !(a|b)
- 172 other                  echo ~
- 174 comment                # Other keywords
- 175 keyword.other          export
- 175 other                   PATH=
- 175 string                 "/usr/local/bin:
- 175 variable               $PATH
- 175 string                 "
- 176 keyword.other          local
- 176 other                   count=
- 176 constant.numeric       0
- 177 keyword.other          readonly
- 177 other                   PI=
- 177 constant.numeric       3
- 178 keyword.other          declare
- 178 other                   -a arr=(
- 178 constant.numeric       1
- 178 other                   
- 178 constant.numeric       2
- 178 other                   
- 178 constant.numeric       3
- 178 other                  )
- 179 keyword.other          declare
- 179 other                   -A map=([key]=value)
- 180 keyword.other          typeset
- 180 other                   -i num=
- 180 constant.numeric       42
- 181 keyword.other          alias
- 181 other                   ll=
- 181 string                 'ls -la'
- 182 keyword.other          source
- 182 other                   /dev/null
- 183 other                  . /dev/null
- 185 comment                # Builtins
- 186 other                  eval 
- 186 string                 'echo hello'
- 187 other                  exec /bin/bash
- 188 other                  trap 
- 188 string                 'echo bye'
- 188 other                   EXIT
- 189 other                  test -f /etc/passwd
- 190 other                  read -r line
- 191 other                  printf 
- 191 string                 "%s\\n"
- 191 other                   
- 191 string                 "hello"
- 192 other                  wait 
- 192 variable               $!
- 193 other                  kill 
- 193 constant.numeric       -9
- 193 other                   
- 193 variable               $$
- 194 other                  jobs -l
- 195 other                  fg %
- 195 constant.numeric       1
- 196 other                  bg %
- 196 constant.numeric       1
- 197 other                  cd /tmp
- 198 other                  pwd
- 199 other                  set -euo pipefail
- 200 other                  unset name
- 201 other                  shift
- 202 other                  getopts 
- 202 string                 "ab:"
- 202 other                   opt
- 203 other                  command ls
- 204 other                  builtin echo
- 205 other                  type ls
- 206 other                  hash -r
- 207 other                  ulimit -n
- 208 other                  umask 
- 208 constant.numeric       022
- 209 other                  dirs
- 210 other                  pushd /tmp
- 211 other                  popd
- 212 other                  disown %
- 212 constant.numeric       1
- 213 other                  let 
- 213 string                 "x = 1 + 2"
- 214 other                  exit 
- 214 constant.numeric       0
- 216 comment                # Functions
- 217 keyword.other          function 
- 217 method                 greet
- 217 other                  () {
- 218 other                      
- 218 keyword.other          local
- 218 other                   who=
- 218 string                 "
- 218 variable               ${1:-world}
- 218 string                 "
- 219 other                      echo 
- 219 string                 "Hello, 
- 219 variable               $who
- 219 string                 "
- 220 other                      
- 220 keyword.control        return
- 220 other                   
- 220 constant.numeric       0
- 221 other                  }
- 223 method                 cleanup
- 223 other                  () {
- 224 other                      echo 
- 224 string                 "done"
- 225 other                  }
- 227 other                  greet 
- 227 string                 "shell"
- 228 other                  cleanup
+{"line":1,"kind":"comment","text":"#!/bin/bash"}
+{"line":3,"kind":"comment","text":"# Numbers"}
+{"line":4,"kind":"constant.numeric","text":"42"}
+{"line":5,"kind":"constant.numeric","text":"3.14"}
+{"line":6,"kind":"constant.numeric","text":"-7"}
+{"line":7,"kind":"constant.numeric","text":"0xFF"}
+{"line":8,"kind":"constant.numeric","text":"0777"}
+{"line":9,"kind":"constant.numeric","text":"2"}
+{"line":9,"kind":"comment","text":"#1010"}
+{"line":11,"kind":"comment","text":"# Constants"}
+{"line":12,"kind":"constant.language","text":"true"}
+{"line":13,"kind":"constant.language","text":"false"}
+{"line":15,"kind":"comment","text":"# Single-quoted strings"}
+{"line":16,"kind":"other","text":"echo "}
+{"line":16,"kind":"string","text":"'hello world'"}
+{"line":17,"kind":"other","text":"echo "}
+{"line":17,"kind":"string","text":"'it'"}
+{"line":17,"kind":"other","text":"\\"}
+{"line":17,"kind":"string","text":"''"}
+{"line":17,"kind":"other","text":"s a trap'"}
+{"line":19,"kind":"comment","text":"# Double-quoted strings"}
+{"line":20,"kind":"other","text":"echo "}
+{"line":20,"kind":"string","text":"\"hello "}
+{"line":20,"kind":"variable","text":"$USER"}
+{"line":20,"kind":"string","text":"\""}
+{"line":21,"kind":"other","text":"echo "}
+{"line":21,"kind":"string","text":"\"home is "}
+{"line":21,"kind":"variable","text":"${HOME}"}
+{"line":21,"kind":"string","text":"\""}
+{"line":22,"kind":"other","text":"echo "}
+{"line":22,"kind":"string","text":"\"escaped \\$ and \\\" and \\\\\""}
+{"line":23,"kind":"other","text":"echo "}
+{"line":23,"kind":"string","text":"\"subshell: "}
+{"line":23,"kind":"variable","text":"$(whoami)"}
+{"line":23,"kind":"string","text":"\""}
+{"line":24,"kind":"other","text":"echo "}
+{"line":24,"kind":"string","text":"\"arithmetic: "}
+{"line":24,"kind":"variable","text":"$((1 + 2))"}
+{"line":24,"kind":"string","text":"\""}
+{"line":25,"kind":"other","text":"echo "}
+{"line":25,"kind":"string","text":"\"positional: "}
+{"line":25,"kind":"variable","text":"$1"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$#"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$?"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$!"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$@"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$0"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$$"}
+{"line":25,"kind":"string","text":" "}
+{"line":25,"kind":"variable","text":"$-"}
+{"line":25,"kind":"string","text":"\""}
+{"line":27,"kind":"comment","text":"# ANSI-C quoting"}
+{"line":28,"kind":"other","text":"echo "}
+{"line":28,"kind":"string","text":"$'tab:\\there\\nnewline'"}
+{"line":29,"kind":"other","text":"echo "}
+{"line":29,"kind":"string","text":"$'escape sequences: \\a \\b \\e \\f \\r \\t \\v \\\\\\\\ \\''"}
+{"line":31,"kind":"comment","text":"# Backtick interpolation"}
+{"line":32,"kind":"other","text":"echo "}
+{"line":32,"kind":"string","text":"\"today is `date +%Y-%m-%d`\""}
+{"line":34,"kind":"comment","text":"# Control flow"}
+{"line":35,"kind":"keyword.control","text":"if"}
+{"line":35,"kind":"other","text":" [ -f /etc/passwd ]; "}
+{"line":35,"kind":"keyword.control","text":"then"}
+{"line":36,"kind":"other","text":"    echo "}
+{"line":36,"kind":"string","text":"\"exists\""}
+{"line":37,"kind":"keyword.control","text":"elif"}
+{"line":37,"kind":"other","text":" [ -d /tmp ]; "}
+{"line":37,"kind":"keyword.control","text":"then"}
+{"line":38,"kind":"other","text":"    echo "}
+{"line":38,"kind":"string","text":"\"tmp exists\""}
+{"line":39,"kind":"keyword.control","text":"else"}
+{"line":40,"kind":"other","text":"    echo "}
+{"line":40,"kind":"string","text":"\"neither\""}
+{"line":41,"kind":"keyword.control","text":"fi"}
+{"line":43,"kind":"keyword.control","text":"for"}
+{"line":43,"kind":"other","text":" i "}
+{"line":43,"kind":"keyword.control","text":"in"}
+{"line":43,"kind":"other","text":" "}
+{"line":43,"kind":"constant.numeric","text":"1"}
+{"line":43,"kind":"other","text":" "}
+{"line":43,"kind":"constant.numeric","text":"2"}
+{"line":43,"kind":"other","text":" "}
+{"line":43,"kind":"constant.numeric","text":"3"}
+{"line":43,"kind":"other","text":"; "}
+{"line":43,"kind":"keyword.control","text":"do"}
+{"line":44,"kind":"other","text":"    echo "}
+{"line":44,"kind":"string","text":"\""}
+{"line":44,"kind":"variable","text":"$i"}
+{"line":44,"kind":"string","text":"\""}
+{"line":45,"kind":"other","text":"    "}
+{"line":45,"kind":"keyword.control","text":"continue"}
+{"line":46,"kind":"keyword.control","text":"done"}
+{"line":48,"kind":"keyword.control","text":"for"}
+{"line":48,"kind":"other","text":" ((i = "}
+{"line":48,"kind":"constant.numeric","text":"0"}
+{"line":48,"kind":"other","text":"; i < "}
+{"line":48,"kind":"constant.numeric","text":"3"}
+{"line":48,"kind":"other","text":"; i++)); "}
+{"line":48,"kind":"keyword.control","text":"do"}
+{"line":49,"kind":"other","text":"    "}
+{"line":49,"kind":"keyword.control","text":"break"}
+{"line":50,"kind":"keyword.control","text":"done"}
+{"line":52,"kind":"keyword.control","text":"while"}
+{"line":52,"kind":"other","text":" "}
+{"line":52,"kind":"constant.language","text":"true"}
+{"line":52,"kind":"other","text":"; "}
+{"line":52,"kind":"keyword.control","text":"do"}
+{"line":53,"kind":"other","text":"    "}
+{"line":53,"kind":"keyword.control","text":"break"}
+{"line":54,"kind":"keyword.control","text":"done"}
+{"line":56,"kind":"keyword.control","text":"until"}
+{"line":56,"kind":"other","text":" "}
+{"line":56,"kind":"constant.language","text":"false"}
+{"line":56,"kind":"other","text":"; "}
+{"line":56,"kind":"keyword.control","text":"do"}
+{"line":57,"kind":"other","text":"    "}
+{"line":57,"kind":"keyword.control","text":"break"}
+{"line":58,"kind":"keyword.control","text":"done"}
+{"line":60,"kind":"keyword.control","text":"case"}
+{"line":60,"kind":"other","text":" "}
+{"line":60,"kind":"string","text":"\""}
+{"line":60,"kind":"variable","text":"$1"}
+{"line":60,"kind":"string","text":"\""}
+{"line":60,"kind":"other","text":" "}
+{"line":60,"kind":"keyword.control","text":"in"}
+{"line":61,"kind":"other","text":"    start) echo "}
+{"line":61,"kind":"string","text":"\"starting\""}
+{"line":61,"kind":"other","text":" ;;"}
+{"line":62,"kind":"other","text":"    stop)  echo "}
+{"line":62,"kind":"string","text":"\"stopping\""}
+{"line":62,"kind":"other","text":" ;;"}
+{"line":63,"kind":"other","text":"    *)     echo "}
+{"line":63,"kind":"string","text":"\"unknown\""}
+{"line":63,"kind":"other","text":"  ;;"}
+{"line":64,"kind":"keyword.control","text":"esac"}
+{"line":66,"kind":"keyword.control","text":"select"}
+{"line":66,"kind":"other","text":" opt "}
+{"line":66,"kind":"keyword.control","text":"in"}
+{"line":66,"kind":"other","text":" "}
+{"line":66,"kind":"string","text":"\"yes\""}
+{"line":66,"kind":"other","text":" "}
+{"line":66,"kind":"string","text":"\"no\""}
+{"line":66,"kind":"other","text":" "}
+{"line":66,"kind":"string","text":"\"quit\""}
+{"line":66,"kind":"other","text":"; "}
+{"line":66,"kind":"keyword.control","text":"do"}
+{"line":67,"kind":"other","text":"    echo "}
+{"line":67,"kind":"string","text":"\""}
+{"line":67,"kind":"variable","text":"$opt"}
+{"line":67,"kind":"string","text":"\""}
+{"line":68,"kind":"other","text":"    "}
+{"line":68,"kind":"keyword.control","text":"break"}
+{"line":69,"kind":"keyword.control","text":"done"}
+{"line":71,"kind":"keyword.control","text":"time"}
+{"line":71,"kind":"other","text":" ls -la"}
+{"line":73,"kind":"comment","text":"# Test expressions"}
+{"line":74,"kind":"other","text":"[ -f /etc/passwd ]"}
+{"line":75,"kind":"other","text":"[ -d /tmp ]"}
+{"line":76,"kind":"other","text":"[ -z "}
+{"line":76,"kind":"string","text":"\""}
+{"line":76,"kind":"variable","text":"$var"}
+{"line":76,"kind":"string","text":"\""}
+{"line":76,"kind":"other","text":" ]"}
+{"line":77,"kind":"other","text":"[ -n "}
+{"line":77,"kind":"string","text":"\""}
+{"line":77,"kind":"variable","text":"$var"}
+{"line":77,"kind":"string","text":"\""}
+{"line":77,"kind":"other","text":" ]"}
+{"line":78,"kind":"other","text":"[ "}
+{"line":78,"kind":"string","text":"\""}
+{"line":78,"kind":"variable","text":"$a"}
+{"line":78,"kind":"string","text":"\""}
+{"line":78,"kind":"other","text":" = "}
+{"line":78,"kind":"string","text":"\""}
+{"line":78,"kind":"variable","text":"$b"}
+{"line":78,"kind":"string","text":"\""}
+{"line":78,"kind":"other","text":" ]"}
+{"line":79,"kind":"other","text":"[ "}
+{"line":79,"kind":"string","text":"\""}
+{"line":79,"kind":"variable","text":"$a"}
+{"line":79,"kind":"string","text":"\""}
+{"line":79,"kind":"other","text":" != "}
+{"line":79,"kind":"string","text":"\""}
+{"line":79,"kind":"variable","text":"$b"}
+{"line":79,"kind":"string","text":"\""}
+{"line":79,"kind":"other","text":" ]"}
+{"line":80,"kind":"other","text":"[ "}
+{"line":80,"kind":"string","text":"\""}
+{"line":80,"kind":"variable","text":"$a"}
+{"line":80,"kind":"string","text":"\""}
+{"line":80,"kind":"other","text":" -eq "}
+{"line":80,"kind":"constant.numeric","text":"1"}
+{"line":80,"kind":"other","text":" ]"}
+{"line":81,"kind":"other","text":"[ "}
+{"line":81,"kind":"string","text":"\""}
+{"line":81,"kind":"variable","text":"$a"}
+{"line":81,"kind":"string","text":"\""}
+{"line":81,"kind":"other","text":" -ne "}
+{"line":81,"kind":"constant.numeric","text":"2"}
+{"line":81,"kind":"other","text":" ]"}
+{"line":82,"kind":"other","text":"[ "}
+{"line":82,"kind":"string","text":"\""}
+{"line":82,"kind":"variable","text":"$a"}
+{"line":82,"kind":"string","text":"\""}
+{"line":82,"kind":"other","text":" -lt "}
+{"line":82,"kind":"constant.numeric","text":"3"}
+{"line":82,"kind":"other","text":" ]"}
+{"line":83,"kind":"other","text":"[ "}
+{"line":83,"kind":"string","text":"\""}
+{"line":83,"kind":"variable","text":"$a"}
+{"line":83,"kind":"string","text":"\""}
+{"line":83,"kind":"other","text":" -gt "}
+{"line":83,"kind":"constant.numeric","text":"4"}
+{"line":83,"kind":"other","text":" ]"}
+{"line":84,"kind":"other","text":"[ "}
+{"line":84,"kind":"string","text":"\""}
+{"line":84,"kind":"variable","text":"$a"}
+{"line":84,"kind":"string","text":"\""}
+{"line":84,"kind":"other","text":" -le "}
+{"line":84,"kind":"constant.numeric","text":"5"}
+{"line":84,"kind":"other","text":" ]"}
+{"line":85,"kind":"other","text":"[ "}
+{"line":85,"kind":"string","text":"\""}
+{"line":85,"kind":"variable","text":"$a"}
+{"line":85,"kind":"string","text":"\""}
+{"line":85,"kind":"other","text":" -ge "}
+{"line":85,"kind":"constant.numeric","text":"6"}
+{"line":85,"kind":"other","text":" ]"}
+{"line":86,"kind":"other","text":"[[ "}
+{"line":86,"kind":"string","text":"\""}
+{"line":86,"kind":"variable","text":"$name"}
+{"line":86,"kind":"string","text":"\""}
+{"line":86,"kind":"other","text":" == *.txt ]]"}
+{"line":87,"kind":"other","text":"[[ "}
+{"line":87,"kind":"string","text":"\""}
+{"line":87,"kind":"variable","text":"$name"}
+{"line":87,"kind":"string","text":"\""}
+{"line":87,"kind":"other","text":" =~ ^["}
+{"line":87,"kind":"constant.numeric","text":"0"}
+{"line":87,"kind":"constant.numeric","text":"-9"}
+{"line":87,"kind":"other","text":"]+$ ]]"}
+{"line":88,"kind":"other","text":"[[ -f /etc/passwd && -d /tmp ]]"}
+{"line":89,"kind":"other","text":"[[ -f /etc/passwd || -d /tmp ]]"}
+{"line":91,"kind":"comment","text":"# Heredocs"}
+{"line":92,"kind":"other","text":"cat <<EOF"}
+{"line":93,"kind":"string","text":"Hello $USER"}
+{"line":94,"kind":"string","text":"Your shell is $SHELL"}
+{"line":95,"kind":"other","text":"EOF"}
+{"line":97,"kind":"other","text":"cat <<'EOF'"}
+{"line":98,"kind":"string","text":"No $interpolation here"}
+{"line":99,"kind":"other","text":"EOF"}
+{"line":101,"kind":"other","text":"cat <<-EOF"}
+{"line":102,"kind":"string","text":"\tIndented heredoc (tabs stripped)"}
+{"line":103,"kind":"other","text":"EOF"}
+{"line":105,"kind":"comment","text":"# Herestrings"}
+{"line":106,"kind":"other","text":"cat <<< "}
+{"line":106,"kind":"string","text":"\"hello world\""}
+{"line":107,"kind":"other","text":"cat <<< "}
+{"line":107,"kind":"string","text":"'no interpolation'"}
+{"line":108,"kind":"other","text":"cat <<< "}
+{"line":108,"kind":"variable","text":"$name"}
+{"line":110,"kind":"comment","text":"# Variables"}
+{"line":111,"kind":"other","text":"name="}
+{"line":111,"kind":"string","text":"\"world\""}
+{"line":112,"kind":"other","text":"echo "}
+{"line":112,"kind":"variable","text":"$name"}
+{"line":113,"kind":"other","text":"echo "}
+{"line":113,"kind":"variable","text":"${name}"}
+{"line":114,"kind":"other","text":"echo "}
+{"line":114,"kind":"variable","text":"${name:-default}"}
+{"line":115,"kind":"other","text":"echo "}
+{"line":115,"kind":"variable","text":"${name:=fallback}"}
+{"line":116,"kind":"other","text":"echo "}
+{"line":116,"kind":"variable","text":"${name:+alternate}"}
+{"line":117,"kind":"other","text":"echo "}
+{"line":117,"kind":"variable","text":"${name:?error}"}
+{"line":118,"kind":"other","text":"echo "}
+{"line":118,"kind":"variable","text":"${#name}"}
+{"line":119,"kind":"other","text":"echo "}
+{"line":119,"kind":"variable","text":"${name%.*}"}
+{"line":120,"kind":"other","text":"echo "}
+{"line":120,"kind":"variable","text":"${name%%.*}"}
+{"line":121,"kind":"other","text":"echo "}
+{"line":121,"kind":"variable","text":"${name#*/}"}
+{"line":122,"kind":"other","text":"echo "}
+{"line":122,"kind":"variable","text":"${name##*/}"}
+{"line":123,"kind":"other","text":"echo "}
+{"line":123,"kind":"variable","text":"${name/old/new}"}
+{"line":124,"kind":"other","text":"echo "}
+{"line":124,"kind":"variable","text":"${name//old/new}"}
+{"line":125,"kind":"other","text":"array=(one two three)"}
+{"line":126,"kind":"other","text":"echo "}
+{"line":126,"kind":"variable","text":"${array[0]}"}
+{"line":127,"kind":"other","text":"echo "}
+{"line":127,"kind":"variable","text":"${array[@]}"}
+{"line":128,"kind":"other","text":"echo "}
+{"line":128,"kind":"variable","text":"${!array[@]}"}
+{"line":129,"kind":"other","text":"echo "}
+{"line":129,"kind":"variable","text":"${#array[@]}"}
+{"line":131,"kind":"comment","text":"# Arithmetic"}
+{"line":132,"kind":"other","text":"echo "}
+{"line":132,"kind":"variable","text":"$((2 + 3))"}
+{"line":133,"kind":"other","text":"echo "}
+{"line":133,"kind":"variable","text":"$((a * b))"}
+{"line":134,"kind":"other","text":"(( count++ ))"}
+{"line":135,"kind":"other","text":"(( x = "}
+{"line":135,"kind":"constant.numeric","text":"5"}
+{"line":135,"kind":"other","text":", y = "}
+{"line":135,"kind":"constant.numeric","text":"10"}
+{"line":135,"kind":"other","text":" ))"}
+{"line":136,"kind":"other","text":"(( x <<= "}
+{"line":136,"kind":"constant.numeric","text":"2"}
+{"line":136,"kind":"other","text":" ))"}
+{"line":137,"kind":"other","text":"(( x >>= "}
+{"line":137,"kind":"constant.numeric","text":"1"}
+{"line":137,"kind":"other","text":" ))"}
+{"line":138,"kind":"other","text":"(( x &= "}
+{"line":138,"kind":"constant.numeric","text":"0xFF"}
+{"line":138,"kind":"other","text":" ))"}
+{"line":140,"kind":"comment","text":"# Redirections"}
+{"line":141,"kind":"other","text":"echo "}
+{"line":141,"kind":"string","text":"\"out\""}
+{"line":141,"kind":"other","text":" > /dev/null"}
+{"line":142,"kind":"other","text":"echo "}
+{"line":142,"kind":"string","text":"\"append\""}
+{"line":142,"kind":"other","text":" >> /tmp/log"}
+{"line":143,"kind":"other","text":"cat < /etc/passwd"}
+{"line":144,"kind":"other","text":"echo "}
+{"line":144,"kind":"string","text":"\"stderr\""}
+{"line":144,"kind":"other","text":" "}
+{"line":144,"kind":"constant.numeric","text":"2"}
+{"line":144,"kind":"other","text":"> /dev/null"}
+{"line":145,"kind":"other","text":"echo "}
+{"line":145,"kind":"string","text":"\"both\""}
+{"line":145,"kind":"other","text":" &> /dev/null"}
+{"line":146,"kind":"other","text":"echo "}
+{"line":146,"kind":"string","text":"\"dup\""}
+{"line":146,"kind":"other","text":" "}
+{"line":146,"kind":"constant.numeric","text":"2"}
+{"line":146,"kind":"other","text":">&"}
+{"line":146,"kind":"constant.numeric","text":"1"}
+{"line":147,"kind":"other","text":"exec "}
+{"line":147,"kind":"constant.numeric","text":"3"}
+{"line":147,"kind":"other","text":"<> /tmp/fd3"}
+{"line":149,"kind":"comment","text":"# Process substitution"}
+{"line":150,"kind":"other","text":"diff <(ls /bin) <(ls /usr/bin)"}
+{"line":151,"kind":"other","text":"tee >(grep error > errors.log) > /dev/null"}
+{"line":153,"kind":"comment","text":"# Pipelines and logical operators"}
+{"line":154,"kind":"other","text":"echo hello | cat"}
+{"line":155,"kind":"other","text":"echo hello |& cat"}
+{"line":156,"kind":"other","text":"ls && echo ok"}
+{"line":157,"kind":"other","text":"ls || echo fail"}
+{"line":158,"kind":"other","text":"sleep "}
+{"line":158,"kind":"constant.numeric","text":"10"}
+{"line":158,"kind":"other","text":" &"}
+{"line":160,"kind":"comment","text":"# Subshells and group commands"}
+{"line":161,"kind":"other","text":"(cd /tmp && ls)"}
+{"line":162,"kind":"other","text":"{ echo one; echo two; }"}
+{"line":164,"kind":"comment","text":"# Extended globbing"}
+{"line":165,"kind":"other","text":"shopt -s extglob"}
+{"line":166,"kind":"other","text":"ls *.txt"}
+{"line":167,"kind":"other","text":"ls ?(a|b)"}
+{"line":168,"kind":"other","text":"ls *(a|b)"}
+{"line":169,"kind":"other","text":"ls +(a|b)"}
+{"line":170,"kind":"other","text":"ls @(a|b)"}
+{"line":171,"kind":"other","text":"ls !(a|b)"}
+{"line":172,"kind":"other","text":"echo ~"}
+{"line":174,"kind":"comment","text":"# Other keywords"}
+{"line":175,"kind":"keyword.other","text":"export"}
+{"line":175,"kind":"other","text":" PATH="}
+{"line":175,"kind":"string","text":"\"/usr/local/bin:"}
+{"line":175,"kind":"variable","text":"$PATH"}
+{"line":175,"kind":"string","text":"\""}
+{"line":176,"kind":"keyword.other","text":"local"}
+{"line":176,"kind":"other","text":" count="}
+{"line":176,"kind":"constant.numeric","text":"0"}
+{"line":177,"kind":"keyword.other","text":"readonly"}
+{"line":177,"kind":"other","text":" PI="}
+{"line":177,"kind":"constant.numeric","text":"3"}
+{"line":178,"kind":"keyword.other","text":"declare"}
+{"line":178,"kind":"other","text":" -a arr=("}
+{"line":178,"kind":"constant.numeric","text":"1"}
+{"line":178,"kind":"other","text":" "}
+{"line":178,"kind":"constant.numeric","text":"2"}
+{"line":178,"kind":"other","text":" "}
+{"line":178,"kind":"constant.numeric","text":"3"}
+{"line":178,"kind":"other","text":")"}
+{"line":179,"kind":"keyword.other","text":"declare"}
+{"line":179,"kind":"other","text":" -A map=([key]=value)"}
+{"line":180,"kind":"keyword.other","text":"typeset"}
+{"line":180,"kind":"other","text":" -i num="}
+{"line":180,"kind":"constant.numeric","text":"42"}
+{"line":181,"kind":"keyword.other","text":"alias"}
+{"line":181,"kind":"other","text":" ll="}
+{"line":181,"kind":"string","text":"'ls -la'"}
+{"line":182,"kind":"keyword.other","text":"source"}
+{"line":182,"kind":"other","text":" /dev/null"}
+{"line":183,"kind":"other","text":". /dev/null"}
+{"line":185,"kind":"comment","text":"# Builtins"}
+{"line":186,"kind":"other","text":"eval "}
+{"line":186,"kind":"string","text":"'echo hello'"}
+{"line":187,"kind":"other","text":"exec /bin/bash"}
+{"line":188,"kind":"other","text":"trap "}
+{"line":188,"kind":"string","text":"'echo bye'"}
+{"line":188,"kind":"other","text":" EXIT"}
+{"line":189,"kind":"other","text":"test -f /etc/passwd"}
+{"line":190,"kind":"other","text":"read -r line"}
+{"line":191,"kind":"other","text":"printf "}
+{"line":191,"kind":"string","text":"\"%s\\n\""}
+{"line":191,"kind":"other","text":" "}
+{"line":191,"kind":"string","text":"\"hello\""}
+{"line":192,"kind":"other","text":"wait "}
+{"line":192,"kind":"variable","text":"$!"}
+{"line":193,"kind":"other","text":"kill "}
+{"line":193,"kind":"constant.numeric","text":"-9"}
+{"line":193,"kind":"other","text":" "}
+{"line":193,"kind":"variable","text":"$$"}
+{"line":194,"kind":"other","text":"jobs -l"}
+{"line":195,"kind":"other","text":"fg %"}
+{"line":195,"kind":"constant.numeric","text":"1"}
+{"line":196,"kind":"other","text":"bg %"}
+{"line":196,"kind":"constant.numeric","text":"1"}
+{"line":197,"kind":"other","text":"cd /tmp"}
+{"line":198,"kind":"other","text":"pwd"}
+{"line":199,"kind":"other","text":"set -euo pipefail"}
+{"line":200,"kind":"other","text":"unset name"}
+{"line":201,"kind":"other","text":"shift"}
+{"line":202,"kind":"other","text":"getopts "}
+{"line":202,"kind":"string","text":"\"ab:\""}
+{"line":202,"kind":"other","text":" opt"}
+{"line":203,"kind":"other","text":"command ls"}
+{"line":204,"kind":"other","text":"builtin echo"}
+{"line":205,"kind":"other","text":"type ls"}
+{"line":206,"kind":"other","text":"hash -r"}
+{"line":207,"kind":"other","text":"ulimit -n"}
+{"line":208,"kind":"other","text":"umask "}
+{"line":208,"kind":"constant.numeric","text":"022"}
+{"line":209,"kind":"other","text":"dirs"}
+{"line":210,"kind":"other","text":"pushd /tmp"}
+{"line":211,"kind":"other","text":"popd"}
+{"line":212,"kind":"other","text":"disown %"}
+{"line":212,"kind":"constant.numeric","text":"1"}
+{"line":213,"kind":"other","text":"let "}
+{"line":213,"kind":"string","text":"\"x = 1 + 2\""}
+{"line":214,"kind":"other","text":"exit "}
+{"line":214,"kind":"constant.numeric","text":"0"}
+{"line":216,"kind":"comment","text":"# Functions"}
+{"line":217,"kind":"keyword.other","text":"function "}
+{"line":217,"kind":"method","text":"greet"}
+{"line":217,"kind":"other","text":"() {"}
+{"line":218,"kind":"other","text":"    "}
+{"line":218,"kind":"keyword.other","text":"local"}
+{"line":218,"kind":"other","text":" who="}
+{"line":218,"kind":"string","text":"\""}
+{"line":218,"kind":"variable","text":"${1:-world}"}
+{"line":218,"kind":"string","text":"\""}
+{"line":219,"kind":"other","text":"    echo "}
+{"line":219,"kind":"string","text":"\"Hello, "}
+{"line":219,"kind":"variable","text":"$who"}
+{"line":219,"kind":"string","text":"\""}
+{"line":220,"kind":"other","text":"    "}
+{"line":220,"kind":"keyword.control","text":"return"}
+{"line":220,"kind":"other","text":" "}
+{"line":220,"kind":"constant.numeric","text":"0"}
+{"line":221,"kind":"other","text":"}"}
+{"line":223,"kind":"method","text":"cleanup"}
+{"line":223,"kind":"other","text":"() {"}
+{"line":224,"kind":"other","text":"    echo "}
+{"line":224,"kind":"string","text":"\"done\""}
+{"line":225,"kind":"other","text":"}"}
+{"line":227,"kind":"other","text":"greet "}
+{"line":227,"kind":"string","text":"\"shell\""}
+{"line":228,"kind":"other","text":"cleanup"}

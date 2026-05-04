@@ -1,23 +1,23 @@
-   1 comment                # General Settings
-   2 other                  [General]
-   3 variable               enabled
-   3 other                   = true
-   4 variable               debug
-   4 other                   = false
-   5 variable               log_level
-   5 other                   = info
-   6 variable               max_connections
-   6 other                   = 1000
-   8 other                  [SSL]
-   9 variable               enabled
-   9 other                   = true
-  10 variable               cert_file
-  10 other                   = /etc/ssl/certs/server.crt
-  11 variable               key_file
-  11 other                   = /etc/ssl/private/server.key
-  12 variable               protocols
-  12 other                   = TLSv1.2, TLSv1.3 
-  12 comment                # Supported protocols: "TLSv1.2" and "TLSv1.3"
-  13 variable               cipher_suite
-  13 other                   = 
-  13 string                 "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"
+{"line":1,"kind":"comment","text":"# General Settings"}
+{"line":2,"kind":"other","text":"[General]"}
+{"line":3,"kind":"variable","text":"enabled"}
+{"line":3,"kind":"other","text":" = true"}
+{"line":4,"kind":"variable","text":"debug"}
+{"line":4,"kind":"other","text":" = false"}
+{"line":5,"kind":"variable","text":"log_level"}
+{"line":5,"kind":"other","text":" = info"}
+{"line":6,"kind":"variable","text":"max_connections"}
+{"line":6,"kind":"other","text":" = 1000"}
+{"line":8,"kind":"other","text":"[SSL]"}
+{"line":9,"kind":"variable","text":"enabled"}
+{"line":9,"kind":"other","text":" = true"}
+{"line":10,"kind":"variable","text":"cert_file"}
+{"line":10,"kind":"other","text":" = /etc/ssl/certs/server.crt"}
+{"line":11,"kind":"variable","text":"key_file"}
+{"line":11,"kind":"other","text":" = /etc/ssl/private/server.key"}
+{"line":12,"kind":"variable","text":"protocols"}
+{"line":12,"kind":"other","text":" = TLSv1.2, TLSv1.3 "}
+{"line":12,"kind":"comment","text":"# Supported protocols: \"TLSv1.2\" and \"TLSv1.3\""}
+{"line":13,"kind":"variable","text":"cipher_suite"}
+{"line":13,"kind":"other","text":" = "}
+{"line":13,"kind":"string","text":"\"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256\""}

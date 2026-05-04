@@ -1,136 +1,136 @@
-   1 meta.header            diff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs
-   2 other                  index a1b2c3d..d4c3b2a 100644
-   3 meta.header            --- a/src/lsh/definitions.rs
-   4 meta.header            +++ b/src/lsh/definitions.rs
-   5 other                  @@ -12,9 +12,11 @@ // context line 12
-   6 other                   // context line 13
-   7 markup.deleted         -// old placeholder logic A
-   8 markup.deleted         -const LEGACY_FLAG: bool = true;
-   9 markup.deleted         -// end legacy block
-  10 markup.inserted        +// updated placeholder logic A
-  11 markup.inserted        +const LEGACY_FLAG: bool = false; // flipped for test
-  12 markup.inserted        +// added note: migration in progress
-  13 markup.inserted        +// end legacy block
-  14 other                   // context line 19
-  15 other                   // context line 20
-  16 other                  @@ -42,7 +44,12 @@ // context line 42
-  17 other                   // context line 43
-  18 markup.deleted         -    do_placeholder_action(alpha, beta);
-  19 markup.inserted        +    // Split actions for clarity
-  20 markup.inserted        +    do_placeholder_prepare(alpha);
-  21 markup.inserted        +    do_placeholder_action(alpha, beta);
-  22 markup.inserted        +    if (enable_extra()) {
-  23 markup.inserted        +        do_placeholder_followup(beta);
-  24 markup.inserted        +    }
-  25 other                   // context line 50
-  26 other                   // context line 51
-  27 other                   // context line 52
-  28 other                  @@ -90,6 +97,15 @@ // context line 90
-  29 other                   // context line 91
-  30 other                   // context line 92
-  31 markup.inserted        +/// Added lightweight fake helper
-  32 markup.inserted        +fn enable_extra() -> bool {
-  33 markup.inserted        +    // Pretend this consults a config value
-  34 markup.inserted        +    true
-  35 markup.inserted        +}
-  36 markup.inserted        +
-  37 markup.inserted        +// Temporary debug instrumentation (to be removed)
-  38 markup.inserted        +const _DEBUG_HOOK: &str = "lsh:extra";
-  39 markup.inserted        +
-  40 other                   // context line 93
-  41 other                   // context line 94
-  42 other                   // context line 95
-  44 meta.header            diff --git a/src/tui.rs b/src/tui.rs
-  45 other                  index 1122334..5566778 100644
-  46 meta.header            --- a/src/tui.rs
-  47 meta.header            +++ b/src/tui.rs
-  48 other                  @@ -5,8 +5,13 @@ // context line 5
-  49 other                   // context line 6
-  50 other                   // context line 7
-  51 markup.deleted         -// previous rendering stub
-  52 markup.deleted         -render_placeholder(frame);
-  53 markup.inserted        +// refined rendering sequence
-  54 markup.inserted        +begin_frame(frame);
-  55 markup.inserted        +render_header(frame);
-  56 markup.inserted        +render_body(frame);
-  57 markup.inserted        +render_footer(frame);
-  58 markup.inserted        +end_frame(frame);
-  59 markup.inserted        +
-  60 other                   // context line 14
-  61 other                   // context line 15
-  62 other                   // context line 16
-  64 meta.header            diff --git a/README.md b/README.md
-  65 other                  index 9aa9aa9..1bb1bb1 100644
-  66 meta.header            --- a/README.md
-  67 meta.header            +++ b/README.md
-  68 other                  @@ -1,6 +1,11 @@
-  69 other                   # Project Title
-  70 markup.deleted         -Some brief description here.
-  71 markup.inserted        +Some brief description here (updated).
-  72 markup.inserted        +
-  73 markup.inserted        +Experimental notes:
-  74 markup.inserted        +- Added fake diff example
-  75 markup.inserted        +- Demonstrates multi-hunk & multi-file patch
-  76 markup.inserted        +
-  77 other                   ## Usage
-  78 other                   Run the binary as needed.
-  80 meta.header            diff --git a/Cargo.toml b/Cargo.toml
-  81 other                  index cafe123..fade321 100644
-  82 meta.header            --- a/Cargo.toml
-  83 meta.header            +++ b/Cargo.toml
-  84 other                  @@ -8,7 +8,10 @@ edition = "2021"
-  85 other                   # context
-  86 other                   [features]
-  87 markup.deleted         -default = []
-  88 markup.inserted        +default = ["experimental-preview"]
-  89 markup.inserted        +experimental-preview = []
-  90 markup.inserted        +
-  91 markup.inserted        +# NOTE: Above feature is placeholder & fake
-  93 other                   [dependencies]
-  94 other                   # context
-  95 other                  @@ -20,6 +23,7 @@ anyhow = "1"
-  96 other                   # context
-  97 other                   # instrumentation (fake addition)
-  98 other                   tracing = "0.1"
-  99 markup.inserted        +tracing-subscriber = "0.3"
- 101 meta.header            diff --git a/src/feature/experimental.rs b/src/feature/experimental.rs
- 102 other                  new file mode 100644
- 103 other                  index 0000000..abc1234
- 104 meta.header            --- /dev/null
- 105 meta.header            +++ b/src/feature/experimental.rs
- 106 other                  @@ -0,0 +1,24 @@
- 107 markup.inserted        +//! Placeholder experimental module (fake content).
- 108 markup.inserted        +//! This file exists only to demonstrate a multi-file diff.
- 109 markup.inserted        +#![allow(dead_code)]
- 110 markup.inserted        +
- 111 markup.inserted        +pub struct ExperimentalToggle {
- 112 markup.inserted        +    enabled: bool,
- 113 markup.inserted        +}
- 114 markup.inserted        +
- 115 markup.inserted        +impl ExperimentalToggle {
- 116 markup.inserted        +    pub fn new() -> Self {
- 117 markup.inserted        +        Self { enabled: true }
- 118 markup.inserted        +    }
- 119 markup.inserted        +    pub fn enabled(&self) -> bool {
- 120 markup.inserted        +        self.enabled
- 121 markup.inserted        +    }
- 122 markup.inserted        +}
- 123 markup.inserted        +
- 124 markup.inserted        +pub fn run_experimental_path() {
- 125 markup.inserted        +    if ExperimentalToggle::new().enabled() {
- 126 markup.inserted        +        // Fake behavior
- 127 markup.inserted        +        eprintln!("(fake) running experimental path");
- 128 markup.inserted        +    }
- 129 markup.inserted        +}
- 130 markup.inserted        +
- 132 meta.header            diff --git a/assets/old_logo.svg b/assets/old_logo.svg
- 133 other                  deleted file mode 100644
- 134 other                  index 55aa55a..0000000
- 135 meta.header            --- a/assets/old_logo.svg
- 136 meta.header            +++ /dev/null
- 137 other                  @@ -1,5 +0,0 @@
- 138 markup.deleted         -<!-- Fake removed asset -->
- 139 markup.deleted         -<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
- 140 markup.deleted         -  <rect width="10" height="10" fill="#FF00FF"/>
- 141 markup.deleted         -  <text x="1" y="9" font-size="3">X</text>
- 142 markup.deleted         -</svg>
+{"line":1,"kind":"meta.header","text":"diff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs"}
+{"line":2,"kind":"other","text":"index a1b2c3d..d4c3b2a 100644"}
+{"line":3,"kind":"meta.header","text":"--- a/src/lsh/definitions.rs"}
+{"line":4,"kind":"meta.header","text":"+++ b/src/lsh/definitions.rs"}
+{"line":5,"kind":"other","text":"@@ -12,9 +12,11 @@ // context line 12"}
+{"line":6,"kind":"other","text":" // context line 13"}
+{"line":7,"kind":"markup.deleted","text":"-// old placeholder logic A"}
+{"line":8,"kind":"markup.deleted","text":"-const LEGACY_FLAG: bool = true;"}
+{"line":9,"kind":"markup.deleted","text":"-// end legacy block"}
+{"line":10,"kind":"markup.inserted","text":"+// updated placeholder logic A"}
+{"line":11,"kind":"markup.inserted","text":"+const LEGACY_FLAG: bool = false; // flipped for test"}
+{"line":12,"kind":"markup.inserted","text":"+// added note: migration in progress"}
+{"line":13,"kind":"markup.inserted","text":"+// end legacy block"}
+{"line":14,"kind":"other","text":" // context line 19"}
+{"line":15,"kind":"other","text":" // context line 20"}
+{"line":16,"kind":"other","text":"@@ -42,7 +44,12 @@ // context line 42"}
+{"line":17,"kind":"other","text":" // context line 43"}
+{"line":18,"kind":"markup.deleted","text":"-    do_placeholder_action(alpha, beta);"}
+{"line":19,"kind":"markup.inserted","text":"+    // Split actions for clarity"}
+{"line":20,"kind":"markup.inserted","text":"+    do_placeholder_prepare(alpha);"}
+{"line":21,"kind":"markup.inserted","text":"+    do_placeholder_action(alpha, beta);"}
+{"line":22,"kind":"markup.inserted","text":"+    if (enable_extra()) {"}
+{"line":23,"kind":"markup.inserted","text":"+        do_placeholder_followup(beta);"}
+{"line":24,"kind":"markup.inserted","text":"+    }"}
+{"line":25,"kind":"other","text":" // context line 50"}
+{"line":26,"kind":"other","text":" // context line 51"}
+{"line":27,"kind":"other","text":" // context line 52"}
+{"line":28,"kind":"other","text":"@@ -90,6 +97,15 @@ // context line 90"}
+{"line":29,"kind":"other","text":" // context line 91"}
+{"line":30,"kind":"other","text":" // context line 92"}
+{"line":31,"kind":"markup.inserted","text":"+/// Added lightweight fake helper"}
+{"line":32,"kind":"markup.inserted","text":"+fn enable_extra() -> bool {"}
+{"line":33,"kind":"markup.inserted","text":"+    // Pretend this consults a config value"}
+{"line":34,"kind":"markup.inserted","text":"+    true"}
+{"line":35,"kind":"markup.inserted","text":"+}"}
+{"line":36,"kind":"markup.inserted","text":"+"}
+{"line":37,"kind":"markup.inserted","text":"+// Temporary debug instrumentation (to be removed)"}
+{"line":38,"kind":"markup.inserted","text":"+const _DEBUG_HOOK: &str = \"lsh:extra\";"}
+{"line":39,"kind":"markup.inserted","text":"+"}
+{"line":40,"kind":"other","text":" // context line 93"}
+{"line":41,"kind":"other","text":" // context line 94"}
+{"line":42,"kind":"other","text":" // context line 95"}
+{"line":44,"kind":"meta.header","text":"diff --git a/src/tui.rs b/src/tui.rs"}
+{"line":45,"kind":"other","text":"index 1122334..5566778 100644"}
+{"line":46,"kind":"meta.header","text":"--- a/src/tui.rs"}
+{"line":47,"kind":"meta.header","text":"+++ b/src/tui.rs"}
+{"line":48,"kind":"other","text":"@@ -5,8 +5,13 @@ // context line 5"}
+{"line":49,"kind":"other","text":" // context line 6"}
+{"line":50,"kind":"other","text":" // context line 7"}
+{"line":51,"kind":"markup.deleted","text":"-// previous rendering stub"}
+{"line":52,"kind":"markup.deleted","text":"-render_placeholder(frame);"}
+{"line":53,"kind":"markup.inserted","text":"+// refined rendering sequence"}
+{"line":54,"kind":"markup.inserted","text":"+begin_frame(frame);"}
+{"line":55,"kind":"markup.inserted","text":"+render_header(frame);"}
+{"line":56,"kind":"markup.inserted","text":"+render_body(frame);"}
+{"line":57,"kind":"markup.inserted","text":"+render_footer(frame);"}
+{"line":58,"kind":"markup.inserted","text":"+end_frame(frame);"}
+{"line":59,"kind":"markup.inserted","text":"+"}
+{"line":60,"kind":"other","text":" // context line 14"}
+{"line":61,"kind":"other","text":" // context line 15"}
+{"line":62,"kind":"other","text":" // context line 16"}
+{"line":64,"kind":"meta.header","text":"diff --git a/README.md b/README.md"}
+{"line":65,"kind":"other","text":"index 9aa9aa9..1bb1bb1 100644"}
+{"line":66,"kind":"meta.header","text":"--- a/README.md"}
+{"line":67,"kind":"meta.header","text":"+++ b/README.md"}
+{"line":68,"kind":"other","text":"@@ -1,6 +1,11 @@"}
+{"line":69,"kind":"other","text":" # Project Title"}
+{"line":70,"kind":"markup.deleted","text":"-Some brief description here."}
+{"line":71,"kind":"markup.inserted","text":"+Some brief description here (updated)."}
+{"line":72,"kind":"markup.inserted","text":"+"}
+{"line":73,"kind":"markup.inserted","text":"+Experimental notes:"}
+{"line":74,"kind":"markup.inserted","text":"+- Added fake diff example"}
+{"line":75,"kind":"markup.inserted","text":"+- Demonstrates multi-hunk & multi-file patch"}
+{"line":76,"kind":"markup.inserted","text":"+"}
+{"line":77,"kind":"other","text":" ## Usage"}
+{"line":78,"kind":"other","text":" Run the binary as needed."}
+{"line":80,"kind":"meta.header","text":"diff --git a/Cargo.toml b/Cargo.toml"}
+{"line":81,"kind":"other","text":"index cafe123..fade321 100644"}
+{"line":82,"kind":"meta.header","text":"--- a/Cargo.toml"}
+{"line":83,"kind":"meta.header","text":"+++ b/Cargo.toml"}
+{"line":84,"kind":"other","text":"@@ -8,7 +8,10 @@ edition = \"2021\""}
+{"line":85,"kind":"other","text":" # context"}
+{"line":86,"kind":"other","text":" [features]"}
+{"line":87,"kind":"markup.deleted","text":"-default = []"}
+{"line":88,"kind":"markup.inserted","text":"+default = [\"experimental-preview\"]"}
+{"line":89,"kind":"markup.inserted","text":"+experimental-preview = []"}
+{"line":90,"kind":"markup.inserted","text":"+"}
+{"line":91,"kind":"markup.inserted","text":"+# NOTE: Above feature is placeholder & fake"}
+{"line":93,"kind":"other","text":" [dependencies]"}
+{"line":94,"kind":"other","text":" # context"}
+{"line":95,"kind":"other","text":"@@ -20,6 +23,7 @@ anyhow = \"1\""}
+{"line":96,"kind":"other","text":" # context"}
+{"line":97,"kind":"other","text":" # instrumentation (fake addition)"}
+{"line":98,"kind":"other","text":" tracing = \"0.1\""}
+{"line":99,"kind":"markup.inserted","text":"+tracing-subscriber = \"0.3\""}
+{"line":101,"kind":"meta.header","text":"diff --git a/src/feature/experimental.rs b/src/feature/experimental.rs"}
+{"line":102,"kind":"other","text":"new file mode 100644"}
+{"line":103,"kind":"other","text":"index 0000000..abc1234"}
+{"line":104,"kind":"meta.header","text":"--- /dev/null"}
+{"line":105,"kind":"meta.header","text":"+++ b/src/feature/experimental.rs"}
+{"line":106,"kind":"other","text":"@@ -0,0 +1,24 @@"}
+{"line":107,"kind":"markup.inserted","text":"+//! Placeholder experimental module (fake content)."}
+{"line":108,"kind":"markup.inserted","text":"+//! This file exists only to demonstrate a multi-file diff."}
+{"line":109,"kind":"markup.inserted","text":"+#![allow(dead_code)]"}
+{"line":110,"kind":"markup.inserted","text":"+"}
+{"line":111,"kind":"markup.inserted","text":"+pub struct ExperimentalToggle {"}
+{"line":112,"kind":"markup.inserted","text":"+    enabled: bool,"}
+{"line":113,"kind":"markup.inserted","text":"+}"}
+{"line":114,"kind":"markup.inserted","text":"+"}
+{"line":115,"kind":"markup.inserted","text":"+impl ExperimentalToggle {"}
+{"line":116,"kind":"markup.inserted","text":"+    pub fn new() -> Self {"}
+{"line":117,"kind":"markup.inserted","text":"+        Self { enabled: true }"}
+{"line":118,"kind":"markup.inserted","text":"+    }"}
+{"line":119,"kind":"markup.inserted","text":"+    pub fn enabled(&self) -> bool {"}
+{"line":120,"kind":"markup.inserted","text":"+        self.enabled"}
+{"line":121,"kind":"markup.inserted","text":"+    }"}
+{"line":122,"kind":"markup.inserted","text":"+}"}
+{"line":123,"kind":"markup.inserted","text":"+"}
+{"line":124,"kind":"markup.inserted","text":"+pub fn run_experimental_path() {"}
+{"line":125,"kind":"markup.inserted","text":"+    if ExperimentalToggle::new().enabled() {"}
+{"line":126,"kind":"markup.inserted","text":"+        // Fake behavior"}
+{"line":127,"kind":"markup.inserted","text":"+        eprintln!(\"(fake) running experimental path\");"}
+{"line":128,"kind":"markup.inserted","text":"+    }"}
+{"line":129,"kind":"markup.inserted","text":"+}"}
+{"line":130,"kind":"markup.inserted","text":"+"}
+{"line":132,"kind":"meta.header","text":"diff --git a/assets/old_logo.svg b/assets/old_logo.svg"}
+{"line":133,"kind":"other","text":"deleted file mode 100644"}
+{"line":134,"kind":"other","text":"index 55aa55a..0000000"}
+{"line":135,"kind":"meta.header","text":"--- a/assets/old_logo.svg"}
+{"line":136,"kind":"meta.header","text":"+++ /dev/null"}
+{"line":137,"kind":"other","text":"@@ -1,5 +0,0 @@"}
+{"line":138,"kind":"markup.deleted","text":"-<!-- Fake removed asset -->"}
+{"line":139,"kind":"markup.deleted","text":"-<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"}
+{"line":140,"kind":"markup.deleted","text":"-  <rect width=\"10\" height=\"10\" fill=\"#FF00FF\"/>"}
+{"line":141,"kind":"markup.deleted","text":"-  <text x=\"1\" y=\"9\" font-size=\"3\">X</text>"}
+{"line":142,"kind":"markup.deleted","text":"-</svg>"}

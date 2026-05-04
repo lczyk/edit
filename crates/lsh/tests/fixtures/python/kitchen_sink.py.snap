@@ -1,312 +1,312 @@
-   1 comment                # Comments
-   2 comment                # Single-line comment
-   4 comment                # Numbers
-   5 constant.numeric       42
-   6 constant.numeric       3.14
-   7 constant.numeric       .5
-   8 constant.numeric       1e10
-   9 constant.numeric       1.5e-3
-  10 constant.numeric       0xff
-  11 constant.numeric       0xFF
-  12 constant.numeric       0b1010
-  13 constant.numeric       0o77
-  14 constant.numeric       1_000_000
-  15 constant.numeric       3.14j
-  17 comment                # Constants
-  18 constant.language      True
-  19 constant.language      False
-  20 constant.language      None
-  22 comment                # Strings
-  23 string                 'single quotes: \\' \\n \\t \\\\'
-  24 string                 "double quotes: \\" \\n \\t \\\\"
-  26 comment                # Control flow keywords
-  27 keyword.control        if
-  27 other                   
-  27 constant.language      True
-  27 other                  :
-  28 other                      
-  28 keyword.control        pass
-  29 keyword.control        elif
-  29 other                   
-  29 constant.language      False
-  29 other                  :
-  30 other                      
-  30 keyword.control        pass
-  31 keyword.control        else
-  31 other                  :
-  32 other                      
-  32 keyword.control        pass
-  34 keyword.control        for
-  34 other                   i 
-  34 keyword.other          in
-  34 other                   
-  34 method                 range
-  34 other                  (
-  34 constant.numeric       10
-  34 other                  ):
-  35 other                      
-  35 keyword.control        if
-  35 other                   i == 
-  35 constant.numeric       5
-  35 other                  :
-  36 other                          
-  36 keyword.control        continue
-  37 other                      
-  37 keyword.control        if
-  37 other                   i == 
-  37 constant.numeric       8
-  37 other                  :
-  38 other                          
-  38 keyword.control        break
-  40 keyword.control        while
-  40 other                   
-  40 constant.language      False
-  40 other                  :
-  41 other                      
-  41 keyword.control        pass
-  43 keyword.control        match
-  43 other                   
-  43 constant.numeric       42
-  43 other                  :
-  44 other                      
-  44 keyword.control        case
-  44 other                   
-  44 constant.numeric       1
-  44 other                  :
-  45 other                          
-  45 keyword.control        pass
-  46 other                      
-  46 keyword.control        case
-  46 other                   
-  46 constant.numeric       _
-  46 other                  :
-  47 other                          
-  47 keyword.control        pass
-  49 keyword.control        try
-  49 other                  :
-  50 other                      
-  50 keyword.control        raise
-  50 other                   
-  50 method                 ValueError
-  50 other                  (
-  50 string                 "oops"
-  50 other                  )
-  51 keyword.control        except
-  51 other                   ValueError 
-  51 keyword.other          as
-  51 other                   e:
-  52 other                      
-  52 keyword.control        pass
-  53 keyword.control        finally
-  53 other                  :
-  54 other                      
-  54 keyword.control        pass
-  56 keyword.control        with
-  56 other                   
-  56 method                 open
-  56 other                  (
-  56 string                 "/dev/null"
-  56 other                  ) 
-  56 keyword.other          as
-  56 other                   f:
-  57 other                      
-  57 keyword.control        pass
-  59 keyword.control        return
-  59 other                    
-  59 comment                # (only valid inside a function)
-  61 comment                # Triple-quoted strings
-  62 string                 """
-  63 string                 Multi-line
-  64 string                 docstring (double quotes)
-  65 string                 """
-  67 string                 '''
-  68 string                 Multi-line
-  69 string                 string (single quotes)
-  70 string                 '''
-  72 comment                # Prefixed strings (f, r, b)
-  73 other                  f
-  73 string                 "f-string: {1 + 2}"
-  74 other                  r
-  74 string                 "raw string: \\n is literal"
-  75 other                  b
-  75 string                 "byte string"
-  77 comment                # Decorators
-  78 markup.link            @staticmethod
-  79 keyword.other          def
-  79 other                   
-  79 method                 helper
-  79 other                  ():
-  80 other                      
-  80 keyword.control        pass
-  82 markup.link            @property
-  83 keyword.other          def
-  83 other                   
-  83 method                 name
-  83 other                  (self):
-  84 other                      
-  84 keyword.control        return
-  84 other                   self._name
-  86 markup.link            @custom_decorator
-  87 keyword.other          def
-  87 other                   
-  87 method                 decorated
-  87 other                  ():
-  88 other                      
-  88 keyword.control        pass
-  90 comment                # Other keywords (some are contextually reserved)
-  91 keyword.other          import
-  91 other                   os
-  92 keyword.other          from
-  92 other                   os 
-  92 keyword.other          import
-  92 other                   path
-  93 keyword.other          import
-  93 other                   sys 
-  93 keyword.other          as
-  93 other                   system
-  95 keyword.other          def
-  95 other                   
-  95 method                 greet
-  95 other                  (name):
-  96 other                      
-  96 keyword.control        return
-  96 other                   
-  96 string                 "Hello, "
-  96 other                   + name
-  98 keyword.other          async
-  98 other                   
-  98 keyword.other          def
-  98 other                   
-  98 method                 fetch_data
-  98 other                  ():
-  99 other                      result = 
-  99 keyword.other          await
-  99 other                   
-  99 method                 some_coroutine
-  99 other                  ()
- 100 other                      
- 100 keyword.control        return
- 100 other                   result
- 102 keyword.other          class
- 102 other                   Animal:
- 103 other                      count = 
- 103 constant.numeric       0
- 105 other                      
- 105 keyword.other          def
- 105 other                   __init__(self, name):
- 106 other                          self.name = name
- 107 other                          Animal.count += 
- 107 constant.numeric       1
- 109 other                      
- 109 keyword.other          def
- 109 other                   
- 109 method                 speak
- 109 other                  (self):
- 110 other                          
- 110 keyword.control        return
- 110 other                   f
- 110 string                 "{self.name} speaks"
- 112 keyword.other          class
- 112 other                   
- 112 method                 Dog
- 112 other                  (Animal):
- 113 other                      
- 113 keyword.control        pass
- 115 keyword.other          lambda
- 115 other                   x: x + 
- 115 constant.numeric       1
- 117 other                  x = 
- 117 constant.numeric       1
- 118 keyword.other          del
- 118 other                   x
- 119 keyword.other          assert
- 119 other                   
- 119 constant.language      True
- 120 keyword.other          not
- 120 other                   
- 120 constant.language      False
- 121 constant.language      True
- 121 other                   
- 121 keyword.other          and
- 121 other                   
- 121 constant.language      False
- 122 constant.language      True
- 122 other                   
- 122 keyword.other          or
- 122 other                   
- 122 constant.language      False
- 123 constant.numeric       1
- 123 other                   
- 123 keyword.other          is
- 123 other                   
- 123 constant.numeric       1
- 124 constant.numeric       1
- 124 other                   
- 124 keyword.other          is
- 124 other                   
- 124 keyword.other          not
- 124 other                   
- 124 constant.numeric       2
- 125 constant.numeric       1
- 125 other                   
- 125 keyword.other          in
- 125 other                   [
- 125 constant.numeric       1
- 125 other                  , 
- 125 constant.numeric       2
- 125 other                  ]
- 127 keyword.other          global
- 127 other                   _g
- 128 keyword.other          nonlocal
- 128 other                    
- 128 comment                # (only valid inside nested function)
- 130 keyword.other          def
- 130 other                   
- 130 method                 gen
- 130 other                  ():
- 131 other                      
- 131 keyword.other          yield
- 131 other                   
- 131 constant.numeric       1
- 132 other                      
- 132 keyword.other          yield
- 132 other                   
- 132 keyword.other          from
- 132 other                   [
- 132 constant.numeric       2
- 132 other                  , 
- 132 constant.numeric       3
- 132 other                  ]
- 134 keyword.other          type
- 134 other                   Alias = int
- 136 comment                # Function calls
- 137 method                 print
- 137 other                  (
- 137 string                 "hello"
- 137 other                  )
- 138 method                 len
- 138 other                  ([
- 138 constant.numeric       1
- 138 other                  , 
- 138 constant.numeric       2
- 138 other                  , 
- 138 constant.numeric       3
- 138 other                  ])
- 139 method                 list
- 139 other                  (
- 139 method                 range
- 139 other                  (
- 139 constant.numeric       10
- 139 other                  ))
- 140 method                 greet
- 140 other                  (
- 140 string                 "world"
- 140 other                  )
- 141 method                 int
- 141 other                  (
- 141 string                 "42"
- 141 other                  )
- 142 string                 "hello"
- 142 other                  .
- 142 method                 upper
- 142 other                  ()
+{"line":1,"kind":"comment","text":"# Comments"}
+{"line":2,"kind":"comment","text":"# Single-line comment"}
+{"line":4,"kind":"comment","text":"# Numbers"}
+{"line":5,"kind":"constant.numeric","text":"42"}
+{"line":6,"kind":"constant.numeric","text":"3.14"}
+{"line":7,"kind":"constant.numeric","text":".5"}
+{"line":8,"kind":"constant.numeric","text":"1e10"}
+{"line":9,"kind":"constant.numeric","text":"1.5e-3"}
+{"line":10,"kind":"constant.numeric","text":"0xff"}
+{"line":11,"kind":"constant.numeric","text":"0xFF"}
+{"line":12,"kind":"constant.numeric","text":"0b1010"}
+{"line":13,"kind":"constant.numeric","text":"0o77"}
+{"line":14,"kind":"constant.numeric","text":"1_000_000"}
+{"line":15,"kind":"constant.numeric","text":"3.14j"}
+{"line":17,"kind":"comment","text":"# Constants"}
+{"line":18,"kind":"constant.language","text":"True"}
+{"line":19,"kind":"constant.language","text":"False"}
+{"line":20,"kind":"constant.language","text":"None"}
+{"line":22,"kind":"comment","text":"# Strings"}
+{"line":23,"kind":"string","text":"'single quotes: \\' \\n \\t \\\\'"}
+{"line":24,"kind":"string","text":"\"double quotes: \\\" \\n \\t \\\\\""}
+{"line":26,"kind":"comment","text":"# Control flow keywords"}
+{"line":27,"kind":"keyword.control","text":"if"}
+{"line":27,"kind":"other","text":" "}
+{"line":27,"kind":"constant.language","text":"True"}
+{"line":27,"kind":"other","text":":"}
+{"line":28,"kind":"other","text":"    "}
+{"line":28,"kind":"keyword.control","text":"pass"}
+{"line":29,"kind":"keyword.control","text":"elif"}
+{"line":29,"kind":"other","text":" "}
+{"line":29,"kind":"constant.language","text":"False"}
+{"line":29,"kind":"other","text":":"}
+{"line":30,"kind":"other","text":"    "}
+{"line":30,"kind":"keyword.control","text":"pass"}
+{"line":31,"kind":"keyword.control","text":"else"}
+{"line":31,"kind":"other","text":":"}
+{"line":32,"kind":"other","text":"    "}
+{"line":32,"kind":"keyword.control","text":"pass"}
+{"line":34,"kind":"keyword.control","text":"for"}
+{"line":34,"kind":"other","text":" i "}
+{"line":34,"kind":"keyword.other","text":"in"}
+{"line":34,"kind":"other","text":" "}
+{"line":34,"kind":"method","text":"range"}
+{"line":34,"kind":"other","text":"("}
+{"line":34,"kind":"constant.numeric","text":"10"}
+{"line":34,"kind":"other","text":"):"}
+{"line":35,"kind":"other","text":"    "}
+{"line":35,"kind":"keyword.control","text":"if"}
+{"line":35,"kind":"other","text":" i == "}
+{"line":35,"kind":"constant.numeric","text":"5"}
+{"line":35,"kind":"other","text":":"}
+{"line":36,"kind":"other","text":"        "}
+{"line":36,"kind":"keyword.control","text":"continue"}
+{"line":37,"kind":"other","text":"    "}
+{"line":37,"kind":"keyword.control","text":"if"}
+{"line":37,"kind":"other","text":" i == "}
+{"line":37,"kind":"constant.numeric","text":"8"}
+{"line":37,"kind":"other","text":":"}
+{"line":38,"kind":"other","text":"        "}
+{"line":38,"kind":"keyword.control","text":"break"}
+{"line":40,"kind":"keyword.control","text":"while"}
+{"line":40,"kind":"other","text":" "}
+{"line":40,"kind":"constant.language","text":"False"}
+{"line":40,"kind":"other","text":":"}
+{"line":41,"kind":"other","text":"    "}
+{"line":41,"kind":"keyword.control","text":"pass"}
+{"line":43,"kind":"keyword.control","text":"match"}
+{"line":43,"kind":"other","text":" "}
+{"line":43,"kind":"constant.numeric","text":"42"}
+{"line":43,"kind":"other","text":":"}
+{"line":44,"kind":"other","text":"    "}
+{"line":44,"kind":"keyword.control","text":"case"}
+{"line":44,"kind":"other","text":" "}
+{"line":44,"kind":"constant.numeric","text":"1"}
+{"line":44,"kind":"other","text":":"}
+{"line":45,"kind":"other","text":"        "}
+{"line":45,"kind":"keyword.control","text":"pass"}
+{"line":46,"kind":"other","text":"    "}
+{"line":46,"kind":"keyword.control","text":"case"}
+{"line":46,"kind":"other","text":" "}
+{"line":46,"kind":"constant.numeric","text":"_"}
+{"line":46,"kind":"other","text":":"}
+{"line":47,"kind":"other","text":"        "}
+{"line":47,"kind":"keyword.control","text":"pass"}
+{"line":49,"kind":"keyword.control","text":"try"}
+{"line":49,"kind":"other","text":":"}
+{"line":50,"kind":"other","text":"    "}
+{"line":50,"kind":"keyword.control","text":"raise"}
+{"line":50,"kind":"other","text":" "}
+{"line":50,"kind":"method","text":"ValueError"}
+{"line":50,"kind":"other","text":"("}
+{"line":50,"kind":"string","text":"\"oops\""}
+{"line":50,"kind":"other","text":")"}
+{"line":51,"kind":"keyword.control","text":"except"}
+{"line":51,"kind":"other","text":" ValueError "}
+{"line":51,"kind":"keyword.other","text":"as"}
+{"line":51,"kind":"other","text":" e:"}
+{"line":52,"kind":"other","text":"    "}
+{"line":52,"kind":"keyword.control","text":"pass"}
+{"line":53,"kind":"keyword.control","text":"finally"}
+{"line":53,"kind":"other","text":":"}
+{"line":54,"kind":"other","text":"    "}
+{"line":54,"kind":"keyword.control","text":"pass"}
+{"line":56,"kind":"keyword.control","text":"with"}
+{"line":56,"kind":"other","text":" "}
+{"line":56,"kind":"method","text":"open"}
+{"line":56,"kind":"other","text":"("}
+{"line":56,"kind":"string","text":"\"/dev/null\""}
+{"line":56,"kind":"other","text":") "}
+{"line":56,"kind":"keyword.other","text":"as"}
+{"line":56,"kind":"other","text":" f:"}
+{"line":57,"kind":"other","text":"    "}
+{"line":57,"kind":"keyword.control","text":"pass"}
+{"line":59,"kind":"keyword.control","text":"return"}
+{"line":59,"kind":"other","text":"  "}
+{"line":59,"kind":"comment","text":"# (only valid inside a function)"}
+{"line":61,"kind":"comment","text":"# Triple-quoted strings"}
+{"line":62,"kind":"string","text":"\"\"\""}
+{"line":63,"kind":"string","text":"Multi-line"}
+{"line":64,"kind":"string","text":"docstring (double quotes)"}
+{"line":65,"kind":"string","text":"\"\"\""}
+{"line":67,"kind":"string","text":"'''"}
+{"line":68,"kind":"string","text":"Multi-line"}
+{"line":69,"kind":"string","text":"string (single quotes)"}
+{"line":70,"kind":"string","text":"'''"}
+{"line":72,"kind":"comment","text":"# Prefixed strings (f, r, b)"}
+{"line":73,"kind":"other","text":"f"}
+{"line":73,"kind":"string","text":"\"f-string: {1 + 2}\""}
+{"line":74,"kind":"other","text":"r"}
+{"line":74,"kind":"string","text":"\"raw string: \\n is literal\""}
+{"line":75,"kind":"other","text":"b"}
+{"line":75,"kind":"string","text":"\"byte string\""}
+{"line":77,"kind":"comment","text":"# Decorators"}
+{"line":78,"kind":"markup.link","text":"@staticmethod"}
+{"line":79,"kind":"keyword.other","text":"def"}
+{"line":79,"kind":"other","text":" "}
+{"line":79,"kind":"method","text":"helper"}
+{"line":79,"kind":"other","text":"():"}
+{"line":80,"kind":"other","text":"    "}
+{"line":80,"kind":"keyword.control","text":"pass"}
+{"line":82,"kind":"markup.link","text":"@property"}
+{"line":83,"kind":"keyword.other","text":"def"}
+{"line":83,"kind":"other","text":" "}
+{"line":83,"kind":"method","text":"name"}
+{"line":83,"kind":"other","text":"(self):"}
+{"line":84,"kind":"other","text":"    "}
+{"line":84,"kind":"keyword.control","text":"return"}
+{"line":84,"kind":"other","text":" self._name"}
+{"line":86,"kind":"markup.link","text":"@custom_decorator"}
+{"line":87,"kind":"keyword.other","text":"def"}
+{"line":87,"kind":"other","text":" "}
+{"line":87,"kind":"method","text":"decorated"}
+{"line":87,"kind":"other","text":"():"}
+{"line":88,"kind":"other","text":"    "}
+{"line":88,"kind":"keyword.control","text":"pass"}
+{"line":90,"kind":"comment","text":"# Other keywords (some are contextually reserved)"}
+{"line":91,"kind":"keyword.other","text":"import"}
+{"line":91,"kind":"other","text":" os"}
+{"line":92,"kind":"keyword.other","text":"from"}
+{"line":92,"kind":"other","text":" os "}
+{"line":92,"kind":"keyword.other","text":"import"}
+{"line":92,"kind":"other","text":" path"}
+{"line":93,"kind":"keyword.other","text":"import"}
+{"line":93,"kind":"other","text":" sys "}
+{"line":93,"kind":"keyword.other","text":"as"}
+{"line":93,"kind":"other","text":" system"}
+{"line":95,"kind":"keyword.other","text":"def"}
+{"line":95,"kind":"other","text":" "}
+{"line":95,"kind":"method","text":"greet"}
+{"line":95,"kind":"other","text":"(name):"}
+{"line":96,"kind":"other","text":"    "}
+{"line":96,"kind":"keyword.control","text":"return"}
+{"line":96,"kind":"other","text":" "}
+{"line":96,"kind":"string","text":"\"Hello, \""}
+{"line":96,"kind":"other","text":" + name"}
+{"line":98,"kind":"keyword.other","text":"async"}
+{"line":98,"kind":"other","text":" "}
+{"line":98,"kind":"keyword.other","text":"def"}
+{"line":98,"kind":"other","text":" "}
+{"line":98,"kind":"method","text":"fetch_data"}
+{"line":98,"kind":"other","text":"():"}
+{"line":99,"kind":"other","text":"    result = "}
+{"line":99,"kind":"keyword.other","text":"await"}
+{"line":99,"kind":"other","text":" "}
+{"line":99,"kind":"method","text":"some_coroutine"}
+{"line":99,"kind":"other","text":"()"}
+{"line":100,"kind":"other","text":"    "}
+{"line":100,"kind":"keyword.control","text":"return"}
+{"line":100,"kind":"other","text":" result"}
+{"line":102,"kind":"keyword.other","text":"class"}
+{"line":102,"kind":"other","text":" Animal:"}
+{"line":103,"kind":"other","text":"    count = "}
+{"line":103,"kind":"constant.numeric","text":"0"}
+{"line":105,"kind":"other","text":"    "}
+{"line":105,"kind":"keyword.other","text":"def"}
+{"line":105,"kind":"other","text":" __init__(self, name):"}
+{"line":106,"kind":"other","text":"        self.name = name"}
+{"line":107,"kind":"other","text":"        Animal.count += "}
+{"line":107,"kind":"constant.numeric","text":"1"}
+{"line":109,"kind":"other","text":"    "}
+{"line":109,"kind":"keyword.other","text":"def"}
+{"line":109,"kind":"other","text":" "}
+{"line":109,"kind":"method","text":"speak"}
+{"line":109,"kind":"other","text":"(self):"}
+{"line":110,"kind":"other","text":"        "}
+{"line":110,"kind":"keyword.control","text":"return"}
+{"line":110,"kind":"other","text":" f"}
+{"line":110,"kind":"string","text":"\"{self.name} speaks\""}
+{"line":112,"kind":"keyword.other","text":"class"}
+{"line":112,"kind":"other","text":" "}
+{"line":112,"kind":"method","text":"Dog"}
+{"line":112,"kind":"other","text":"(Animal):"}
+{"line":113,"kind":"other","text":"    "}
+{"line":113,"kind":"keyword.control","text":"pass"}
+{"line":115,"kind":"keyword.other","text":"lambda"}
+{"line":115,"kind":"other","text":" x: x + "}
+{"line":115,"kind":"constant.numeric","text":"1"}
+{"line":117,"kind":"other","text":"x = "}
+{"line":117,"kind":"constant.numeric","text":"1"}
+{"line":118,"kind":"keyword.other","text":"del"}
+{"line":118,"kind":"other","text":" x"}
+{"line":119,"kind":"keyword.other","text":"assert"}
+{"line":119,"kind":"other","text":" "}
+{"line":119,"kind":"constant.language","text":"True"}
+{"line":120,"kind":"keyword.other","text":"not"}
+{"line":120,"kind":"other","text":" "}
+{"line":120,"kind":"constant.language","text":"False"}
+{"line":121,"kind":"constant.language","text":"True"}
+{"line":121,"kind":"other","text":" "}
+{"line":121,"kind":"keyword.other","text":"and"}
+{"line":121,"kind":"other","text":" "}
+{"line":121,"kind":"constant.language","text":"False"}
+{"line":122,"kind":"constant.language","text":"True"}
+{"line":122,"kind":"other","text":" "}
+{"line":122,"kind":"keyword.other","text":"or"}
+{"line":122,"kind":"other","text":" "}
+{"line":122,"kind":"constant.language","text":"False"}
+{"line":123,"kind":"constant.numeric","text":"1"}
+{"line":123,"kind":"other","text":" "}
+{"line":123,"kind":"keyword.other","text":"is"}
+{"line":123,"kind":"other","text":" "}
+{"line":123,"kind":"constant.numeric","text":"1"}
+{"line":124,"kind":"constant.numeric","text":"1"}
+{"line":124,"kind":"other","text":" "}
+{"line":124,"kind":"keyword.other","text":"is"}
+{"line":124,"kind":"other","text":" "}
+{"line":124,"kind":"keyword.other","text":"not"}
+{"line":124,"kind":"other","text":" "}
+{"line":124,"kind":"constant.numeric","text":"2"}
+{"line":125,"kind":"constant.numeric","text":"1"}
+{"line":125,"kind":"other","text":" "}
+{"line":125,"kind":"keyword.other","text":"in"}
+{"line":125,"kind":"other","text":" ["}
+{"line":125,"kind":"constant.numeric","text":"1"}
+{"line":125,"kind":"other","text":", "}
+{"line":125,"kind":"constant.numeric","text":"2"}
+{"line":125,"kind":"other","text":"]"}
+{"line":127,"kind":"keyword.other","text":"global"}
+{"line":127,"kind":"other","text":" _g"}
+{"line":128,"kind":"keyword.other","text":"nonlocal"}
+{"line":128,"kind":"other","text":"  "}
+{"line":128,"kind":"comment","text":"# (only valid inside nested function)"}
+{"line":130,"kind":"keyword.other","text":"def"}
+{"line":130,"kind":"other","text":" "}
+{"line":130,"kind":"method","text":"gen"}
+{"line":130,"kind":"other","text":"():"}
+{"line":131,"kind":"other","text":"    "}
+{"line":131,"kind":"keyword.other","text":"yield"}
+{"line":131,"kind":"other","text":" "}
+{"line":131,"kind":"constant.numeric","text":"1"}
+{"line":132,"kind":"other","text":"    "}
+{"line":132,"kind":"keyword.other","text":"yield"}
+{"line":132,"kind":"other","text":" "}
+{"line":132,"kind":"keyword.other","text":"from"}
+{"line":132,"kind":"other","text":" ["}
+{"line":132,"kind":"constant.numeric","text":"2"}
+{"line":132,"kind":"other","text":", "}
+{"line":132,"kind":"constant.numeric","text":"3"}
+{"line":132,"kind":"other","text":"]"}
+{"line":134,"kind":"keyword.other","text":"type"}
+{"line":134,"kind":"other","text":" Alias = int"}
+{"line":136,"kind":"comment","text":"# Function calls"}
+{"line":137,"kind":"method","text":"print"}
+{"line":137,"kind":"other","text":"("}
+{"line":137,"kind":"string","text":"\"hello\""}
+{"line":137,"kind":"other","text":")"}
+{"line":138,"kind":"method","text":"len"}
+{"line":138,"kind":"other","text":"(["}
+{"line":138,"kind":"constant.numeric","text":"1"}
+{"line":138,"kind":"other","text":", "}
+{"line":138,"kind":"constant.numeric","text":"2"}
+{"line":138,"kind":"other","text":", "}
+{"line":138,"kind":"constant.numeric","text":"3"}
+{"line":138,"kind":"other","text":"])"}
+{"line":139,"kind":"method","text":"list"}
+{"line":139,"kind":"other","text":"("}
+{"line":139,"kind":"method","text":"range"}
+{"line":139,"kind":"other","text":"("}
+{"line":139,"kind":"constant.numeric","text":"10"}
+{"line":139,"kind":"other","text":"))"}
+{"line":140,"kind":"method","text":"greet"}
+{"line":140,"kind":"other","text":"("}
+{"line":140,"kind":"string","text":"\"world\""}
+{"line":140,"kind":"other","text":")"}
+{"line":141,"kind":"method","text":"int"}
+{"line":141,"kind":"other","text":"("}
+{"line":141,"kind":"string","text":"\"42\""}
+{"line":141,"kind":"other","text":")"}
+{"line":142,"kind":"string","text":"\"hello\""}
+{"line":142,"kind":"other","text":"."}
+{"line":142,"kind":"method","text":"upper"}
+{"line":142,"kind":"other","text":"()"}
