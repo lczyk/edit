@@ -28,6 +28,16 @@ pub fn ruby() {
 
         if /#.*/ {
             yield comment;
+        } else if /%[wWiIqQrxs]\[[^\]]*\]/ {
+            yield string;
+        } else if /%[wWiIqQrxs]\([^)]*\)/ {
+            yield string;
+        } else if /%[wWiIqQrxs]\{[^}]*\}/ {
+            yield string;
+        } else if /%[wWiIqQrxs]<[^>]*>/ {
+            yield string;
+        } else if /\?(?:\\[a-zA-Z0-9\\'"]|[A-Za-z0-9_])\>/ {
+            yield constant.numeric;
         } else if /'/ {
             until /$/ {
                 yield string;
@@ -51,6 +61,9 @@ pub fn ruby() {
             }
         } else if /(?:begin|break|case|class|do|else|elsif|end|ensure|for|if|in|module|next|redo|rescue|retry|return|then|unless|until|when|while)\>/ {
             yield keyword.control;
+        } else if /def\s+(?:self|[A-Z]\w*)\.(\w+[!?=]?)/ {
+            yield keyword.control;
+            yield $1 as method;
         } else if /def\s+(\w+[!?=]?)/ {
             yield keyword.control;
             yield $1 as method;

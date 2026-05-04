@@ -159,3 +159,38 @@
 {"line":102,"kind":"other","text":"("}
 {"line":102,"kind":"string","text":"\"world\""}
 {"line":102,"kind":"other","text":")"}
+{"line":104,"kind":"comment","text":"# Singleton method defs"}
+{"line":105,"kind":"keyword.control","text":"class"}
+{"line":105,"kind":"other","text":" "}
+{"line":105,"kind":"constant.language","text":"Foo"}
+{"line":106,"kind":"other","text":"  "}
+{"line":106,"kind":"keyword.control","text":"def self."}
+{"line":106,"kind":"method","text":"bar"}
+{"line":107,"kind":"other","text":"    "}
+{"line":107,"kind":"constant.numeric","text":"42"}
+{"line":108,"kind":"other","text":"  "}
+{"line":108,"kind":"keyword.control","text":"end"}
+{"line":110,"kind":"other","text":"  "}
+{"line":110,"kind":"keyword.control","text":"def Foo."}
+{"line":110,"kind":"method","text":"baz"}
+{"line":111,"kind":"other","text":"    "}
+{"line":111,"kind":"constant.numeric","text":"99"}
+{"line":112,"kind":"other","text":"  "}
+{"line":112,"kind":"keyword.control","text":"end"}
+{"line":113,"kind":"keyword.control","text":"end"}
+{"line":115,"kind":"comment","text":"# Percent literals"}
+{"line":116,"kind":"other","text":"words = "}
+{"line":116,"kind":"string","text":"%w[one two three]"}
+{"line":117,"kind":"other","text":"syms = "}
+{"line":117,"kind":"string","text":"%i[a b c]"}
+{"line":118,"kind":"other","text":"str_q = "}
+{"line":118,"kind":"string","text":"%q(plain)"}
+{"line":119,"kind":"other","text":"str_Q = "}
+{"line":119,"kind":"string","text":"%Q{interp}"}
+{"line":121,"kind":"comment","text":"# Character literals"}
+{"line":122,"kind":"other","text":"ch_a = "}
+{"line":122,"kind":"constant.numeric","text":"?a"}
+{"line":123,"kind":"other","text":"ch_z = "}
+{"line":123,"kind":"constant.numeric","text":"?Z"}
+{"line":124,"kind":"other","text":"ch_esc = "}
+{"line":124,"kind":"constant.numeric","text":"?\\n"}

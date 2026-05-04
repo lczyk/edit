@@ -100,3 +100,25 @@ yield
 puts "hello"
 Array.new(3)
 greet("world")
+
+# Singleton method defs
+class Foo
+  def self.bar
+    42
+  end
+
+  def Foo.baz
+    99
+  end
+end
+
+# Percent literals
+words = %w[one two three]
+syms = %i[a b c]
+str_q = %q(plain)
+str_Q = %Q{interp}
+
+# Character literals
+ch_a = ?a
+ch_z = ?Z
+ch_esc = ?\n
