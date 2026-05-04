@@ -173,7 +173,7 @@ class Edit:
     assert against the most recent frame.
     """
 
-    def __init__(self, argv=None, cols=None, rows=None):
+    def __init__(self, argv=None, cols=None, rows=None, env=None):
         argv = argv or []
         if cols is None or rows is None:
             host_cols, host_rows = _host_term_size()
@@ -188,6 +188,12 @@ class Edit:
             os.environ["TERM"] = "xterm-256color"
             os.environ["LINES"] = str(rows)
             os.environ["COLUMNS"] = str(cols)
+            if env:
+                for k, v in env.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
             os.execv(EDIT_BIN, [EDIT_BIN] + argv)
         _set_winsize(self.fd, cols, rows)
         # Disable ECHO on the pty line discipline. `edit` puts the terminal
@@ -236,9 +242,15 @@ class Edit:
         self._read(0.25)
         while self._read(0.05):
             pass
-        # Stubbed replies so edit's startup loop exits.
-        os.write(self.fd, b"\x1b[1;2R")      # CPR reply
-        os.write(self.fd, b"\x1b[?62;c")     # DA reply
+        # Stubbed replies so edit's startup loop exits. Tolerate the case
+        # where edit exited before reaching its probe phase (e.g. cli
+        # error path): the PTY is then closed and writes raise EIO. In
+        # that case ed.buf already holds whatever edit printed.
+        for reply in (b"\x1b[1;2R", b"\x1b[?62;c"):
+            try:
+                os.write(self.fd, reply)
+            except OSError:
+                break
         # Read until the opening frame finishes painting.
         self._read(0.25)
         while self._read(0.08):

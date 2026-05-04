@@ -201,6 +201,21 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     let mut path: Option<std::path::PathBuf> = None;
     let mut accept_flags = true;
     let mut quirks: HashSet<&'static str> = HashSet::new();
+    let mut seen_quirks_flag = false;
+
+    // EDIT_QUIRKS layers in before any cli flag, so a `--quirks=-name`
+    // override can negate an env-provided default. The env var name is
+    // derived by polyflag from the prefix and flag, so cli surface and
+    // env surface stay in lock-step.
+    if let Err(e) = polyflag::apply_env_for_flag("edit", "quirks", KNOWN_QUIRKS, &mut quirks) {
+        sys::write_stdout(&format!(
+            "edit: {} contains unknown quirk {:?}\nknown quirks: {}\n",
+            polyflag::env_var_name("edit", "quirks"),
+            e.0,
+            KNOWN_QUIRKS.join(", ")
+        ));
+        return Ok(None);
+    }
 
     for arg in env::args_os().skip(1) {
         if accept_flags {
@@ -217,6 +232,11 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 return Ok(None);
             }
             if let Some(list) = arg.to_str().and_then(|s| s.strip_prefix("--quirks=")) {
+                if seen_quirks_flag {
+                    sys::write_stdout("edit: --quirks may only be passed once\n");
+                    return Ok(None);
+                }
+                seen_quirks_flag = true;
                 if let Err(e) = polyflag::apply(list, KNOWN_QUIRKS, &mut quirks) {
                     sys::write_stdout(&format!(
                         "edit: unknown quirk {:?}\nknown quirks: {}\n",
@@ -375,6 +395,10 @@ fn print_help() {
         "\n",
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",
+        "\n",
+        "Environment:\n",
+        "    EDIT_QUIRKS    Comma-separated quirks applied before any --quirks flag.\n",
+        "                   Use --quirks=-NAME to negate an entry from EDIT_QUIRKS.\n",
     ));
     #[cfg(debug_assertions)]
     sys::write_stdout(concat!(
