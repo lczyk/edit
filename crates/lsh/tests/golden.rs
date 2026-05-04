@@ -48,13 +48,19 @@ fn fixture_subdir(lang: Language) -> &'static str {
     }
 }
 
+const SNAP_SUFFIX: &str = ".snap.jsonl";
+
+fn is_snap(p: &Path) -> bool {
+    p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(SNAP_SUFFIX))
+}
+
 fn discover_fixtures(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(root) else { return };
     for entry in entries.flatten() {
         let p = entry.path();
         if p.is_dir() {
             discover_fixtures(&p, out);
-        } else if p.extension().and_then(|e| e.to_str()) != Some("snap") {
+        } else if !is_snap(&p) {
             out.push(p);
         }
     }
@@ -63,7 +69,7 @@ fn discover_fixtures(root: &Path, out: &mut Vec<PathBuf>) {
 fn snap_path(fixture: &Path) -> PathBuf {
     let mut p = fixture.to_path_buf();
     let mut name = OsString::from(fixture.file_name().unwrap());
-    name.push(".snap");
+    name.push(SNAP_SUFFIX);
     p.set_file_name(name);
     p
 }
@@ -105,9 +111,10 @@ fn every_language_has_fixtures() {
     for &lang in ALL {
         let dir = root.join(fixture_subdir(lang));
         assert!(dir.exists(), "missing fixture dir for {lang:?}: {}", dir.display());
-        let has_file = fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).any(|e| {
-            e.path().is_file() && e.path().extension().and_then(|x| x.to_str()) != Some("snap")
-        });
+        let has_file = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .any(|e| e.path().is_file() && !is_snap(&e.path()));
         assert!(has_file, "no fixture file in {}", dir.display());
     }
 }
