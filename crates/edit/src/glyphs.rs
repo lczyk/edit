@@ -5,12 +5,16 @@
 //!   fall-backs across the UI.
 //! - [`set_no_color`] / [`no_color`] -- suppress all SGR colour output
 //!   (text attributes like bold/italic still emitted).
+//! - [`set_no_animations`] / [`no_animations`] -- snap cursor/selection/
+//!   scroll/menu motion to target instead of lerping. For users who find
+//!   the animation distracting or run on a slow / high-latency terminal.
 
 use crate::helpers::CoordType;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static ASCII_ONLY: AtomicBool = AtomicBool::new(false);
 static NO_COLOR: AtomicBool = AtomicBool::new(false);
+static NO_ANIMATIONS: AtomicBool = AtomicBool::new(false);
 
 pub fn set_ascii_only(enabled: bool) {
     ASCII_ONLY.store(enabled, Ordering::Relaxed);
@@ -28,6 +32,15 @@ pub fn set_no_color(enabled: bool) {
 #[inline]
 pub fn no_color() -> bool {
     NO_COLOR.load(Ordering::Relaxed)
+}
+
+pub fn set_no_animations(enabled: bool) {
+    NO_ANIMATIONS.store(enabled, Ordering::Relaxed);
+}
+
+#[inline]
+pub fn no_animations() -> bool {
+    NO_ANIMATIONS.load(Ordering::Relaxed)
 }
 
 pub fn box_h() -> char {

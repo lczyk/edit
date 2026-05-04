@@ -140,6 +140,7 @@
 //! }
 //! ```
 
+use std::collections::HashMap;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::{io, iter, mem, ptr, time};
@@ -158,6 +159,39 @@ use crate::helpers::*;
 use crate::input::{InputKeyMod, kbmod, vk};
 use crate::oklab::StraightRgba;
 use crate::{input, simd, unicode};
+
+/// Animation timing knobs. Single place to tune the feel of every
+/// motion in the TUI -- cursor / selection / scroll lerp, dropdown
+/// slide, modal scale. Disabled wholesale by `glyphs::no_animations()`.
+mod anim {
+    use std::time::Duration;
+
+    /// Exponential-lerp time constant for the cursor block. Snappy --
+    /// cursor must feel responsive. `alpha = 1 - exp(-dt / TAU)` per
+    /// frame. Larger = slower / more visible motion.
+    pub const CURSOR_TAU_SECS: f32 = 0.060;
+
+    /// Exponential-lerp time constant for the viewport scroll offset.
+    /// Same target feel as the cursor; visible but not laggy on fast
+    /// PageDown / wheel bursts.
+    pub const SCROLL_TAU_SECS: f32 = 0.060;
+
+    /// One-shot open animation duration for slide-down dropdowns.
+    pub const SLIDE_DOWN_DURATION_SECS: f32 = 0.080;
+
+    /// One-shot open animation duration for scale-in modals.
+    pub const SCALE_IN_DURATION_SECS: f32 = 0.150;
+
+    /// Wakeup interval the main loop is asked to honour while any
+    /// animation is still in flight (~60 fps).
+    pub const FRAME_INTERVAL: Duration = Duration::from_millis(16);
+
+    /// Cap on the per-frame `dt` fed into the lerp. Without this, the
+    /// first frame after a long idle (no input for seconds) sees a
+    /// huge `dt`, the lerp jumps the entire distance in one step, and
+    /// the animation is invisible.
+    pub const MAX_DT_SECS: f32 = 0.020;
+}
 
 const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
 const SHIFT_TAB: InputKey = vk::TAB.with_modifiers(kbmod::SHIFT);
@@ -371,6 +405,18 @@ pub struct Tui {
     settling_have: i32,
     settling_want: i32,
     read_timeout: time::Duration,
+
+    /// Wall-clock of the previous `render()` call. Used to derive `frame_dt_secs`
+    /// for time-based animation (smooth scroll). `None` on the first frame.
+    last_frame_time: Option<time::Instant>,
+    /// Seconds elapsed since the previous `render()` call, capped at 0.1s so a
+    /// long stall (debugger, suspended tab) doesn't cause a giant lerp jump.
+    frame_dt_secs: f32,
+
+    /// Per-node-id timers for the slide-down "open" animation on menubar
+    /// dropdowns and similar floaters. Entry exists from the first frame the
+    /// node appears until the node disappears from `prev_node_map` (closed).
+    slide_animations: HashMap<u64, time::Instant>,
 }
 
 impl Tui {
@@ -421,6 +467,11 @@ impl Tui {
             settling_have: 0,
             settling_want: 0,
             read_timeout: time::Duration::MAX,
+
+            last_frame_time: None,
+            frame_dt_secs: 0.0,
+
+            slide_animations: HashMap::new(),
         };
         Self::clean_node_path(&mut tui.mouse_down_node_path);
         Self::clean_node_path(&mut tui.focused_node_path);
@@ -851,6 +902,23 @@ impl Tui {
 
     /// Renders the last frame into the framebuffer and returns the VT output.
     pub fn render<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
+        let now = time::Instant::now();
+        // Cap dt aggressively: when the editor has been idle (no input for
+        // seconds), the first post-input frame would otherwise see a huge dt
+        // and the lerp would snap to target in one step -- invisible motion.
+        // Capping at ~one frame keeps the first step small so animation runs
+        // visibly across multiple frames driven by the 16ms read_timeout.
+        self.frame_dt_secs = match self.last_frame_time {
+            Some(prev) => (now - prev).as_secs_f32().min(anim::MAX_DT_SECS),
+            None => 0.016,
+        };
+        self.last_frame_time = Some(now);
+
+        // Drop slide-animation entries for nodes that no longer exist in the
+        // current tree (dropdown closed, modal dismissed). Lookup uses the
+        // same prev_node_map the renderer walks.
+        self.slide_animations.retain(|id, _| self.prev_node_map.get(*id).is_some());
+
         self.framebuffer.flip(self.size);
         for child in self.prev_tree.iterate_roots() {
             let mut child = child.borrow_mut();
@@ -859,9 +927,67 @@ impl Tui {
         self.framebuffer.render(arena)
     }
 
+    /// Recursively shrinks `outer_clipped.bottom` / `inner_clipped.bottom`
+    /// across the subtree rooted at `node` so descendants don't peek past
+    /// the parent's animated clip line.
+    fn clip_subtree_bottom(node: &mut Node, bottom: CoordType) {
+        node.outer_clipped.bottom = node.outer_clipped.bottom.min(bottom);
+        node.inner_clipped.bottom = node.inner_clipped.bottom.min(bottom);
+        for child in Tree::iterate_siblings(node.children.first) {
+            Self::clip_subtree_bottom(&mut child.borrow_mut(), bottom);
+        }
+    }
+
+    /// Recursively intersects each node's clipped rects with the vertical
+    /// band [top, bottom]. Mirror of `clip_subtree_bottom` for both edges.
+    fn clip_subtree_band(node: &mut Node, top: CoordType, bottom: CoordType) {
+        node.outer_clipped.top = node.outer_clipped.top.max(top);
+        node.outer_clipped.bottom = node.outer_clipped.bottom.min(bottom);
+        node.inner_clipped.top = node.inner_clipped.top.max(top);
+        node.inner_clipped.bottom = node.inner_clipped.bottom.min(bottom);
+        for child in Tree::iterate_siblings(node.children.first) {
+            Self::clip_subtree_band(&mut child.borrow_mut(), top, bottom);
+        }
+    }
+
     /// Recursively renders each node and its children.
     #[allow(clippy::only_used_in_recursion)]
     fn render_node(&mut self, node: &mut Node) {
+        // Slide-down open animation: shrink the visible bottom on the first
+        // ~150ms after the node first appears. We mutate `outer_clipped` /
+        // `inner_clipped` of the entire subtree in place; the tree is
+        // rebuilt next frame so the mutation is harmless beyond render.
+        if (node.attributes.slide_down || node.attributes.scale_in)
+            && !crate::glyphs::no_animations()
+        {
+            let now = time::Instant::now();
+            let opened_at = *self.slide_animations.entry(node.id).or_insert(now);
+            let elapsed = (now - opened_at).as_secs_f32();
+            let duration = if node.attributes.scale_in {
+                anim::SCALE_IN_DURATION_SECS
+            } else {
+                anim::SLIDE_DOWN_DURATION_SECS
+            };
+            if elapsed < duration {
+                let progress = (elapsed / duration).clamp(0.0, 1.0);
+                let full_h = node.outer_clipped.bottom - node.outer_clipped.top;
+                let visible = ((full_h as f32) * progress).round() as CoordType;
+                if node.attributes.scale_in {
+                    let centre = (node.outer_clipped.top + node.outer_clipped.bottom) / 2;
+                    let half = visible.max(1) / 2;
+                    let top = centre - half;
+                    let bottom = centre + (visible.max(1) - half);
+                    Self::clip_subtree_band(node, top, bottom);
+                } else {
+                    let bottom = node.outer_clipped.top + visible.max(0);
+                    Self::clip_subtree_bottom(node, bottom);
+                }
+                if self.read_timeout > anim::FRAME_INTERVAL {
+                    self.read_timeout = anim::FRAME_INTERVAL;
+                }
+            }
+        }
+
         let outer_clipped = node.outer_clipped;
         if outer_clipped.is_empty() {
             return;
@@ -1003,9 +1129,36 @@ impl Tui {
 
                 destination.right -= scrollbar_w + minimap_w;
 
-                if let Some(res) =
-                    tb.render(tc.scroll_offset, destination, tc.has_focus, &mut self.framebuffer)
-                {
+                // Buffer edits (typing, paste, alt+up/down line-move, indent,
+                // etc.) move text under the cursor. Snap animations to target
+                // so the cursor stays glued to the moved content instead of
+                // sliding through it.
+                let buf_gen = tb.generation();
+                let buffer_edited = buf_gen != tc.last_buffer_generation;
+                tc.last_buffer_generation = buf_gen;
+                if buffer_edited {
+                    tc.scroll_offset_visual =
+                        (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
+                    let cv = tb.cursor_visual_pos();
+                    tc.cursor_visual_anim = Some((cv.x as f32, cv.y as f32));
+                }
+
+                let visual_offset =
+                    advance_scroll_animation(tc, self.frame_dt_secs, inner.height());
+                let cursor_target = tb.cursor_visual_pos();
+                let cursor_override =
+                    advance_cursor_animation(tc, cursor_target, self.frame_dt_secs, inner.height());
+                let still_animating =
+                    visual_offset != tc.scroll_offset || cursor_override != cursor_target;
+                if still_animating && self.read_timeout > anim::FRAME_INTERVAL {
+                    self.read_timeout = anim::FRAME_INTERVAL;
+                }
+
+                tb.set_cursor_render_override(Some(cursor_override));
+                let render_res =
+                    tb.render(visual_offset, destination, tc.has_focus, &mut self.framebuffer);
+                tb.set_cursor_render_override(None);
+                if let Some(res) = render_res {
                     tc.scroll_offset_x_max = res.visual_pos_x_max;
                 }
 
@@ -1021,7 +1174,7 @@ impl Tui {
                         track,
                         tb.minimap_cells(),
                         tb.minimap_content_rows(),
-                        tc.scroll_offset.y,
+                        visual_offset.y,
                         inner.height(),
                     );
                 }
@@ -1037,7 +1190,7 @@ impl Tui {
                     tc.thumb_height = self.framebuffer.draw_scrollbar(
                         inner_clipped,
                         track,
-                        tc.scroll_offset.y,
+                        visual_offset.y,
                         tb.visual_line_count() + inner.height() - 1,
                     );
                 }
@@ -1698,6 +1851,22 @@ impl<'a> Context<'a, '_> {
         last_node.attributes.bordered = true;
     }
 
+    /// Marks the current node as a slide-down floater. The first frame it
+    /// appears, the visible height clips to 0 and grows to the full layout
+    /// height over a short window. Cheap fade-in for menubar dropdowns.
+    pub fn attr_slide_down(&mut self) {
+        let mut last_node = self.tree.last_node.borrow_mut();
+        last_node.attributes.slide_down = true;
+    }
+
+    /// Marks the current node as a scale-in floater. The visible band starts
+    /// as a one-row strip at the node's vertical centre and expands to the
+    /// full layout height. Suits centred modals.
+    pub fn attr_scale_in(&mut self) {
+        let mut last_node = self.tree.last_node.borrow_mut();
+        last_node.attributes.scale_in = true;
+    }
+
     /// Sets the current node's position inside the parent.
     pub fn attr_position(&mut self, align: Position) {
         let mut last_node = self.tree.last_node.borrow_mut();
@@ -1804,6 +1973,7 @@ impl<'a> Context<'a, '_> {
         self.attr_background_rgba(self.tui.modal_default_bg);
         self.attr_foreground_rgba(self.tui.modal_default_fg);
         self.attr_focus_well();
+        self.attr_scale_in();
         self.focus_on_first_present();
 
         let mut last_node = self.tree.last_node.borrow_mut();
@@ -2175,6 +2345,9 @@ impl<'a> Context<'a, '_> {
         node.content = NodeContent::Textarea(TextareaContent {
             buffer,
             scroll_offset: Default::default(),
+            scroll_offset_visual: (0.0, 0.0),
+            cursor_visual_anim: None,
+            last_buffer_generation: 0,
             scroll_offset_y_drag_start: CoordType::MIN,
             scroll_offset_x_max: 0,
             thumb_height: 0,
@@ -2195,6 +2368,9 @@ impl<'a> Context<'a, '_> {
             let node_prev = node_prev.borrow();
             if let NodeContent::Textarea(content_prev) = &node_prev.content {
                 content.scroll_offset = content_prev.scroll_offset;
+                content.scroll_offset_visual = content_prev.scroll_offset_visual;
+                content.cursor_visual_anim = content_prev.cursor_visual_anim;
+                content.last_buffer_generation = content_prev.last_buffer_generation;
                 content.scroll_offset_y_drag_start = content_prev.scroll_offset_y_drag_start;
                 content.scroll_offset_x_max = content_prev.scroll_offset_x_max;
                 content.thumb_height = content_prev.thumb_height;
@@ -2369,10 +2545,10 @@ impl<'a> Context<'a, '_> {
                     }
                 }
             } else if minimap_rect.contains(self.tui.mouse_down_position) {
-                // Click-to-jump: fresh mouse-down centres the viewport on the
-                // clicked rail row. Drag continuations are ignored -- terminal
-                // mouse-drag streams are too choppy to track 1:1 cleanly.
-                if !self.tui.mouse_is_drag && self.tui.mouse_state != InputMouseState::Release {
+                // Click-to-jump centres the viewport on the clicked rail row;
+                // drag continuations re-centre on each motion event so the
+                // viewport tracks the mouse.
+                if self.tui.mouse_state != InputMouseState::Release {
                     let content_rows = tb.minimap_content_rows() as i64;
                     let rail_h = minimap_rect.height() as i64;
                     if content_rows > 0 && rail_h > 0 {
@@ -3238,6 +3414,7 @@ impl<'a> Context<'a, '_> {
             });
             self.attr_border();
             self.attr_focus_well();
+            self.attr_slide_down();
 
             if keyboard_focus {
                 self.steal_focus();
@@ -3719,6 +3896,15 @@ struct NodeAttributes {
     focusable: bool,
     focus_well: bool, // Prevents focus from leaving via Tab
     focus_void: bool, // Prevents focus from entering via Tab
+    /// When set, the node's visible height grows from 0 to its full layout
+    /// height over a short window when it first appears. Used for menubar
+    /// dropdowns. The clip is applied recursively to descendants at render
+    /// time so children peeking out the bottom are hidden mid-animation.
+    slide_down: bool,
+    /// Like `slide_down`, but the visible band grows out from the centre
+    /// (top and bottom edges expand symmetrically). Used for modals so they
+    /// don't appear to slide in from above the viewport.
+    scale_in: bool,
 }
 
 /// NOTE: Must not contain items that require drop().
@@ -3757,6 +3943,18 @@ struct TextareaContent<'a> {
 
     // Carries over between frames.
     scroll_offset: Point,
+    /// Animated visual scroll position (lerped toward `scroll_offset` each
+    /// render). Rounded to integer cells for actual draw / mouse mapping.
+    scroll_offset_visual: (f32, f32),
+    /// Animated cursor position in document-visual coordinates. Lerps toward
+    /// the buffer's current cursor visual pos each render. `None` means "not
+    /// yet initialised" -- snap to target on first render.
+    cursor_visual_anim: Option<(f32, f32)>,
+    /// Previous-frame buffer generation. When it changes, the buffer was
+    /// edited (typing, paste, line-move, indent, etc.) -- snap cursor and
+    /// scroll animation to target so the cursor stays glued to the moved
+    /// content rather than lerping after it.
+    last_buffer_generation: u32,
     scroll_offset_y_drag_start: CoordType,
     scroll_offset_x_max: CoordType,
     thumb_height: CoordType,
@@ -4099,6 +4297,122 @@ impl<'a> Node<'a> {
 
 // Cell width the textarea reserves for the minimap rail. Authority lives in
 // the document's pre-built cells; this just reads back what was built.
+/// Per-frame exponential-lerp alpha for a given time constant.
+/// Saturates to 1.0 once `dt` exceeds ~6 tau (effectively done) so we don't
+/// pay the cost of `exp()` for the no-op tail.
+#[inline]
+fn lerp_alpha(dt_secs: f32, tau_secs: f32) -> f32 {
+    if dt_secs >= tau_secs * 6.0 { 1.0 } else { 1.0 - (-dt_secs / tau_secs).exp() }
+}
+
+/// Ease-out cubic curve applied on top of `lerp_alpha`. Front-loads the
+/// motion: more distance closed in the first frames, less in the tail.
+/// Visually reads as "snappy" without changing the time constant.
+/// `eased = 1 - (1 - alpha)^3`.
+#[inline]
+fn ease_out_cubic(alpha: f32) -> f32 {
+    let inv = 1.0 - alpha;
+    1.0 - inv * inv * inv
+}
+
+/// Lerps `tc.scroll_offset_visual` toward `tc.scroll_offset` (the target) using
+/// a per-axis exponential time-constant, snaps within 0.5 cells, and hard-snaps
+/// when the delta exceeds twice the viewport height (PageDown across a long doc
+/// would otherwise read as motion sickness rather than smoothness). Returns the
+/// rounded integer offset to feed the renderer for this frame.
+fn advance_scroll_animation(
+    tc: &mut TextareaContent,
+    dt_secs: f32,
+    viewport_h: CoordType,
+) -> Point {
+    if crate::glyphs::no_animations() {
+        tc.scroll_offset_visual = (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
+        return tc.scroll_offset;
+    }
+
+    let target_x = tc.scroll_offset.x as f32;
+    let target_y = tc.scroll_offset.y as f32;
+
+    // Hard-snap on huge jumps -- otherwise a PageDown across a 5000-line doc
+    // turns into a multi-second crawl. Threshold = 2x viewport so normal
+    // PageUp/Down still animates.
+    let snap_threshold = (2 * viewport_h.max(1)) as f32;
+    if (target_y - tc.scroll_offset_visual.1).abs() > snap_threshold
+        || (target_x - tc.scroll_offset_visual.0).abs() > snap_threshold
+    {
+        tc.scroll_offset_visual.0 = target_x;
+        tc.scroll_offset_visual.1 = target_y;
+        return tc.scroll_offset;
+    }
+
+    let alpha = lerp_alpha(dt_secs, anim::SCROLL_TAU_SECS);
+    tc.scroll_offset_visual.0 += (target_x - tc.scroll_offset_visual.0) * alpha;
+    tc.scroll_offset_visual.1 += (target_y - tc.scroll_offset_visual.1) * alpha;
+
+    if (target_x - tc.scroll_offset_visual.0).abs() < 0.5 {
+        tc.scroll_offset_visual.0 = target_x;
+    }
+    if (target_y - tc.scroll_offset_visual.1).abs() < 0.5 {
+        tc.scroll_offset_visual.1 = target_y;
+    }
+
+    Point {
+        x: tc.scroll_offset_visual.0.round() as CoordType,
+        y: tc.scroll_offset_visual.1.round() as CoordType,
+    }
+}
+
+/// Same lerp shape as `advance_scroll_animation`, but for the visible cursor
+/// position. The buffer's logical cursor moves instantly; only the rendered
+/// glyph + line highlight follow the animated point. Returns the rounded
+/// integer position to feed back into the buffer as a render override.
+fn advance_cursor_animation(
+    tc: &mut TextareaContent,
+    target: Point,
+    dt_secs: f32,
+    viewport_h: CoordType,
+) -> Point {
+    if crate::glyphs::no_animations() {
+        tc.cursor_visual_anim = Some((target.x as f32, target.y as f32));
+        return target;
+    }
+
+    let target_x = target.x as f32;
+    let target_y = target.y as f32;
+
+    let visual = match tc.cursor_visual_anim {
+        Some(v) => v,
+        None => {
+            // First render for this textarea: snap to target so the cursor
+            // doesn't slide in from (0, 0).
+            tc.cursor_visual_anim = Some((target_x, target_y));
+            return target;
+        }
+    };
+
+    // Hard-snap on huge jumps (e.g. goto-line across a long doc) to keep the
+    // animation feeling snappy rather than crawling.
+    let snap_threshold = (2 * viewport_h.max(1)) as f32;
+    if (target_y - visual.1).abs() > snap_threshold || (target_x - visual.0).abs() > snap_threshold
+    {
+        tc.cursor_visual_anim = Some((target_x, target_y));
+        return target;
+    }
+
+    let alpha = ease_out_cubic(lerp_alpha(dt_secs, anim::CURSOR_TAU_SECS));
+    let mut next =
+        (visual.0 + (target_x - visual.0) * alpha, visual.1 + (target_y - visual.1) * alpha);
+    if (target_x - next.0).abs() < 0.5 {
+        next.0 = target_x;
+    }
+    if (target_y - next.1).abs() < 0.5 {
+        next.1 = target_y;
+    }
+    tc.cursor_visual_anim = Some(next);
+
+    Point { x: next.0.round() as CoordType, y: next.1.round() as CoordType }
+}
+
 fn textarea_minimap_width(tb: &TextBuffer, tc: &TextareaContent, _inner: Rect) -> CoordType {
     if tc.single_line {
         return 0;

@@ -22,7 +22,8 @@ use std::time::Duration;
 use std::{env, process};
 
 /// Opt-in toggles for non-default behaviour. Parsed from `--quirks=a,b,c`.
-const KNOWN_QUIRKS: &[&str] = &["weird-filenames", "ascii", "nocolor", "allow-create"];
+const KNOWN_QUIRKS: &[&str] =
+    &["weird-filenames", "ascii", "nocolor", "noanimations", "allow-create"];
 
 use draw_editor::*;
 use draw_menubar::*;
@@ -303,6 +304,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     // Apply quirks that affect global rendering state.
     edit::glyphs::set_ascii_only(quirks.contains("ascii"));
     edit::glyphs::set_no_color(quirks.contains("nocolor"));
+    edit::glyphs::set_no_animations(quirks.contains("noanimations"));
     documents::set_allow_create(quirks.contains("allow-create"));
 
     match path {

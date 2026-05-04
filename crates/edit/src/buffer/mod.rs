@@ -363,6 +363,13 @@ pub struct TextBuffer {
     /// scroll into rail coordinates.
     minimap_cells: Vec<MinimapCell>,
     minimap_content_rows: u32,
+
+    /// Optional override for the cursor's *visible* (document-visual) position.
+    /// When set, `render` paints the cursor block and line-highlight band at
+    /// this position instead of `self.cursor.visual_pos`. Used by the TUI to
+    /// animate cursor motion without disturbing actual cursor state. The
+    /// caller is responsible for resetting it once animation converges.
+    cursor_render_override: Option<Point>,
 }
 
 impl TextBuffer {
@@ -420,6 +427,8 @@ impl TextBuffer {
             gutter_marks: Vec::new(),
             minimap_cells: Vec::new(),
             minimap_content_rows: 0,
+
+            cursor_render_override: None,
         })
     }
 
@@ -617,6 +626,13 @@ impl TextBuffer {
 
     /// Gets the visual cursor position, that is,
     /// the position in laid out rows and columns.
+    /// Sets a one-shot override for where `render` will paint the cursor
+    /// block + line highlight. Pass `None` to clear. Does not affect cursor
+    /// state -- only the visible representation.
+    pub fn set_cursor_render_override(&mut self, pos: Option<Point>) {
+        self.cursor_render_override = pos;
+    }
+
     pub fn cursor_visual_pos(&self) -> Point {
         self.cursor.visual_pos
     }
@@ -1785,10 +1801,28 @@ impl TextBuffer {
             if da < db { a } else { b }
         };
 
-        let [selection_beg, selection_end] = match self.selection {
+        let [mut selection_beg, mut selection_end] = match self.selection {
             None => [Point::MIN, Point::MIN],
             Some(TextBufferSelection { beg, end }) => minmax(beg, end),
         };
+        // The "active" end of the selection (the one the cursor is currently
+        // anchored to). When the cursor's visible position is animated, the
+        // visible selection extends to the animated cursor so anchor->cursor
+        // reads consistently. The logical selection (`self.selection`, used
+        // by Copy/Cut/Delete and friends) is unchanged -- only the visible
+        // bounds shift.
+        let selection_active_is_end = self.selection.map(|s| s.end >= s.beg).unwrap_or(false);
+        let cursor_visual_render = self.cursor_render_override.unwrap_or(self.cursor.visual_pos);
+        if self.cursor_render_override.is_some() && self.selection.is_some() {
+            let anim_cursor =
+                self.cursor_move_to_visual_internal(self.cursor, cursor_visual_render);
+            let anim_logical = anim_cursor.logical_pos;
+            if selection_active_is_end {
+                selection_end = anim_logical.max(selection_beg);
+            } else {
+                selection_beg = anim_logical.min(selection_end);
+            }
+        }
 
         // Shadow-highlight every other literal occurrence of the selected text.
         // Only when the selection is non-empty, fits on one logical line, and
@@ -1919,6 +1953,18 @@ impl TextBuffer {
                     cursor = self.cursor_move_to_logical_internal(cursor, selection_end);
                     selection_off.end = cursor.offset;
                     selection_pos_end = cursor.visual_pos.x;
+                }
+
+                // On the cursor's animated row, pin the active edge to the
+                // anim cursor's exact visual x. Without this, selection ends
+                // at the line's last logical column when anim x is past it,
+                // which lags the visible cursor on short lines.
+                if self.cursor_render_override.is_some() && cursor_visual_render.y == visual_line {
+                    if selection_active_is_end {
+                        selection_pos_end = cursor_visual_render.x;
+                    } else {
+                        selection_pos_beg = cursor_visual_render.x;
+                    }
                 }
 
                 let left = destination.left + self.margin_width - origin.x;
@@ -2173,8 +2219,9 @@ impl TextBuffer {
         }
 
         if focused {
-            let mut x = self.cursor.visual_pos.x;
-            let mut y = self.cursor.visual_pos.y;
+            let cursor_visual = self.cursor_render_override.unwrap_or(self.cursor.visual_pos);
+            let mut x = cursor_visual.x;
+            let mut y = cursor_visual.y;
 
             if self.word_wrap_column > 0 && x >= self.word_wrap_column {
                 // The line the cursor is on wraps exactly on the word wrap column which
