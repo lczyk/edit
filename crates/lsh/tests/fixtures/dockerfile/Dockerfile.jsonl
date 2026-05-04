@@ -1,40 +1,61 @@
 {"line":1,"kind":"comment","text":"# Build stage"}
-{"line":2,"kind":"other","text":"FROM debian:bookworm-slim AS build"}
-{"line":4,"kind":"other","text":"ARG VERSION="}
-{"line":4,"kind":"constant.numeric","text":"1"}
-{"line":4,"kind":"other","text":"."}
-{"line":4,"kind":"constant.numeric","text":"0"}
-{"line":5,"kind":"other","text":"ENV APP_HOME=/srv/app"}
-{"line":6,"kind":"other","text":"WORKDIR "}
+{"line":2,"kind":"keyword.control","text":"FROM"}
+{"line":2,"kind":"other","text":" ubuntu:"}
+{"line":2,"kind":"constant.numeric","text":"24.04"}
+{"line":2,"kind":"other","text":" "}
+{"line":2,"kind":"keyword.other","text":"AS"}
+{"line":2,"kind":"other","text":" builder"}
+{"line":4,"kind":"keyword.control","text":"ARG "}
+{"line":4,"kind":"variable","text":"VERSION"}
+{"line":4,"kind":"other","text":"="}
+{"line":4,"kind":"constant.numeric","text":"1.0"}
+{"line":5,"kind":"keyword.control","text":"ENV "}
+{"line":5,"kind":"variable","text":"APP_HOME"}
+{"line":5,"kind":"other","text":"=/srv/app"}
+{"line":6,"kind":"keyword.control","text":"WORKDIR"}
+{"line":6,"kind":"other","text":" "}
 {"line":6,"kind":"variable","text":"${APP_HOME}"}
-{"line":8,"kind":"other","text":"RUN apt-get update \\"}
+{"line":8,"kind":"keyword.control","text":"RUN"}
+{"line":8,"kind":"other","text":" apt-get update \\"}
 {"line":9,"kind":"other","text":"    && apt-get install -y "}
 {"line":9,"kind":"keyword.other","text":"--no-install-recommends"}
 {"line":9,"kind":"other","text":" ca-certificates \\"}
 {"line":10,"kind":"other","text":"    && rm -rf /var/lib/apt/lists/*"}
-{"line":12,"kind":"other","text":"COPY . ."}
-{"line":13,"kind":"other","text":"RUN ./build.sh"}
+{"line":12,"kind":"keyword.control","text":"COPY"}
+{"line":12,"kind":"other","text":" . ."}
+{"line":13,"kind":"keyword.control","text":"RUN"}
+{"line":13,"kind":"other","text":" ./build.sh"}
 {"line":15,"kind":"comment","text":"# Runtime stage"}
-{"line":16,"kind":"other","text":"FROM debian:bookworm-slim"}
-{"line":17,"kind":"other","text":"LABEL org.opencontainers.image.version="}
+{"line":16,"kind":"keyword.control","text":"FROM"}
+{"line":16,"kind":"other","text":" debian:bookworm-slim"}
+{"line":17,"kind":"keyword.control","text":"LABEL "}
+{"line":17,"kind":"variable","text":"org.opencontainers.image.version"}
+{"line":17,"kind":"other","text":"="}
 {"line":17,"kind":"string","text":"\""}
 {"line":17,"kind":"variable","text":"${VERSION}"}
 {"line":17,"kind":"string","text":"\""}
-{"line":18,"kind":"other","text":"EXPOSE "}
+{"line":18,"kind":"keyword.control","text":"EXPOSE"}
+{"line":18,"kind":"other","text":" "}
 {"line":18,"kind":"constant.numeric","text":"8080"}
-{"line":19,"kind":"other","text":"USER "}
-{"line":19,"kind":"constant.numeric","text":"1000"}
-{"line":19,"kind":"other","text":":"}
-{"line":19,"kind":"constant.numeric","text":"1000"}
-{"line":20,"kind":"other","text":"HEALTHCHECK "}
+{"line":19,"kind":"keyword.control","text":"USER"}
+{"line":19,"kind":"other","text":" "}
+{"line":19,"kind":"constant.numeric","text":"1000:1000"}
+{"line":20,"kind":"keyword.control","text":"HEALTHCHECK"}
+{"line":20,"kind":"other","text":" "}
 {"line":20,"kind":"keyword.other","text":"--interval"}
-{"line":20,"kind":"other","text":"=30s CMD curl -f http://localhost:"}
+{"line":20,"kind":"other","text":"="}
+{"line":20,"kind":"constant.numeric","text":"30s"}
+{"line":20,"kind":"other","text":" "}
+{"line":20,"kind":"keyword.other","text":"CMD"}
+{"line":20,"kind":"other","text":" curl -f http://localhost:"}
 {"line":20,"kind":"constant.numeric","text":"8080"}
 {"line":20,"kind":"other","text":"/ || exit "}
 {"line":20,"kind":"constant.numeric","text":"1"}
-{"line":21,"kind":"other","text":"ENTRYPOINT ["}
+{"line":21,"kind":"keyword.control","text":"ENTRYPOINT"}
+{"line":21,"kind":"other","text":" ["}
 {"line":21,"kind":"string","text":"\"/srv/app/run\""}
 {"line":21,"kind":"other","text":"]"}
-{"line":22,"kind":"other","text":"CMD ["}
+{"line":22,"kind":"keyword.control","text":"CMD"}
+{"line":22,"kind":"other","text":" ["}
 {"line":22,"kind":"string","text":"\"--serve\""}
 {"line":22,"kind":"other","text":"]"}

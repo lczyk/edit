@@ -12,7 +12,16 @@ pub fn dockerfile() {
         return;
     }
 
-    if /(?i:FROM|RUN|CMD|LABEL|MAINTAINER|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\>/ {
+    if /(?i:ENV|LABEL|ARG)\>/ {
+        yield keyword.control;
+        if /\s+([A-Za-z_][\w.-]*)\s*=/ {
+            yield $1 as variable;
+            yield other;
+        } else if /\s+([A-Za-z_][\w.-]*)/ {
+            yield $1 as variable;
+            yield other;
+        }
+    } else if /(?i:FROM|RUN|CMD|MAINTAINER|EXPOSE|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\>/ {
         yield keyword.control;
     }
 
@@ -21,7 +30,7 @@ pub fn dockerfile() {
 
         if /#.*/ {
             yield comment;
-        } else if /(?i:AS|NONE|CMD-SHELL)\>/ {
+        } else if /(?i:AS|NONE|CMD|SHELL|CMD-SHELL)\>/ {
             yield keyword.other;
         } else if /"/ {
             until /$/ {
@@ -46,7 +55,7 @@ pub fn dockerfile() {
             yield keyword.other;
         } else if /(?:true|false)\>/ {
             yield constant.language;
-        } else if /(?:0x[\da-fA-F]+|\d+)\>/ {
+        } else if /(?:0x[\da-fA-F]+|\d+(?:\.\d+)?(?::\d+)?[a-zA-Z]*)\>/ {
             yield constant.numeric;
         } else if /\w+/ {
             // Gobble word chars to align next iteration on word boundary.

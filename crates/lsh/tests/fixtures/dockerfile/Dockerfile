@@ -1,5 +1,5 @@
 # Build stage
-FROM debian:bookworm-slim AS build
+FROM ubuntu:24.04 AS builder
 
 ARG VERSION=1.0
 ENV APP_HOME=/srv/app
