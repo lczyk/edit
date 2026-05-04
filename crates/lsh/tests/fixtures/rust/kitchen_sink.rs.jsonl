@@ -3,10 +3,14 @@
 {"line":3,"kind":"comment","text":"/// Outer doc"}
 {"line":4,"kind":"comment","text":"/* block comment */"}
 {"line":6,"kind":"keyword.other","text":"use"}
-{"line":6,"kind":"other","text":" std::collections::HashMap;"}
+{"line":6,"kind":"other","text":" std::collections::"}
+{"line":6,"kind":"variable","text":"HashMap"}
+{"line":6,"kind":"other","text":";"}
 {"line":8,"kind":"keyword.other","text":"const"}
-{"line":8,"kind":"other","text":" MAX: "}
-{"line":8,"kind":"keyword.other","text":"u32"}
+{"line":8,"kind":"other","text":" "}
+{"line":8,"kind":"variable","text":"MAX"}
+{"line":8,"kind":"other","text":": "}
+{"line":8,"kind":"variable","text":"u32"}
 {"line":8,"kind":"other","text":" = "}
 {"line":8,"kind":"constant.numeric","text":"42"}
 {"line":8,"kind":"other","text":";"}
@@ -14,7 +18,9 @@
 {"line":11,"kind":"keyword.other","text":"pub"}
 {"line":11,"kind":"other","text":" "}
 {"line":11,"kind":"keyword.other","text":"struct"}
-{"line":11,"kind":"other","text":" Point<"}
+{"line":11,"kind":"other","text":" "}
+{"line":11,"kind":"variable","text":"Point"}
+{"line":11,"kind":"other","text":"<"}
 {"line":11,"kind":"keyword.other","text":"'a"}
 {"line":11,"kind":"other","text":"> {"}
 {"line":12,"kind":"other","text":"    "}
@@ -22,12 +28,12 @@
 {"line":12,"kind":"other","text":" name: &"}
 {"line":12,"kind":"keyword.other","text":"'a"}
 {"line":12,"kind":"other","text":" "}
-{"line":12,"kind":"keyword.other","text":"str"}
+{"line":12,"kind":"variable","text":"str"}
 {"line":12,"kind":"other","text":","}
 {"line":13,"kind":"other","text":"    "}
 {"line":13,"kind":"keyword.other","text":"pub"}
 {"line":13,"kind":"other","text":" value: "}
-{"line":13,"kind":"keyword.other","text":"f64"}
+{"line":13,"kind":"variable","text":"f64"}
 {"line":13,"kind":"other","text":","}
 {"line":14,"kind":"other","text":"}"}
 {"line":16,"kind":"keyword.other","text":"fn"}
@@ -52,13 +58,13 @@
 {"line":20,"kind":"other","text":"    "}
 {"line":20,"kind":"keyword.other","text":"let"}
 {"line":20,"kind":"other","text":" n: "}
-{"line":20,"kind":"keyword.other","text":"i64"}
+{"line":20,"kind":"variable","text":"i64"}
 {"line":20,"kind":"other","text":" = "}
 {"line":20,"kind":"constant.numeric","text":"0xff_u32"}
 {"line":20,"kind":"other","text":" "}
 {"line":20,"kind":"keyword.control","text":"as"}
 {"line":20,"kind":"other","text":" "}
-{"line":20,"kind":"keyword.other","text":"i64"}
+{"line":20,"kind":"variable","text":"i64"}
 {"line":20,"kind":"other","text":";"}
 {"line":21,"kind":"other","text":"    "}
 {"line":21,"kind":"keyword.other","text":"let"}

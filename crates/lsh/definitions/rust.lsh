@@ -58,8 +58,6 @@ pub fn rust() {
             yield keyword.control;
         } else if /(?:box|const|crate|enum|extern|fn|impl|let|mod|mut|pub|ref|self|Self|static|struct|super|trait|type|union|unsafe|use|where)\>/ {
             yield keyword.other;
-        } else if /(?:bool|char|str|u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|f32|f64|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell)\>/ {
-            yield keyword.other;
         } else if /(?:true|false|None|Some|Ok|Err)\>/ {
             yield constant.language;
         } else if /(?i:-?(?:0x[\da-f_]+|0b[01_]+|0o[0-7_]+|[\d_]+\.?[\d_]*|\.[\d_]+)(?:e[+-]?[\d_]+)?)(?:[ui](?:8|16|32|64|128|size)|f(?:32|64))?/ {
@@ -71,7 +69,14 @@ pub fn rust() {
         } else if /(\w+)!/ {
             // Macro invocation.
             yield $1 as method;
-        } else if /(\w+)\s*(?:::\s*<|\()/ {
+        } else if /(?:bool|char|str|u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|f32|f64|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell)\>/ {
+            // Primitive + std type names.
+            yield variable;
+        } else if /[A-Z][A-Za-z0-9_]*\>/ {
+            // PascalCase type / variant catch-all.
+            yield variable;
+        } else if /(\w+)\(/ {
+            // Function call.
             yield $1 as method;
         } else if /\w+/ {
             // Gobble word chars to align the next iteration on a word boundary.
