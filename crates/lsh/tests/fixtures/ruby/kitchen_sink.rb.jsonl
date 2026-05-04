@@ -1,0 +1,161 @@
+{"line":1,"kind":"comment","text":"# Comments"}
+{"line":2,"kind":"comment","text":"# Single-line comment"}
+{"line":4,"kind":"comment","text":"=begin"}
+{"line":5,"kind":"comment","text":"Multi-line"}
+{"line":6,"kind":"comment","text":"comment"}
+{"line":7,"kind":"comment","text":"=end"}
+{"line":9,"kind":"comment","text":"# Numbers"}
+{"line":10,"kind":"constant.numeric","text":"42"}
+{"line":11,"kind":"constant.numeric","text":"3.14"}
+{"line":12,"kind":"constant.numeric","text":"0.5"}
+{"line":13,"kind":"constant.numeric","text":"1e10"}
+{"line":14,"kind":"constant.numeric","text":"1.5e-3"}
+{"line":15,"kind":"constant.numeric","text":"0xff"}
+{"line":16,"kind":"constant.numeric","text":"0xFF"}
+{"line":17,"kind":"constant.numeric","text":"0b1010"}
+{"line":18,"kind":"constant.numeric","text":"0o77"}
+{"line":19,"kind":"constant.numeric","text":"1_000_000"}
+{"line":20,"kind":"constant.numeric","text":"3.14r"}
+{"line":21,"kind":"constant.numeric","text":"2i"}
+{"line":23,"kind":"comment","text":"# Constants"}
+{"line":24,"kind":"constant.language","text":"true"}
+{"line":25,"kind":"constant.language","text":"false"}
+{"line":26,"kind":"constant.language","text":"nil"}
+{"line":27,"kind":"constant.language","text":"Object"}
+{"line":28,"kind":"constant.language","text":"String"}
+{"line":30,"kind":"comment","text":"# Strings"}
+{"line":31,"kind":"string","text":"'single quotes with escape: \\' \\n \\t \\\\'"}
+{"line":32,"kind":"string","text":"\"double quotes with escape: \\\" \\n \\t \\\\\""}
+{"line":33,"kind":"string","text":"`echo shell command`"}
+{"line":35,"kind":"comment","text":"# Symbols and variables"}
+{"line":36,"kind":"constant.language","text":":symbol"}
+{"line":37,"kind":"constant.language","text":":method_name?"}
+{"line":38,"kind":"variable","text":"@instance_var"}
+{"line":39,"kind":"variable","text":"@@class_var"}
+{"line":40,"kind":"variable","text":"$global_var"}
+{"line":42,"kind":"comment","text":"# Control flow keywords"}
+{"line":43,"kind":"keyword.control","text":"if"}
+{"line":43,"kind":"other","text":" "}
+{"line":43,"kind":"constant.language","text":"true"}
+{"line":44,"kind":"other","text":"  puts "}
+{"line":44,"kind":"string","text":"\"yes\""}
+{"line":45,"kind":"keyword.control","text":"elsif"}
+{"line":45,"kind":"other","text":" "}
+{"line":45,"kind":"constant.language","text":"false"}
+{"line":46,"kind":"other","text":"  puts "}
+{"line":46,"kind":"string","text":"\"no\""}
+{"line":47,"kind":"keyword.control","text":"else"}
+{"line":48,"kind":"other","text":"  puts "}
+{"line":48,"kind":"string","text":"\"maybe\""}
+{"line":49,"kind":"keyword.control","text":"end"}
+{"line":51,"kind":"keyword.control","text":"unless"}
+{"line":51,"kind":"other","text":" "}
+{"line":51,"kind":"constant.language","text":"nil"}
+{"line":52,"kind":"other","text":"  puts "}
+{"line":52,"kind":"string","text":"\"not nil\""}
+{"line":53,"kind":"keyword.control","text":"end"}
+{"line":55,"kind":"keyword.control","text":"case"}
+{"line":55,"kind":"other","text":" "}
+{"line":55,"kind":"constant.numeric","text":"42"}
+{"line":56,"kind":"keyword.control","text":"when"}
+{"line":56,"kind":"other","text":" "}
+{"line":56,"kind":"constant.numeric","text":"1"}
+{"line":57,"kind":"other","text":"  puts "}
+{"line":57,"kind":"string","text":"\"one\""}
+{"line":58,"kind":"keyword.control","text":"else"}
+{"line":59,"kind":"other","text":"  puts "}
+{"line":59,"kind":"string","text":"\"other\""}
+{"line":60,"kind":"keyword.control","text":"end"}
+{"line":62,"kind":"keyword.control","text":"for"}
+{"line":62,"kind":"other","text":" i "}
+{"line":62,"kind":"keyword.control","text":"in"}
+{"line":62,"kind":"other","text":" "}
+{"line":62,"kind":"constant.numeric","text":"1"}
+{"line":62,"kind":"other","text":".."}
+{"line":62,"kind":"constant.numeric","text":"3"}
+{"line":63,"kind":"other","text":"  "}
+{"line":63,"kind":"keyword.control","text":"next"}
+{"line":63,"kind":"other","text":" "}
+{"line":63,"kind":"keyword.control","text":"if"}
+{"line":63,"kind":"other","text":" i == "}
+{"line":63,"kind":"constant.numeric","text":"2"}
+{"line":64,"kind":"other","text":"  "}
+{"line":64,"kind":"keyword.control","text":"break"}
+{"line":64,"kind":"other","text":" "}
+{"line":64,"kind":"keyword.control","text":"if"}
+{"line":64,"kind":"other","text":" i == "}
+{"line":64,"kind":"constant.numeric","text":"3"}
+{"line":65,"kind":"keyword.control","text":"end"}
+{"line":67,"kind":"keyword.control","text":"while"}
+{"line":67,"kind":"other","text":" "}
+{"line":67,"kind":"constant.language","text":"false"}
+{"line":68,"kind":"other","text":"  "}
+{"line":68,"kind":"keyword.control","text":"redo"}
+{"line":69,"kind":"keyword.control","text":"end"}
+{"line":71,"kind":"keyword.control","text":"begin"}
+{"line":72,"kind":"other","text":"  raise "}
+{"line":72,"kind":"string","text":"\"oops\""}
+{"line":73,"kind":"keyword.control","text":"rescue"}
+{"line":73,"kind":"other","text":" "}
+{"line":73,"kind":"constant.language","text":"StandardError"}
+{"line":73,"kind":"other","text":" => e"}
+{"line":74,"kind":"other","text":"  "}
+{"line":74,"kind":"keyword.control","text":"retry"}
+{"line":75,"kind":"keyword.control","text":"ensure"}
+{"line":76,"kind":"other","text":"  puts e"}
+{"line":77,"kind":"keyword.control","text":"end"}
+{"line":79,"kind":"comment","text":"# Definitions and method calls"}
+{"line":80,"kind":"keyword.control","text":"module"}
+{"line":80,"kind":"other","text":" "}
+{"line":80,"kind":"constant.language","text":"Demo"}
+{"line":81,"kind":"other","text":"  "}
+{"line":81,"kind":"keyword.control","text":"class"}
+{"line":81,"kind":"other","text":" "}
+{"line":81,"kind":"constant.language","text":"Animal"}
+{"line":82,"kind":"other","text":"    "}
+{"line":82,"kind":"keyword.control","text":"def "}
+{"line":82,"kind":"method","text":"initialize"}
+{"line":82,"kind":"other","text":"(name)"}
+{"line":83,"kind":"other","text":"      "}
+{"line":83,"kind":"variable","text":"@name"}
+{"line":83,"kind":"other","text":" = name"}
+{"line":84,"kind":"other","text":"    "}
+{"line":84,"kind":"keyword.control","text":"end"}
+{"line":86,"kind":"other","text":"    "}
+{"line":86,"kind":"keyword.control","text":"def "}
+{"line":86,"kind":"method","text":"speak!"}
+{"line":86,"kind":"other","text":" =  puts "}
+{"line":86,"kind":"string","text":"\"#{@name} speaks\""}
+{"line":87,"kind":"other","text":"  "}
+{"line":87,"kind":"keyword.control","text":"end"}
+{"line":88,"kind":"keyword.control","text":"end"}
+{"line":90,"kind":"keyword.other","text":"alias"}
+{"line":90,"kind":"other","text":" old_speak speak!"}
+{"line":91,"kind":"keyword.other","text":"undef"}
+{"line":91,"kind":"other","text":" old_speak"}
+{"line":93,"kind":"keyword.other","text":"BEGIN"}
+{"line":93,"kind":"other","text":" { puts "}
+{"line":93,"kind":"string","text":"\"start\""}
+{"line":93,"kind":"other","text":" }"}
+{"line":94,"kind":"keyword.other","text":"END"}
+{"line":94,"kind":"other","text":" { puts "}
+{"line":94,"kind":"string","text":"\"finish\""}
+{"line":94,"kind":"other","text":" }"}
+{"line":95,"kind":"keyword.other","text":"defined?"}
+{"line":95,"kind":"other","text":" "}
+{"line":95,"kind":"constant.language","text":"Demo"}
+{"line":96,"kind":"keyword.other","text":"self"}
+{"line":97,"kind":"keyword.other","text":"super"}
+{"line":98,"kind":"keyword.other","text":"yield"}
+{"line":100,"kind":"other","text":"puts "}
+{"line":100,"kind":"string","text":"\"hello\""}
+{"line":101,"kind":"constant.language","text":"Array"}
+{"line":101,"kind":"other","text":"."}
+{"line":101,"kind":"method","text":"new"}
+{"line":101,"kind":"other","text":"("}
+{"line":101,"kind":"constant.numeric","text":"3"}
+{"line":101,"kind":"other","text":")"}
+{"line":102,"kind":"method","text":"greet"}
+{"line":102,"kind":"other","text":"("}
+{"line":102,"kind":"string","text":"\"world\""}
+{"line":102,"kind":"other","text":")"}
