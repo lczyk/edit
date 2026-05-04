@@ -2220,6 +2220,9 @@ impl TextBuffer {
     /// it via [`highlight_kind_color`]. Returns an empty Vec if no language
     /// is set.
     pub fn dominant_color_per_line(&self) -> Vec<Option<IndexedColor>> {
+        if crate::glyphs::no_color() {
+            return Vec::new();
+        }
         let Some(language) = self.language else {
             return Vec::new();
         };
@@ -2258,6 +2261,12 @@ impl TextBuffer {
         logical_y_range: Range<CoordType>,
         fb: &mut Framebuffer,
     ) {
+        // Skip lsh entirely when colour output is suppressed -- the only
+        // remaining effect would be markup attrs (bold/italic/underline)
+        // for markdown, which we trade away for the per-frame cost.
+        if crate::glyphs::no_color() {
+            return;
+        }
         let Some(language) = self.language else {
             return;
         };
