@@ -3,10 +3,15 @@
 #[block_comment_close = "-->"]
 #[path = "**/*.md"]
 pub fn markdown() {
-    // Any lines that start with a tab or 4+ spaces are code blocks.
-    if /(?:\t|    ).*/ {
-        yield other;
-        return;
+    // Any lines that start with a tab or 4+ spaces are code blocks,
+    // unless they are an indented list-item continuation (e.g. nested bullet).
+    if /(?:\t|    )/ {
+        if /\s*[-*+]\s+/ {
+            yield markup.list;
+        } else {
+            yield other;
+            return;
+        }
     }
 
     // Gobble any leading whitespace on the line.
