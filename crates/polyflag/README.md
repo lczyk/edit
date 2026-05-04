@@ -34,6 +34,32 @@ assert!(!set.contains("foo"));
 The caller owns the set, the loop over occurrences, and the error formatting.
 `polyflag` only knows how to apply one occurrence's value.
 
+### Env-var defaults
+
+`apply_env_for_flag(prefix, flag, known, set)` reads an env var derived from
+the cli surface and applies it as if it were a leading occurrence of the flag:
+
+| `prefix` | `flag`          | env var resolved   |
+|----------|-----------------|--------------------|
+| `"app"`  | `"quirks"`      | `APP_QUIRKS`       |
+| `"app"`  | `"allow-create"`| `APP_ALLOW_CREATE` |
+
+Mapping rule: `{PREFIX}_{FLAG}`, prefix uppercased, kebab-to-underscore on the
+flag, uppercased. Env value semantics match `apply` (comma-list, `-name`
+removal, unknown-token error). Unset / empty / non-utf-8 values are no-ops.
+
+```rust
+// Example: cli surface is `--quirks=...`, so the env surface is APP_QUIRKS.
+polyflag::apply_env_for_flag("app", "quirks", KNOWN, &mut set)?;
+// Then apply any cli occurrences -- they layer on top, so a cli `-name` can
+// negate an entry the env contributed.
+polyflag::apply(cli_value, KNOWN, &mut set)?;
+```
+
+The cli and env names stay in lock-step by construction -- no second string
+to keep in sync. `env_var_name(prefix, flag)` is exposed if the caller wants
+to surface the resolved name in error messages.
+
 ## Semantics
 
 - input split on `,`; tokens trimmed; empty tokens skipped.

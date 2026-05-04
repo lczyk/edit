@@ -9,15 +9,28 @@ The default is "safer / prettier"; the quirk flag opts into "looser / plainer".
 
 ## Syntax
 
-`--quirks=` takes a comma-separated list of known names. `-name` removes a name. The flag can be passed multiple times -- later occurrences mutate the accumulated set left-to-right.
+`--quirks=` takes a comma-separated list of known names. `-name` removes a name. The flag can be passed at most once on the command line; multiple `--quirks=` occurrences error out (the env-var path below is for layering).
 
 ```sh
 edit --quirks=ascii,nocolor file.txt
-edit --quirks=ascii --quirks=nocolor file.txt          # equivalent
-edit --quirks=ascii,nocolor --quirks=-nocolor file.txt # only ascii
+edit --quirks=ascii,nocolor --quirks=-nocolor file.txt # error: --quirks may only be passed once
 ```
 
 Unknown names error and abort startup. The error prints the full known list.
+
+## `EDIT_QUIRKS`
+
+`EDIT_QUIRKS` is the env-var equivalent of `--quirks=`. Same syntax (comma list, `-name` removal). It's applied *before* the cli flag, so `--quirks=-name` on the command line can negate an entry the env contributed.
+
+```sh
+EDIT_QUIRKS=ascii,nocolor edit file.txt              # both quirks on
+EDIT_QUIRKS=ascii edit --quirks=-ascii file.txt      # net: no quirks (cli negates env)
+EDIT_QUIRKS=ascii edit --quirks=nocolor file.txt     # net: ascii + nocolor (additive)
+```
+
+Unset, empty, or non-utf-8 `EDIT_QUIRKS` is a no-op. Unknown tokens in the env var error and abort startup, same as the cli.
+
+Use it for "always-on for this shell session" defaults without touching every invocation -- e.g. `export EDIT_QUIRKS=nocolor` for a screen-scraping pipeline.
 
 ## Known quirks
 
