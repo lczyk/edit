@@ -1,0 +1,3 @@
+{"line":1,"kind":"comment","text":"// hi"}
+{"line":2,"value":42,"flag":true,"empty":null}
+{"line":3,"text":"with \"escaped\" quotes"}
