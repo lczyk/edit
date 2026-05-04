@@ -6,7 +6,8 @@
     "cover.html",
     "cover.out",
     "Cargo.lock",
-    "LICENSE*"
+    "LICENSE*",
+    "crates/lsh/tests/fixtures/**"
   ],
   "words": [
     "abcdefghabcdefghabcdefghabcdefghabcdefgh",

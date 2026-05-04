@@ -1,0 +1,10 @@
+   1 markup.heading         # fenced
+   3 other                  ```python
+   4 keyword.other          def
+   4 other                   
+   4 method                 greet
+   4 other                  (name):
+   5 other                      
+   5 keyword.control        return
+   5 other                   name
+   6 other                  ```
