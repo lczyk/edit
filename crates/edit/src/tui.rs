@@ -148,7 +148,7 @@ use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::{BString, BVec};
 use stdext::{arena_format, arena_write_fmt, opt_ptr_eq, str_from_raw_parts};
 
-use crate::buffer::{CursorMovement, RcTextBuffer, TextBuffer, TextBufferCell};
+use crate::buffer::{CursorMovement, MinimapCell, RcTextBuffer, TextBuffer, TextBufferCell};
 use crate::cell::*;
 use crate::clipboard::Clipboard;
 use crate::document::WriteableDocument;
@@ -998,10 +998,10 @@ impl Tui {
                     bottom: inner_clipped.bottom,
                 };
 
-                if !tc.single_line {
-                    // Account for the scrollbar.
-                    destination.right -= 1;
-                }
+                let minimap_w = textarea_minimap_width(&tb, tc, inner_clipped);
+                let scrollbar_w = textarea_scrollbar_width(tc, minimap_w);
+
+                destination.right -= scrollbar_w + minimap_w;
 
                 if let Some(res) =
                     tb.render(tc.scroll_offset, destination, tc.has_focus, &mut self.framebuffer)
@@ -1009,7 +1009,24 @@ impl Tui {
                     tc.scroll_offset_x_max = res.visual_pos_x_max;
                 }
 
-                if !tc.single_line {
+                if minimap_w > 0 {
+                    let track = Rect {
+                        left: inner_clipped.right - scrollbar_w - minimap_w,
+                        top: inner_clipped.top,
+                        right: inner_clipped.right - scrollbar_w,
+                        bottom: inner_clipped.bottom,
+                    };
+                    draw_minimap_rail(
+                        &mut self.framebuffer,
+                        track,
+                        tb.minimap_cells(),
+                        tb.minimap_content_rows(),
+                        tc.scroll_offset.y,
+                        inner.height(),
+                    );
+                }
+
+                if scrollbar_w > 0 {
                     // Render the scrollbar.
                     let track = Rect {
                         left: inner_clipped.right - 1,
@@ -2183,9 +2200,10 @@ impl<'a> Context<'a, '_> {
                 content.thumb_height = content_prev.thumb_height;
 
                 let mut text_width = node_prev.inner.width();
-                if !single_line {
-                    // Subtract -1 to account for the scrollbar.
-                    text_width -= 1;
+                {
+                    let tb = content.buffer.borrow();
+                    let minimap_w = textarea_minimap_width(&tb, content, node_prev.inner);
+                    text_width -= textarea_scrollbar_width(content, minimap_w) + minimap_w;
                 }
 
                 let mut make_cursor_visible;
@@ -2264,16 +2282,24 @@ impl<'a> Context<'a, '_> {
         {
             let mouse = self.tui.mouse_position;
             let inner = node_prev.inner;
+            let minimap_w = textarea_minimap_width(tb, tc, inner);
+            let scrollbar_w = textarea_scrollbar_width(tc, minimap_w);
             let text_rect = Rect {
                 left: inner.left + tb.margin_width(),
                 top: inner.top,
-                right: inner.right - !single_line as CoordType,
+                right: inner.right - scrollbar_w - minimap_w,
+                bottom: inner.bottom,
+            };
+            let minimap_rect = Rect {
+                left: text_rect.right,
+                top: inner.top,
+                right: text_rect.right + minimap_w,
                 bottom: inner.bottom,
             };
             let track_rect = Rect {
-                left: text_rect.right,
+                left: minimap_rect.right,
                 top: inner.top,
-                right: inner.right,
+                right: minimap_rect.right + scrollbar_w,
                 bottom: inner.bottom,
             };
             let pos = Point {
@@ -2340,6 +2366,22 @@ impl<'a> Context<'a, '_> {
                             }
                             _ => return false,
                         },
+                    }
+                }
+            } else if minimap_rect.contains(self.tui.mouse_down_position) {
+                // Click-to-jump: fresh mouse-down centres the viewport on the
+                // clicked rail row. Drag continuations are ignored -- terminal
+                // mouse-drag streams are too choppy to track 1:1 cleanly.
+                if !self.tui.mouse_is_drag && self.tui.mouse_state != InputMouseState::Release {
+                    let content_rows = tb.minimap_content_rows() as i64;
+                    let rail_h = minimap_rect.height() as i64;
+                    if content_rows > 0 && rail_h > 0 {
+                        let local_y = (mouse.y - minimap_rect.top).max(0) as i64;
+                        let target_row = (local_y * content_rows / rail_h) as CoordType;
+                        let viewport_height = inner.height();
+                        let max_scroll = (tb.visual_line_count() - 1).max(0);
+                        tc.scroll_offset.y =
+                            (target_row - viewport_height / 2).clamp(0, max_scroll);
                     }
                 }
             } else if track_rect.contains(self.tui.mouse_down_position) {
@@ -4051,6 +4093,129 @@ impl<'a> Node<'a> {
                     child.layout_children(clip);
                 }
             }
+        }
+    }
+}
+
+// Cell width the textarea reserves for the minimap rail. Authority lives in
+// the document's pre-built cells; this just reads back what was built.
+fn textarea_minimap_width(tb: &TextBuffer, tc: &TextareaContent, _inner: Rect) -> CoordType {
+    if tc.single_line {
+        return 0;
+    }
+    tb.minimap_cells().first().map(|c| c.width as CoordType).unwrap_or(0)
+}
+
+// Width of the dedicated scrollbar column. Mutually exclusive with the
+// minimap -- when the rail is visible it absorbs the navigation role.
+fn textarea_scrollbar_width(tc: &TextareaContent, minimap_w: CoordType) -> CoordType {
+    if tc.single_line || minimap_w > 0 {
+        return 0;
+    }
+    1
+}
+
+// Maps a viewport scroll offset to the [top, bottom) row range on the rail.
+// Band height is held constant across scroll positions (computed once from
+// viewport / content ratio) so the highlight doesn't visibly shrink/grow as
+// integer-division rounding shifts. At the extremes the band is shifted in
+// instead of clipped, preserving its size.
+fn minimap_band_range(
+    track_top: CoordType,
+    track_h: CoordType,
+    scroll_offset: CoordType,
+    viewport_h: CoordType,
+    content_rows: u32,
+) -> (CoordType, CoordType) {
+    let rail_h = track_h as i64;
+    let cr = content_rows as i64;
+    if rail_h <= 0 || cr <= 0 {
+        return (track_top, track_top);
+    }
+    let band_h = ((viewport_h as i64 * rail_h + cr / 2) / cr).clamp(1, rail_h) as CoordType;
+    let scroll = scroll_offset.max(0) as i64;
+    let raw_top = (scroll * rail_h / cr) as CoordType;
+    let max_top = (track_h - band_h).max(0);
+    let top = track_top + raw_top.clamp(0, max_top);
+    (top, top + band_h)
+}
+
+// Paints the minimap rail in `track`. Each minimap cell occupies one rail row;
+// the cell's `glyphs` are written left-aligned and any per-cell `fg` is blended
+// over them. The current viewport window is overlaid as a dim background band.
+fn draw_minimap_rail(
+    fb: &mut Framebuffer,
+    track: Rect,
+    cells: &[MinimapCell],
+    content_rows: u32,
+    scroll_offset: CoordType,
+    viewport_height: CoordType,
+) {
+    if track.is_empty() || cells.is_empty() || content_rows == 0 {
+        return;
+    }
+
+    let rail_h = track.height() as i64;
+    let n_cells = cells.len() as i64;
+
+    // Map minimap cell index -> rail y. If rail is taller than the cell list,
+    // each cell gets one row; otherwise scale.
+    let cell_to_y = |idx: i64| -> CoordType {
+        let y = if rail_h >= n_cells { idx } else { idx * rail_h / n_cells };
+        track.top + y as CoordType
+    };
+
+    let mut buf = [0u8; 8];
+    for (i, cell) in cells.iter().enumerate() {
+        if cell.width == 0 {
+            continue;
+        }
+        let y = cell_to_y(i as i64);
+        if y >= track.bottom {
+            break;
+        }
+        let mut s = String::new();
+        for g in &cell.glyphs[..cell.width as usize] {
+            s.push_str(g.encode_utf8(&mut buf));
+        }
+        fb.replace_text(y, track.left, track.right, &s);
+        if let Some(fg) = cell.fg {
+            let row = Rect {
+                left: track.left,
+                top: y,
+                right: (track.left + cell.width as CoordType).min(track.right),
+                bottom: y + 1,
+            };
+            fb.blend_fg(row, fb.indexed(fg));
+        }
+    }
+
+    // Viewport-window overlay: bright band over the rail rows that map to
+    // the current scroll slice. Doubles as the draggable thumb when the
+    // minimap absorbs the scrollbar.
+    let (band_top, band_bottom) =
+        minimap_band_range(track.top, track.height(), scroll_offset, viewport_height, content_rows);
+    let band = Rect { left: track.left, top: band_top, right: track.right, bottom: band_bottom };
+    if !band.is_empty() {
+        // Solid (alpha=1) bg + contrasting fg so the highlighted slice stands
+        // out unambiguously, even on terminals where alpha-blended overlays
+        // come through faint. `--no-color` strips SGR colours, so fall back
+        // to overwriting the band glyphs with a solid marker -- loses the
+        // per-row density inside the band but the band itself stays visible.
+        if crate::glyphs::no_color() {
+            // Density ramp tops out at `#` -- pick a heavier glyph so the
+            // band reads as distinctly different.
+            let marker: &str = if crate::glyphs::ascii_only() { "@" } else { "\u{2588}" };
+            let mut buf = String::with_capacity(band.width() as usize * marker.len());
+            for _ in 0..band.width() {
+                buf.push_str(marker);
+            }
+            for y in band.top..band.bottom {
+                fb.replace_text(y, band.left, band.right, &buf);
+            }
+        } else {
+            fb.blend_bg(band, fb.indexed(IndexedColor::BrightWhite));
+            fb.blend_fg(band, fb.indexed(IndexedColor::Black));
         }
     }
 }

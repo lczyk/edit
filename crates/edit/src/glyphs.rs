@@ -6,6 +6,7 @@
 //! - [`set_no_color`] / [`no_color`] -- suppress all SGR colour output
 //!   (text attributes like bold/italic still emitted).
 
+use crate::helpers::CoordType;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static ASCII_ONLY: AtomicBool = AtomicBool::new(false);
@@ -73,6 +74,28 @@ pub fn gutter_deleted_above() -> &'static str {
 }
 pub fn gutter_deleted_below() -> &'static str {
     if ascii_only() { "v" } else { "▾" }
+}
+
+// Minimap glyphs.
+//
+// Unicode mode: braille (U+2800..U+28FF) -- 8-bit dot mask packs 2 dot-columns
+// x 4 dot-rows of inky sub-cells into one char. Bit ordering matches Unicode
+// braille: dots 1-3 left col top-down, dots 4-6 right col top-down, dots 7/8
+// the bottom row of each col.
+//
+// Ascii mode: a 5-step density ramp picks a block char from a fixed table.
+
+pub fn minimap_braille(dots: u8) -> char {
+    char::from_u32(0x2800u32 + dots as u32).unwrap()
+}
+
+pub fn minimap_ascii(level: u8) -> char {
+    const RAMP: [char; 5] = [' ', '.', ':', '|', '#'];
+    RAMP[(level as usize).min(RAMP.len() - 1)]
+}
+
+pub fn minimap_width() -> CoordType {
+    if ascii_only() { 1 } else { 2 }
 }
 
 #[cfg(test)]
@@ -185,6 +208,34 @@ mod tests {
         assert!(no_color());
         set_no_color(false);
         assert!(!no_color());
+    }
+
+    #[test]
+    fn minimap_braille_codepoints() {
+        assert_eq!(minimap_braille(0), '\u{2800}');
+        assert_eq!(minimap_braille(0xff), '\u{28ff}');
+        assert_eq!(minimap_braille(0x01), '\u{2801}');
+    }
+
+    #[test]
+    fn minimap_ascii_ramp() {
+        assert_eq!(minimap_ascii(0), ' ');
+        assert_eq!(minimap_ascii(1), '.');
+        assert_eq!(minimap_ascii(2), ':');
+        assert_eq!(minimap_ascii(3), '|');
+        assert_eq!(minimap_ascii(4), '#');
+        // Saturating clamp.
+        assert_eq!(minimap_ascii(99), '#');
+    }
+
+    #[test]
+    fn minimap_width_mode_swap() {
+        let _g = LOCK.lock().unwrap();
+        set_ascii_only(false);
+        assert_eq!(minimap_width(), 2);
+        set_ascii_only(true);
+        assert_eq!(minimap_width(), 1);
+        set_ascii_only(false);
     }
 
     #[test]

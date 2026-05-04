@@ -80,6 +80,30 @@ fn visual_tab() -> (&'static str, usize) {
     }
 }
 
+pub fn highlight_kind_color(kind: HighlightKind) -> Option<IndexedColor> {
+    match kind {
+        HighlightKind::Other => None,
+        HighlightKind::Comment => Some(IndexedColor::Green),
+        HighlightKind::Method => Some(IndexedColor::BrightYellow),
+        HighlightKind::String => Some(IndexedColor::BrightRed),
+        HighlightKind::Variable => Some(IndexedColor::BrightCyan),
+        HighlightKind::ConstantLanguage => Some(IndexedColor::BrightBlue),
+        HighlightKind::ConstantNumeric => Some(IndexedColor::BrightGreen),
+        HighlightKind::KeywordControl => Some(IndexedColor::BrightMagenta),
+        HighlightKind::KeywordOther => Some(IndexedColor::BrightBlue),
+        HighlightKind::MarkupBold => None,
+        HighlightKind::MarkupChanged => Some(IndexedColor::BrightBlue),
+        HighlightKind::MarkupDeleted => Some(IndexedColor::BrightRed),
+        HighlightKind::MarkupHeading => Some(IndexedColor::BrightBlue),
+        HighlightKind::MarkupInserted => Some(IndexedColor::BrightGreen),
+        HighlightKind::MarkupItalic => None,
+        HighlightKind::MarkupLink => None,
+        HighlightKind::MarkupList => Some(IndexedColor::BrightBlue),
+        HighlightKind::MarkupStrikethrough => None,
+        HighlightKind::MetaHeader => Some(IndexedColor::BrightBlue),
+    }
+}
+
 pub enum IoError {
     Io(io::Error),
     Icu(icu::Error),
@@ -98,6 +122,26 @@ pub enum GutterMark {
     /// Lines were deleted immediately below this one (used at EOF).
     DeletedBelow,
 }
+
+/// One row of the minimap rail. `width` glyphs starting at `glyphs[0]` are
+/// valid; the rest are unused. Computed externally and stuffed in via
+/// [`TextBuffer::set_minimap_cells`]. Each cell summarises
+/// `MINIMAP_SOURCE_ROWS_PER_CELL` source lines.
+#[derive(Clone, Copy)]
+pub struct MinimapCell {
+    pub glyphs: [char; 2],
+    pub width: u8,
+    pub fg: Option<IndexedColor>,
+}
+
+impl Default for MinimapCell {
+    fn default() -> Self {
+        Self { glyphs: [' ', ' '], width: 0, fg: None }
+    }
+}
+
+/// Number of source lines collapsed into one minimap row.
+pub const MINIMAP_SOURCE_ROWS_PER_CELL: u32 = 4;
 
 pub type IoResult<T> = std::result::Result<T, IoError>;
 
@@ -312,6 +356,13 @@ pub struct TextBuffer {
     /// or longer than the current logical line count if a refresh is
     /// pending; out-of-range lookups return `GutterMark::None`.
     gutter_marks: Vec<GutterMark>,
+
+    /// One row per `MINIMAP_SOURCE_ROWS_PER_CELL` source lines. Empty means
+    /// the rail is hidden. `minimap_content_rows` records the source-line
+    /// count the cells were built for; consumers use it to map viewport
+    /// scroll into rail coordinates.
+    minimap_cells: Vec<MinimapCell>,
+    minimap_content_rows: u32,
 }
 
 impl TextBuffer {
@@ -367,6 +418,8 @@ impl TextBuffer {
             wants_scroll_delta_y: 0,
 
             gutter_marks: Vec::new(),
+            minimap_cells: Vec::new(),
+            minimap_content_rows: 0,
         })
     }
 
@@ -376,6 +429,24 @@ impl TextBuffer {
 
     pub fn clear_gutter_marks(&mut self) {
         self.gutter_marks.clear();
+    }
+
+    pub fn set_minimap_cells(&mut self, cells: Vec<MinimapCell>, content_rows: u32) {
+        self.minimap_cells = cells;
+        self.minimap_content_rows = content_rows;
+    }
+
+    pub fn clear_minimap_cells(&mut self) {
+        self.minimap_cells.clear();
+        self.minimap_content_rows = 0;
+    }
+
+    pub fn minimap_cells(&self) -> &[MinimapCell] {
+        &self.minimap_cells
+    }
+
+    pub fn minimap_content_rows(&self) -> u32 {
+        self.minimap_content_rows
     }
 
     pub fn gutter_mark(&self, y: CoordType) -> GutterMark {
@@ -2144,6 +2215,42 @@ impl TextBuffer {
         Some(RenderResult { visual_pos_x_max })
     }
 
+    /// Per-source-line dominant `IndexedColor`. Picks the `HighlightKind`
+    /// with the most byte coverage on that line (excluding `Other`) and maps
+    /// it via [`highlight_kind_color`]. Returns an empty Vec if no language
+    /// is set.
+    pub fn dominant_color_per_line(&self) -> Vec<Option<IndexedColor>> {
+        let Some(language) = self.language else {
+            return Vec::new();
+        };
+        let line_count = self.logical_line_count() as usize;
+        let mut out = vec![None; line_count];
+        let mut highlighter = Highlighter::new(&self.buffer, language);
+        for slot in out.iter_mut() {
+            let scratch = scratch_arena(None);
+            let highlights = highlighter.parse_next_line(&scratch);
+            // Tally byte coverage per kind across this line's spans.
+            let mut tally: Vec<(HighlightKind, usize)> = Vec::new();
+            for w in highlights.windows(2) {
+                let kind = w[0].kind;
+                if matches!(kind, HighlightKind::Other) {
+                    continue;
+                }
+                let len = w[1].start.saturating_sub(w[0].start);
+                if let Some(s) = tally.iter_mut().find(|(k, _)| *k == kind) {
+                    s.1 += len;
+                } else {
+                    tally.push((kind, len));
+                }
+            }
+            *slot = tally
+                .into_iter()
+                .max_by_key(|(_, len)| *len)
+                .and_then(|(k, _)| highlight_kind_color(k));
+        }
+        out
+    }
+
     fn render_apply_highlights(
         &mut self,
         origin: Point,
@@ -2194,27 +2301,7 @@ impl TextBuffer {
                 let end = self.cursor_move_to_offset_internal(beg, next.start);
                 cursor = end;
 
-                let color = match curr.kind {
-                    HighlightKind::Other => None,
-                    HighlightKind::Comment => Some(IndexedColor::Green),
-                    HighlightKind::Method => Some(IndexedColor::BrightYellow),
-                    HighlightKind::String => Some(IndexedColor::BrightRed),
-                    HighlightKind::Variable => Some(IndexedColor::BrightCyan),
-                    HighlightKind::ConstantLanguage => Some(IndexedColor::BrightBlue),
-                    HighlightKind::ConstantNumeric => Some(IndexedColor::BrightGreen),
-                    HighlightKind::KeywordControl => Some(IndexedColor::BrightMagenta),
-                    HighlightKind::KeywordOther => Some(IndexedColor::BrightBlue),
-                    HighlightKind::MarkupBold => None,
-                    HighlightKind::MarkupChanged => Some(IndexedColor::BrightBlue),
-                    HighlightKind::MarkupDeleted => Some(IndexedColor::BrightRed),
-                    HighlightKind::MarkupHeading => Some(IndexedColor::BrightBlue),
-                    HighlightKind::MarkupInserted => Some(IndexedColor::BrightGreen),
-                    HighlightKind::MarkupItalic => None,
-                    HighlightKind::MarkupLink => None,
-                    HighlightKind::MarkupList => Some(IndexedColor::BrightBlue),
-                    HighlightKind::MarkupStrikethrough => None,
-                    HighlightKind::MetaHeader => Some(IndexedColor::BrightBlue),
-                };
+                let color = highlight_kind_color(curr.kind);
                 let attr = match curr.kind {
                     HighlightKind::MarkupBold => Some(Attributes::Bold),
                     HighlightKind::MarkupItalic => Some(Attributes::Italic),

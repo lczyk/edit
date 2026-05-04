@@ -19,12 +19,14 @@ pub fn allow_create() -> bool {
 }
 
 use edit::buffer::{RcTextBuffer, TextBuffer};
+use edit::framebuffer::IndexedColor;
 use edit::helpers::{CoordType, Point};
 use edit::lsh::{FILE_ASSOCIATIONS, Language, process_file_associations};
 use edit::{path, sys};
 
 use crate::apperr;
 use crate::gutter_diff::{self, BaselineState};
+use crate::minimap::MinimapState;
 use crate::settings::Settings;
 
 pub struct Document {
@@ -46,6 +48,14 @@ pub struct Document {
     /// Used together with [`Self::gutter_dirty_since`] for debouncing.
     gutter_dirty: bool,
     gutter_dirty_since: Option<std::time::Instant>,
+
+    /// Lazily-built minimap data. Rebuilt under the same dirty/debounce
+    /// rhythm as the gutter.
+    minimap: MinimapState,
+    last_minimap_generation: u32,
+    minimap_dirty: bool,
+    minimap_dirty_since: Option<std::time::Instant>,
+    minimap_target_width: u8,
 }
 
 impl Document {
@@ -88,8 +98,17 @@ impl Document {
             last_gutter_generation: 0,
             gutter_dirty: true,
             gutter_dirty_since: None,
+            minimap: MinimapState::new(),
+            last_minimap_generation: 0,
+            minimap_dirty: true,
+            minimap_dirty_since: None,
+            minimap_target_width: 2,
         };
         doc.apply_path_metadata();
+        // Build the minimap eagerly so the very first frame already has it.
+        // Without this the rail flips in 300ms after open (debounce window),
+        // which reads as "scrollbar shows briefly then snaps to minimap".
+        doc.minimap_refresh();
         Ok(doc)
     }
 
@@ -156,6 +175,65 @@ impl Document {
         tb.set_gutter_marks(marks);
     }
 
+    pub fn minimap_check_dirty(&mut self) {
+        let buf_gen = self.buffer.borrow().generation();
+        if buf_gen != self.last_minimap_generation {
+            self.last_minimap_generation = buf_gen;
+            self.minimap_dirty = true;
+            self.minimap_dirty_since = Some(std::time::Instant::now());
+        }
+    }
+
+    /// Set the desired minimap cell width (0 disables, 1 narrow, 2 wide).
+    /// Marks the minimap dirty if the value changes.
+    pub fn set_minimap_target_width(&mut self, width: u8) {
+        if self.minimap_target_width != width {
+            self.minimap_target_width = width;
+            self.minimap_dirty = true;
+            self.minimap_dirty_since = Some(std::time::Instant::now());
+        }
+    }
+
+    pub fn minimap_should_rebuild(&self, debounce: std::time::Duration) -> bool {
+        self.minimap_dirty && self.minimap_dirty_since.is_some_and(|t| t.elapsed() >= debounce)
+    }
+
+    pub fn minimap_refresh(&mut self) {
+        self.minimap_dirty = false;
+        self.minimap_dirty_since = None;
+        let mut tb = self.buffer.borrow_mut();
+        if self.minimap_target_width == 0 {
+            tb.clear_minimap_cells();
+            self.minimap.cells.clear();
+            return;
+        }
+        let len = tb.text_length();
+        let tab_size = tb.tab_size() as u32;
+        let mut bytes = Vec::with_capacity(len);
+        tb.copy_all_bytes(&mut bytes);
+        self.minimap.rebuild(&bytes, tab_size, self.minimap_target_width);
+        if self.minimap.is_suppressed() || self.minimap.cells.is_empty() {
+            tb.clear_minimap_cells();
+            return;
+        }
+        // Per-line dominant lsh colour, aggregated over each chunk of source
+        // lines that maps to one minimap cell. Skipped only when colour
+        // output is suppressed entirely (`no_color`) or no language is set
+        // (`dominant_color_per_line` returns empty).
+        if !edit::glyphs::no_color() {
+            let per_line = tb.dominant_color_per_line();
+            if !per_line.is_empty() {
+                let chunk = edit::buffer::MINIMAP_SOURCE_ROWS_PER_CELL as usize;
+                for (i, cell) in self.minimap.cells.iter_mut().enumerate() {
+                    let start = i * chunk;
+                    let end = (start + chunk).min(per_line.len());
+                    cell.fg = dominant_in_range(&per_line[start..end]);
+                }
+            }
+        }
+        tb.set_minimap_cells(self.minimap.cells.clone(), self.minimap.content_rows);
+    }
+
     fn apply_path_metadata(&mut self) {
         self.buffer.borrow_mut().set_ruler(if self.filename == "COMMIT_EDITMSG" { 72 } else { 0 });
         self.update_language();
@@ -190,6 +268,18 @@ impl Document {
 
         None
     }
+}
+
+fn dominant_in_range(slice: &[Option<IndexedColor>]) -> Option<IndexedColor> {
+    let mut tally: Vec<(IndexedColor, usize)> = Vec::new();
+    for c in slice.iter().flatten().copied() {
+        if let Some(s) = tally.iter_mut().find(|(k, _)| *k as u8 == c as u8) {
+            s.1 += 1;
+        } else {
+            tally.push((c, 1));
+        }
+    }
+    tally.into_iter().max_by_key(|(_, n)| *n).map(|(c, _)| c)
 }
 
 fn create_buffer() -> apperr::Result<RcTextBuffer> {

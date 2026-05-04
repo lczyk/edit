@@ -10,6 +10,7 @@ mod git;
 mod gutter_diff;
 mod keybindings;
 mod linediff;
+mod minimap;
 mod settings;
 mod state;
 
@@ -122,6 +123,7 @@ fn run() -> apperr::Result<()> {
     sys::inject_window_size_into_stdin();
 
     const GUTTER_REDIFF_DEBOUNCE: Duration = Duration::from_millis(300);
+    const MINIMAP_REBUILD_DEBOUNCE: Duration = Duration::from_millis(300);
 
     loop {
         // Process a batch of input.
@@ -175,6 +177,16 @@ fn run() -> apperr::Result<()> {
         state.document.gutter_check_dirty();
         if state.document.gutter_should_rebuild(GUTTER_REDIFF_DEBOUNCE) {
             state.document.gutter_refresh();
+        }
+
+        // Skip width updates until a real size is known -- the initial
+        // {0,0} would compute width=0 and hide the rail until next resize.
+        if tui.size().width > 0 {
+            state.document.set_minimap_target_width(desired_minimap_width(tui.size().width));
+        }
+        state.document.minimap_check_dirty();
+        if state.document.minimap_should_rebuild(MINIMAP_REBUILD_DEBOUNCE) {
+            state.document.minimap_refresh();
         }
 
         // Render the UI and write it to the terminal.
@@ -511,6 +523,21 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
     }
 
     ctx.needs_rerender();
+}
+
+/// Pick minimap cell width for a terminal `terminal_width` cells wide. 0
+/// disables the rail (terminal too narrow); same thresholds apply in both
+/// unicode and ascii-quirk modes.
+fn desired_minimap_width(terminal_width: CoordType) -> u8 {
+    const NARROW_FLOOR: CoordType = 30;
+    const TWO_CELL_THRESHOLD: CoordType = 60;
+    if terminal_width < NARROW_FLOOR {
+        return 0;
+    }
+    if terminal_width < TWO_CELL_THRESHOLD {
+        return 1;
+    }
+    2
 }
 
 fn small_jump(tb: &mut edit::buffer::TextBuffer, delta: CoordType) {
