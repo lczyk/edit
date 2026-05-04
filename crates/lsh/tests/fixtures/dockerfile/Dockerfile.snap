@@ -1,0 +1,40 @@
+   1 comment                # Build stage
+   2 other                  FROM debian:bookworm-slim AS build
+   4 other                  ARG VERSION=
+   4 constant.numeric       1
+   4 other                  .
+   4 constant.numeric       0
+   5 other                  ENV APP_HOME=/srv/app
+   6 other                  WORKDIR 
+   6 variable               ${APP_HOME}
+   8 other                  RUN apt-get update \\
+   9 other                      && apt-get install -y 
+   9 keyword.other          --no-install-recommends
+   9 other                   ca-certificates \\
+  10 other                      && rm -rf /var/lib/apt/lists/*
+  12 other                  COPY . .
+  13 other                  RUN ./build.sh
+  15 comment                # Runtime stage
+  16 other                  FROM debian:bookworm-slim
+  17 other                  LABEL org.opencontainers.image.version=
+  17 string                 "
+  17 variable               ${VERSION}
+  17 string                 "
+  18 other                  EXPOSE 
+  18 constant.numeric       8080
+  19 other                  USER 
+  19 constant.numeric       1000
+  19 other                  :
+  19 constant.numeric       1000
+  20 other                  HEALTHCHECK 
+  20 keyword.other          --interval
+  20 other                  =30s CMD curl -f http://localhost:
+  20 constant.numeric       8080
+  20 other                  / || exit 
+  20 constant.numeric       1
+  21 other                  ENTRYPOINT [
+  21 string                 "/srv/app/run"
+  21 other                  ]
+  22 other                  CMD [
+  22 string                 "--serve"
+  22 other                  ]

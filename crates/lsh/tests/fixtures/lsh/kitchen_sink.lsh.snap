@@ -1,0 +1,49 @@
+   1 comment                // LSH definition example
+   2 other                  #[display_name = 
+   2 string                 "Demo"
+   2 other                  ]
+   3 other                  #[line_comment = 
+   3 string                 "#"
+   3 other                  ]
+   4 other                  #[path = 
+   4 string                 "**/*.demo"
+   4 other                  ]
+   5 keyword.other          pub
+   5 other                   
+   5 keyword.other          fn
+   5 other                   demo() {
+   6 other                      
+   6 keyword.control        until
+   6 other                   
+   6 string                 /$/
+   6 other                   {
+   7 other                          
+   7 keyword.other          yield
+   7 other                   
+   7 markup.link            other
+   7 other                  ;
+   9 other                          
+   9 keyword.control        if
+   9 other                   
+   9 string                 /#.*/
+   9 other                   {
+  10 other                              
+  10 keyword.other          yield
+  10 other                   
+  10 markup.link            comment
+  10 other                  ;
+  11 other                          } 
+  11 keyword.control        else
+  11 other                   
+  11 keyword.control        if
+  11 other                   
+  11 string                 /\\d+/
+  11 other                   {
+  12 other                              
+  12 keyword.other          yield
+  12 other                   
+  12 markup.link            constant.numeric
+  12 other                  ;
+  13 other                          }
+  14 other                      }
+  15 other                  }

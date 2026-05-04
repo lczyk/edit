@@ -1,0 +1,190 @@
+   1 other                  <!
+   1 constant.language      DOCTYPE
+   1 other                   html>
+   2 other                  <
+   2 constant.language      html
+   2 other                   
+   2 variable               lang
+   2 other                  =
+   2 string                 "en"
+   2 other                  >
+   4 other                  <
+   4 constant.language      head
+   4 other                  >
+   5 other                      <
+   5 constant.language      meta
+   5 other                   
+   5 variable               charset
+   5 other                  =
+   5 string                 "UTF-8"
+   5 other                  >
+   6 other                      <
+   6 constant.language      meta
+   6 other                   
+   6 variable               name
+   6 other                  =
+   6 string                 "viewport"
+   6 other                   
+   6 variable               content
+   6 other                  =
+   6 string                 "width=device-width, initial-scale=1.0"
+   6 other                  >
+   7 other                      <
+   7 constant.language      title
+   7 other                  >HTML Syntax Test 
+   7 constant.numeric       &amp;
+   7 other                   Demo</
+   7 constant.language      title
+   7 other                  >
+   8 other                      
+   8 comment                <!-- Comment with special chars: <>&"' -->
+   9 other                      <
+   9 constant.language      style
+   9 other                  >
+  10 other                          body {
+  11 other                              margin: 0;
+  12 other                              padding: 20px;
+  13 other                          }
+  15 other                          .test {
+  16 other                              color: #ff0000;
+  17 other                          }
+  18 other                      </
+  18 constant.language      style
+  18 other                  >
+  19 other                  </
+  19 constant.language      head
+  19 other                  >
+  21 other                  <
+  21 constant.language      body
+  21 other                  >
+  22 other                      <
+  22 constant.language      h1
+  22 other                   
+  22 variable               id
+  22 other                  =
+  22 string                 "main"
+  22 other                   
+  22 variable               class
+  22 other                  =
+  22 string                 'header'
+  22 other                   
+  22 variable               data-value
+  22 other                  =
+  22 string                 "123"
+  22 other                  >Heading</
+  22 constant.language      h1
+  22 other                  >
+  24 other                      
+  24 comment                <!-- Various elements -->
+  25 other                      <
+  25 constant.language      p
+  25 other                  >Text with 
+  25 constant.numeric       &lt;
+  25 other                   
+  25 constant.numeric       &gt;
+  25 other                   
+  25 constant.numeric       &amp;
+  25 other                   
+  25 constant.numeric       &quot;
+  25 other                   
+  25 constant.numeric       &apos;
+  25 other                   
+  25 constant.numeric       &#65;
+  25 other                   
+  25 constant.numeric       &#x41;
+  25 other                   entities</
+  25 constant.language      p
+  25 other                  >
+  26 other                      <
+  26 constant.language      br
+  26 other                   />
+  27 other                      <
+  27 constant.language      hr
+  27 other                  >
+  28 other                      <
+  28 constant.language      img
+  28 other                   
+  28 variable               src
+  28 other                  =
+  28 string                 "image.png"
+  28 other                   
+  28 variable               alt
+  28 other                  =
+  28 string                 "Description"
+  28 other                   />
+  30 other                      
+  30 comment                <!-- Attributes -->
+  31 other                      <
+  31 constant.language      input
+  31 other                   
+  31 variable               type
+  31 other                  =
+  31 string                 "text"
+  31 other                   disabled required 
+  31 variable               value
+  31 other                  =
+  31 string                 ""
+  31 other                   
+  31 variable               data-custom
+  31 other                  =
+  31 string                 "attr"
+  31 other                  >
+  32 other                      <
+  32 constant.language      button
+  32 other                   
+  32 variable               onclick
+  32 other                  =
+  32 string                 "test()"
+  32 other                  >Click</
+  32 constant.language      button
+  32 other                  >
+  34 other                      
+  34 comment                <!-- Nested elements -->
+  35 other                      <
+  35 constant.language      div
+  35 other                  >
+  36 other                          <
+  36 constant.language      span
+  36 other                  >Inline <
+  36 constant.language      strong
+  36 other                  >bold</
+  36 constant.language      strong
+  36 other                  > text</
+  36 constant.language      span
+  36 other                  >
+  37 other                          <
+  37 constant.language      ul
+  37 other                  >
+  38 other                              <
+  38 constant.language      li
+  38 other                  >Item 1</
+  38 constant.language      li
+  38 other                  >
+  39 other                              <
+  39 constant.language      li
+  39 other                  >Item 2</
+  39 constant.language      li
+  39 other                  >
+  40 other                          </
+  40 constant.language      ul
+  40 other                  >
+  41 other                      </
+  41 constant.language      div
+  41 other                  >
+  43 other                      
+  43 comment                <!-- Script -->
+  44 other                      <
+  44 constant.language      script
+  44 other                  >
+  45 other                          function test() {
+  46 other                              return x < 10 && y > 5;
+  47 other                          }
+  48 other                      </
+  48 constant.language      script
+  48 other                  >
+  49 other                  </
+  49 constant.language      body
+  49 other                  >
+  51 other                  </
+  51 constant.language      html
+  51 other                  >

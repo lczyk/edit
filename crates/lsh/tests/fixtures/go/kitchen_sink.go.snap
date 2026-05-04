@@ -1,0 +1,83 @@
+   1 comment                // Line comment
+   2 comment                /* block comment */
+   4 keyword.other          package
+   4 other                   main
+   6 keyword.other          import
+   6 other                   (
+   7 other                      
+   7 string                 "fmt"
+   8 other                      
+   8 string                 "strings"
+   9 other                  )
+  11 keyword.other          const
+  11 other                   MAX = 
+  11 constant.numeric       42
+  13 keyword.other          type
+  13 other                   Point 
+  13 keyword.other          struct
+  13 other                   {
+  14 other                      Name  
+  14 keyword.other          string
+  15 other                      Value 
+  15 keyword.other          float64
+  16 other                  }
+  18 keyword.other          func
+  18 other                   
+  18 method                 main
+  18 other                  () {
+  19 other                      s := 
+  19 string                 "hello"
+  20 other                      raw := 
+  20 string                 `raw string`
+  21 other                      r := 
+  21 string                 'x'
+  22 other                      n := 
+  22 constant.numeric       0xff
+  23 other                      xs := []
+  23 keyword.other          int
+  23 other                  {
+  23 constant.numeric       1
+  23 other                  , 
+  23 constant.numeric       2
+  23 other                  , 
+  23 constant.numeric       3
+  23 other                  }
+  25 other                      
+  25 keyword.control        for
+  25 other                   i, v := 
+  25 keyword.control        range
+  25 other                   xs {
+  26 other                          
+  26 keyword.control        if
+  26 other                   v == 
+  26 constant.numeric       0
+  26 other                   {
+  27 other                              
+  27 keyword.control        continue
+  28 other                          }
+  29 other                          fmt.
+  29 method                 Println
+  29 other                  (i, v, strings.
+  29 method                 ToUpper
+  29 other                  (s), raw, r, n)
+  30 other                      }
+  32 other                      
+  32 keyword.control        switch
+  32 other                   n {
+  33 other                      
+  33 keyword.control        case
+  33 other                   
+  33 constant.numeric       0
+  33 other                  :
+  34 other                          
+  34 keyword.control        return
+  35 other                      
+  35 keyword.control        default
+  35 other                  :
+  36 other                          fmt.
+  36 method                 Println
+  36 other                  (
+  36 string                 "default"
+  36 other                  )
+  37 other                      }
+  38 other                  }

@@ -1,0 +1,312 @@
+   1 comment                # Comments
+   2 comment                # Single-line comment
+   4 comment                # Numbers
+   5 constant.numeric       42
+   6 constant.numeric       3.14
+   7 constant.numeric       .5
+   8 constant.numeric       1e10
+   9 constant.numeric       1.5e-3
+  10 constant.numeric       0xff
+  11 constant.numeric       0xFF
+  12 constant.numeric       0b1010
+  13 constant.numeric       0o77
+  14 constant.numeric       1_000_000
+  15 constant.numeric       3.14j
+  17 comment                # Constants
+  18 constant.language      True
+  19 constant.language      False
+  20 constant.language      None
+  22 comment                # Strings
+  23 string                 'single quotes: \\' \\n \\t \\\\'
+  24 string                 "double quotes: \\" \\n \\t \\\\"
+  26 comment                # Control flow keywords
+  27 keyword.control        if
+  27 other                   
+  27 constant.language      True
+  27 other                  :
+  28 other                      
+  28 keyword.control        pass
+  29 keyword.control        elif
+  29 other                   
+  29 constant.language      False
+  29 other                  :
+  30 other                      
+  30 keyword.control        pass
+  31 keyword.control        else
+  31 other                  :
+  32 other                      
+  32 keyword.control        pass
+  34 keyword.control        for
+  34 other                   i 
+  34 keyword.other          in
+  34 other                   
+  34 method                 range
+  34 other                  (
+  34 constant.numeric       10
+  34 other                  ):
+  35 other                      
+  35 keyword.control        if
+  35 other                   i == 
+  35 constant.numeric       5
+  35 other                  :
+  36 other                          
+  36 keyword.control        continue
+  37 other                      
+  37 keyword.control        if
+  37 other                   i == 
+  37 constant.numeric       8
+  37 other                  :
+  38 other                          
+  38 keyword.control        break
+  40 keyword.control        while
+  40 other                   
+  40 constant.language      False
+  40 other                  :
+  41 other                      
+  41 keyword.control        pass
+  43 keyword.control        match
+  43 other                   
+  43 constant.numeric       42
+  43 other                  :
+  44 other                      
+  44 keyword.control        case
+  44 other                   
+  44 constant.numeric       1
+  44 other                  :
+  45 other                          
+  45 keyword.control        pass
+  46 other                      
+  46 keyword.control        case
+  46 other                   
+  46 constant.numeric       _
+  46 other                  :
+  47 other                          
+  47 keyword.control        pass
+  49 keyword.control        try
+  49 other                  :
+  50 other                      
+  50 keyword.control        raise
+  50 other                   
+  50 method                 ValueError
+  50 other                  (
+  50 string                 "oops"
+  50 other                  )
+  51 keyword.control        except
+  51 other                   ValueError 
+  51 keyword.other          as
+  51 other                   e:
+  52 other                      
+  52 keyword.control        pass
+  53 keyword.control        finally
+  53 other                  :
+  54 other                      
+  54 keyword.control        pass
+  56 keyword.control        with
+  56 other                   
+  56 method                 open
+  56 other                  (
+  56 string                 "/dev/null"
+  56 other                  ) 
+  56 keyword.other          as
+  56 other                   f:
+  57 other                      
+  57 keyword.control        pass
+  59 keyword.control        return
+  59 other                    
+  59 comment                # (only valid inside a function)
+  61 comment                # Triple-quoted strings
+  62 string                 """
+  63 string                 Multi-line
+  64 string                 docstring (double quotes)
+  65 string                 """
+  67 string                 '''
+  68 string                 Multi-line
+  69 string                 string (single quotes)
+  70 string                 '''
+  72 comment                # Prefixed strings (f, r, b)
+  73 other                  f
+  73 string                 "f-string: {1 + 2}"
+  74 other                  r
+  74 string                 "raw string: \\n is literal"
+  75 other                  b
+  75 string                 "byte string"
+  77 comment                # Decorators
+  78 markup.link            @staticmethod
+  79 keyword.other          def
+  79 other                   
+  79 method                 helper
+  79 other                  ():
+  80 other                      
+  80 keyword.control        pass
+  82 markup.link            @property
+  83 keyword.other          def
+  83 other                   
+  83 method                 name
+  83 other                  (self):
+  84 other                      
+  84 keyword.control        return
+  84 other                   self._name
+  86 markup.link            @custom_decorator
+  87 keyword.other          def
+  87 other                   
+  87 method                 decorated
+  87 other                  ():
+  88 other                      
+  88 keyword.control        pass
+  90 comment                # Other keywords (some are contextually reserved)
+  91 keyword.other          import
+  91 other                   os
+  92 keyword.other          from
+  92 other                   os 
+  92 keyword.other          import
+  92 other                   path
+  93 keyword.other          import
+  93 other                   sys 
+  93 keyword.other          as
+  93 other                   system
+  95 keyword.other          def
+  95 other                   
+  95 method                 greet
+  95 other                  (name):
+  96 other                      
+  96 keyword.control        return
+  96 other                   
+  96 string                 "Hello, "
+  96 other                   + name
+  98 keyword.other          async
+  98 other                   
+  98 keyword.other          def
+  98 other                   
+  98 method                 fetch_data
+  98 other                  ():
+  99 other                      result = 
+  99 keyword.other          await
+  99 other                   
+  99 method                 some_coroutine
+  99 other                  ()
+ 100 other                      
+ 100 keyword.control        return
+ 100 other                   result
+ 102 keyword.other          class
+ 102 other                   Animal:
+ 103 other                      count = 
+ 103 constant.numeric       0
+ 105 other                      
+ 105 keyword.other          def
+ 105 other                   __init__(self, name):
+ 106 other                          self.name = name
+ 107 other                          Animal.count += 
+ 107 constant.numeric       1
+ 109 other                      
+ 109 keyword.other          def
+ 109 other                   
+ 109 method                 speak
+ 109 other                  (self):
+ 110 other                          
+ 110 keyword.control        return
+ 110 other                   f
+ 110 string                 "{self.name} speaks"
+ 112 keyword.other          class
+ 112 other                   
+ 112 method                 Dog
+ 112 other                  (Animal):
+ 113 other                      
+ 113 keyword.control        pass
+ 115 keyword.other          lambda
+ 115 other                   x: x + 
+ 115 constant.numeric       1
+ 117 other                  x = 
+ 117 constant.numeric       1
+ 118 keyword.other          del
+ 118 other                   x
+ 119 keyword.other          assert
+ 119 other                   
+ 119 constant.language      True
+ 120 keyword.other          not
+ 120 other                   
+ 120 constant.language      False
+ 121 constant.language      True
+ 121 other                   
+ 121 keyword.other          and
+ 121 other                   
+ 121 constant.language      False
+ 122 constant.language      True
+ 122 other                   
+ 122 keyword.other          or
+ 122 other                   
+ 122 constant.language      False
+ 123 constant.numeric       1
+ 123 other                   
+ 123 keyword.other          is
+ 123 other                   
+ 123 constant.numeric       1
+ 124 constant.numeric       1
+ 124 other                   
+ 124 keyword.other          is
+ 124 other                   
+ 124 keyword.other          not
+ 124 other                   
+ 124 constant.numeric       2
+ 125 constant.numeric       1
+ 125 other                   
+ 125 keyword.other          in
+ 125 other                   [
+ 125 constant.numeric       1
+ 125 other                  , 
+ 125 constant.numeric       2
+ 125 other                  ]
+ 127 keyword.other          global
+ 127 other                   _g
+ 128 keyword.other          nonlocal
+ 128 other                    
+ 128 comment                # (only valid inside nested function)
+ 130 keyword.other          def
+ 130 other                   
+ 130 method                 gen
+ 130 other                  ():
+ 131 other                      
+ 131 keyword.other          yield
+ 131 other                   
+ 131 constant.numeric       1
+ 132 other                      
+ 132 keyword.other          yield
+ 132 other                   
+ 132 keyword.other          from
+ 132 other                   [
+ 132 constant.numeric       2
+ 132 other                  , 
+ 132 constant.numeric       3
+ 132 other                  ]
+ 134 keyword.other          type
+ 134 other                   Alias = int
+ 136 comment                # Function calls
+ 137 method                 print
+ 137 other                  (
+ 137 string                 "hello"
+ 137 other                  )
+ 138 method                 len
+ 138 other                  ([
+ 138 constant.numeric       1
+ 138 other                  , 
+ 138 constant.numeric       2
+ 138 other                  , 
+ 138 constant.numeric       3
+ 138 other                  ])
+ 139 method                 list
+ 139 other                  (
+ 139 method                 range
+ 139 other                  (
+ 139 constant.numeric       10
+ 139 other                  ))
+ 140 method                 greet
+ 140 other                  (
+ 140 string                 "world"
+ 140 other                  )
+ 141 method                 int
+ 141 other                  (
+ 141 string                 "42"
+ 141 other                  )
+ 142 string                 "hello"
+ 142 other                  .
+ 142 method                 upper
+ 142 other                  ()

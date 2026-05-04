@@ -1,0 +1,183 @@
+   1 markup.heading         # H1
+   3 markup.heading         ## H2
+   5 markup.heading         ### H3
+   7 markup.heading         #### H4
+   9 markup.heading         ##### H5
+  11 markup.heading         ###### H6
+  13 other                  regular
+  14 markup.italic          *italic*
+  15 markup.italic          _italic_
+  16 markup.bold            **bold**
+  17 markup.bold            __bold__
+  18 markup.bold            ***bold italic**
+  18 other                  *
+  19 markup.bold            **_bold italic_**
+  20 markup.bold            __*bold italic*__
+  21 markup.strikethrough   ~~strikethrough~~
+  22 string                 `inline code`
+  23 string                 `` `literal` ``
+  24 other                  \\*not\\* \\_italic\\_ # not a heading
+  26 markup.list            * 
+  26 other                  Unordered item
+  27 other                    
+  27 markup.list            - 
+  27 other                  Nested item
+  28 markup.list                * 
+  28 other                  Third level
+  29 markup.list            * 
+  29 other                  Task list:
+  30 other                    
+  30 markup.list            * 
+  30 other                  [
+  30 string                  
+  30 other                  ] To do
+  31 other                    
+  31 markup.list            * 
+  31 other                  [
+  31 string                 x
+  31 other                  ] Done
+  32 other                    
+  32 markup.list            * 
+  32 other                  [
+  32 string                  
+  32 other                  ] 
+  32 markup.italic          *Mixed*
+  32 other                   
+  32 markup.bold            **formatting**
+  32 other                   with 
+  32 string                 `code`
+  33 other                  1. Ordered can start anywhere
+  34 other                  2. \xe2\x80\xa6like here (intentional)
+  35 other                     1. Nested ordered
+  36 other                     2. Multiple paragraphs within a list item:
+  37 other                        Still the same item.
+  39 comment                > A single-level quote
+  40 comment                >
+  41 comment                > > A nested quote with **bold** and `code`
+  42 comment                >
+  43 comment                > * List in a quote
+  44 comment                > * [Link in quote](#links)
+  46 other                  Inline: [
+  46 string                 Example
+  46 other                  ](
+  46 markup.link            https://example.com
+  46 other                   
+  46 string                 "Example Title"
+  46 other                  )
+  47 other                  Reference: [
+  47 string                 Ref Link
+  47 other                  ][
+  47 string                 ref
+  47 other                  ] and [
+  47 string                 Another
+  47 other                  ][
+  47 string                 another-ref
+  47 other                  ]
+  48 other                  Relative: [
+  48 string                 This section
+  48 other                  ](
+  48 markup.link            #tables
+  48 other                  )
+  49 other                  Footnote: [
+  49 string                 ^note
+  49 other                  ]
+  50 other                  [
+  50 string                 ref
+  50 other                  ]: https://example.com
+  51 other                  [
+  51 string                 another-ref
+  51 other                  ]: https://github.com
+  52 other                  [
+  52 string                 ^note
+  52 other                  ]: This is a footnote with 
+  52 markup.bold            **formatting**
+  52 other                   and a [
+  52 string                 link
+  52 other                  ](
+  52 markup.link            https://github.com
+  52 other                  ).
+  54 other                  Inline: ![
+  54 string                 Alt text
+  54 other                  ](
+  54 markup.link            https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+  54 other                   
+  54 string                 "GitHub Mark"
+  54 other                  )
+  55 other                  Reference: ![
+  55 string                 Logo
+  55 other                  ][
+  55 string                 logo-ref
+  55 other                  ]
+  56 other                  [
+  56 string                 logo-ref
+  56 other                  ]: https://github.githubassets.com/images/modules/logos_page/GitHub-Logo.png "GitHub Logo"
+  58 other                  | Left        |   Center   | Right |
+  59 other                  | :---------- | :--------: | ----: |
+  60 other                  | 
+  60 markup.italic          *italic*
+  60 other                      |   
+  60 string                 `code`
+  60 other                     |   123 |
+  61 other                  | 
+  61 markup.bold            **bold**
+  61 other                      | 
+  61 markup.strikethrough   ~~strike~~
+  61 other                   |  4.56 |
+  62 other                  | [
+  62 string                 link
+  62 other                  ][
+  62 string                 ref
+  62 other                  ] |   :tada:   | 
+  62 string                 `end`
+  62 other                   |
+  64 other                  ```bash
+  65 comment                # Shell
+  66 other                  echo 
+  66 string                 "Hello, world"
+  66 other                   | tr a-z A-Z
+  67 other                  ```
+  69 other                  ```javascript
+  70 keyword.other          export
+  70 other                   
+  70 keyword.other          function
+  70 other                   
+  70 method                 greet
+  70 other                  (name) {
+  71 other                    
+  71 keyword.control        return
+  71 other                   
+  71 string                 `hello ${name}`
+  71 other                  ;
+  72 other                  }
+  73 other                  ```
+  75 other                  ```json
+  76 other                  {
+  77 other                    
+  77 string                 "name"
+  77 other                  : 
+  77 string                 "gfm-kitchen-sink"
+  77 other                  ,
+  78 other                    
+  78 string                 "private"
+  78 other                  : 
+  78 constant.language      true
+  78 other                  ,
+  79 other                    
+  79 string                 "scripts"
+  79 other                  : { 
+  79 string                 "test"
+  79 other                  : 
+  79 string                 "echo ok"
+  79 other                   }
+  80 other                  }
+  81 other                  ```
+  83 other                  ```python
+  84 keyword.other          def
+  84 other                   
+  84 method                 greet
+  84 other                  (name: str) -> str:
+  85 other                      
+  85 keyword.control        return
+  85 other                   f
+  85 string                 "hello {name}"
+  86 other                  ```

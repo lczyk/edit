@@ -1,0 +1,64 @@
+   1 other                  lsh: flip legacy flag, add follow-up hook & diff test
+   3 other                  Refactors placeholder logic and introduces a lightweight follow-up hook.
+   4 other                  Adds diff highlighting test and removes outdated asset to streamline visuals.
+   6 comment                # Please enter the commit message for your changes. Lines starting
+   7 comment                # with '#' will be ignored, and an empty message aborts the commit.
+   8 comment                #
+   9 comment                # On branch foobar
+  10 comment                # Your branch is up to date with 'origin/foobar'.
+  11 comment                #
+  12 comment                # Changes to be committed:
+  13 comment                #\t
+  13 markup.changed         renamed:    foo.rs -> bar.rs
+  14 comment                #\t
+  14 markup.changed         modified:   src/lsh/definitions.rs
+  15 comment                #\t
+  15 markup.deleted         deleted:    assets/old_logo.svg
+  16 comment                #\t
+  16 markup.inserted        new file:   baz.rs
+  17 comment                #
+  18 comment                # ------------------------ >8 ------------------------
+  19 comment                # Do not modify or remove the line above.
+  20 comment                # Everything below it will be ignored.
+  21 meta.header            diff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs
+  22 other                  index a1b2c3d..d4c3b2a 100644
+  23 meta.header            --- a/src/lsh/definitions.rs
+  24 meta.header            +++ b/src/lsh/definitions.rs
+  25 other                  @@ -12,9 +12,11 @@ // context line 12
+  26 other                   // context line 13
+  27 markup.deleted         -// old placeholder logic A
+  28 markup.deleted         -const LEGACY_FLAG: bool = true;
+  29 markup.deleted         -// end legacy block
+  30 markup.inserted        +// updated placeholder logic A
+  31 markup.inserted        +const LEGACY_FLAG: bool = false; // flipped for test
+  32 markup.inserted        +// added note: migration in progress
+  33 markup.inserted        +// end legacy block
+  34 other                   // context line 19
+  35 other                   // context line 20
+  36 other                  @@ -42,7 +44,12 @@ // context line 42
+  37 other                   // context line 43
+  38 markup.deleted         -    do_placeholder_action(alpha, beta);
+  39 markup.inserted        +    // Split actions for clarity
+  40 markup.inserted        +    do_placeholder_prepare(alpha);
+  41 markup.inserted        +    do_placeholder_action(alpha, beta);
+  42 markup.inserted        +    if (enable_extra()) {
+  43 markup.inserted        +        do_placeholder_followup(beta);
+  44 markup.inserted        +    }
+  45 other                   // context line 50
+  46 other                   // context line 51
+  47 other                   // context line 52
+  48 other                  @@ -90,6 +97,15 @@ // context line 90
+  49 other                   // context line 91
+  50 other                   // context line 92
+  51 markup.inserted        +/// Added lightweight fake helper
+  52 markup.inserted        +fn enable_extra() -> bool {
+  53 markup.inserted        +    // Pretend this consults a config value
+  54 markup.inserted        +    true
+  55 markup.inserted        +}
+  56 markup.inserted        +
+  57 markup.inserted        +// Temporary debug instrumentation (to be removed)
+  58 markup.inserted        +const _DEBUG_HOOK: &str = "lsh:extra";
+  59 markup.inserted        +
+  60 other                   // context line 93
+  61 other                   // context line 94
+  62 other                   // context line 95

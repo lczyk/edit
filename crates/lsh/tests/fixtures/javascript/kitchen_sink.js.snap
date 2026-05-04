@@ -1,0 +1,305 @@
+   1 comment                // Comments
+   2 comment                // Single-line comment
+   4 comment                /*
+   5 comment                 * Multi-line
+   6 comment                 * comment
+   7 comment                 */
+   9 comment                // Numbers
+  10 constant.numeric       42
+  10 other                  ;
+  11 constant.numeric       3.14
+  11 other                  ;
+  12 constant.numeric       .5
+  12 other                  ;
+  13 constant.numeric       1e10
+  13 other                  ;
+  14 constant.numeric       1.5e-3
+  14 other                  ;
+  15 constant.numeric       0xff
+  15 other                  ;
+  16 constant.numeric       0xFF
+  16 other                  ;
+  17 constant.numeric       0b1010
+  17 other                  ;
+  18 constant.numeric       0o77
+  18 other                  ;
+  19 constant.numeric       1_000_000
+  19 other                  ;
+  20 constant.numeric       42n
+  20 other                  ;
+  22 comment                // Constants
+  23 constant.language      true
+  23 other                  ;
+  24 constant.language      false
+  24 other                  ;
+  25 constant.language      null
+  25 other                  ;
+  26 constant.language      undefined
+  26 other                  ;
+  27 constant.language      NaN
+  27 other                  ;
+  28 constant.language      Infinity
+  28 other                  ;
+  30 comment                // Strings
+  31 string                 'single quotes with escape: \\' \\n \\t \\\\'
+  31 other                  ;
+  32 string                 "double quotes with escape: \\" \\n \\t \\\\"
+  32 other                  ;
+  34 comment                // Control flow keywords
+  35 keyword.control        if
+  35 other                   (
+  35 constant.language      true
+  35 other                  ) {
+  36 other                  } 
+  36 keyword.control        else
+  36 other                   
+  36 keyword.control        if
+  36 other                   (
+  36 constant.language      false
+  36 other                  ) {
+  37 other                  } 
+  37 keyword.control        else
+  37 other                   {
+  38 other                  }
+  40 keyword.control        for
+  40 other                   (
+  40 keyword.other          let
+  40 other                   i = 
+  40 constant.numeric       0
+  40 other                  ; i < 
+  40 constant.numeric       10
+  40 other                  ; i++) {
+  41 other                    
+  41 keyword.control        if
+  41 other                   (i === 
+  41 constant.numeric       5
+  41 other                  ) 
+  41 keyword.control        continue
+  41 other                  ;
+  42 other                    
+  42 keyword.control        if
+  42 other                   (i === 
+  42 constant.numeric       8
+  42 other                  ) 
+  42 keyword.control        break
+  42 other                  ;
+  43 other                  }
+  45 keyword.control        while
+  45 other                   (
+  45 constant.language      false
+  45 other                  ) { }
+  46 keyword.control        do
+  46 other                   { } 
+  46 keyword.control        while
+  46 other                   (
+  46 constant.language      false
+  46 other                  );
+  48 keyword.control        switch
+  48 other                   (
+  48 constant.numeric       42
+  48 other                  ) {
+  49 other                    
+  49 keyword.control        case
+  49 other                   
+  49 constant.numeric       1
+  49 other                  : 
+  49 keyword.control        break
+  49 other                  ;
+  50 other                    
+  50 keyword.control        default
+  50 other                  : 
+  50 keyword.control        break
+  50 other                  ;
+  51 other                  }
+  53 keyword.control        try
+  53 other                   {
+  54 other                    
+  54 keyword.control        throw
+  54 other                   
+  54 keyword.other          new
+  54 other                   
+  54 method                 Error
+  54 other                  (
+  54 string                 "oops"
+  54 other                  );
+  55 other                  } 
+  55 keyword.control        catch
+  55 other                   (e) {
+  56 other                  } 
+  56 keyword.control        finally
+  56 other                   {
+  57 other                  }
+  59 keyword.control        debugger
+  59 other                  ;
+  61 comment                // Template literals
+  62 string                 `template literal: ${1 + 2} and ${greet("world")}`
+  62 other                  ;
+  63 string                 `multi
+  64 string                 line
+  65 string                 template`
+  65 other                  ;
+  67 comment                // Other keywords (some are contextually reserved)
+  68 keyword.other          var
+  68 other                   a = 
+  68 constant.numeric       1
+  68 other                  ;
+  69 keyword.other          let
+  69 other                   b = 
+  69 constant.numeric       2
+  69 other                  ;
+  70 keyword.other          const
+  70 other                   c = 
+  70 constant.numeric       3
+  70 other                  ;
+  72 keyword.other          function
+  72 other                   
+  72 method                 greet
+  72 other                  (name) {
+  73 other                    
+  73 keyword.control        return
+  73 other                   
+  73 string                 "Hello, "
+  73 other                   + name;
+  74 other                  }
+  76 keyword.other          async
+  76 other                   
+  76 keyword.other          function
+  76 other                   
+  76 method                 fetchData
+  76 other                  () {
+  77 other                    
+  77 keyword.other          const
+  77 other                   result = 
+  77 keyword.other          await
+  77 other                   
+  77 method                 fetch
+  77 other                  (
+  77 string                 "/api"
+  77 other                  );
+  78 other                    
+  78 keyword.control        return
+  78 other                   result;
+  79 other                  }
+  81 keyword.other          function
+  81 other                  * 
+  81 method                 gen
+  81 other                  () {
+  82 other                    
+  82 keyword.other          yield
+  82 other                   
+  82 constant.numeric       1
+  82 other                  ;
+  83 other                    
+  83 keyword.other          yield
+  83 other                   
+  83 constant.numeric       2
+  83 other                  ;
+  84 other                  }
+  86 keyword.other          class
+  86 other                   Animal 
+  86 keyword.other          extends
+  86 other                   Object {
+  87 other                    
+  87 keyword.other          static
+  87 other                   count = 
+  87 constant.numeric       0
+  87 other                  ;
+  89 other                    
+  89 method                 constructor
+  89 other                  (name) {
+  90 other                      
+  90 keyword.other          super
+  90 other                  ();
+  91 other                      
+  91 keyword.other          this
+  91 other                  .name = name;
+  92 other                      Animal.count++;
+  93 other                    }
+  95 other                    
+  95 method                 speak
+  95 other                  () {
+  96 other                      
+  96 keyword.control        return
+  96 other                   
+  96 string                 `${this.name} speaks`
+  96 other                  ;
+  97 other                    }
+  98 other                  }
+ 100 keyword.other          const
+ 100 other                   obj = { a: 
+ 100 constant.numeric       1
+ 100 other                   };
+ 101 keyword.other          delete
+ 101 other                   obj.a;
+ 102 keyword.other          typeof
+ 102 other                   obj;
+ 103 keyword.other          void
+ 103 other                   
+ 103 constant.numeric       0
+ 103 other                  ;
+ 104 string                 "a"
+ 104 other                   instanceof Object;
+ 105 string                 "a"
+ 105 other                   
+ 105 keyword.other          in
+ 105 other                   obj;
+ 107 keyword.other          import
+ 107 other                   { readFile } from 
+ 107 string                 "fs"
+ 107 other                  ;
+ 108 keyword.other          export
+ 108 other                   
+ 108 keyword.other          const
+ 108 other                   PI = 
+ 108 constant.numeric       3.14
+ 108 other                  ;
+ 109 keyword.control        for
+ 109 other                   (
+ 109 keyword.other          const
+ 109 other                   x 
+ 109 keyword.other          of
+ 109 other                   [
+ 109 constant.numeric       1
+ 109 other                  , 
+ 109 constant.numeric       2
+ 109 other                  ]) { }
+ 110 keyword.control        for
+ 110 other                   (
+ 110 keyword.other          const
+ 110 other                   k 
+ 110 keyword.other          in
+ 110 other                   { a: 
+ 110 constant.numeric       1
+ 110 other                   }) { }
+ 112 comment                // Function calls
+ 113 other                  console.
+ 113 method                 log
+ 113 other                  (
+ 113 string                 "hello"
+ 113 other                  );
+ 114 other                  Math.
+ 114 method                 max
+ 114 other                  (
+ 114 constant.numeric       1
+ 114 other                  , 
+ 114 constant.numeric       2
+ 114 other                  );
+ 115 other                  [
+ 115 constant.numeric       1
+ 115 other                  , 
+ 115 constant.numeric       2
+ 115 other                  , 
+ 115 constant.numeric       3
+ 115 other                  ].
+ 115 method                 map
+ 115 other                  (x => x * 
+ 115 constant.numeric       2
+ 115 other                  );
+ 116 method                 greet
+ 116 other                  (
+ 116 string                 "world"
+ 116 other                  );
+ 117 method                 parseInt
+ 117 other                  (
+ 117 string                 "42"
+ 117 other                  );

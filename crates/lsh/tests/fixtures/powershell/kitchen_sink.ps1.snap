@@ -1,0 +1,208 @@
+   1 comment                # Single-line comment
+   3 comment                <#
+   4 comment                Multi-line
+   5 comment                comment
+   6 comment                #>
+   8 keyword.other          function
+   8 other                   
+   8 method                 Get-SampleData
+   8 other                   {
+   9 other                      
+   9 keyword.other          param
+   9 other                  (
+  10 other                          [string]
+  10 variable               $Name
+  10 other                   = 
+  10 string                 "World"
+  10 other                  , 
+  10 comment                # String literal, parameter
+  11 other                          [int]
+  11 variable               $Count
+  11 other                   = 
+  11 constant.numeric       3
+  12 other                      )
+  14 other                      
+  14 variable               $array
+  14 other                   = @(
+  14 constant.numeric       1
+  14 other                  , 
+  14 constant.numeric       2
+  14 other                  , 
+  14 constant.numeric       3
+  14 other                  ) 
+  14 comment                # Array literal
+  15 other                      
+  15 variable               $hashtable
+  15 other                   = @{ Key1 = 
+  15 string                 'Value1'
+  15 other                  ; Key2 = 
+  15 constant.numeric       42
+  15 other                   } 
+  15 comment                # Hashtable literal
+  17 other                      
+  17 variable               $nullVar
+  17 other                   = 
+  17 constant.language      $null
+  18 other                      
+  18 variable               $boolTrue
+  18 other                   = 
+  18 constant.language      $true
+  19 other                      
+  19 variable               $boolFalse
+  19 other                   = 
+  19 constant.language      $false
+  21 other                      
+  21 variable               $regexMatch
+  21 other                   = 
+  21 string                 "abc123"
+  21 other                   -match 
+  21 string                 '\\d+'
+  21 other                   
+  21 comment                # Regex literal
+  23 other                      
+  23 keyword.control        for
+  23 other                   (
+  23 variable               $i
+  23 other                   = 
+  23 constant.numeric       0
+  23 other                  ; 
+  23 variable               $i
+  23 other                   -lt 
+  23 variable               $Count
+  23 other                  ; 
+  23 variable               $i
+  23 other                  ++) {
+  24 other                          
+  24 method                 Write-Host
+  24 other                   
+  24 string                 "Hello, $Name! Iteration: $i"
+  24 other                   
+  24 comment                # Variable interpolation, string
+  25 other                      }
+  27 other                      
+  27 keyword.control        if
+  27 other                   (
+  27 variable               $hashtable
+  27 other                  .Key2 -eq 
+  27 constant.numeric       42
+  27 other                  ) {
+  28 other                          
+  28 method                 Write-Output
+  28 other                   
+  28 string                 "Hashtable value is 42"
+  29 other                      }
+  30 other                      
+  30 keyword.control        elseif
+  30 other                   (
+  30 variable               $hashtable
+  30 other                  .Key2 -gt 
+  30 constant.numeric       40
+  30 other                  ) {
+  31 other                          
+  31 method                 Write-Output
+  31 other                   
+  31 string                 "Hashtable value is greater than 40"
+  32 other                      }
+  33 other                      
+  33 keyword.control        else
+  33 other                   {
+  34 other                          
+  34 method                 Write-Output
+  34 other                   
+  34 string                 "Hashtable value is less than or equal to 40"
+  35 other                      }
+  37 other                      
+  37 keyword.control        switch
+  37 other                   (
+  37 variable               $Name
+  37 other                  ) {
+  38 other                          
+  38 string                 "World"
+  38 other                   { 
+  38 method                 Write-Host
+  38 other                   
+  38 string                 "Default name used."
+  38 other                   }
+  39 other                          
+  39 keyword.control        default
+  39 other                   { 
+  39 method                 Write-Host
+  39 other                   
+  39 string                 "Custom name: $Name"
+  39 other                   }
+  40 other                      }
+  42 other                      
+  42 keyword.control        try
+  42 other                   {
+  43 other                          
+  43 keyword.control        throw
+  43 other                   
+  43 string                 "An error occurred"
+  44 other                      }
+  45 other                      
+  45 keyword.control        catch
+  45 other                   {
+  46 other                          
+  46 method                 Write-Warning
+  46 other                   
+  46 variable               $_
+  47 other                      }
+  48 other                      
+  48 keyword.control        finally
+  48 other                   {
+  49 other                          
+  49 method                 Write-Verbose
+  49 other                   
+  49 string                 "Finally block executed"
+  50 other                      }
+  52 other                      
+  52 variable               $script:globalVar
+  52 other                   = 
+  52 constant.numeric       99
+  52 other                   
+  52 comment                # Scope modifier
+  54 other                      
+  54 comment                # Here-String
+  55 other                      
+  55 variable               $hereString
+  55 other                   = 
+  55 string                 @"
+  56 string                 This is a here-string.
+  57 string                 Name: $Name
+  58 string                 "@
+  60 other                      
+  60 keyword.control        return
+  60 other                   
+  60 variable               $hereString
+  61 other                  }
+  63 comment                # Command invocation, pipeline, splatting
+  64 variable               $paramSplat
+  64 other                   = @{
+  65 other                      Name  = 
+  65 string                 'PowerShell'
+  66 other                      Count = 
+  66 constant.numeric       2
+  67 other                  }
+  68 method                 Get-SampleData
+  68 other                   
+  68 variable               @paramSplat
+  68 other                   | 
+  68 method                 Out-File
+  68 other                   -FilePath 
+  68 string                 "./output.txt"
+  70 comment                # Type literal, member access, method call
+  71 other                  [System.DateTime]::Now.ToString(
+  71 string                 "yyyy-MM-dd"
+  71 other                  )
+  73 comment                # Subexpression
+  74 method                 Write-Host
+  74 other                   
+  74 string                 "2 + 2 = $($array[0] + $array[1])"
+  76 comment                # Command substitution
+  77 variable               $pwdPath
+  77 other                   = $(
+  77 method                 Get-Location
+  77 other                  ).Path
+  78 method                 Write-Host
+  78 other                   
+  78 string                 "Current directory: $pwdPath"

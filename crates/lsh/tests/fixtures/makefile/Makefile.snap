@@ -1,0 +1,55 @@
+   1 comment                # Build configuration
+   2 variable               CC
+   2 other                   := gcc
+   3 variable               CFLAGS
+   3 other                   ?= -O2 -Wall
+   4 variable               SRC
+   4 other                   := main.c util.c
+   5 variable               OBJ
+   5 other                   := 
+   5 variable               $(
+   5 other                  SRC:.c=.o)
+   6 variable               TARGET
+   6 other                   = app
+   8 method                 .PHONY
+   8 other                  : all clean
+  10 method                 all
+  10 other                  : 
+  10 variable               $(TARGET)
+  12 method                 $(TARGET)
+  12 other                  : 
+  12 variable               $(OBJ)
+  13 other                  \t
+  13 variable               $(CC)
+  13 other                   
+  13 variable               $(CFLAGS)
+  13 other                   -o 
+  13 variable               $@
+  13 other                   
+  13 variable               $^
+  15 method                 %.o
+  15 other                  : %.c
+  16 other                  \t
+  16 variable               $(CC)
+  16 other                   
+  16 variable               $(CFLAGS)
+  16 other                   -c -o 
+  16 variable               $@
+  16 other                   
+  16 variable               $<
+  18 method                 clean:
+  19 other                  \trm -f 
+  19 variable               $(OBJ)
+  19 other                   
+  19 variable               $(TARGET)
+  21 keyword.control        ifeq
+  21 other                   (
+  21 variable               $(DEBUG)
+  21 other                  ,
+  21 constant.numeric       1
+  21 other                  )
+  22 variable               CFLAGS
+  22 other                   += -g
+  23 keyword.control        endif
+  25 keyword.control        include
+  25 other                   config.mk

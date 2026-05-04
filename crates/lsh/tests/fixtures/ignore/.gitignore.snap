@@ -1,0 +1,11 @@
+   1 comment                # Build artefacts
+   2 other                  target/
+   3 other                  *.o
+   4 other                  *.so
+   6 comment                # Editor scratch
+   7 other                  .vscode/
+   8 other                  .idea/
+   9 other                  *.swp
+  11 comment                # Logs
+  12 other                  *.log
+  13 other                  !important.log

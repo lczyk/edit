@@ -1,0 +1,23 @@
+   1 comment                # General Settings
+   2 other                  [General]
+   3 variable               enabled
+   3 other                   = true
+   4 variable               debug
+   4 other                   = false
+   5 variable               log_level
+   5 other                   = info
+   6 variable               max_connections
+   6 other                   = 1000
+   8 other                  [SSL]
+   9 variable               enabled
+   9 other                   = true
+  10 variable               cert_file
+  10 other                   = /etc/ssl/certs/server.crt
+  11 variable               key_file
+  11 other                   = /etc/ssl/private/server.key
+  12 variable               protocols
+  12 other                   = TLSv1.2, TLSv1.3 
+  12 comment                # Supported protocols: "TLSv1.2" and "TLSv1.3"
+  13 variable               cipher_suite
+  13 other                   = 
+  13 string                 "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"
