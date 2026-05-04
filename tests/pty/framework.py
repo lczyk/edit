@@ -45,16 +45,29 @@ import traceback
 # ---- paths / env ----------------------------------------------------------
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
 FIXTURES_DIR = os.path.join(_HERE, "fixtures")
+LSH_FIXTURES_DIR = os.path.join(_REPO_ROOT, "crates/lsh/tests/fixtures")
 EDIT_BIN = os.environ.get(
     "EDIT_BIN",
-    os.path.join(_HERE, "..", "..", "target", "release", "edit"),
+    os.path.join(_REPO_ROOT, "target", "release", "edit"),
 )
 
 
 def fixture(name: str) -> str:
     """Return absolute path to a file in `tests/pty/fixtures/`."""
     return os.path.join(FIXTURES_DIR, name)
+
+
+def lsh_fixture(name: str) -> str:
+    """Return absolute path to a file in the lsh golden fixture tree.
+
+    Path is `<lang>/<file>`, e.g. `go/kitchen_sink.go`. These fixtures are
+    the source of truth for highlighter content; PTY tests that need a
+    realistic source file should reference them rather than duplicating
+    content.
+    """
+    return os.path.join(LSH_FIXTURES_DIR, name)
 
 
 # ---- ANSI regex -----------------------------------------------------------

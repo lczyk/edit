@@ -2,7 +2,7 @@
 
 import sys
 
-from framework import CTRL_Z, Edit, expect, fixture, test
+from framework import CTRL_Z, Edit, expect, lsh_fixture, test
 
 
 # Kitty CSI-u: Ctrl+/ -> CSI 47;5u (codepoint 47 = '/', mod 5 = ctrl).
@@ -21,7 +21,7 @@ def _frame_after(ed):
 
 @test
 def keybinding_toggles_line_comment_and_undo_reverts():
-    with Edit([fixture("highlighting.go")]) as ed:
+    with Edit([lsh_fixture("go/kitchen_sink.go")]) as ed:
         ed.send(TOGGLE_CHORD)
         frame = _frame_after(ed)
         expect(b"// Line comment" not in frame,
@@ -37,7 +37,7 @@ def keybinding_toggles_line_comment_and_undo_reverts():
 
 @test
 def double_keyboard_toggle_round_trips():
-    with Edit([fixture("highlighting.go")]) as ed:
+    with Edit([lsh_fixture("go/kitchen_sink.go")]) as ed:
         ed.send(TOGGLE_CHORD)
         frame = _frame_after(ed)
         expect(b"// Line comment" not in frame,
@@ -52,7 +52,7 @@ def double_keyboard_toggle_round_trips():
 def two_toggles_undo_individually():
     """Regression: each toggle should land in its own undo entry, not coalesce
     with the prior toggle (or any prior same-type edit) into one entry."""
-    with Edit([fixture("highlighting.go")]) as ed:
+    with Edit([lsh_fixture("go/kitchen_sink.go")]) as ed:
         ed.send(TOGGLE_CHORD)
         ed.send(TOGGLE_CHORD)
         frame = _frame_after(ed)

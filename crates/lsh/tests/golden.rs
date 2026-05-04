@@ -4,6 +4,10 @@
 //! `<case>.<ext>.snap` capturing the highlighter output. To accept new or
 //! changed snapshots after a deliberate fix, rerun with
 //! `UPDATE_GOLDEN=1 cargo test -p lsh --test golden`.
+//!
+//! The `Language` enum is generated from `definitions/*.lsh` by `build.rs`.
+//! Adding a new lsh def adds a variant; the match in `fixture_subdir`
+//! becomes non-exhaustive, forcing a fixture-dir entry at compile time.
 
 use std::env;
 use std::ffi::OsString;
@@ -14,6 +18,35 @@ use lsh::compiler::{Generator, SerializedCharset};
 use lsh::runtime::Runtime;
 use stdext::arena::scratch_arena;
 use stdext::glob::glob_match;
+
+include!(concat!(env!("OUT_DIR"), "/language_enum.rs"));
+
+/// Subdirectory under `tests/fixtures/` that holds a language's fixtures.
+/// Adding an lsh definition extends `Language`; this match must grow with
+/// it (compile error otherwise).
+fn fixture_subdir(lang: Language) -> &'static str {
+    match lang {
+        Language::Diff => "diff",
+        Language::Dockerfile => "dockerfile",
+        Language::GitCommit => "git_commit",
+        Language::GitRebase => "git_rebase",
+        Language::Go => "go",
+        Language::Ignore => "ignore",
+        Language::Javascript => "javascript",
+        Language::Json => "json",
+        Language::Lsh => "lsh",
+        Language::Makefile => "makefile",
+        Language::Markdown => "markdown",
+        Language::Powershell => "powershell",
+        Language::Properties => "properties",
+        Language::Python => "python",
+        Language::Rust => "rust",
+        Language::Shellscript => "shellscript",
+        Language::Toml => "toml",
+        Language::Xml => "xml",
+        Language::Yaml => "yaml",
+    }
+}
 
 fn discover_fixtures(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(root) else { return };
@@ -50,6 +83,23 @@ fn escape(s: &[u8]) -> String {
     out
 }
 
+fn fixtures_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+}
+
+#[test]
+fn every_language_has_fixtures() {
+    let root = fixtures_root();
+    for &lang in ALL {
+        let dir = root.join(fixture_subdir(lang));
+        assert!(dir.exists(), "missing fixture dir for {lang:?}: {}", dir.display());
+        let has_file = fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).any(|e| {
+            e.path().is_file() && e.path().extension().and_then(|x| x.to_str()) != Some("snap")
+        });
+        assert!(has_file, "no fixture file in {}", dir.display());
+    }
+}
+
 #[test]
 fn golden() {
     let _ = stdext::arena::init(128 * 1024 * 1024);
@@ -68,11 +118,11 @@ fn golden() {
         kind_names[hk.value as usize] = hk.identifier;
     }
 
-    let fixtures_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let root = fixtures_root();
     let mut fixtures = Vec::new();
-    discover_fixtures(&fixtures_root, &mut fixtures);
+    discover_fixtures(&root, &mut fixtures);
     fixtures.sort();
-    assert!(!fixtures.is_empty(), "no fixtures found under {}", fixtures_root.display());
+    assert!(!fixtures.is_empty(), "no fixtures found under {}", root.display());
 
     let update = env::var_os("UPDATE_GOLDEN").is_some();
     let mut failures: Vec<String> = Vec::new();
@@ -97,9 +147,7 @@ fn golden() {
 
         let src = fs::read(fixture).unwrap();
         let mut snap = String::new();
-        // Split on '\n' so we preserve a trailing empty line if present.
         for (lineno, line) in src.split(|&b| b == b'\n').enumerate() {
-            // Strip a trailing '\r' from CRLF.
             let line = match line.last() {
                 Some(b'\r') => &line[..line.len() - 1],
                 _ => line,

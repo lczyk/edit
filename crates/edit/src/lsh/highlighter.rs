@@ -142,3 +142,113 @@ impl<'doc> Highlighter<'doc> {
         (line_beg, line_buf.leak())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lsh::definitions::{HighlightKind, LANGUAGES};
+    use std::cell::Cell;
+    use stdext::arena::Arena;
+
+    fn lang(id: &str) -> &'static lsh::runtime::Language {
+        LANGUAGES.iter().find(|l| l.id == id).unwrap()
+    }
+
+    /// Document that hands back at most `chunk` bytes per `read_forward`,
+    /// to exercise the multi-chunk concat path in `read_next_line`.
+    struct ChunkedDoc<'a> {
+        data: &'a [u8],
+        chunk: Cell<usize>,
+    }
+
+    impl<'a> ReadableDocument for ChunkedDoc<'a> {
+        fn read_forward(&self, off: usize) -> &[u8] {
+            let s = self.data;
+            let off = off.min(s.len());
+            let end = (off + self.chunk.get()).min(s.len());
+            &s[off..end]
+        }
+        fn read_backward(&self, off: usize) -> &[u8] {
+            let s = self.data;
+            &s[..off.min(s.len())]
+        }
+    }
+
+    fn collect(doc: &dyn ReadableDocument, lang_id: &str) -> Vec<(usize, &'static str)> {
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut h = Highlighter::new(doc, lang(lang_id));
+        let kind_name = |k: HighlightKind| -> &'static str {
+            match k {
+                HighlightKind::Other => "other",
+                HighlightKind::Comment => "comment",
+                HighlightKind::Method => "method",
+                HighlightKind::String => "string",
+                HighlightKind::Variable => "variable",
+                HighlightKind::ConstantLanguage => "constant.language",
+                HighlightKind::ConstantNumeric => "constant.numeric",
+                HighlightKind::KeywordControl => "keyword.control",
+                HighlightKind::KeywordOther => "keyword.other",
+                HighlightKind::MarkupBold => "markup.bold",
+                HighlightKind::MarkupChanged => "markup.changed",
+                HighlightKind::MarkupDeleted => "markup.deleted",
+                HighlightKind::MarkupHeading => "markup.heading",
+                HighlightKind::MarkupInserted => "markup.inserted",
+                HighlightKind::MarkupItalic => "markup.italic",
+                HighlightKind::MarkupLink => "markup.link",
+                HighlightKind::MarkupList => "markup.list",
+                HighlightKind::MarkupStrikethrough => "markup.strikethrough",
+                HighlightKind::MetaHeader => "meta.header",
+            }
+        };
+        let mut out = Vec::new();
+        loop {
+            let spans = h.parse_next_line(&arena);
+            if spans.is_empty() {
+                break;
+            }
+            for s in spans.iter() {
+                out.push((s.start, kind_name(s.kind)));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn offsets_are_absolute_across_lines() {
+        // markdown: heading on line 1, list on line 3.
+        let src = b"# Title\n\nlines\n- item\n";
+        let spans = collect(&src.as_slice(), "markdown");
+        // The heading span starts at offset 0 on the first line.
+        assert!(spans.iter().any(|&(o, k)| o == 0 && k == "markup.heading"));
+        // "- " on line 4 (after "# Title\n\nlines\n" = 15 bytes) -> start 15.
+        assert!(
+            spans.iter().any(|&(o, k)| o == 15 && k == "markup.list"),
+            "expected markup.list at offset 15, got {spans:?}"
+        );
+    }
+
+    #[test]
+    fn chunking_preserves_tokens() {
+        // Same source, but the doc returns one byte at a time. The line
+        // concat path must reassemble lines and produce identical spans.
+        let src: &[u8] = b"# Title\n\n- item\n";
+        let baseline = collect(&src, "markdown");
+        for chunk in [1usize, 2, 3, 4, 7, 16] {
+            let doc = ChunkedDoc { data: src, chunk: Cell::new(chunk) };
+            let got = collect(&doc, "markdown");
+            assert_eq!(got, baseline, "chunked doc (chunk={chunk}) diverged from full read");
+        }
+    }
+
+    #[test]
+    fn very_long_line_yields_no_spans() {
+        // Lines >= MAX_LINE_LEN should be skipped (returns empty spans).
+        let mut data = vec![b'x'; MAX_LINE_LEN];
+        data.push(b'\n');
+        let h_data = data.as_slice();
+        let arena = Arena::new(8 * 1024 * 1024).unwrap();
+        let mut h = Highlighter::new(&h_data, lang("markdown"));
+        let spans = h.parse_next_line(&arena);
+        assert!(spans.is_empty(), "expected long line to be skipped");
+    }
+}
