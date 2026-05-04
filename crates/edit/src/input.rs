@@ -544,8 +544,24 @@ impl<'input> Iterator for Stream<'_, '_, 'input> {
 
                             mouse.state = InputMouseState::None;
 
-                            match csi.params[0] {
+                            // SGR mouse btn carries Shift (0x04), Alt (0x08),
+                            // and Ctrl (0x10) bits OR'd into params[0]. Strip
+                            // them before matching the action so e.g. Shift+
+                            // Left-click (btn=4) still resolves to Left, not
+                            // a no-op state. Bit 0x20 is the motion flag --
+                            // drag events arrive as btn = 32 + button, with
+                            // final='M'. We treat motion-with-button as the
+                            // same state as the press, so the higher level
+                            // sees a continuous Left/Middle/Right stream.
+                            let action_btn = csi.params[0] & !0x1c;
+                            match action_btn {
                                 btn @ 0..3 if csi.final_byte == 'M' => match btn {
+                                    0 => mouse.state = InputMouseState::Left,
+                                    1 => mouse.state = InputMouseState::Middle,
+                                    2 => mouse.state = InputMouseState::Right,
+                                    _ => {}
+                                },
+                                btn @ 32..35 if csi.final_byte == 'M' => match btn - 32 {
                                     0 => mouse.state = InputMouseState::Left,
                                     1 => mouse.state = InputMouseState::Middle,
                                     2 => mouse.state = InputMouseState::Right,
@@ -746,5 +762,30 @@ mod tests {
     fn kitty_csi_u_letter_with_cmd() {
         // CSI 99 ; 9 u  -> Cmd+C (modifier 9 - 1 = 8 = Super bit).
         assert_eq!(key(parse_one("\x1b[99;9u")), kbmod::CMD | vk::C);
+    }
+
+    #[test]
+    fn sgr_mouse_drag_resolves_as_held_button() {
+        // SGR motion-with-button: btn = 32 + button. Cell-motion tracking
+        // (mode 1002) reports drag this way. Must resolve to the held
+        // button's state so drag-select works.
+        let m = match parse_one("\x1b[<32;10;5M") {
+            Some(Input::Mouse(m)) => m,
+            _ => panic!("expected mouse input"),
+        };
+        assert!(matches!(m.state, InputMouseState::Left));
+    }
+
+    #[test]
+    fn sgr_mouse_shift_left_click_resolves_as_left_with_shift() {
+        // SGR mouse press: CSI < <btn> ; <x> ; <y> M
+        // Shift bit (0x04) OR'd with Left (0) -> btn = 4. Must still
+        // resolve to Left state with SHIFT modifier set.
+        let m = match parse_one("\x1b[<4;10;5M") {
+            Some(Input::Mouse(m)) => m,
+            _ => panic!("expected mouse input"),
+        };
+        assert!(matches!(m.state, InputMouseState::Left));
+        assert!(m.modifiers.contains(kbmod::SHIFT));
     }
 }
