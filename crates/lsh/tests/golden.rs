@@ -48,10 +48,16 @@ fn fixture_subdir(lang: Language) -> &'static str {
     }
 }
 
-const SNAP_SUFFIX: &str = ".snap.jsonl";
+const SNAP_SUFFIX: &str = ".jsonl";
 
+/// A file is treated as a snapshot iff its name is `<fixture-name>.jsonl`
+/// and a sibling `<fixture-name>` exists. That keeps `.jsonl` usable as a
+/// regular fixture extension (e.g. `sample.jsonl`) while still recognising
+/// snapshots like `kitchen_sink.md.jsonl` and `sample.jsonl.jsonl`.
 fn is_snap(p: &Path) -> bool {
-    p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(SNAP_SUFFIX))
+    let Some(s) = p.to_str() else { return false };
+    let Some(stem) = s.strip_suffix(SNAP_SUFFIX) else { return false };
+    Path::new(stem).exists()
 }
 
 fn discover_fixtures(root: &Path, out: &mut Vec<PathBuf>) {
