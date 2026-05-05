@@ -1,6 +1,7 @@
 ---
-status: open
+status: landed
 date: 2026-05-05
+landed: 2026-05-05
 description: polyflag flag aliases -- multiple input spellings resolve to one canonical token
 ---
 
@@ -243,3 +244,62 @@ fn parse_quirks(input: &str) -> Result<HashSet<&'static str>, String> {
 //   "-no-color"      -> remove "nocolor" from the set
 //   "purple"         -> Err(UnknownToken("purple"))
 ```
+
+## retrospective (landed)
+
+shipped per the design above with minor scope trims. notes on what diverged
+or got deferred:
+
+- **api shape: kept the rich struct.** `KnownToken { canonical, aliases }`,
+  `Alias { spelling, status }`, `AliasStatus::{Alternative, Deprecated,
+  Hidden}`, `Resolved { canonical, kind }`, `ResolvedKind::{Canonical,
+  Alternative, Deprecated, Hidden}`. all `pub`. no tuple shorthand.
+- **callback design: callback-param.** the proposal listed three
+  options; landed with `apply_with_callback(input, known, set,
+  on_deprecated)` and parallel `apply_env_for_flag_with_callback`. `apply`
+  / `apply_env_for_flag` stay as no-callback convenience wrappers (no api
+  break for the no-warn case beyond the type swap).
+- **`token!` macro landed.** tt-munching internal `__token_aliases!`
+  accumulates `Alias::alt` / `Alias::deprecated` / `Alias::hidden` per
+  entry. mixed forms work in one call:
+  `token!("noanimations"; "no-animations", deprecated "no_animations", hidden "noanim")`.
+- **`canonicalize` landed as decided.** returns `Resolved` so callers can
+  classify a match without re-walking the table. `apply_with_callback` is
+  a thin wrapper that fires the callback only when `kind ==
+  ResolvedKind::Deprecated`.
+- **`check_known` landed debug-only.** `#[cfg(debug_assertions)]` body
+  panics on duplicate spelling (canonical or alias collision) or empty
+  spelling; release builds compile to a no-op so callers may invoke it
+  unconditionally at startup. tests cover the four panic shapes
+  (duplicate canonical / canonical-alias / alias-alias collision; empty
+  canonical; empty alias).
+- **edit's `KNOWN_QUIRKS` migrated** to the new shape with the aliases
+  that motivated the work: `nocolor`/`no-color`,
+  `noanimations`/`no-animations`, `allow-create`/`allowcreate`. no
+  `Deprecated` aliases shipped yet -- proposal listed `no_color` /
+  `no_animations` as deprecated examples; held off because nothing has
+  accumulated underscore-style spellings in the wild yet. easy to add
+  later if needed; the plumbing is there.
+- **error-list rendering: parenthetical aliases.** a `known_quirks_for_help()`
+  helper renders `canonical (alt1, alt2)` per entry for the unknown-quirk
+  error. `Hidden` aliases stay omitted. `--help` text gained per-quirk
+  `alias: ...` sub-lines, plus a `noanimations` entry that the previous
+  help string was silently missing.
+- **deprecation surface in edit.** wired the callback to
+  `sys::write_stdout` so warnings hit the same channel as other startup
+  messaging, fed the same closure to both the env-var path and the cli
+  path. with no `Deprecated` aliases shipped, the warning is currently
+  unreachable -- intentional, the path is exercised by the polyflag
+  tests.
+
+still open / not done in this change:
+- **levenshtein "did you mean?"** on `UnknownToken` -- noted as a real
+  ux win in the proposal, deferred. small dep cost; revisit when the
+  unknown-quirk error feels too terse.
+- **`#[non_exhaustive]`** on `KnownToken` / `Alias` -- not added.
+  call-sites use the `token!` macro so the friction would be invisible to
+  users, but the future-fields motivation is speculative; left off.
+- **CHANGELOG bump for the api break** -- crate is internal-only with
+  one caller; no changelog maintained, so nothing to update.
+- **workspace audit** before the api break -- only `KNOWN_QUIRKS` uses
+  polyflag today; verified by grep before landing.
