@@ -1,6 +1,8 @@
 ---
-status: open
+status: landed
 date: 2026-05-04
+landed: 2026-05-05
+landed-in: f639534
 description: animated cursor / selection / scroll motion -- render-only interpolation, logic stays discrete
 ---
 
@@ -69,3 +71,19 @@ logic continues snapping to target. animate only what hits the framebuffer. two 
 2. animated scroll offset only. ship, feel it.
 3. animated cursor glyph.
 4. setting toggle + per-source gating (skip mouse drag, skip 1-cell deltas).
+
+## retrospective (landed `f639534`)
+
+shipped end-to-end in one commit, not phased. notes on what changed vs. the plan above:
+
+- **tau bumped.** proposed `tau_scroll` 25-40ms / `tau_cursor` 15-25ms; landed at 60ms for both. cursor uses `ease_out_cubic(lerp_alpha(...))`, scroll uses plain exp lerp. settles within ~150ms of any cursor move. felt better in practice than the tighter taus.
+- **selection animation done in phase 1.** proposal deferred to phase 2 / open question. landed alongside cursor: visible selection bounds extend to the animated cursor's logical position and pin to its visual x on the active row. `self.selection` (copy/cut/delete/find) untouched, so logic stays instant.
+- **buffer-edit snap.** typing, paste, alt+up/down line-move snap the cursor instantly so it stays glued to moved content -- avoids the trailing-cursor weirdness when content jumps under the lerp. not in original proposal.
+- **scope add: floater open animations.** dropdowns slide down (80ms), modals scale-in from centre (150ms). per-id timers cleaned up on node-leave. orthogonal to the cursor/scroll work, bundled because the tick driver was already there.
+- **setting key: polarity flipped.** proposal had `smooth_motion = true|false`; shipped as a `noanimations` quirk (default-on, opt-out) rather than a default-off opt-in.
+- **tunables live in `mod anim`** at the top of `tui.rs` -- single place to retune.
+
+still open / not measured:
+- per-source gating beyond mouse drag (mouse wheel, held-key cadence, 1-cell deltas) -- not separately handled; behaviour falls out of the lerp + buffer-edit snap.
+- framebuffer-diff cost per animation tick -- never measured. no perceived issue locally; ssh case unverified.
+- cursor-blink interaction w/ tick driver -- not explicitly reconciled.
