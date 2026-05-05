@@ -22,8 +22,17 @@ use std::time::Duration;
 use std::{env, process};
 
 /// Opt-in toggles for non-default behaviour. Parsed from `--quirks=a,b,c`.
-const KNOWN_QUIRKS: &[&str] =
-    &["weird-filenames", "ascii", "nocolor", "noanimations", "allow-create"];
+///
+/// Each entry's canonical spelling is what `quirks.contains(...)` checks
+/// throughout the codebase; any alias (kebab / underscore / shorthand) on
+/// the cli or in `EDIT_QUIRKS` resolves to the same canonical entry.
+const KNOWN_QUIRKS: &[polyflag::KnownToken] = &[
+    polyflag::token!("weird-filenames"),
+    polyflag::token!("ascii"),
+    polyflag::token!("nocolor"; "no-color"),
+    polyflag::token!("noanimations"; "no-animations"),
+    polyflag::token!("allow-create"; "allowcreate"),
+];
 
 use draw_editor::*;
 use draw_menubar::*;
@@ -220,12 +229,24 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     // override can negate an env-provided default. The env var name is
     // derived by polyflag from the prefix and flag, so cli surface and
     // env surface stay in lock-step.
-    if let Err(e) = polyflag::apply_env_for_flag("edit", "quirks", KNOWN_QUIRKS, &mut quirks) {
+    debug_assert!(check_quirks_table(), "KNOWN_QUIRKS has duplicate or empty spelling");
+    let warn_deprecated = |spelling: &str, canonical: &'static str| {
+        sys::write_stdout(&format!(
+            "edit: warning: --quirks={spelling} is deprecated, use {canonical}\n"
+        ));
+    };
+    if let Err(e) = polyflag::apply_env_for_flag_with_callback(
+        "edit",
+        "quirks",
+        KNOWN_QUIRKS,
+        &mut quirks,
+        warn_deprecated,
+    ) {
         sys::write_stdout(&format!(
             "edit: {} contains unknown quirk {:?}\nknown quirks: {}\n",
             polyflag::env_var_name("edit", "quirks"),
             e.0,
-            KNOWN_QUIRKS.join(", ")
+            known_quirks_for_help(),
         ));
         return Ok(None);
     }
@@ -250,11 +271,13 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                     return Ok(None);
                 }
                 seen_quirks_flag = true;
-                if let Err(e) = polyflag::apply(list, KNOWN_QUIRKS, &mut quirks) {
+                if let Err(e) =
+                    polyflag::apply_with_callback(list, KNOWN_QUIRKS, &mut quirks, warn_deprecated)
+                {
                     sys::write_stdout(&format!(
                         "edit: unknown quirk {:?}\nknown quirks: {}\n",
                         e.0,
-                        KNOWN_QUIRKS.join(", ")
+                        known_quirks_for_help(),
                     ));
                     return Ok(None);
                 }
@@ -378,6 +401,40 @@ fn is_safe_filename(name: &str) -> bool {
     parts.all(|ext| !ext.is_empty() && ext.bytes().all(|b| b.is_ascii_alphanumeric()))
 }
 
+/// Render a comma-separated list of accepted quirk spellings for use in
+/// error messages. Canonicals are listed with any non-`Hidden` aliases
+/// shown parenthetically -- `--quirks=` accepts both forms.
+fn known_quirks_for_help() -> String {
+    use polyflag::AliasStatus;
+    let mut out = String::new();
+    for kt in KNOWN_QUIRKS {
+        if !out.is_empty() {
+            out.push_str(", ");
+        }
+        out.push_str(kt.canonical);
+        let mut first_alt = true;
+        for alias in kt.aliases {
+            if matches!(alias.status, AliasStatus::Alternative | AliasStatus::Deprecated) {
+                out.push_str(if first_alt { " (" } else { ", " });
+                out.push_str(alias.spelling);
+                first_alt = false;
+            }
+        }
+        if !first_alt {
+            out.push(')');
+        }
+    }
+    out
+}
+
+/// Wrap [`polyflag::check_known`] so the call site is one line. Returns
+/// `true` if the table is well-formed; in debug builds a malformed table
+/// panics inside `check_known` before we ever return.
+fn check_quirks_table() -> bool {
+    polyflag::check_known(KNOWN_QUIRKS);
+    true
+}
+
 fn print_help() {
     sys::write_stdout(concat!(
         "Usage: edit [OPTIONS] [--] FILE[:LINE[:COLUMN]]\n",
@@ -401,11 +458,17 @@ fn print_help() {
         "                                          (no box-drawing or other unicode).\n",
         "                       nocolor         -- suppress all SGR colour output\n",
         "                                          (text attributes still emitted).\n",
+        "                                          alias: no-color\n",
+        "                       noanimations    -- disable cursor / scroll / floater\n",
+        "                                          motion. logic stays instant; only the\n",
+        "                                          visible interpolation is suppressed.\n",
+        "                                          alias: no-animations\n",
         "                       allow-create    -- allow creating new files. without this\n",
         "                                          quirk, edit refuses to open a path that\n",
         "                                          does not exist and refuses to save into\n",
         "                                          a missing file. edit never creates\n",
         "                                          directories regardless of this quirk.\n",
+        "                                          alias: allowcreate\n",
         "\n",
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",

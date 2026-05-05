@@ -1,37 +1,52 @@
 // cspell:ignore polytest
 //! Repeatable comma-separated set-style cli flags.
 //!
-//! Given a fixed list of known token names, parse one occurrence of a flag
-//! whose value is a comma-separated list of those names, accumulating into
-//! a [`HashSet`]. A `-` prefix on a token removes it from the set instead
-//! of adding. Unknown tokens error.
+//! Given a fixed list of known tokens, parse one occurrence of a flag whose
+//! value is a comma-separated list of those tokens, accumulating into a
+//! [`HashSet`]. A `-` prefix on a token removes it from the set instead of
+//! adding. Unknown tokens error.
 //!
-//! Designed for flags like `--quirks=foo,bar --quirks=-foo` where the final
-//! state is `{bar}`. Order across flag occurrences matters; order within a
-//! single flag occurrence also matters (left-to-right).
+//! Each [`KnownToken`] has a single canonical spelling plus zero or more
+//! [`Alias`]es. Aliases let multiple input spellings (e.g. `nocolor` and
+//! `no-color`) resolve to the same canonical entry, so callers test
+//! `set.contains("nocolor")` regardless of which spelling the user typed.
+//!
+//! Designed for flags like `--quirks=foo,bar --quirks=-foo` where the
+//! final state is `{bar}`. Order across flag occurrences matters; order
+//! within a single occurrence also matters (left-to-right).
+//!
+//! Resolution complexity is `O(input_tokens x canonicals x aliases)`. Fine
+//! for the small flag tables this crate targets; do not graft a runtime
+//! plugin loader on top.
 //!
 //! # Example
 //!
 //! ```
 //! use std::collections::HashSet;
-//! use polyflag::apply;
+//! use polyflag::{KnownToken, apply, token};
 //!
-//! const KNOWN: &[&str] = &["foo", "bar", "baz"];
+//! const KNOWN: &[KnownToken] = &[
+//!     token!("foo"),
+//!     token!("bar"; "barre"),
+//!     token!("baz"; "baz-alt", deprecated "old-baz"),
+//! ];
 //! let mut set: HashSet<&'static str> = HashSet::new();
 //!
-//! apply("foo,bar", KNOWN, &mut set).unwrap();
-//! apply("baz", KNOWN, &mut set).unwrap();
-//! apply("bar,-foo", KNOWN, &mut set).unwrap();
+//! apply("foo,barre", KNOWN, &mut set).unwrap();
+//! apply("baz",       KNOWN, &mut set).unwrap();
+//! apply("bar,-foo",  KNOWN, &mut set).unwrap();
 //!
 //! assert!(set.contains("bar") && set.contains("baz"));
 //! assert!(!set.contains("foo"));
+//! // aliases never live in the set; only canonicals do.
+//! assert!(!set.contains("barre"));
 //! ```
 
 use std::collections::HashSet;
 use std::fmt;
 
 /// Returned when an input token (with any leading `-` stripped) does not
-/// appear in the caller's `known` list.
+/// appear as a canonical or alias in the caller's `known` list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnknownToken(pub String);
 
@@ -43,36 +58,140 @@ impl fmt::Display for UnknownToken {
 
 impl std::error::Error for UnknownToken {}
 
+/// One entry in the caller's known-token table: a canonical spelling plus
+/// zero or more aliases that resolve to it.
+#[derive(Debug, Clone, Copy)]
+pub struct KnownToken {
+    pub canonical: &'static str,
+    pub aliases: &'static [Alias],
+}
+
+impl KnownToken {
+    /// Construct a token with no aliases. The [`token!`] macro is more
+    /// ergonomic at call sites; this is the bare ctor.
+    pub const fn new(canonical: &'static str) -> Self {
+        Self { canonical, aliases: &[] }
+    }
+}
+
+/// One alias spelling for a [`KnownToken`].
+#[derive(Debug, Clone, Copy)]
+pub struct Alias {
+    pub spelling: &'static str,
+    pub status: AliasStatus,
+}
+
+impl Alias {
+    pub const fn alt(spelling: &'static str) -> Self {
+        Self { spelling, status: AliasStatus::Alternative }
+    }
+    pub const fn deprecated(spelling: &'static str) -> Self {
+        Self { spelling, status: AliasStatus::Deprecated }
+    }
+    pub const fn hidden(spelling: &'static str) -> Self {
+        Self { spelling, status: AliasStatus::Hidden }
+    }
+}
+
+/// How an alias is treated by callers that surface user-facing messaging.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AliasStatus {
+    /// Intentional alternate spelling, equally valid as the canonical.
+    Alternative,
+    /// Still resolves but callers should warn or migrate.
+    Deprecated,
+    /// Resolves silently. Omitted from `--help` listings and from any
+    /// public enumeration of accepted spellings. For undocumented compat
+    /// with an old typo or removed convention.
+    Hidden,
+}
+
+/// Result of resolving one input token against a known-token list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Resolved {
+    pub canonical: &'static str,
+    pub kind: ResolvedKind,
+}
+
+/// Why an input matched -- mirrors [`AliasStatus`] plus a
+/// [`ResolvedKind::Canonical`] variant for canonical-spelling input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResolvedKind {
+    Canonical,
+    Alternative,
+    Deprecated,
+    Hidden,
+}
+
+/// Look up `input` (one bare token, no `-` prefix) against `known`.
+/// Returns the canonical entry and how the input matched. `None` if the
+/// input is not a canonical or alias for any known token.
+pub fn canonicalize(input: &str, known: &[KnownToken]) -> Option<Resolved> {
+    for kt in known {
+        if kt.canonical == input {
+            return Some(Resolved { canonical: kt.canonical, kind: ResolvedKind::Canonical });
+        }
+        for alias in kt.aliases {
+            if alias.spelling == input {
+                let kind = match alias.status {
+                    AliasStatus::Alternative => ResolvedKind::Alternative,
+                    AliasStatus::Deprecated => ResolvedKind::Deprecated,
+                    AliasStatus::Hidden => ResolvedKind::Hidden,
+                };
+                return Some(Resolved { canonical: kt.canonical, kind });
+            }
+        }
+    }
+    None
+}
+
 /// Apply one occurrence of a set flag's value to `set`.
 ///
 /// `input` is the raw value (everything after `=` in `--flag=...`). It is
 /// split on `,`; tokens are trimmed; empty tokens are skipped. A `-` prefix
 /// on a token removes the named entry; otherwise the entry is inserted.
-/// Inserted / removed values are the matching `&'static str` from `known`,
-/// so the resulting set's lifetime is bound to the `known` slice.
+/// Inserted / removed values are always the **canonical** `&'static str`
+/// from `known`, regardless of which alias the input used.
 ///
-/// Returns the first unknown token encountered (after stripping any `-`
-/// prefix). On error, the set is left in its partially-mutated state --
+/// On unknown token, returns the offending input verbatim (after stripping
+/// any `-` prefix). The set is left in its partially-mutated state --
 /// callers that need atomic application should clone first.
+///
+/// To learn when an input hit a [`AliasStatus::Deprecated`] alias, use
+/// [`apply_with_callback`].
 pub fn apply(
     input: &str,
-    known: &[&'static str],
+    known: &[KnownToken],
     set: &mut HashSet<&'static str>,
+) -> Result<(), UnknownToken> {
+    apply_with_callback(input, known, set, |_, _| {})
+}
+
+/// Like [`apply`], but invokes `on_deprecated(input_spelling, canonical)`
+/// each time an input token resolves through a [`AliasStatus::Deprecated`]
+/// alias. `Hidden` aliases never call back; canonicals and `Alternative`
+/// aliases never call back.
+pub fn apply_with_callback(
+    input: &str,
+    known: &[KnownToken],
+    set: &mut HashSet<&'static str>,
+    mut on_deprecated: impl FnMut(&str, &'static str),
 ) -> Result<(), UnknownToken> {
     for tok in input.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         let (name, add) = match tok.strip_prefix('-') {
             Some(rest) => (rest, false),
             None => (tok, true),
         };
-        match known.iter().find(|k| **k == name) {
-            Some(&k) => {
-                if add {
-                    set.insert(k);
-                } else {
-                    set.remove(k);
-                }
-            }
-            None => return Err(UnknownToken(name.to_owned())),
+        let Some(resolved) = canonicalize(name, known) else {
+            return Err(UnknownToken(name.to_owned()));
+        };
+        if resolved.kind == ResolvedKind::Deprecated {
+            on_deprecated(name, resolved.canonical);
+        }
+        if add {
+            set.insert(resolved.canonical);
+        } else {
+            set.remove(resolved.canonical);
         }
     }
     Ok(())
@@ -80,9 +199,9 @@ pub fn apply(
 
 /// Apply an env-var-sourced default for the named cli flag to `set`.
 ///
-/// The env var name is derived from `prefix` and `flag` so the cli
-/// surface (`--<flag>=...`) and the env surface stay in lock-step --
-/// there's no second string to keep in sync. The mapping is:
+/// The env var name is derived from `prefix` and `flag` so the cli surface
+/// (`--<flag>=...`) and the env surface stay in lock-step -- there's no
+/// second string to keep in sync. The mapping is:
 ///
 /// ```text
 /// env_var = "{PREFIX}_{FLAG_AS_SCREAMING_SNAKE}"
@@ -96,38 +215,36 @@ pub fn apply(
 /// | `"edit"` | `"quirks"`     | `EDIT_QUIRKS`         |
 /// | `"app"`  | `"allow-create"`| `APP_ALLOW_CREATE`    |
 ///
-/// Behaviour-wise, this is equivalent to a single occurrence of the
-/// flag, applied with the env value, and applied **before** any cli
-/// flag(s) the caller subsequently processes -- so a later
-/// `--<flag>=-name` can negate an entry the env contributed. Unset,
-/// empty, or non-UTF-8 values are no-ops, so the call is safe as an
-/// unconditional default-providing step.
+/// Behaviour-wise, this is equivalent to a single occurrence of the flag,
+/// applied with the env value, and applied **before** any cli flag(s) the
+/// caller subsequently processes -- so a later `--<flag>=-name` can
+/// negate an entry the env contributed. Unset, empty, or non-UTF-8 values
+/// are no-ops, so the call is safe as an unconditional default-providing
+/// step.
 ///
-/// Token semantics (including `-name` removal) match [`apply`].
-///
-/// # Example
-///
-/// ```
-/// use std::collections::HashSet;
-/// # // SAFETY: this doc test is single-threaded.
-/// unsafe { std::env::set_var("MY_FLAGS", "foo,bar"); }
-///
-/// const KNOWN: &[&str] = &["foo", "bar", "baz"];
-/// let mut set: HashSet<&'static str> = HashSet::new();
-/// // env var resolved as MY_FLAGS from prefix="my" + flag="flags".
-/// polyflag::apply_env_for_flag("my", "flags", KNOWN, &mut set).unwrap();
-/// assert!(set.contains("foo") && set.contains("bar"));
-/// # unsafe { std::env::remove_var("MY_FLAGS"); }
-/// ```
+/// Token semantics (including `-name` removal and alias resolution) match
+/// [`apply`].
 pub fn apply_env_for_flag(
     prefix: &str,
     flag: &str,
-    known: &[&'static str],
+    known: &[KnownToken],
     set: &mut HashSet<&'static str>,
+) -> Result<(), UnknownToken> {
+    apply_env_for_flag_with_callback(prefix, flag, known, set, |_, _| {})
+}
+
+/// Like [`apply_env_for_flag`], but threads a deprecation callback through
+/// to [`apply_with_callback`].
+pub fn apply_env_for_flag_with_callback(
+    prefix: &str,
+    flag: &str,
+    known: &[KnownToken],
+    set: &mut HashSet<&'static str>,
+    on_deprecated: impl FnMut(&str, &'static str),
 ) -> Result<(), UnknownToken> {
     let env_var = env_var_name(prefix, flag);
     let Ok(val) = std::env::var(&env_var) else { return Ok(()) };
-    apply(&val, known, set)
+    apply_with_callback(&val, known, set, on_deprecated)
 }
 
 /// Compute the env var name corresponding to a flag, using the same
@@ -145,11 +262,109 @@ pub fn env_var_name(prefix: &str, flag: &str) -> String {
     out
 }
 
+/// Validate `known` for self-consistency. In debug builds, panics on:
+///
+/// - empty canonical or alias spelling.
+/// - duplicate spelling (canonical or alias) anywhere in the table.
+///
+/// Release builds compile this to an empty body, so callers may invoke it
+/// unconditionally at startup without paying for the walk in production.
+/// The intent is to catch typos in the static token table at test time;
+/// callers that ship `cargo test` before release will get the assertions
+/// for free.
+pub fn check_known(known: &[KnownToken]) {
+    #[cfg(debug_assertions)]
+    {
+        let mut seen: Vec<&'static str> = Vec::new();
+        for kt in known {
+            assert!(!kt.canonical.is_empty(), "empty canonical spelling in known-token list");
+            assert!(
+                !seen.contains(&kt.canonical),
+                "duplicate spelling {:?} in known-token list (canonical collides)",
+                kt.canonical,
+            );
+            seen.push(kt.canonical);
+            for alias in kt.aliases {
+                assert!(
+                    !alias.spelling.is_empty(),
+                    "empty alias spelling for canonical {:?}",
+                    kt.canonical,
+                );
+                assert!(
+                    !seen.contains(&alias.spelling),
+                    "duplicate spelling {:?} in known-token list (alias collides)",
+                    alias.spelling,
+                );
+                seen.push(alias.spelling);
+            }
+        }
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = known;
+    }
+}
+
+/// Construct a [`KnownToken`] tersely.
+///
+/// Forms:
+///
+/// ```text
+/// token!("canonical")
+/// token!("canonical"; "alt1", "alt2")
+/// token!("canonical"; "alt", deprecated "old", hidden "internal")
+/// ```
+///
+/// Bare string literals after `;` become [`AliasStatus::Alternative`].
+/// `deprecated <literal>` and `hidden <literal>` produce the corresponding
+/// [`AliasStatus`]. Mixing forms in one invocation is allowed.
+#[macro_export]
+macro_rules! token {
+    ($canon:literal) => {
+        $crate::KnownToken { canonical: $canon, aliases: &[] }
+    };
+    ($canon:literal; $($rest:tt)+) => {
+        $crate::KnownToken {
+            canonical: $canon,
+            aliases: &$crate::__token_aliases!([] , $($rest)+),
+        }
+    };
+}
+
+/// Implementation detail of [`token!`]. Tt-munches the alias list,
+/// accumulating [`Alias`] expressions into a fixed-size array literal.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __token_aliases {
+    ([$($acc:expr),* $(,)?] $(,)?) => {
+        [$($acc),*]
+    };
+    ([$($acc:expr),* $(,)?] , deprecated $sp:literal $($rest:tt)*) => {
+        $crate::__token_aliases!(
+            [$($acc,)* $crate::Alias::deprecated($sp)] $($rest)*
+        )
+    };
+    ([$($acc:expr),* $(,)?] , hidden $sp:literal $($rest:tt)*) => {
+        $crate::__token_aliases!(
+            [$($acc,)* $crate::Alias::hidden($sp)] $($rest)*
+        )
+    };
+    ([$($acc:expr),* $(,)?] , $sp:literal $($rest:tt)*) => {
+        $crate::__token_aliases!(
+            [$($acc,)* $crate::Alias::alt($sp)] $($rest)*
+        )
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const KNOWN: &[&str] = &["foo", "bar", "baz"];
+    const KNOWN: &[KnownToken] = &[
+        token!("foo"),
+        token!("bar"; "barre"),
+        token!("baz"; "baz-alt", deprecated "old-baz", hidden "b"),
+    ];
 
     fn run(inputs: &[&str]) -> Result<HashSet<&'static str>, UnknownToken> {
         let mut set: HashSet<&'static str> = HashSet::new();
@@ -178,16 +393,74 @@ mod tests {
     }
 
     #[test]
-    fn user_example_layering() {
-        // From the original spec: foo,bar then baz then bar,-foo => {bar, baz}.
-        let s = run(&["foo,bar", "baz", "bar,-foo"]).unwrap();
-        assert_eq!(s, HashSet::from(["bar", "baz"]));
+    fn alias_resolves_to_canonical() {
+        let s = run(&["barre"]).unwrap();
+        assert_eq!(s, HashSet::from(["bar"]));
+        // alias is input-only; the canonical is what lives in the set.
+        assert!(!s.contains("barre"));
     }
 
     #[test]
-    fn user_example_extra_add_at_end() {
-        let s = run(&["foo,bar", "baz", "bar,-foo", "foo"]).unwrap();
-        assert_eq!(s, HashSet::from(["foo", "bar", "baz"]));
+    fn remove_via_alias_strips_canonical() {
+        let s = run(&["bar,foo", "-barre"]).unwrap();
+        assert_eq!(s, HashSet::from(["foo"]));
+    }
+
+    #[test]
+    fn canonical_and_alias_are_interchangeable() {
+        let a = run(&["bar"]).unwrap();
+        let b = run(&["barre"]).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn deprecated_alias_fires_callback() {
+        let mut set = HashSet::new();
+        let mut warnings: Vec<(String, &'static str)> = Vec::new();
+        apply_with_callback("old-baz", KNOWN, &mut set, |sp, canon| {
+            warnings.push((sp.to_owned(), canon));
+        })
+        .unwrap();
+        assert_eq!(set, HashSet::from(["baz"]));
+        assert_eq!(warnings, vec![("old-baz".to_owned(), "baz")]);
+    }
+
+    #[test]
+    fn alternative_alias_does_not_fire_callback() {
+        let mut set = HashSet::new();
+        let mut fired = false;
+        apply_with_callback("barre", KNOWN, &mut set, |_, _| fired = true).unwrap();
+        assert!(!fired);
+    }
+
+    #[test]
+    fn hidden_alias_resolves_silently() {
+        let mut set = HashSet::new();
+        let mut fired = false;
+        apply_with_callback("b", KNOWN, &mut set, |_, _| fired = true).unwrap();
+        assert_eq!(set, HashSet::from(["baz"]));
+        assert!(!fired);
+    }
+
+    #[test]
+    fn canonicalize_classifies_match_kind() {
+        assert_eq!(
+            canonicalize("foo", KNOWN),
+            Some(Resolved { canonical: "foo", kind: ResolvedKind::Canonical })
+        );
+        assert_eq!(
+            canonicalize("barre", KNOWN),
+            Some(Resolved { canonical: "bar", kind: ResolvedKind::Alternative })
+        );
+        assert_eq!(
+            canonicalize("old-baz", KNOWN),
+            Some(Resolved { canonical: "baz", kind: ResolvedKind::Deprecated })
+        );
+        assert_eq!(
+            canonicalize("b", KNOWN),
+            Some(Resolved { canonical: "baz", kind: ResolvedKind::Hidden })
+        );
+        assert_eq!(canonicalize("nope", KNOWN), None);
     }
 
     #[test]
@@ -216,6 +489,46 @@ mod tests {
     fn remove_absent_is_noop() {
         let s = run(&["-foo"]).unwrap();
         assert!(s.is_empty());
+    }
+
+    #[test]
+    fn check_known_accepts_valid() {
+        check_known(KNOWN);
+    }
+
+    #[test]
+    #[should_panic(expected = "duplicate spelling")]
+    fn check_known_rejects_canonical_collision() {
+        const BAD: &[KnownToken] = &[token!("foo"), token!("foo")];
+        check_known(BAD);
+    }
+
+    #[test]
+    #[should_panic(expected = "duplicate spelling")]
+    fn check_known_rejects_alias_canonical_collision() {
+        const BAD: &[KnownToken] = &[token!("foo"; "bar"), token!("bar")];
+        check_known(BAD);
+    }
+
+    #[test]
+    #[should_panic(expected = "duplicate spelling")]
+    fn check_known_rejects_alias_alias_collision() {
+        const BAD: &[KnownToken] = &[token!("foo"; "x"), token!("bar"; "x")];
+        check_known(BAD);
+    }
+
+    #[test]
+    #[should_panic(expected = "empty")]
+    fn check_known_rejects_empty_canonical() {
+        const BAD: &[KnownToken] = &[token!("")];
+        check_known(BAD);
+    }
+
+    #[test]
+    #[should_panic(expected = "empty alias")]
+    fn check_known_rejects_empty_alias() {
+        const BAD: &[KnownToken] = &[token!("foo"; "")];
+        check_known(BAD);
     }
 
     /// Set / unset the env var via the unsafe API. Tests in this module run
@@ -254,6 +567,20 @@ mod tests {
             let mut set = HashSet::new();
             apply_env_for_flag("polytest", "empty", KNOWN, &mut set).unwrap();
             assert!(set.is_empty());
+        });
+    }
+
+    #[test]
+    fn apply_env_resolves_aliases() {
+        with_env("POLYTEST_ALIAS", Some("barre,old-baz"), || {
+            let mut set: HashSet<&'static str> = HashSet::new();
+            let mut deprecations: Vec<(String, &'static str)> = Vec::new();
+            apply_env_for_flag_with_callback("polytest", "alias", KNOWN, &mut set, |sp, canon| {
+                deprecations.push((sp.to_owned(), canon))
+            })
+            .unwrap();
+            assert_eq!(set, HashSet::from(["bar", "baz"]));
+            assert_eq!(deprecations, vec![("old-baz".to_owned(), "baz")]);
         });
     }
 
