@@ -1,6 +1,8 @@
 ---
-status: open
+status: landed
 date: 2026-05-04
+landed: 2026-05-04
+landed-in: 98d39f6
 description: vscode-style minimap in the right margin, braille-dot density render, ascii-block fallback
 ---
 
@@ -134,3 +136,21 @@ open detail: how to surface "no colour yet" in the minimap. options: render the 
 - `crates/edit/src/bin/edit/state.rs` -- `Document::minimap: Option<MinimapState>` for the dirty-chunk cache.
 
 no new crates. binary-size-neutral target: braille glyph table is computed (`0x2800 + bits`), no LUT.
+
+## retrospective (landed `98d39f6`)
+
+shipped end-to-end in one commit. notes on what changed vs. the plan above:
+
+- **placement: minimap _replaces_ scrollbar.** proposal had them coexisting (`source | minimap | scrollbar`); landed mutually exclusive -- when the rail is visible it absorbs the navigation role. saved a column on narrow terminals; lost the "scrollbar stays authoritative for cursor-position" anchor the proposal banked on.
+- **width adapts to terminal width.** proposal had fixed `2` unicode / `1` ascii with auto-suppress under 80 cols. landed: `0` below 30, `1` below 60, `2` above (ascii-quirk follows same thresholds). finer-grained than the proposal's binary on/off.
+- **click-drag dropped.** proposal had click-drag-to-scroll 1:1 in v1 (despite a contradictory bullet deferring it). landed: snap-to-centre on fresh `MouseDown` only; drag continuations ignored b/c terminal mouse-drag is too choppy to track usefully.
+- **debounce + eager open refresh added.** 300ms debounce on dirty-chunk recompute; eager full refresh on document-open so the first frame already has the rail. neither in the proposal -- both fell out of feeling the latency live.
+- **--no-color path tweaked.** proposal had `no_color()` keep braille and skip only colour. landed: `--no-color` skips colour _and_ overwrites the viewport-window band with a heavier marker char (`@` ascii / `\u{2588}` unicode) so the band stays visible without sgr.
+- **viewport-window band: constant height.** painted at constant height regardless of scroll position; proposal computed it as proportional fraction of doc. simpler, reads fine.
+- **per-chunk dominant colour landed as planned.** 4-line chunks, lsh-derived, cached alongside density bits.
+- **5 MiB cap landed as planned.**
+
+still open / unaddressed:
+- lazy lsh fill for off-screen rows (proposal option (a)) -- not explicitly verified; whatever lsh's existing slice behaviour is, that's what the rail gets.
+- menubar checkbox + setting keys (`minimap.enabled`, `minimap.width`, `minimap.min_terminal_width`) -- explicitly deferred in the proposal, still deferred.
+- diff-mode interaction never re-checked.
