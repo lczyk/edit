@@ -8,6 +8,7 @@ rust-version.workspace = true
 build = "build/main.rs"
 
 [dependencies]
+gutter.workspace = true
 lsh.workspace = true
 stdext.workspace = true
 tty.workspace = true

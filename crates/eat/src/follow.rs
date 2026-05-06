@@ -25,8 +25,9 @@ use crate::write_highlighted_line;
 
 /// fixed line-number column width in follow mode. real width is unknowable
 /// (file is unbounded); 6 fits up to 999_999 lines without wrapping, and the
-/// column is mostly cosmetic anyway.
-const FOLLOW_NUM_WIDTH: usize = 6;
+/// column is mostly cosmetic anyway. used to seed `Gutter::compute(...,
+/// FOLLOW_NUM_WIDTH)` so the column doesn't shift as the file grows.
+pub const FOLLOW_NUM_WIDTH: usize = 6;
 
 /// how many consecutive failed stats we tolerate before giving up. at the
 /// default 250ms poll, 20 misses = 5s. covers brief logrotate windows.
@@ -139,6 +140,8 @@ pub enum TickOutcome {
 /// drive one poll iteration: stat, branch on size/id, optionally read+emit.
 /// caller owns sleeping between ticks. the `runtime` is `Option` so that a
 /// "no language detected" caller can still follow w/out highlighting.
+/// `gutter`, when `Some`, prepends the line-number column + diff separator;
+/// `None` keeps the historical bare-line output.
 #[allow(clippy::too_many_arguments)]
 pub fn tick<S: FollowSource>(
     state: &mut FollowState,
@@ -146,7 +149,7 @@ pub fn tick<S: FollowSource>(
     runtime: Option<&mut Runtime<'static, 'static, 'static>>,
     runtime_entrypoint: u32,
     color_map: &[&str],
-    show_numbers: bool,
+    gutter: Option<&crate::gutter_view::Gutter>,
     use_color: bool,
     writer: &mut dyn Write,
 ) -> io::Result<TickOutcome> {
@@ -205,7 +208,7 @@ pub fn tick<S: FollowSource>(
         &all,
         runtime_ref,
         color_map,
-        show_numbers,
+        gutter,
         use_color,
         writer,
         &mut state.line_no,
@@ -224,7 +227,7 @@ fn emit_lines(
     all: &[u8],
     mut runtime: Option<&mut Runtime<'static, 'static, 'static>>,
     color_map: &[&str],
-    show_numbers: bool,
+    gutter: Option<&crate::gutter_view::Gutter>,
     use_color: bool,
     writer: &mut dyn Write,
     line_no: &mut usize,
@@ -241,16 +244,8 @@ fn emit_lines(
                 end -= 1;
             }
             let cow = String::from_utf8_lossy(&all[start..end]);
-            let n_opt = if show_numbers { Some(*line_no) } else { None };
-            write_highlighted_line(
-                writer,
-                runtime.as_deref_mut(),
-                color_map,
-                &cow,
-                n_opt,
-                FOLLOW_NUM_WIDTH,
-                use_color,
-            )?;
+            let g = gutter.map(|g| (g, *line_no));
+            write_highlighted_line(writer, runtime.as_deref_mut(), color_map, &cow, g, use_color)?;
             *line_no += 1;
             emitted += 1;
             start = i + 1;
@@ -272,13 +267,25 @@ pub fn run(
     use_color: bool,
     poll_interval: Duration,
 ) -> io::Result<()> {
-    let mut src = FileSource::new(path);
+    let mut src = FileSource::new(path.clone());
     // eager stat: surface "no such file" / permission errors immediately
     // rather than burning the miss budget.
     src.stat()?;
     let color_map = crate::theme::color_map();
     let entrypoint = lang.map(|l| l.entrypoint).unwrap_or(0);
     let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
+
+    // build the gutter once at startup; appended lines past the initial
+    // marks vec just get GutterMark::None in their gutter prefix. for the
+    // streaming follow path we don't reissue past lines, so there's no point
+    // recomputing on every tick.
+    let gutter = if show_numbers {
+        std::fs::read(&path)
+            .ok()
+            .map(|bytes| crate::gutter_view::Gutter::compute(&path, &bytes, FOLLOW_NUM_WIDTH))
+    } else {
+        None
+    };
 
     let stdout = io::stdout();
     let mut w = stdout.lock();
@@ -293,7 +300,7 @@ pub fn run(
             runtime.as_mut(),
             entrypoint,
             &color_map,
-            show_numbers,
+            gutter.as_ref(),
             use_color,
             &mut w,
         )?;
@@ -359,7 +366,7 @@ mod tests {
     /// run a tick with no syntax runtime (raw line pass-through). simpler for
     /// asserting the loop logic w/out caring about ansi escapes.
     fn step_plain(state: &mut FollowState, src: &mut MemSource, out: &mut Vec<u8>) -> TickOutcome {
-        tick(state, src, None, 0, &[], false, false, out).unwrap()
+        tick(state, src, None, 0, &[], None, false, out).unwrap()
     }
 
     fn s(out: &[u8]) -> String {
@@ -495,7 +502,7 @@ mod tests {
             rt_a.as_mut(),
             rust.entrypoint,
             &color_map,
-            false,
+            None,
             true,
             &mut out_a,
         )
@@ -513,7 +520,7 @@ mod tests {
             rt_b.as_mut(),
             rust.entrypoint,
             &color_map,
-            false,
+            None,
             true,
             &mut out_b,
         )
@@ -525,7 +532,7 @@ mod tests {
             rt_b.as_mut(),
             rust.entrypoint,
             &color_map,
-            false,
+            None,
             true,
             &mut out_b,
         )
@@ -560,12 +567,12 @@ mod tests {
 
         // 3 misses, each within budget -> Idle.
         for _ in 0..3 {
-            let r = tick(&mut state, &mut src, None, 0, &[], false, false, &mut out).unwrap();
+            let r = tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap();
             assert_eq!(r, TickOutcome::Idle);
             src.fails_left -= 1;
         }
         // recovery: stat now succeeds, content emits.
-        let r = tick(&mut state, &mut src, None, 0, &[], false, false, &mut out).unwrap();
+        let r = tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap();
         assert_eq!(r, TickOutcome::Wrote(1));
         assert_eq!(s(&out), "x\n");
     }
@@ -587,31 +594,35 @@ mod tests {
 
         // budget=2 means: 1st miss Idle, 2nd Idle, 3rd > budget -> GoneTooLong.
         assert_eq!(
-            tick(&mut state, &mut src, None, 0, &[], false, false, &mut out).unwrap(),
+            tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap(),
             TickOutcome::Idle
         );
         assert_eq!(
-            tick(&mut state, &mut src, None, 0, &[], false, false, &mut out).unwrap(),
+            tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap(),
             TickOutcome::Idle
         );
         assert_eq!(
-            tick(&mut state, &mut src, None, 0, &[], false, false, &mut out).unwrap(),
+            tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap(),
             TickOutcome::GoneTooLong
         );
     }
 
     #[test]
-    fn line_numbers_when_enabled() {
+    fn line_numbers_when_gutter_supplied() {
+        use crate::gutter_view::Gutter;
+        use gutter::GutterMark;
+        let g = Gutter { width: FOLLOW_NUM_WIDTH, marks: vec![GutterMark::None; 100] };
         let mut src = MemSource::new();
         src.append(b"a\nb\n");
         let mut state = FollowState::new(20);
         let mut out = Vec::new();
-        tick(&mut state, &mut src, None, 0, &[], true, false, &mut out).unwrap();
+        tick(&mut state, &mut src, None, 0, &[], Some(&g), false, &mut out).unwrap();
         let got = s(&out);
-        // expect "1<pad> a\n2<pad> b\n" with FOLLOW_NUM_WIDTH-wide column.
         assert!(got.contains("1"));
         assert!(got.contains("2"));
         assert!(got.contains("a\n"));
         assert!(got.contains("b\n"));
+        // separator present
+        assert!(got.contains("|") || got.contains("\u{2502}"));
     }
 }

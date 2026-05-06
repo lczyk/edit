@@ -6,6 +6,7 @@
 pub mod definitions;
 pub mod follow;
 pub mod follow_tui;
+pub mod gutter_view;
 pub mod theme;
 
 use std::fs::File;
@@ -303,24 +304,20 @@ fn resolve_pager() -> Option<String> {
 
 /// write one line to `writer`, optionally with a leading line number and ansi
 /// colour escapes from `color_map`. when `runtime` is `None`, the line is
-/// emitted as-is (no highlighting). `num_width` is only consulted when
-/// `line_no` is `Some` -- it left-pads the number column. used by both the
-/// bulk path (`print_highlighted`) and the follow path.
+/// emitted as-is (no highlighting). when `gutter` is `Some((g, n))`, prepend
+/// the gutter prefix (right-aligned line number + separator) using mark
+/// information from `g`. used by both the bulk path (`print_highlighted`)
+/// and the follow paths.
 pub(crate) fn write_highlighted_line(
     writer: &mut dyn Write,
     runtime: Option<&mut Runtime>,
     color_map: &[&str],
     line: &str,
-    line_no: Option<usize>,
-    num_width: usize,
+    gutter: Option<(&gutter_view::Gutter, usize)>,
     use_color: bool,
 ) -> io::Result<()> {
-    if let Some(n) = line_no {
-        if use_color {
-            write!(writer, "\x1b[90m{:<num_width$} \x1b[m", n)?;
-        } else {
-            write!(writer, "{:<num_width$} ", n)?;
-        }
+    if let Some((g, n)) = gutter {
+        gutter_view::write_prefix(writer, n, g.width, g.mark(n), use_color)?;
     }
 
     match runtime {
@@ -370,6 +367,7 @@ fn print_highlighted(
     header: Option<&str>,
     color_mode: ColorMode,
     paging_mode: PagingMode,
+    gutter: Option<&gutter_view::Gutter>,
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let is_tty = stdout.is_terminal();
@@ -402,20 +400,9 @@ fn print_highlighted(
             }
         }
 
-        let num_width =
-            if show_numbers { lines.len().checked_ilog10().unwrap_or(0) as usize + 1 } else { 0 };
-
         for (i, line) in lines.iter().enumerate() {
-            let line_no = if show_numbers { Some(i + 1) } else { None };
-            write_highlighted_line(
-                writer,
-                Some(runtime),
-                color_map,
-                line,
-                line_no,
-                num_width,
-                use_color,
-            )?;
+            let g = if show_numbers { gutter.map(|g| (g, i + 1)) } else { None };
+            write_highlighted_line(writer, Some(runtime), color_map, line, g, use_color)?;
         }
 
         Ok(())
@@ -640,6 +627,21 @@ fn run(
             None
         };
 
+        // build the gutter once per file when -n is on and we have a path to
+        // resolve a baseline against. for stdin or with -n off, no gutter.
+        let gutter = if show_numbers && let Some(p) = path_for_detection {
+            // re-join the lines into a contiguous byte buffer for diffing.
+            // BufRead::lines() already stripped \n, so we need to put them back.
+            let mut bytes = Vec::with_capacity(lines.iter().map(|l| l.len() + 1).sum());
+            for l in &lines {
+                bytes.extend_from_slice(l.as_bytes());
+                bytes.push(b'\n');
+            }
+            Some(gutter_view::Gutter::compute(p, &bytes, 1))
+        } else {
+            None
+        };
+
         if let Some(lang) = lang {
             let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lang.entrypoint);
             if let Err(e) = print_highlighted(
@@ -650,6 +652,7 @@ fn run(
                 header,
                 color_mode,
                 paging_mode,
+                gutter.as_ref(),
             ) {
                 eprintln!("eat: {e}");
                 has_error = true;

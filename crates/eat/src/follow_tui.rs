@@ -617,6 +617,17 @@ fn run_loop(
     let mut sink = LineBuf::new();
     let path_label = path.display().to_string();
 
+    // gutter: re-read the file on each content-change tick so newly-arrived
+    // lines pick up correct marks; cheap (file already in disk cache, capped
+    // at MAX_DIFF_BYTES). only when -n is set.
+    let mut gutter: Option<crate::gutter_view::Gutter> = if show_numbers {
+        std::fs::read(path).ok().map(|bytes| {
+            crate::gutter_view::Gutter::compute(path, &bytes, crate::follow::FOLLOW_NUM_WIDTH)
+        })
+    } else {
+        None
+    };
+
     let mut last_tick = Instant::now() - poll_interval; // ensures first iteration ticks
     let mut last_redraw = Instant::now() - Duration::from_secs(1);
     let arena_main = Arena::new(64 * 1024)?;
@@ -636,7 +647,7 @@ fn run_loop(
                 runtime.as_mut(),
                 entrypoint,
                 &color_map,
-                show_numbers,
+                gutter.as_ref(),
                 use_color,
                 &mut sink,
             )?;
@@ -644,6 +655,15 @@ fn run_loop(
                 TickOutcome::Reset(n) => {
                     view.reset_lines();
                     view.extend_lines(&sink.take_new());
+                    if show_numbers {
+                        gutter = std::fs::read(path).ok().map(|bytes| {
+                            crate::gutter_view::Gutter::compute(
+                                path,
+                                &bytes,
+                                crate::follow::FOLLOW_NUM_WIDTH,
+                            )
+                        });
+                    }
                     if n > 0 {
                         want_redraw = true;
                     }
@@ -651,6 +671,15 @@ fn run_loop(
                 TickOutcome::Wrote(n) => {
                     view.extend_lines(&sink.take_new());
                     if n > 0 {
+                        if show_numbers {
+                            gutter = std::fs::read(path).ok().map(|bytes| {
+                                crate::gutter_view::Gutter::compute(
+                                    path,
+                                    &bytes,
+                                    crate::follow::FOLLOW_NUM_WIDTH,
+                                )
+                            });
+                        }
                         want_redraw = true;
                     }
                 }
