@@ -21,7 +21,7 @@ pub fn allow_create() -> bool {
 use edit::buffer::{RcTextBuffer, TextBuffer};
 use edit::framebuffer::IndexedColor;
 use edit::helpers::{CoordType, Point};
-use edit::lsh::{FILE_ASSOCIATIONS, Language, process_file_associations};
+use edit::lsh::{FILE_ASSOCIATIONS, Language, language_from_shebang, process_file_associations};
 use edit::{path, sys};
 
 use crate::apperr;
@@ -250,7 +250,10 @@ impl Document {
     }
 
     fn update_language(&mut self) {
-        self.buffer.borrow_mut().set_language(self.get_language());
+        // Resolve before grabbing the buffer mutably -- shebang detection
+        // borrows the buffer immutably.
+        let lang = self.get_language();
+        self.buffer.borrow_mut().set_language(lang);
     }
 
     fn get_language(&self) -> Option<&'static Language> {
@@ -266,7 +269,11 @@ impl Document {
             return Some(lang);
         }
 
-        None
+        // Path-based detection missed -- fall back to the shebang. Catches
+        // extensionless shell scripts and similar.
+        let mut head = Vec::new();
+        self.buffer.borrow().copy_first_bytes(256, &mut head);
+        language_from_shebang(&head)
     }
 }
 

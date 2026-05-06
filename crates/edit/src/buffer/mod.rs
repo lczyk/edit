@@ -471,6 +471,13 @@ impl TextBuffer {
         self.buffer.extract_raw(0..self.buffer.len(), out, out.len());
     }
 
+    /// Append up to `max` leading bytes of the buffer to `out`. Cheap peek
+    /// used for things like shebang-based language detection.
+    pub fn copy_first_bytes(&self, max: usize, out: &mut Vec<u8>) {
+        let end = self.buffer.len().min(max);
+        self.buffer.extract_raw(0..end, out, out.len());
+    }
+
     /// Length of the document in bytes.
     pub fn text_length(&self) -> usize {
         self.buffer.len()
