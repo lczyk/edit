@@ -1,0 +1,26 @@
+[32m# Single-line comment[m
+
+[96mtitle[m = [91m"TOML Example"[m
+[96menabled[m = [94mtrue[m
+[96mcount[m = [92m42[m
+[96mpi[m = [92m3.14[m
+[96mhex[m = [92m0xff[m
+[96mwhen[m = [92m1979-05-27T07:32:00Z[m
+
+[94m[owner][m
+[96mname[m = [91m"Tom"[m
+[96mdob[m = [92m1979-05-27[m
+
+[94m[[servers]][m
+[96mip[m = [91m"10.0.0.1"[m
+[96mrole[m = [91m"frontend"[m
+
+[94m[[servers]][m
+[96mip[m = [91m"10.0.0.2"[m
+[96mrole[m = [91m"backend"[m
+
+[96mmultiline[m = [91m"""[m
+[91mline one[m
+[91mline two[m
+[91m"""[m
+

@@ -1,0 +1,68 @@
+[32m// Line comment[m
+[32m/* block comment */[m
+
+[94mpackage [m[96mmain[m
+
+[94mimport[m (
+    [91m"fmt"[m
+    [91m"strings"[m
+)
+
+[94mconst[m MAX = [92m42[m
+
+[94mtype[m Point [94mstruct[m {
+    Name  [36mstring[m
+    Value [36mfloat64[m
+}
+
+[94mfunc[m [93mmain[m() {
+    s := [91m"hello"[m
+    raw := [91m`raw string`[m
+    r := [91m'x'[m
+    n := [92m0xff[m
+    xs := [][36mint[m{[92m1[m, [92m2[m, [92m3[m}
+
+    [95mfor[m i, v := [95mrange[m xs {
+        [95mif[m v == [92m0[m {
+            [95mcontinue[m
+        }
+        fmt.[93mPrintln[m(i, v, strings.[93mToUpper[m(s), raw, r, n)
+    }
+
+    [95mswitch[m n {
+    [95mcase[m [92m0[m:
+        [95mreturn[m
+    [95mdefault[m:
+        fmt.[93mPrintln[m([91m"default"[m)
+    }
+}
+
+[94mfunc[m [93mbuiltins[m() {
+    s := [33mmake[m([][36mstring[m, [92m0[m)
+    s = [33mappend[m(s, [91m"x"[m)
+    n := [33mlen[m(s)
+    c := [33mcap[m(s)
+    _ = [33mcopy[m(s, s)
+    [33mdelete[m(m, [91m"key"[m)
+    [95mif[m ok := [94mtrue[m; ok {
+        [33mpanic[m([91m"boom"[m)
+    }
+    _ = [33mnew[m([36mint[m)
+    _ = [33mcomplex[m([92m1[m, [92m2[m)
+    _ = [33mreal[m(c)
+    _ = [33mimag[m(c)
+    _ = [33mclose[m(ch)
+    v := [33mrecover[m()
+    _ = v
+    [33mprintln[m([91m"print"[m)
+    [33mprint[m([91m"no newline"[m)
+}
+
+[94mvar[m (
+    b [36mbool[m
+    by [36mbyte[m
+    e [36merror[m
+    a [36many[m
+    c [36mcomparable[m
+)
+

@@ -1,0 +1,125 @@
+[32m# Comments[m
+[32m# Single-line comment[m
+
+[32m=begin[m
+[32mMulti-line[m
+[32mcomment[m
+[32m=end[m
+
+[32m# Numbers[m
+[92m42[m
+[92m3.14[m
+[92m0.5[m
+[92m1e10[m
+[92m1.5e-3[m
+[92m0xff[m
+[92m0xFF[m
+[92m0b1010[m
+[92m0o77[m
+[92m1_000_000[m
+[92m3.14r[m
+[92m2i[m
+
+[32m# Constants[m
+[94mtrue[m
+[94mfalse[m
+[94mnil[m
+[94mObject[m
+[94mString[m
+
+[32m# Strings[m
+[91m'single quotes with escape: \' \n \t \\'[m
+[91m"double quotes with escape: \" \n \t \\"[m
+[91m`echo shell command`[m
+
+[32m# Symbols and variables[m
+[94m:symbol[m
+[94m:method_name?[m
+[96m@instance_var[m
+[96m@@class_var[m
+[96m$global_var[m
+
+[32m# Control flow keywords[m
+[95mif[m [94mtrue[m
+  puts [91m"yes"[m
+[95melsif[m [94mfalse[m
+  puts [91m"no"[m
+[95melse[m
+  puts [91m"maybe"[m
+[95mend[m
+
+[95munless[m [94mnil[m
+  puts [91m"not nil"[m
+[95mend[m
+
+[95mcase[m [92m42[m
+[95mwhen[m [92m1[m
+  puts [91m"one"[m
+[95melse[m
+  puts [91m"other"[m
+[95mend[m
+
+[95mfor[m i [95min[m [92m1[m..[92m3[m
+  [95mnext[m [95mif[m i == [92m2[m
+  [95mbreak[m [95mif[m i == [92m3[m
+[95mend[m
+
+[95mwhile[m [94mfalse[m
+  [95mredo[m
+[95mend[m
+
+[95mbegin[m
+  raise [91m"oops"[m
+[95mrescue[m [94mStandardError[m => e
+  [95mretry[m
+[95mensure[m
+  puts e
+[95mend[m
+
+[32m# Definitions and method calls[m
+[95mmodule[m [94mDemo[m
+  [95mclass[m [94mAnimal[m
+    [95mdef [m[93minitialize[m(name)
+      [96m@name[m = name
+    [95mend[m
+
+    [95mdef [m[93mspeak![m =  puts [91m"#{@name} speaks"[m
+  [95mend[m
+[95mend[m
+
+[94malias[m old_speak speak!
+[94mundef[m old_speak
+
+[94mBEGIN[m { puts [91m"start"[m }
+[94mEND[m { puts [91m"finish"[m }
+[94mdefined?[m [94mDemo[m
+[94mself[m
+[94msuper[m
+[94myield[m
+
+puts [91m"hello"[m
+[94mArray[m.[93mnew[m([92m3[m)
+[93mgreet[m([91m"world"[m)
+
+[32m# Singleton method defs[m
+[95mclass[m [94mFoo[m
+  [95mdef self.[m[93mbar[m
+    [92m42[m
+  [95mend[m
+
+  [95mdef Foo.[m[93mbaz[m
+    [92m99[m
+  [95mend[m
+[95mend[m
+
+[32m# Percent literals[m
+words = [91m%w[one two three][m
+syms = [91m%i[a b c][m
+str_q = [91m%q(plain)[m
+str_Q = [91m%Q{interp}[m
+
+[32m# Character literals[m
+ch_a = [92m?a[m
+ch_z = [92m?Z[m
+ch_esc = [92m?\n[m
+

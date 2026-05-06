@@ -1,0 +1,87 @@
+[94m# H1[m
+
+[94m## H2[m
+
+[94m### H3[m
+
+[94m#### H4[m
+
+[94m##### H5[m
+
+[94m###### H6[m
+
+regular
+[3m*italic*[m
+[3m_italic_[m
+[1m**bold**[m
+[1m__bold__[m
+[1m***bold italic**[m*
+[1m**_bold italic_**[m
+[1m__*bold italic*__[m
+[9m~~strikethrough~~[m
+[91m`inline code`[m
+[91m`` `literal` ``[m
+\*not\* \_italic\_ # not a heading
+
+[94m* [mUnordered item
+  [94m- [mNested item
+[94m    * [mThird level
+[94m* [mTask list:
+  [94m* [m[[91m [m] To do
+  [94m* [m[[91mx[m] Done
+  [94m* [m[[91m [m] [3m*Mixed*[m [1m**formatting**[m with [91m`code`[m
+1. Ordered can start anywhere
+2. …like here (intentional)
+   1. Nested ordered
+   2. Multiple paragraphs within a list item:
+      Still the same item.
+
+[32m> A single-level quote[m
+[32m>[m
+[32m> > A nested quote with **bold** and `code`[m
+[32m>[m
+[32m> * List in a quote[m
+[32m> * [Link in quote](#links)[m
+
+Inline: [[91mExample[m]([4mhttps://example.com[m [91m"Example Title"[m)
+Reference: [[91mRef Link[m][[91mref[m] and [[91mAnother[m][[91manother-ref[m]
+Relative: [[91mThis section[m]([4m#tables[m)
+Footnote: [[91m^note[m]
+[[91mref[m]: https://example.com
+[[91manother-ref[m]: https://github.com
+[[91m^note[m]: This is a footnote with [1m**formatting**[m and a [[91mlink[m]([4mhttps://github.com[m).
+
+Inline: ![[91mAlt text[m]([4mhttps://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png[m [91m"GitHub Mark"[m)
+Reference: ![[91mLogo[m][[91mlogo-ref[m]
+[[91mlogo-ref[m]: https://github.githubassets.com/images/modules/logos_page/GitHub-Logo.png "GitHub Logo"
+
+| Left        |   Center   | Right |
+| :---------- | :--------: | ----: |
+| [3m*italic*[m    |   [91m`code`[m   |   123 |
+| [1m**bold**[m    | [9m~~strike~~[m |  4.56 |
+| [[91mlink[m][[91mref[m] |   :tada:   | [91m`end`[m |
+
+```bash
+[32m# Shell[m
+echo [91m"Hello, world"[m | tr a-z A-Z
+```
+
+```javascript
+[94mexport[m [94mfunction[m [93mgreet[m(name) {
+  [95mreturn[m [91m`hello ${name}`[m;
+}
+```
+
+```json
+{
+  [91m"name"[m: [91m"gfm-kitchen-sink"[m,
+  [91m"private"[m: [94mtrue[m,
+  [91m"scripts"[m: { [91m"test"[m: [91m"echo ok"[m }
+}
+```
+
+```python
+[94mdef[m [93mgreet[m(name: str) -> str:
+    [95mreturn[m f[91m"hello {name}"[m
+```
+

@@ -1,0 +1,40 @@
+<?[94mxml[m [96mversion[m=[91m"1.0"[m [96mencoding[m=[91m"UTF-8"[m [96mstandalone[m=[91m"yes"[m?>
+<!DOCTYPE root [
+  <!ENTITY custom "Custom Entity">
+]>
+[32m<!-- Root comment with special chars: <>&"' -->[m
+<?[94mprocessing-instruction[m [96mtarget[m=[91m"value"[m?>
+<[94mroot[m [96mxmlns[m=[91m"http://default.namespace"[m [96mxmlns:ns[m=[91m"http://custom.namespace"[m>
+  [32m<!-- Elements and attributes -->[m
+  <[94melement[m [96mattribute[m=[91m"value"[m [96mns:attr[m=[91m'single-quoted'[m [96mempty-attr[m=[91m""[m>
+    <[94mself-closing[m [96mid[m=[91m"123"[m />
+    <[94mnested[m>Text [92m&amp;[m [92m&lt;[m [92m&gt;[m [92m&quot;[m [92m&apos;[m content</[94mnested[m>
+    <[94mentity[m>[92m&custom;[m</[94mentity[m>
+  </[94melement[m>
+
+  [32m<!-- CDATA section -->[m
+  <[94mscript[m>[91m<![CDATA[[m
+[91m    function test() {[m
+[91m      return x < 10 && y > 5;[m
+[91m    }[m
+[91m  ]]>[m</[94mscript[m>
+
+  [32m<!-- Mixed content -->[m
+  <[94mmixed[m>Text before <[94mtag[m>inline</[94mtag[m> text after</[94mmixed[m>
+
+  [32m<!-- Numeric character references -->[m
+  <[94mchars[m>[92m&#65;[m [92m&#x41;[m [92m&#x1F600;[m</[94mchars[m>
+
+  [32m<!-- Edge cases -->[m
+  <[94medge-cases[m>
+    <[94mempty[m></[94mempty[m>
+    <[94mwhitespace[m>   </[94mwhitespace[m>
+    <[94mspecial-chars[m>!@#$%^*()_+-={}[]|\:;"'[92m&lt;[m[92m&gt;[m,.</[94mspecial-chars[m>
+  </[94medge-cases[m>
+
+  [32m<!-- Nested namespaces -->[m
+  <[94mns:custom[m [96mns:id[m=[91m"namespaced"[m>
+    <[94mns:child[m />
+  </[94mns:custom[m>
+</[94mroot[m>
+

@@ -1,0 +1,118 @@
+[32m// Comments[m
+[32m// Single-line comment[m
+
+[32m/*[m
+[32m * Multi-line[m
+[32m * comment[m
+[32m */[m
+
+[32m// Numbers[m
+[92m42[m;
+[92m3.14[m;
+[92m.5[m;
+[92m1e10[m;
+[92m1.5e-3[m;
+[92m0xff[m;
+[92m0xFF[m;
+[92m0b1010[m;
+[92m0o77[m;
+[92m1_000_000[m;
+[92m42n[m;
+
+[32m// Constants[m
+[94mtrue[m;
+[94mfalse[m;
+[94mnull[m;
+[94mundefined[m;
+[94mNaN[m;
+[94mInfinity[m;
+
+[32m// Strings[m
+[91m'single quotes with escape: \' \n \t \\'[m;
+[91m"double quotes with escape: \" \n \t \\"[m;
+
+[32m// Control flow keywords[m
+[95mif[m ([94mtrue[m) {
+} [95melse[m [95mif[m ([94mfalse[m) {
+} [95melse[m {
+}
+
+[95mfor[m ([94mlet[m i = [92m0[m; i < [92m10[m; i++) {
+  [95mif[m (i === [92m5[m) [95mcontinue[m;
+  [95mif[m (i === [92m8[m) [95mbreak[m;
+}
+
+[95mwhile[m ([94mfalse[m) { }
+[95mdo[m { } [95mwhile[m ([94mfalse[m);
+
+[95mswitch[m ([92m42[m) {
+  [95mcase[m [92m1[m: [95mbreak[m;
+  [95mdefault[m: [95mbreak[m;
+}
+
+[95mtry[m {
+  [95mthrow[m [94mnew[m [93mError[m([91m"oops"[m);
+} [95mcatch[m (e) {
+} [95mfinally[m {
+}
+
+[95mdebugger[m;
+
+[32m// Template literals[m
+[91m`template literal: ${1 + 2} and ${greet("world")}`[m;
+[91m`multi[m
+[91mline[m
+[91mtemplate`[m;
+
+[32m// Other keywords (some are contextually reserved)[m
+[94mvar[m a = [92m1[m;
+[94mlet[m b = [92m2[m;
+[94mconst[m c = [92m3[m;
+
+[94mfunction[m [93mgreet[m(name) {
+  [95mreturn[m [91m"Hello, "[m + name;
+}
+
+[94masync[m [94mfunction[m [93mfetchData[m() {
+  [94mconst[m result = [94mawait[m [93mfetch[m([91m"/api"[m);
+  [95mreturn[m result;
+}
+
+[94mfunction[m* [93mgen[m() {
+  [94myield[m [92m1[m;
+  [94myield[m [92m2[m;
+}
+
+[94mclass[m Animal [94mextends[m Object {
+  [94mstatic[m count = [92m0[m;
+
+  [93mconstructor[m(name) {
+    [94msuper[m();
+    [94mthis[m.name = name;
+    Animal.count++;
+  }
+
+  [93mspeak[m() {
+    [95mreturn[m [91m`${this.name} speaks`[m;
+  }
+}
+
+[94mconst[m obj = { a: [92m1[m };
+[94mdelete[m obj.a;
+[94mtypeof[m obj;
+[94mvoid[m [92m0[m;
+[91m"a"[m instanceof Object;
+[91m"a"[m [94min[m obj;
+
+[94mimport[m { readFile } from [91m"fs"[m;
+[94mexport[m [94mconst[m PI = [92m3.14[m;
+[95mfor[m ([94mconst[m x [94mof[m [[92m1[m, [92m2[m]) { }
+[95mfor[m ([94mconst[m k [94min[m { a: [92m1[m }) { }
+
+[32m// Function calls[m
+console.[93mlog[m([91m"hello"[m);
+Math.[93mmax[m([92m1[m, [92m2[m);
+[[92m1[m, [92m2[m, [92m3[m].[93mmap[m(x => x * [92m2[m);
+[93mgreet[m([91m"world"[m);
+[93mparseInt[m([91m"42"[m);
+

@@ -1,0 +1,16 @@
+[32m// LSH definition example[m
+#[display_name = [91m"Demo"[m]
+#[line_comment = [91m"#"[m]
+#[path = [91m"**/*.demo"[m]
+[94mpub[m [94mfn[m demo() {
+    [95muntil[m [91m/$/[m {
+        [94myield[m [4mother[m;
+
+        [95mif[m [91m/#.*/[m {
+            [94myield[m [4mcomment[m;
+        } [95melse[m [95mif[m [91m/\d+/[m {
+            [94myield[m [4mconstant.numeric[m;
+        }
+    }
+}
+

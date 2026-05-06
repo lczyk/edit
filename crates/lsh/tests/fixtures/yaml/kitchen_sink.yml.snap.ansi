@@ -1,0 +1,44 @@
+[32m# This is a comment[m
+---
+string: [91m"Hello, world!"[m
+plain: [91mplainValue[m
+multiline: |
+[91m  This is a[m
+[91m  true[m
+[91m  multiline string.[m
+folded: >
+[91m  This is a[m
+[91m  true[m
+[91m  folded string.[m
+number_int: [92m42[m
+number_float: [92m3.1415[m
+number_scientific: [92m1.23e45[m
+number_negative: [92m-7[m
+boolean_true: [94mtrue[m
+boolean_false: [94mfalse[m
+null_value: [94mnull[m
+explicit_null: [94m~[m
+date: [91m2024-06-01[m
+timestamp: [91m2024-06-01T12:34:56Z[m
+confusable_string_number: [91m1.23e45 1.23e45 [m[32m# This is a comment[m
+sequence:
+  - [91mitem1[m
+  - [91mitem2[m
+  - [92m3[m
+  - [94mtrue[m
+mapping:
+  key1: [91mvalue1[m
+  key2: [91mvalue2[m
+nested:
+  - name: [91mAlice[m
+    age: [92m30[m
+    married: [94mfalse[m
+  - name: [91mBob[m
+    age: [92m25[m
+    married: [94mtrue[m
+empty_sequence: [91m[foo, 123, bar][m
+empty_mapping: [91m{ foo: bar }[m
+literal_colon: [91m"value:with:colons"[m
+literal_dash: [91m"-not-a-sequence"[m
+special_chars: [91m"Tab:\t Newline:\n Unicode:\u2713"[m
+

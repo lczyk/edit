@@ -1,0 +1,34 @@
+[32m// Line comment[m
+[32m//! Inner doc[m
+[32m/// Outer doc[m
+[32m/* block comment */[m
+
+[94muse[m std::collections::[96mHashMap[m;
+
+[94mconst[m [96mMAX[m: [96mu32[m = [92m42[m;
+
+[4m#[derive(Clone, Debug)][m
+[94mpub[m [94mstruct[m [96mPoint[m<[94m'a[m> {
+    [94mpub[m name: &[94m'a[m [96mstr[m,
+    [94mpub[m value: [96mf64[m,
+}
+
+[94mfn[m [93mmain[m() {
+    [94mlet[m s = [91m"hello"[m;
+    [94mlet[m raw = [91mr#"raw"#[m;
+    [94mlet[m c = [91m'x'[m;
+    [94mlet[m n: [96mi64[m = [92m0xff_u32[m [95mas[m [96mi64[m;
+    [94mlet[m v = [93mvec[m![[92m1[m, [92m2[m, [92m3[m];
+
+    [95mif[m [94mlet[m [94mSome[m(x) = v.[93mfirst[m() {
+        [93mprintln[m!([91m"{}"[m, x);
+    } [95melse[m {
+        [95mreturn[m;
+    }
+
+    [95mmatch[m n {
+        [92m0[m => (),
+        [92m_[m => [93munreachable[m!(),
+    }
+}
+

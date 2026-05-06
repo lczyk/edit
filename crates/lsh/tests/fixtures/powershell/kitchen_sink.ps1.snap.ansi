@@ -1,0 +1,79 @@
+[32m# Single-line comment[m
+
+[32m<#[m
+[32mMulti-line[m
+[32mcomment[m
+[32m#>[m
+
+[94mfunction[m [93mGet-SampleData[m {
+    [94mparam[m(
+        [string][96m$Name[m = [91m"World"[m, [32m# String literal, parameter[m
+        [int][96m$Count[m = [92m3[m
+    )
+
+    [96m$array[m = @([92m1[m, [92m2[m, [92m3[m) [32m# Array literal[m
+    [96m$hashtable[m = @{ Key1 = [91m'Value1'[m; Key2 = [92m42[m } [32m# Hashtable literal[m
+
+    [96m$nullVar[m = [94m$null[m
+    [96m$boolTrue[m = [94m$true[m
+    [96m$boolFalse[m = [94m$false[m
+
+    [96m$regexMatch[m = [91m"abc123"[m -match [91m'\d+'[m [32m# Regex literal[m
+
+    [95mfor[m ([96m$i[m = [92m0[m; [96m$i[m -lt [96m$Count[m; [96m$i[m++) {
+        [93mWrite-Host[m [91m"Hello, $Name! Iteration: $i"[m [32m# Variable interpolation, string[m
+    }
+
+    [95mif[m ([96m$hashtable[m.Key2 -eq [92m42[m) {
+        [93mWrite-Output[m [91m"Hashtable value is 42"[m
+    }
+    [95melseif[m ([96m$hashtable[m.Key2 -gt [92m40[m) {
+        [93mWrite-Output[m [91m"Hashtable value is greater than 40"[m
+    }
+    [95melse[m {
+        [93mWrite-Output[m [91m"Hashtable value is less than or equal to 40"[m
+    }
+
+    [95mswitch[m ([96m$Name[m) {
+        [91m"World"[m { [93mWrite-Host[m [91m"Default name used."[m }
+        [95mdefault[m { [93mWrite-Host[m [91m"Custom name: $Name"[m }
+    }
+
+    [95mtry[m {
+        [95mthrow[m [91m"An error occurred"[m
+    }
+    [95mcatch[m {
+        [93mWrite-Warning[m [96m$_[m
+    }
+    [95mfinally[m {
+        [93mWrite-Verbose[m [91m"Finally block executed"[m
+    }
+
+    [96m$script:globalVar[m = [92m99[m [32m# Scope modifier[m
+
+    [32m# Here-String[m
+    [96m$hereString[m = [91m@"[m
+[91mThis is a here-string.[m
+[91mName: $Name[m
+[91m"@[m
+
+    [95mreturn[m [96m$hereString[m
+}
+
+[32m# Command invocation, pipeline, splatting[m
+[96m$paramSplat[m = @{
+    Name  = [91m'PowerShell'[m
+    Count = [92m2[m
+}
+[93mGet-SampleData[m [96m@paramSplat[m | [93mOut-File[m -FilePath [91m"./output.txt"[m
+
+[32m# Type literal, member access, method call[m
+[System.DateTime]::Now.ToString([91m"yyyy-MM-dd"[m)
+
+[32m# Subexpression[m
+[93mWrite-Host[m [91m"2 + 2 = $($array[0] + $array[1])"[m
+
+[32m# Command substitution[m
+[96m$pwdPath[m = $([93mGet-Location[m).Path
+[93mWrite-Host[m [91m"Current directory: $pwdPath"[m
+

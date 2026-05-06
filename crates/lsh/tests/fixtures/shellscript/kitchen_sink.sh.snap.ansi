@@ -1,0 +1,229 @@
+[32m#!/bin/bash[m
+
+[32m# Numbers[m
+[92m42[m
+[92m3.14[m
+[92m-7[m
+[92m0xFF[m
+[92m0777[m
+[92m2[m[32m#1010[m
+
+[32m# Constants[m
+[94mtrue[m
+[94mfalse[m
+
+[32m# Single-quoted strings[m
+echo [91m'hello world'[m
+echo [91m'it'[m\[91m''[ms a trap'
+
+[32m# Double-quoted strings[m
+echo [91m"hello [m[96m$USER[m[91m"[m
+echo [91m"home is [m[96m${HOME}[m[91m"[m
+echo [91m"escaped \$ and \" and \\"[m
+echo [91m"subshell: [m[96m$(whoami)[m[91m"[m
+echo [91m"arithmetic: [m[96m$((1 + 2))[m[91m"[m
+echo [91m"positional: [m[96m$1[m[91m [m[96m$#[m[91m [m[96m$?[m[91m [m[96m$![m[91m [m[96m$@[m[91m [m[96m$0[m[91m [m[96m$$[m[91m [m[96m$-[m[91m"[m
+
+[32m# ANSI-C quoting[m
+echo [91m$'tab:\there\nnewline'[m
+echo [91m$'escape sequences: \a \b \e \f \r \t \v \\\\ \''[m
+
+[32m# Backtick interpolation[m
+echo [91m"today is `date +%Y-%m-%d`"[m
+
+[32m# Control flow[m
+[95mif[m [ -f /etc/passwd ]; [95mthen[m
+    echo [91m"exists"[m
+[95melif[m [ -d /tmp ]; [95mthen[m
+    echo [91m"tmp exists"[m
+[95melse[m
+    echo [91m"neither"[m
+[95mfi[m
+
+[95mfor[m i [95min[m [92m1[m [92m2[m [92m3[m; [95mdo[m
+    echo [91m"[m[96m$i[m[91m"[m
+    [95mcontinue[m
+[95mdone[m
+
+[95mfor[m ((i = [92m0[m; i < [92m3[m; i++)); [95mdo[m
+    [95mbreak[m
+[95mdone[m
+
+[95mwhile[m [94mtrue[m; [95mdo[m
+    [95mbreak[m
+[95mdone[m
+
+[95muntil[m [94mfalse[m; [95mdo[m
+    [95mbreak[m
+[95mdone[m
+
+[95mcase[m [91m"[m[96m$1[m[91m"[m [95min[m
+    start) echo [91m"starting"[m ;;
+    stop)  echo [91m"stopping"[m ;;
+    *)     echo [91m"unknown"[m  ;;
+[95mesac[m
+
+[95mselect[m opt [95min[m [91m"yes"[m [91m"no"[m [91m"quit"[m; [95mdo[m
+    echo [91m"[m[96m$opt[m[91m"[m
+    [95mbreak[m
+[95mdone[m
+
+[95mtime[m ls -la
+
+[32m# Test expressions[m
+[ -f /etc/passwd ]
+[ -d /tmp ]
+[ -z [91m"[m[96m$var[m[91m"[m ]
+[ -n [91m"[m[96m$var[m[91m"[m ]
+[ [91m"[m[96m$a[m[91m"[m = [91m"[m[96m$b[m[91m"[m ]
+[ [91m"[m[96m$a[m[91m"[m != [91m"[m[96m$b[m[91m"[m ]
+[ [91m"[m[96m$a[m[91m"[m -eq [92m1[m ]
+[ [91m"[m[96m$a[m[91m"[m -ne [92m2[m ]
+[ [91m"[m[96m$a[m[91m"[m -lt [92m3[m ]
+[ [91m"[m[96m$a[m[91m"[m -gt [92m4[m ]
+[ [91m"[m[96m$a[m[91m"[m -le [92m5[m ]
+[ [91m"[m[96m$a[m[91m"[m -ge [92m6[m ]
+[[ [91m"[m[96m$name[m[91m"[m == *.txt ]]
+[[ [91m"[m[96m$name[m[91m"[m =~ ^[[92m0[m[92m-9[m]+$ ]]
+[[ -f /etc/passwd && -d /tmp ]]
+[[ -f /etc/passwd || -d /tmp ]]
+
+[32m# Heredocs[m
+cat <<EOF
+[91mHello $USER[m
+[91mYour shell is $SHELL[m
+EOF
+
+cat <<'EOF'
+[91mNo $interpolation here[m
+EOF
+
+cat <<-EOF
+[91m	Indented heredoc (tabs stripped)[m
+EOF
+
+[32m# Herestrings[m
+cat <<< [91m"hello world"[m
+cat <<< [91m'no interpolation'[m
+cat <<< [96m$name[m
+
+[32m# Variables[m
+name=[91m"world"[m
+echo [96m$name[m
+echo [96m${name}[m
+echo [96m${name:-default}[m
+echo [96m${name:=fallback}[m
+echo [96m${name:+alternate}[m
+echo [96m${name:?error}[m
+echo [96m${#name}[m
+echo [96m${name%.*}[m
+echo [96m${name%%.*}[m
+echo [96m${name#*/}[m
+echo [96m${name##*/}[m
+echo [96m${name/old/new}[m
+echo [96m${name//old/new}[m
+array=(one two three)
+echo [96m${array[0]}[m
+echo [96m${array[@]}[m
+echo [96m${!array[@]}[m
+echo [96m${#array[@]}[m
+
+[32m# Arithmetic[m
+echo [96m$((2 + 3))[m
+echo [96m$((a * b))[m
+(( count++ ))
+(( x = [92m5[m, y = [92m10[m ))
+(( x <<= [92m2[m ))
+(( x >>= [92m1[m ))
+(( x &= [92m0xFF[m ))
+
+[32m# Redirections[m
+echo [91m"out"[m > /dev/null
+echo [91m"append"[m >> /tmp/log
+cat < /etc/passwd
+echo [91m"stderr"[m [92m2[m> /dev/null
+echo [91m"both"[m &> /dev/null
+echo [91m"dup"[m [92m2[m>&[92m1[m
+exec [92m3[m<> /tmp/fd3
+
+[32m# Process substitution[m
+diff <(ls /bin) <(ls /usr/bin)
+tee >(grep error > errors.log) > /dev/null
+
+[32m# Pipelines and logical operators[m
+echo hello | cat
+echo hello |& cat
+ls && echo ok
+ls || echo fail
+sleep [92m10[m &
+
+[32m# Subshells and group commands[m
+(cd /tmp && ls)
+{ echo one; echo two; }
+
+[32m# Extended globbing[m
+shopt -s extglob
+ls *.txt
+ls ?(a|b)
+ls *(a|b)
+ls +(a|b)
+ls @(a|b)
+ls !(a|b)
+echo ~
+
+[32m# Other keywords[m
+[94mexport[m PATH=[91m"/usr/local/bin:[m[96m$PATH[m[91m"[m
+[94mlocal[m count=[92m0[m
+[94mreadonly[m PI=[92m3[m
+[94mdeclare[m -a arr=([92m1[m [92m2[m [92m3[m)
+[94mdeclare[m -A map=([key]=value)
+[94mtypeset[m -i num=[92m42[m
+[94malias[m ll=[91m'ls -la'[m
+[94msource[m /dev/null
+. /dev/null
+
+[32m# Builtins[m
+eval [91m'echo hello'[m
+exec /bin/bash
+trap [91m'echo bye'[m EXIT
+test -f /etc/passwd
+read -r line
+printf [91m"%s\n"[m [91m"hello"[m
+wait [96m$![m
+kill [92m-9[m [96m$$[m
+jobs -l
+fg %[92m1[m
+bg %[92m1[m
+cd /tmp
+pwd
+set -euo pipefail
+unset name
+shift
+getopts [91m"ab:"[m opt
+command ls
+builtin echo
+type ls
+hash -r
+ulimit -n
+umask [92m022[m
+dirs
+pushd /tmp
+popd
+disown %[92m1[m
+let [91m"x = 1 + 2"[m
+exit [92m0[m
+
+[32m# Functions[m
+[94mfunction [m[93mgreet[m() {
+    [94mlocal[m who=[91m"[m[96m${1:-world}[m[91m"[m
+    echo [91m"Hello, [m[96m$who[m[91m"[m
+    [95mreturn[m [92m0[m
+}
+
+[93mcleanup[m() {
+    echo [91m"done"[m
+}
+
+greet [91m"shell"[m
+cleanup
+

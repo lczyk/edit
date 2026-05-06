@@ -1,0 +1,143 @@
+[32m# Comments[m
+[32m# Single-line comment[m
+
+[32m# Numbers[m
+[92m42[m
+[92m3.14[m
+[92m.5[m
+[92m1e10[m
+[92m1.5e-3[m
+[92m0xff[m
+[92m0xFF[m
+[92m0b1010[m
+[92m0o77[m
+[92m1_000_000[m
+[92m3.14j[m
+
+[32m# Constants[m
+[94mTrue[m
+[94mFalse[m
+[94mNone[m
+
+[32m# Strings[m
+[91m'single quotes: \' \n \t \\'[m
+[91m"double quotes: \" \n \t \\"[m
+
+[32m# Control flow keywords[m
+[95mif[m [94mTrue[m:
+    [95mpass[m
+[95melif[m [94mFalse[m:
+    [95mpass[m
+[95melse[m:
+    [95mpass[m
+
+[95mfor[m i [94min[m [93mrange[m([92m10[m):
+    [95mif[m i == [92m5[m:
+        [95mcontinue[m
+    [95mif[m i == [92m8[m:
+        [95mbreak[m
+
+[95mwhile[m [94mFalse[m:
+    [95mpass[m
+
+[95mmatch[m [92m42[m:
+    [95mcase[m [92m1[m:
+        [95mpass[m
+    [95mcase[m [92m_[m:
+        [95mpass[m
+
+[95mtry[m:
+    [95mraise[m [93mValueError[m([91m"oops"[m)
+[95mexcept[m ValueError [94mas[m e:
+    [95mpass[m
+[95mfinally[m:
+    [95mpass[m
+
+[95mwith[m [93mopen[m([91m"/dev/null"[m) [94mas[m f:
+    [95mpass[m
+
+[95mreturn[m  [32m# (only valid inside a function)[m
+
+[32m# Triple-quoted strings[m
+[91m"""[m
+[91mMulti-line[m
+[91mdocstring (double quotes)[m
+[91m"""[m
+
+[91m'''[m
+[91mMulti-line[m
+[91mstring (single quotes)[m
+[91m'''[m
+
+[32m# Prefixed strings (f, r, b)[m
+f[91m"f-string: {1 + 2}"[m
+r[91m"raw string: \n is literal"[m
+b[91m"byte string"[m
+
+[32m# Decorators[m
+[4m@staticmethod[m
+[94mdef[m [93mhelper[m():
+    [95mpass[m
+
+[4m@property[m
+[94mdef[m [93mname[m(self):
+    [95mreturn[m self._name
+
+[4m@custom_decorator[m
+[94mdef[m [93mdecorated[m():
+    [95mpass[m
+
+[32m# Other keywords (some are contextually reserved)[m
+[94mimport[m os
+[94mfrom[m os [94mimport[m path
+[94mimport[m sys [94mas[m system
+
+[94mdef[m [93mgreet[m(name):
+    [95mreturn[m [91m"Hello, "[m + name
+
+[94masync[m [94mdef[m [93mfetch_data[m():
+    result = [94mawait[m [93msome_coroutine[m()
+    [95mreturn[m result
+
+[94mclass[m Animal:
+    count = [92m0[m
+
+    [94mdef[m __init__(self, name):
+        self.name = name
+        Animal.count += [92m1[m
+
+    [94mdef[m [93mspeak[m(self):
+        [95mreturn[m f[91m"{self.name} speaks"[m
+
+[94mclass[m [93mDog[m(Animal):
+    [95mpass[m
+
+[94mlambda[m x: x + [92m1[m
+
+x = [92m1[m
+[94mdel[m x
+[94massert[m [94mTrue[m
+[94mnot[m [94mFalse[m
+[94mTrue[m [94mand[m [94mFalse[m
+[94mTrue[m [94mor[m [94mFalse[m
+[92m1[m [94mis[m [92m1[m
+[92m1[m [94mis[m [94mnot[m [92m2[m
+[92m1[m [94min[m [[92m1[m, [92m2[m]
+
+[94mglobal[m _g
+[94mnonlocal[m  [32m# (only valid inside nested function)[m
+
+[94mdef[m [93mgen[m():
+    [94myield[m [92m1[m
+    [94myield[m [94mfrom[m [[92m2[m, [92m3[m]
+
+[94mtype[m Alias = int
+
+[32m# Function calls[m
+[93mprint[m([91m"hello"[m)
+[93mlen[m([[92m1[m, [92m2[m, [92m3[m])
+[93mlist[m([93mrange[m([92m10[m))
+[93mgreet[m([91m"world"[m)
+[93mint[m([91m"42"[m)
+[91m"hello"[m.[93mupper[m()
+

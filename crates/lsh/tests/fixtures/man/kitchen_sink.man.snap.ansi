@@ -1,0 +1,33 @@
+[94mEAT(1)                      General Commands Manual                     EAT(1)[m
+
+[94mNAME[m
+       eat - a syntax-highlighting cat
+
+[94mSYNOPSIS[m
+       eat [OPTIONS] [FILE]...
+
+[94mDESCRIPTION[m
+       eat prints the highlighted contents of FILEs. See also [33mcat(1)[m and
+       [33mprintf(3p)[m for related tools.
+
+[94mOPTIONS[m
+       -A, [94m--show-all[m
+              Show non-printable characters.
+
+       -l, [94m--language[m <LANG>
+              Override syntax detection.
+
+       -p, [94m--plain[m
+              Disable highlighting and decorations.
+
+[94mENVIRONMENT VARIABLES[m
+       EAT_PAGER
+              The pager binary; falls back to [96m$PAGER[m, then less.
+
+[94mEXAMPLES[m
+       eat -l rust src/main.rs
+       printf [91m'hello'[m | eat -l shellscript
+
+[94mSEE ALSO[m
+       [33mbat(1)[m, [33mcat(1)[m, [33mless(1)[m
+

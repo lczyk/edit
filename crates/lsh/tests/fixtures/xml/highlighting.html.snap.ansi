@@ -1,0 +1,52 @@
+<![94mDOCTYPE[m html>
+<[94mhtml[m [96mlang[m=[91m"en"[m>
+
+<[94mhead[m>
+    <[94mmeta[m [96mcharset[m=[91m"UTF-8"[m>
+    <[94mmeta[m [96mname[m=[91m"viewport"[m [96mcontent[m=[91m"width=device-width, initial-scale=1.0"[m>
+    <[94mtitle[m>HTML Syntax Test [92m&amp;[m Demo</[94mtitle[m>
+    [32m<!-- Comment with special chars: <>&"' -->[m
+    <[94mstyle[m>
+        body {
+            margin: 0;
+            padding: 20px;
+        }
+
+        .test {
+            color: #ff0000;
+        }
+    </[94mstyle[m>
+</[94mhead[m>
+
+<[94mbody[m>
+    <[94mh1[m [96mid[m=[91m"main"[m [96mclass[m=[91m'header'[m [96mdata-value[m=[91m"123"[m>Heading</[94mh1[m>
+
+    [32m<!-- Various elements -->[m
+    <[94mp[m>Text with [92m&lt;[m [92m&gt;[m [92m&amp;[m [92m&quot;[m [92m&apos;[m [92m&#65;[m [92m&#x41;[m entities</[94mp[m>
+    <[94mbr[m />
+    <[94mhr[m>
+    <[94mimg[m [96msrc[m=[91m"image.png"[m [96malt[m=[91m"Description"[m />
+
+    [32m<!-- Attributes -->[m
+    <[94minput[m [96mtype[m=[91m"text"[m disabled required [96mvalue[m=[91m""[m [96mdata-custom[m=[91m"attr"[m>
+    <[94mbutton[m [96monclick[m=[91m"test()"[m>Click</[94mbutton[m>
+
+    [32m<!-- Nested elements -->[m
+    <[94mdiv[m>
+        <[94mspan[m>Inline <[94mstrong[m>bold</[94mstrong[m> text</[94mspan[m>
+        <[94mul[m>
+            <[94mli[m>Item 1</[94mli[m>
+            <[94mli[m>Item 2</[94mli[m>
+        </[94mul[m>
+    </[94mdiv[m>
+
+    [32m<!-- Script -->[m
+    <[94mscript[m>
+        function test() {
+            return x < 10 && y > 5;
+        }
+    </[94mscript[m>
+</[94mbody[m>
+
+</[94mhtml[m>
+
