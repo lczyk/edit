@@ -270,7 +270,7 @@ impl Document {
         }
 
         // Path-based detection missed -- fall back to the shebang. Catches
-        // extensionless shell scripts and similar.
+        // shell scripts w/out a recognised extension and similar.
         let mut head = Vec::new();
         self.buffer.borrow().copy_first_bytes(256, &mut head);
         language_from_shebang(&head)

@@ -31,7 +31,7 @@ where
 
 /// Try to identify the language of a buffer from its shebang (`#!...`) line.
 /// Used as a fallback for files whose extension didn't match any association --
-/// extensionless executable scripts are the main motivating case.
+/// executable scripts w/out a file extension are the main motivating case.
 ///
 /// `head` should be the first chunk of the buffer; only the first line is
 /// inspected. Returns `None` if there's no shebang or the interpreter isn't
@@ -46,7 +46,7 @@ pub fn language_from_shebang(head: &[u8]) -> Option<&'static Language> {
 
     // Walk whitespace-separated tokens. Skip flags (`-S`, `-u`, ...) and the
     // `env` wrapper itself; the first remaining token names the interpreter.
-    let mut interp: Option<&[u8]> = None;
+    let mut interpreter: Option<&[u8]> = None;
     for tok in body.split(|&b| b == b' ' || b == b'\t') {
         if tok.is_empty() || tok.starts_with(b"-") {
             continue;
@@ -55,11 +55,11 @@ pub fn language_from_shebang(head: &[u8]) -> Option<&'static Language> {
         if base == b"env" {
             continue;
         }
-        interp = Some(base);
+        interpreter = Some(base);
         break;
     }
-    let interp = interp?;
-    let id = interpreter_to_language_id(strip_version_suffix(interp))?;
+    let interpreter = interpreter?;
+    let id = interpreter_to_language_id(strip_version_suffix(interpreter))?;
     LANGUAGES.iter().find(|l| l.id == id)
 }
 
@@ -131,7 +131,7 @@ mod tests {
         assert_eq!(id(b"hello world\n"), None);
         assert_eq!(id(b"# not a shebang\n"), None);
         assert_eq!(id(b"#!/usr/bin/env\n"), None);
-        assert_eq!(id(b"#!/usr/bin/env weirdshell\n"), None);
+        assert_eq!(id(b"#!/usr/bin/env nonesuch\n"), None);
         assert_eq!(id(b"  #!/bin/sh\n"), None);
     }
 }
