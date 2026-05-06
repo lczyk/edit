@@ -298,24 +298,28 @@ fn print_highlighted(
                 }
             }
 
+            // NOTE: lsh emits byte indices that may not land on utf-8 char
+            // boundaries, so slice via as_bytes() and write_all -- string
+            // slicing would panic on multi-byte codepoints (e.g. man pages
+            // with em-dashes / smart quotes).
+            let line_bytes = line.as_bytes();
             for w in highlights.windows(2) {
                 let curr = &w[0];
                 let next = &w[1];
                 let start = curr.start;
-                let end = next.start.min(line.len());
+                let end = next.start.min(line_bytes.len());
                 let kind = curr.kind;
-                let text = &line[start..end];
+                let text = &line_bytes[start..end];
 
-                if use_color {
-                    if let Some(color) = color_map.get(kind as usize)
-                        && !color.is_empty()
-                    {
-                        write!(writer, "{color}{text}\x1b[m")?;
-                    } else {
-                        writer.write_all(text.as_bytes())?;
-                    }
+                if use_color
+                    && let Some(color) = color_map.get(kind as usize)
+                    && !color.is_empty()
+                {
+                    write!(writer, "{color}")?;
+                    writer.write_all(text)?;
+                    write!(writer, "\x1b[m")?;
                 } else {
-                    writer.write_all(text.as_bytes())?;
+                    writer.write_all(text)?;
                 }
             }
             writeln!(writer)?;
