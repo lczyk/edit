@@ -1,0 +1,114 @@
+{"line":1,"kind":"comment","text":"#!/usr/bin/awk -f"}
+{"line":2,"kind":"comment","text":"# kitchen-sink awk fixture for lsh highlighting"}
+{"line":4,"kind":"keyword.control","text":"BEGIN"}
+{"line":4,"kind":"other","text":" {"}
+{"line":5,"kind":"other","text":"    "}
+{"line":5,"kind":"variable","text":"FS"}
+{"line":5,"kind":"other","text":" = "}
+{"line":5,"kind":"string","text":"\",\""}
+{"line":6,"kind":"other","text":"    "}
+{"line":6,"kind":"variable","text":"OFS"}
+{"line":6,"kind":"other","text":" = "}
+{"line":6,"kind":"string","text":"\"\\t\""}
+{"line":7,"kind":"other","text":"    count = "}
+{"line":7,"kind":"constant.numeric","text":"0"}
+{"line":8,"kind":"other","text":"    total = "}
+{"line":8,"kind":"constant.numeric","text":"0.0"}
+{"line":9,"kind":"other","text":"    pi = "}
+{"line":9,"kind":"constant.numeric","text":"3.14159"}
+{"line":10,"kind":"other","text":"    hex = "}
+{"line":10,"kind":"constant.numeric","text":"0xFF"}
+{"line":11,"kind":"other","text":"    sci = "}
+{"line":11,"kind":"constant.numeric","text":"1.5e-3"}
+{"line":12,"kind":"other","text":"    "}
+{"line":12,"kind":"keyword.other","text":"print"}
+{"line":12,"kind":"other","text":" "}
+{"line":12,"kind":"string","text":"\"starting\""}
+{"line":12,"kind":"other","text":", "}
+{"line":12,"kind":"variable","text":"FILENAME"}
+{"line":13,"kind":"other","text":"}"}
+{"line":15,"kind":"keyword.other","text":"function"}
+{"line":15,"kind":"other","text":" "}
+{"line":15,"kind":"method","text":"fmt"}
+{"line":15,"kind":"other","text":"(n,    s) {"}
+{"line":16,"kind":"other","text":"    s = "}
+{"line":16,"kind":"support.function","text":"sprintf"}
+{"line":16,"kind":"other","text":"("}
+{"line":16,"kind":"string","text":"\"%.2f\""}
+{"line":16,"kind":"other","text":", n)"}
+{"line":17,"kind":"other","text":"    "}
+{"line":17,"kind":"keyword.control","text":"return"}
+{"line":17,"kind":"other","text":" s"}
+{"line":18,"kind":"other","text":"}"}
+{"line":20,"kind":"comment","text":"# main loop -- one record per line"}
+{"line":21,"kind":"other","text":"/^"}
+{"line":21,"kind":"comment","text":"#/ { next }                       # skip comments"}
+{"line":22,"kind":"variable","text":"NF"}
+{"line":22,"kind":"other","text":" >= "}
+{"line":22,"kind":"constant.numeric","text":"3"}
+{"line":22,"kind":"other","text":" && "}
+{"line":22,"kind":"variable","text":"$2"}
+{"line":22,"kind":"other","text":" ~ /^["}
+{"line":22,"kind":"constant.numeric","text":"0"}
+{"line":22,"kind":"constant.numeric","text":"-9"}
+{"line":22,"kind":"other","text":"]+$/ {"}
+{"line":23,"kind":"other","text":"    name = "}
+{"line":23,"kind":"variable","text":"$1"}
+{"line":24,"kind":"other","text":"    qty  = "}
+{"line":24,"kind":"variable","text":"$2"}
+{"line":24,"kind":"other","text":" + "}
+{"line":24,"kind":"constant.numeric","text":"0"}
+{"line":25,"kind":"other","text":"    cost = "}
+{"line":25,"kind":"variable","text":"$3"}
+{"line":25,"kind":"other","text":" + "}
+{"line":25,"kind":"constant.numeric","text":"0.0"}
+{"line":26,"kind":"other","text":"    items[name] += qty"}
+{"line":27,"kind":"other","text":"    total += qty * cost"}
+{"line":28,"kind":"other","text":"    count++"}
+{"line":29,"kind":"other","text":"    "}
+{"line":29,"kind":"keyword.control","text":"if"}
+{"line":29,"kind":"other","text":" (qty > "}
+{"line":29,"kind":"constant.numeric","text":"100"}
+{"line":29,"kind":"other","text":") {"}
+{"line":30,"kind":"other","text":"        printf "}
+{"line":30,"kind":"string","text":"\"bulk: %s x%d @%s\\n\""}
+{"line":30,"kind":"other","text":", name, qty, "}
+{"line":30,"kind":"method","text":"fmt"}
+{"line":30,"kind":"other","text":"(cost)"}
+{"line":31,"kind":"other","text":"    } "}
+{"line":31,"kind":"keyword.control","text":"else"}
+{"line":31,"kind":"other","text":" {"}
+{"line":32,"kind":"other","text":"        printf "}
+{"line":32,"kind":"string","text":"\"%s\\t%d\\t%s\\n\""}
+{"line":32,"kind":"other","text":", name, qty, "}
+{"line":32,"kind":"method","text":"fmt"}
+{"line":32,"kind":"other","text":"(cost)"}
+{"line":33,"kind":"other","text":"    }"}
+{"line":34,"kind":"other","text":"}"}
+{"line":36,"kind":"keyword.control","text":"END"}
+{"line":36,"kind":"other","text":" {"}
+{"line":37,"kind":"other","text":"    "}
+{"line":37,"kind":"keyword.control","text":"for"}
+{"line":37,"kind":"other","text":" (k "}
+{"line":37,"kind":"keyword.control","text":"in"}
+{"line":37,"kind":"other","text":" items) {"}
+{"line":38,"kind":"other","text":"        "}
+{"line":38,"kind":"keyword.other","text":"print"}
+{"line":38,"kind":"other","text":" k, items[k]"}
+{"line":39,"kind":"other","text":"    }"}
+{"line":40,"kind":"other","text":"    printf "}
+{"line":40,"kind":"string","text":"\"total %d records, sum=%s\\n\""}
+{"line":40,"kind":"other","text":", count, "}
+{"line":40,"kind":"method","text":"fmt"}
+{"line":40,"kind":"other","text":"(total)"}
+{"line":41,"kind":"other","text":"    "}
+{"line":41,"kind":"keyword.control","text":"if"}
+{"line":41,"kind":"other","text":" ("}
+{"line":41,"kind":"variable","text":"NR"}
+{"line":41,"kind":"other","text":" == "}
+{"line":41,"kind":"constant.numeric","text":"0"}
+{"line":41,"kind":"other","text":") "}
+{"line":41,"kind":"keyword.control","text":"exit"}
+{"line":41,"kind":"other","text":" "}
+{"line":41,"kind":"constant.numeric","text":"1"}
+{"line":42,"kind":"other","text":"}"}

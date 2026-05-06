@@ -1,0 +1,52 @@
+#[display_name = "AWK"]
+#[line_comment = "#"]
+#[path = "**/*.awk"]
+#[path = "**/*.gawk"]
+#[path = "**/*.mawk"]
+#[path = "**/*.nawk"]
+#[shebang = "awk"]
+#[shebang = "gawk"]
+#[shebang = "mawk"]
+#[shebang = "nawk"]
+pub fn awk() {
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /(BEGIN|BEGINFILE|END|ENDFILE)\>/ {
+            yield $1 as keyword.control;
+        } else if /(?:break|continue|do|else|exit|for|if|in|next|nextfile|return|while)\>/ {
+            yield keyword.control;
+        } else if /(?:delete|function|getline|print|printf)\>/ {
+            yield keyword.other;
+        } else if /(?:NR|NF|FS|RS|OFS|ORS|FILENAME|FNR|ARGC|ARGV|ENVIRON|SUBSEP|RSTART|RLENGTH|CONVFMT|OFMT|FIELDWIDTHS|FPAT|IGNORECASE|RT|ERRNO|PROCINFO|BINMODE|LINT|TEXTDOMAIN)\>/ {
+            yield variable;
+        } else if /\$[0-9]+/ {
+            yield variable;
+        } else if /\$NF\>/ {
+            yield variable;
+        } else if /(atan2|cos|exp|int|log|rand|sin|sqrt|srand|asort|asorti|gensub|gsub|index|length|match|split|sprintf|strtonum|sub|substr|tolower|toupper|close|fflush|system|systime|mktime|strftime|and|or|xor|compl|lshift|rshift|isarray|typeof|bindtextdomain|dcgettext|dcngettext)\s*\(/ {
+            yield $1 as support.function;
+        } else if /(?i:-?(?:0x[\da-fA-F]+|[\d_]+\.?[\d_]*|\.[\d_]+)(?:e[+-]?[\d_]+)?)/ {
+            if /\w+/ {
+                // Invalid numeric literal
+            } else {
+                yield constant.numeric;
+            }
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+            // Gobble word chars to align the next iteration on a word boundary.
+        }
+
+        yield other;
+    }
+}
