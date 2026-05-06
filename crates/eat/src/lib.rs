@@ -4,6 +4,7 @@
 //! syntax-highlights via lsh, writes to stdout, optionally pages.
 
 pub mod definitions;
+pub mod follow;
 pub mod theme;
 
 use std::fs::File;
@@ -45,6 +46,10 @@ struct Cli {
     /// when to use a pager: auto, always, never
     #[argh(option, default = "PagingMode::Auto")]
     paging: PagingMode,
+
+    /// follow file appends and emit new lines as they arrive (like `tail -F`)
+    #[argh(switch, short = 'f')]
+    follow: bool,
 
     /// print known languages and exit (format: pretty, plain, json; defaults to pretty)
     #[argh(option, short = 'L')]
@@ -241,6 +246,65 @@ fn resolve_pager() -> Option<String> {
     None
 }
 
+/// write one line to `writer`, optionally with a leading line number and ansi
+/// colour escapes from `color_map`. when `runtime` is `None`, the line is
+/// emitted as-is (no highlighting). `num_width` is only consulted when
+/// `line_no` is `Some` -- it left-pads the number column. used by both the
+/// bulk path (`print_highlighted`) and the follow path.
+pub(crate) fn write_highlighted_line(
+    writer: &mut dyn Write,
+    runtime: Option<&mut Runtime>,
+    color_map: &[&str],
+    line: &str,
+    line_no: Option<usize>,
+    num_width: usize,
+    use_color: bool,
+) -> io::Result<()> {
+    if let Some(n) = line_no {
+        if use_color {
+            write!(writer, "\x1b[90m{:<num_width$} \x1b[m", n)?;
+        } else {
+            write!(writer, "{:<num_width$} ", n)?;
+        }
+    }
+
+    match runtime {
+        Some(rt) => {
+            let scratch = scratch_arena(None);
+            let highlights = rt.parse_next_line::<u32>(&scratch, line.as_bytes());
+            // NOTE: lsh emits byte indices that may not land on utf-8 char
+            // boundaries, so slice via as_bytes() and write_all -- string
+            // slicing would panic on multi-byte codepoints (e.g. man pages
+            // with em-dashes / smart quotes).
+            let line_bytes = line.as_bytes();
+            for w in highlights.windows(2) {
+                let curr = &w[0];
+                let next = &w[1];
+                let start = curr.start;
+                let end = next.start.min(line_bytes.len());
+                let kind = curr.kind;
+                let text = &line_bytes[start..end];
+
+                if use_color
+                    && let Some(color) = color_map.get(kind as usize)
+                    && !color.is_empty()
+                {
+                    write!(writer, "{color}")?;
+                    writer.write_all(text)?;
+                    write!(writer, "\x1b[m")?;
+                } else {
+                    writer.write_all(text)?;
+                }
+            }
+        }
+        None => {
+            writer.write_all(line.as_bytes())?;
+        }
+    }
+    writeln!(writer)?;
+    Ok(())
+}
+
 /// print highlighted lines from a reader to stdout or a pager.
 #[allow(clippy::too_many_arguments)]
 fn print_highlighted(
@@ -287,42 +351,16 @@ fn print_highlighted(
             if show_numbers { lines.len().checked_ilog10().unwrap_or(0) as usize + 1 } else { 0 };
 
         for (i, line) in lines.iter().enumerate() {
-            let scratch = scratch_arena(None);
-            let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
-
-            if show_numbers {
-                if use_color {
-                    write!(writer, "\x1b[90m{:<num_width$} \x1b[m", i + 1)?;
-                } else {
-                    write!(writer, "{:<num_width$} ", i + 1)?;
-                }
-            }
-
-            // NOTE: lsh emits byte indices that may not land on utf-8 char
-            // boundaries, so slice via as_bytes() and write_all -- string
-            // slicing would panic on multi-byte codepoints (e.g. man pages
-            // with em-dashes / smart quotes).
-            let line_bytes = line.as_bytes();
-            for w in highlights.windows(2) {
-                let curr = &w[0];
-                let next = &w[1];
-                let start = curr.start;
-                let end = next.start.min(line_bytes.len());
-                let kind = curr.kind;
-                let text = &line_bytes[start..end];
-
-                if use_color
-                    && let Some(color) = color_map.get(kind as usize)
-                    && !color.is_empty()
-                {
-                    write!(writer, "{color}")?;
-                    writer.write_all(text)?;
-                    write!(writer, "\x1b[m")?;
-                } else {
-                    writer.write_all(text)?;
-                }
-            }
-            writeln!(writer)?;
+            let line_no = if show_numbers { Some(i + 1) } else { None };
+            write_highlighted_line(
+                writer,
+                Some(runtime),
+                color_map,
+                line,
+                line_no,
+                num_width,
+                use_color,
+            )?;
         }
 
         Ok(())
@@ -973,6 +1011,72 @@ pub fn list_languages(format: ListFormat) -> ExitCode {
     }
 }
 
+/// validate --follow combos, resolve language, dispatch to `follow::run`.
+/// `--paging` is silently ignored in follow mode (forced off); paging-while-
+/// following is a deliberate v2 once we have a scrollback ux for it.
+fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
+    // disallowed combos
+    if cli.files.is_empty() || cli.files.iter().any(|f| f == "-") {
+        eprintln!("eat: --follow requires a file path (stdin is not supported)");
+        return ExitCode::from(2);
+    }
+    if cli.files.len() > 1 {
+        eprintln!("eat: --follow takes a single file (multi-file follow is not supported)");
+        return ExitCode::from(2);
+    }
+    if has_line_range {
+        eprintln!("eat: --follow cannot be combined with --line-range");
+        return ExitCode::from(2);
+    }
+    if cli.plain {
+        // plain + follow could work (just write raw bytes), but we'd need a
+        // separate path; v1 keeps the surface tight. error rather than
+        // silently doing one of the two.
+        eprintln!("eat: --follow cannot be combined with --plain");
+        return ExitCode::from(2);
+    }
+
+    let path = PathBuf::from(&cli.files[0]);
+
+    // resolve language: -l override, then path-glob, then shebang sniff
+    // off the file's first line.
+    let lang: Option<&'static Language> = match cli.language.as_deref() {
+        Some(name) => match find_language(name) {
+            Some(l) => Some(l),
+            None => {
+                eprintln!("eat: unknown language '{name}'");
+                return ExitCode::from(2);
+            }
+        },
+        None => detect_language_by_path(&path).or_else(|| {
+            let f = File::open(&path).ok()?;
+            let mut br = BufReader::new(f);
+            let mut first = String::new();
+            let _ = std::io::BufRead::read_line(&mut br, &mut first);
+            detect_language_by_shebang(first.trim_end_matches(['\n', '\r']))
+        }),
+    };
+
+    let use_color = match cli.color {
+        ColorMode::Always => true,
+        ColorMode::Never => false,
+        ColorMode::Auto => io::stdout().is_terminal(),
+    };
+
+    // poll interval: 250ms default, override via EAT_FOLLOW_INTERVAL_MS for tests / power users.
+    let poll_ms: u64 =
+        std::env::var("EAT_FOLLOW_INTERVAL_MS").ok().and_then(|s| s.parse().ok()).unwrap_or(250);
+    let poll = std::time::Duration::from_millis(poll_ms);
+
+    match follow::run(path, lang, cli.number, use_color, poll) {
+        Ok(()) => ExitCode::from(0),
+        Err(e) => {
+            eprintln!("eat: {e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 /// main entry point for eat. called from edit's argv0 dispatch and from the
 /// standalone `bin/eat` binary.
 pub fn main() -> ExitCode {
@@ -1000,6 +1104,10 @@ pub fn main() -> ExitCode {
     } else {
         None
     };
+
+    if cli.follow {
+        return run_follow_cli(&cli, line_range.is_some());
+    }
 
     run(
         &cli.files,
