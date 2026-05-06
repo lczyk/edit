@@ -5,6 +5,7 @@
 
 pub mod definitions;
 pub mod follow;
+pub mod follow_tui;
 pub mod theme;
 
 use std::fs::File;
@@ -1167,7 +1168,16 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     // by parse_cli's bare-`-f` rewrite, which also honours EAT_FOLLOW_INTERVAL_MS).
     let poll = cli.follow.map(|fd| fd.0).unwrap_or(FollowDuration::DEFAULT);
 
-    match follow::run(path, lang, cli.number, use_color, poll) {
+    // tty -> live alt-screen pager; non-tty (piped) -> stream lines as before.
+    // EAT_FOLLOW_NO_TUI=1 forces streaming even on a tty (debug / scripting).
+    let force_no_tui = std::env::var("EAT_FOLLOW_NO_TUI").is_ok_and(|v| !v.is_empty());
+    let result = if io::stdout().is_terminal() && !force_no_tui {
+        follow_tui::run(path, lang, cli.number, use_color, poll)
+    } else {
+        follow::run(path, lang, cli.number, use_color, poll)
+    };
+
+    match result {
         Ok(()) => ExitCode::from(0),
         Err(e) => {
             eprintln!("eat: {e}");

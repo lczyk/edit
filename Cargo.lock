@@ -127,6 +127,7 @@ dependencies = [
  "argh",
  "lsh",
  "stdext",
+ "tty",
  "version",
 ]
 
