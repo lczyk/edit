@@ -167,6 +167,16 @@ padding width:
 - when paging, force `--color=auto` to resolve to `always` -- our stdout-is-tty check returns false through the pipe to the pager, so without this we'd write uncolored output through `less`.
 - broken pipe (user quits pager early): catch `EPIPE`, exit 0 silently.
 
+### use as `MANPAGER`
+
+eat can replace `less` as the man-page pager once a `man` lsh definition exists. groff's output carries ansi sequences and `_\b_`-style overstrike for bold/italic; strip both with sed before piping in:
+
+```sh
+export MANPAGER='sh -c "sed -u -e \"s/\\x1B\\[[0-9;]*m//g; s/.\\x08//g\" | eat -l man --color always"'
+```
+
+`--color always` is required because eat sees a non-tty stdout (the pipe to `man`'s pager wrapper). paging stays on auto -- if `man` already wraps us in `less`, eat's auto detection sees a non-tty and skips paging; if invoked directly, eat pages itself.
+
 ### error handling
 
 - file doesn't exist -- error to stderr, continue with remaining files (cat-style), exit 1 if any file failed.
