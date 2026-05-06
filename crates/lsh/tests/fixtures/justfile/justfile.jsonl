@@ -1,0 +1,98 @@
+{"line":1,"kind":"comment","text":"# Build configuration for the project"}
+{"line":2,"kind":"keyword.control","text":"set"}
+{"line":2,"kind":"other","text":" "}
+{"line":2,"kind":"keyword.other","text":"shell"}
+{"line":2,"kind":"other","text":" := ["}
+{"line":2,"kind":"string","text":"\"bash\""}
+{"line":2,"kind":"other","text":", "}
+{"line":2,"kind":"string","text":"\"-uc\""}
+{"line":2,"kind":"other","text":"]"}
+{"line":3,"kind":"keyword.control","text":"set"}
+{"line":3,"kind":"other","text":" dotenv-load"}
+{"line":5,"kind":"keyword.control","text":"export"}
+{"line":5,"kind":"other","text":" RUST_LOG := "}
+{"line":5,"kind":"string","text":"\"debug\""}
+{"line":7,"kind":"variable","text":"target"}
+{"line":7,"kind":"other","text":" := "}
+{"line":7,"kind":"string","text":"\"release\""}
+{"line":8,"kind":"variable","text":"features"}
+{"line":8,"kind":"other","text":" := "}
+{"line":8,"kind":"string","text":"\"default\""}
+{"line":9,"kind":"variable","text":"src_dir"}
+{"line":9,"kind":"other","text":" := justfile_directory() / "}
+{"line":9,"kind":"string","text":"\"src\""}
+{"line":11,"kind":"keyword.control","text":"alias"}
+{"line":11,"kind":"other","text":" b := build"}
+{"line":12,"kind":"keyword.control","text":"alias"}
+{"line":12,"kind":"other","text":" t := test"}
+{"line":14,"kind":"keyword.control","text":"import"}
+{"line":14,"kind":"other","text":" "}
+{"line":14,"kind":"string","text":"'common.just'"}
+{"line":15,"kind":"keyword.control","text":"import?"}
+{"line":15,"kind":"other","text":" "}
+{"line":15,"kind":"string","text":"'optional.just'"}
+{"line":16,"kind":"keyword.control","text":"mod"}
+{"line":16,"kind":"other","text":" docs"}
+{"line":18,"kind":"comment","text":"# Default recipe runs the build"}
+{"line":19,"kind":"keyword.other","text":"[group('main')]"}
+{"line":20,"kind":"keyword.other","text":"[private]"}
+{"line":21,"kind":"method","text":"default"}
+{"line":21,"kind":"other","text":": build test"}
+{"line":23,"kind":"comment","text":"# Build the project"}
+{"line":24,"kind":"method","text":"build target=target:"}
+{"line":25,"kind":"other","text":"    cargo build --"}
+{"line":25,"kind":"variable","text":"{{target}}"}
+{"line":26,"kind":"other","text":"    @echo "}
+{"line":26,"kind":"string","text":"\"built {{target}}\""}
+{"line":28,"kind":"comment","text":"# Run all tests with optional filter"}
+{"line":29,"kind":"method","text":"test filter='':"}
+{"line":30,"kind":"other","text":"    cargo test "}
+{"line":30,"kind":"variable","text":"{{filter}}"}
+{"line":32,"kind":"keyword.other","text":"[confirm(\"Really clean?\")]"}
+{"line":33,"kind":"method","text":"clean:"}
+{"line":34,"kind":"other","text":"    rm -rf target/"}
+{"line":35,"kind":"other","text":"    rm -f *.tmp"}
+{"line":37,"kind":"comment","text":"# Recipe with multi-line shell"}
+{"line":38,"kind":"method","text":"deploy env:"}
+{"line":39,"kind":"other","text":"    "}
+{"line":39,"kind":"comment","text":"#!/usr/bin/env bash"}
+{"line":40,"kind":"other","text":"    set -euo pipefail"}
+{"line":41,"kind":"other","text":"    "}
+{"line":41,"kind":"keyword.control","text":"if"}
+{"line":41,"kind":"other","text":" [ "}
+{"line":41,"kind":"string","text":"\"{{env}}\""}
+{"line":41,"kind":"other","text":" = "}
+{"line":41,"kind":"string","text":"\"prod\""}
+{"line":41,"kind":"other","text":" ]; then"}
+{"line":42,"kind":"other","text":"        echo "}
+{"line":42,"kind":"string","text":"\"deploying to prod\""}
+{"line":43,"kind":"other","text":"    "}
+{"line":43,"kind":"keyword.control","text":"else"}
+{"line":44,"kind":"other","text":"        echo "}
+{"line":44,"kind":"string","text":"\"deploying to {{env}}\""}
+{"line":45,"kind":"other","text":"    fi"}
+{"line":47,"kind":"variable","text":"version"}
+{"line":47,"kind":"other","text":" := "}
+{"line":47,"kind":"string","text":"`git describe --tags --always`"}
+{"line":49,"kind":"variable","text":"greeting"}
+{"line":49,"kind":"other","text":" := "}
+{"line":49,"kind":"keyword.control","text":"if"}
+{"line":49,"kind":"other","text":" "}
+{"line":49,"kind":"keyword.other","text":"os"}
+{"line":49,"kind":"other","text":"() == "}
+{"line":49,"kind":"string","text":"\"macos\""}
+{"line":49,"kind":"other","text":" { "}
+{"line":49,"kind":"string","text":"\"hi mac\""}
+{"line":49,"kind":"other","text":" } "}
+{"line":49,"kind":"keyword.control","text":"else"}
+{"line":49,"kind":"other","text":" { "}
+{"line":49,"kind":"string","text":"\"hi \""}
+{"line":49,"kind":"other","text":" + "}
+{"line":49,"kind":"keyword.other","text":"os"}
+{"line":49,"kind":"other","text":"() }"}
+{"line":51,"kind":"variable","text":"count"}
+{"line":51,"kind":"other","text":" := "}
+{"line":51,"kind":"constant.numeric","text":"42"}
+{"line":52,"kind":"variable","text":"hex"}
+{"line":52,"kind":"other","text":" := "}
+{"line":52,"kind":"constant.numeric","text":"0xff"}

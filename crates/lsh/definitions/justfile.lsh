@@ -1,0 +1,88 @@
+#[display_name = "Justfile"]
+#[line_comment = "#"]
+#[path = "**/justfile"]
+#[path = "**/Justfile"]
+#[path = "**/.justfile"]
+#[path = "**/*.just"]
+pub fn justfile() {
+    if /#.*/ {
+        yield comment;
+        return;
+    }
+
+    if /\[/ {
+        until /\]/ {
+            yield keyword.other;
+        }
+        yield keyword.other;
+        return;
+    }
+
+    if /(?:set|alias|import\??|mod\??|export|unexport)\>/ {
+        yield keyword.control;
+    } else if /([A-Za-z_][\w-]*)\s*:=/ {
+        yield $1 as variable;
+    } else if /([A-Za-z_][\w-]*)[^:#]*:/ {
+        yield $1 as method;
+    }
+
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /"""/ {
+            loop {
+                yield string;
+                if /"""/ { yield string; break; }
+                await input;
+            }
+        } else if /'''/ {
+            loop {
+                yield string;
+                if /'''/ { yield string; break; }
+                await input;
+            }
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /'/ {
+            until /$/ {
+                yield string;
+                if /'/ { yield string; break; }
+                await input;
+            }
+        } else if /`/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /`/ { yield string; break; }
+                await input;
+            }
+        } else if /\{\{/ {
+            until /$/ {
+                yield variable;
+                if /\}\}/ { yield variable; break; }
+                await input;
+            }
+        } else if /(?:if|else|in)\>/ {
+            yield keyword.control;
+        } else if /(?:true|false)\>/ {
+            yield constant.language;
+        } else if /(?:absolute_path|append|arch|blake3|blake3_file|cache_dir|canonicalize|capitalize|choose|clean|config_dir|config_local_dir|data_dir|data_local_dir|datetime|datetime_utc|encode_uri_component|env|env_var|env_var_or_default|error|executable_dir|extension|file_name|file_stem|home_dir|invocation_directory|invocation_directory_native|is_dependency|join|just_executable|just_pid|justfile|justfile_directory|kebabcase|lowercamelcase|lowercase|module_directory|module_file|num_cpus|os|os_family|parent_directory|path_exists|prepend|quote|read|replace|replace_regex|require|require_optional|semver_matches|sha256|sha256_file|shell|shoutykebabcase|shoutysnakecase|snakecase|source_directory|source_file|style|titlecase|trim|trim_end|trim_end_match|trim_end_matches|trim_start|trim_start_match|trim_start_matches|uppercamelcase|uppercase|uuid|which|without_extension)\>/ {
+            yield keyword.other;
+        } else if /(?:0x[\da-fA-F]+|\d+)\>/ {
+            yield constant.numeric;
+        } else if /\$[A-Za-z_]\w*/ {
+            yield variable;
+        } else if /\w+/ {
+            // Gobble word chars to align next iteration on word boundary.
+        }
+
+        yield other;
+    }
+}

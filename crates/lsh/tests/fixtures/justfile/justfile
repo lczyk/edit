@@ -1,0 +1,52 @@
+# Build configuration for the project
+set shell := ["bash", "-uc"]
+set dotenv-load
+
+export RUST_LOG := "debug"
+
+target := "release"
+features := "default"
+src_dir := justfile_directory() / "src"
+
+alias b := build
+alias t := test
+
+import 'common.just'
+import? 'optional.just'
+mod docs
+
+# Default recipe runs the build
+[group('main')]
+[private]
+default: build test
+
+# Build the project
+build target=target:
+    cargo build --{{target}}
+    @echo "built {{target}}"
+
+# Run all tests with optional filter
+test filter='':
+    cargo test {{filter}}
+
+[confirm("Really clean?")]
+clean:
+    rm -rf target/
+    rm -f *.tmp
+
+# Recipe with multi-line shell
+deploy env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{env}}" = "prod" ]; then
+        echo "deploying to prod"
+    else
+        echo "deploying to {{env}}"
+    fi
+
+version := `git describe --tags --always`
+
+greeting := if os() == "macos" { "hi mac" } else { "hi " + os() }
+
+count := 42
+hex := 0xff
