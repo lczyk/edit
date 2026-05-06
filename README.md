@@ -3,11 +3,6 @@
 A simple editor for simple needs.
 
 This editor pays homage to the classic [MS-DOS Editor](https://en.wikipedia.org/wiki/MS-DOS_Editor), but with a modern interface and input controls similar to VS Code. The goal is to provide an accessible editor that even users largely unfamiliar with terminals can easily use.
-
-## Build Instructions
-
-* [Install Rust](https://www.rust-lang.org/tools/install)
-* Clone the repository
 * If you're using nightly Rust:
   ```sh
   cargo build --release --config .cargo/release.toml
@@ -18,7 +13,10 @@ This editor pays homage to the classic [MS-DOS Editor](https://en.wikipedia.org/
   * Otherwise, simply run:
     ```sh
     cargo build --release
-    ```
+
+
+
+foo    ```
 
 ### ICU library configuration
 

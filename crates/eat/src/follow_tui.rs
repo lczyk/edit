@@ -30,13 +30,21 @@ const CLEAR_SCREEN: &str = "\x1b[2J";
 const RESET: &str = "\x1b[m";
 const DIM: &str = "\x1b[2m";
 
-// SGR mouse mode: ?1000h = button events, ?1006h = SGR coordinate format.
-// we use SGR exclusively (no X10 fallback) because legacy x10 emits raw
-// bytes that other terminals' alt-scroll converts into arrow keys -- we
-// already handle arrow keys, so this is fine. wheel events come through as
-// btn=64/65; our parser maps them to Up/Down.
-const MOUSE_ENABLE: &str = "\x1b[?1000h\x1b[?1006h";
-const MOUSE_DISABLE: &str = "\x1b[?1000l\x1b[?1006l";
+// disable auto-wrap mode (`\x1b[?7l`): a body line wider than the terminal would
+// otherwise wrap onto the next row and corrupt the body rows below until
+// the next full redraw. with auto-wrap off the terminal hard-truncates at
+// the right edge -- our own width budget already does the same logically,
+// but this is cheap belt-and-braces.
+const WRAP_OFF: &str = "\x1b[?7l";
+const WRAP_ON: &str = "\x1b[?7h";
+
+// NOTE: we deliberately do NOT enable mouse tracking. it would let us catch
+// scroll-wheel events as Up/Down, but it also means the terminal stops
+// passing mouse events to its own selection layer -- so the user can't
+// select text with the mouse, can't middle-click-paste, etc. modern
+// terminals translate scroll wheel into arrow keys when in alt-screen via
+// the alternate-scroll feature, and our parser handles arrow keys, so we
+// get scroll for free w/out breaking selection.
 
 /// hard cap on buffered lines. the live-tail buffer would grow without
 /// bound on a busy log; once we exceed this, drop the oldest 10% in one
@@ -504,6 +512,12 @@ pub fn render_frame(
     let body_rows = view.body_rows();
     let start = view.scroll_offset;
     let end = (start + body_rows).min(view.lines.len());
+    // gutter prefix takes `width + 3` columns (number col + space + sep + space)
+    // when present; the body has whatever's left. previously we passed the full
+    // terminal width to push_truncated_ansi which let `prefix + body` overflow
+    // and wrap onto the next row, painting over the line below.
+    let prefix_width = gutter.map(|g| g.width + 3).unwrap_or(0);
+    let body_width = (view.width as usize).saturating_sub(prefix_width);
     for (i, line) in view.lines[start..end].iter().enumerate() {
         cursor_to(&mut buf, 2 + i as u16, 1);
 
@@ -524,7 +538,7 @@ pub fn render_frame(
 
         // body bytes (highlighted; no prefix; no trailing newline).
         match std::str::from_utf8(line) {
-            Ok(s) => push_truncated_ansi(&mut buf, s, view.width as usize),
+            Ok(s) => push_truncated_ansi(&mut buf, s, body_width),
             Err(_) => buf.push_str(&String::from_utf8_lossy(line)),
         }
         clear_eol(&mut buf);
@@ -653,9 +667,9 @@ pub fn run(
     // drive a fake sigwinch so the first read_stdin returns size right away.
     tty::inject_window_size_into_stdin();
 
-    tty::write_stdout(&format!("{ALT_SCREEN_ENTER}{CURSOR_HIDE}{CLEAR_SCREEN}{MOUSE_ENABLE}"));
+    tty::write_stdout(&format!("{ALT_SCREEN_ENTER}{CURSOR_HIDE}{CLEAR_SCREEN}{WRAP_OFF}"));
     let cleanup_screen = || {
-        tty::write_stdout(&format!("{MOUSE_DISABLE}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
+        tty::write_stdout(&format!("{WRAP_ON}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
     };
 
     let result = run_loop(&mut src, &path, lang, show_numbers, use_color, poll_interval);
@@ -1209,6 +1223,31 @@ mod tests {
         assert!(frame.contains("alpha"));
         assert!(frame.contains("beta"));
         assert!(!frame.contains("|"));
+    }
+
+    #[test]
+    fn render_frame_body_is_truncated_to_terminal_width_minus_gutter() {
+        // regression: a body wider than `view.width - prefix_width` used to
+        // wrap onto the next row (terminal auto-wrap), painting over the next
+        // body line. now the body is hard-truncated by us so total visible
+        // chars per line stay <= view.width.
+        use crate::gutter_view::Gutter;
+        use gutter::GutterMark;
+
+        let mut v = View::new(20, 4); // body_rows = 3, terminal cols = 20
+        // 50 chars of body -- well over the budget.
+        let big = vec![b'x'; 50];
+        v.lines = vec![big.clone(), big.clone(), big.clone()];
+
+        // gutter: width=2 -> prefix takes "{n:>2} | " = 5 cols.
+        // body budget = 20 - 5 = 15. each rendered body should contain at
+        // most 15 'x' chars before any escape sequence.
+        let g = Gutter { width: 2, marks: vec![GutterMark::None; 3] };
+        let frame = render_frame(&mut v, "p", "00:00:00", 100, Some(&g), false);
+
+        // every 'xxxxxxxx...' run in the frame must be <= 15 long.
+        let max_run = frame.split(|c: char| c != 'x').map(|s| s.len()).max().unwrap_or(0);
+        assert!(max_run <= 15, "found a run of {max_run} 'x's, body should cap at 15");
     }
 
     // --- LineBuf adapter ---
