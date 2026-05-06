@@ -327,20 +327,41 @@ fn parse_sgr_mouse(params: &[u8], _press: bool) -> Key {
 
 // --- view -----------------------------------------------------------------
 
-/// view-side state: the buffered lines (one per element, ansi-coloured
-/// bytes), the current scroll offset, and tail-mode flag. terminal-agnostic;
-/// every test exercise the `View` directly.
+/// view-side state: the buffered line bodies (highlighted bytes only -- no
+/// gutter prefix, no trailing newline), the current scroll offset, and the
+/// tail-mode flag. terminal-agnostic; tested directly.
+///
+/// the gutter prefix is composed at render time using the *current* `Gutter`
+/// snapshot rather than baked into each stored body. this is what lets
+/// gutter recomputes (after appends, rewrites, etc.) actually update the
+/// marks for already-on-screen lines.
 pub struct View {
     pub lines: Vec<Vec<u8>>,
     pub scroll_offset: usize,
     pub tail_mode: bool,
     pub width: u16,
     pub height: u16,
+    /// 1-indexed line number of `lines[0]`. usually `1`, but bumps forward
+    /// when the line cap evicts old entries so per-line `line_no` arithmetic
+    /// stays consistent with the file's actual line numbers.
+    pub starting_line_no: usize,
 }
 
 impl View {
     pub fn new(width: u16, height: u16) -> Self {
-        Self { lines: Vec::new(), scroll_offset: 0, tail_mode: true, width, height }
+        Self {
+            lines: Vec::new(),
+            scroll_offset: 0,
+            tail_mode: true,
+            width,
+            height,
+            starting_line_no: 1,
+        }
+    }
+
+    /// 1-indexed line number for the `i`th body in `self.lines`.
+    pub fn line_no_of(&self, i: usize) -> usize {
+        self.starting_line_no + i
     }
 
     /// number of body rows visible (excludes header).
@@ -432,6 +453,9 @@ impl View {
             let to_drop = to_drop.min(self.lines.len());
             self.lines.drain(..to_drop);
             self.scroll_offset = self.scroll_offset.saturating_sub(to_drop);
+            // shift our notion of the first stored line forward so render
+            // composes the right line numbers for the survivors.
+            self.starting_line_no += to_drop;
         }
     }
 
@@ -440,12 +464,24 @@ impl View {
         self.lines.clear();
         self.scroll_offset = 0;
         self.tail_mode = true;
+        self.starting_line_no = 1;
     }
 }
 
 // --- redraw ---------------------------------------------------------------
 
-fn render_frame(view: &mut View, path_label: &str, last_update: &str, interval_ms: u128) -> String {
+/// render a full frame to a string buffer. composes the gutter prefix
+/// (when `gutter` is `Some`) at draw time using the current snapshot --
+/// this is what makes mark updates visible on already-stored body lines
+/// without re-rendering them.
+fn render_frame(
+    view: &mut View,
+    path_label: &str,
+    last_update: &str,
+    interval_ms: u128,
+    gutter: Option<&crate::gutter_view::Gutter>,
+    use_color: bool,
+) -> String {
     view.settle_offset();
     let mut buf = String::with_capacity(8 * 1024);
     // home the cursor; per-row clear_eol does the actual erasing. avoids the
@@ -467,7 +503,23 @@ fn render_frame(view: &mut View, path_label: &str, last_update: &str, interval_m
     let end = (start + body_rows).min(view.lines.len());
     for (i, line) in view.lines[start..end].iter().enumerate() {
         cursor_to(&mut buf, 2 + i as u16, 1);
-        // best-effort utf-8: lines are produced by our highlighter and are utf-8 + ansi.
+
+        // gutter prefix, if any. composed against the *current* gutter and
+        // the file-level line number, NOT a value baked in at write time.
+        if let Some(g) = gutter {
+            let line_no = view.line_no_of(start + i);
+            let mut pbuf = Vec::with_capacity(32);
+            let _ = crate::gutter_view::write_prefix(
+                &mut pbuf,
+                line_no,
+                g.width,
+                g.mark(line_no),
+                use_color,
+            );
+            buf.push_str(&String::from_utf8_lossy(&pbuf));
+        }
+
+        // body bytes (highlighted; no prefix; no trailing newline).
         match std::str::from_utf8(line) {
             Ok(s) => push_truncated_ansi(&mut buf, s, view.width as usize),
             Err(_) => buf.push_str(&String::from_utf8_lossy(line)),
@@ -641,13 +693,17 @@ fn run_loop(
         let now = Instant::now();
         let mut want_redraw = false;
         if now.duration_since(last_tick) >= poll_interval {
+            // tick passes gutter=None so emitted bytes are body-only; the
+            // current gutter is applied at draw time. this is what lets the
+            // gutter recompute below visibly update marks for already-stored
+            // lines on the next redraw.
             let outcome = tick(
                 &mut state,
                 src,
                 runtime.as_mut(),
                 entrypoint,
                 &color_map,
-                gutter.as_ref(),
+                None,
                 use_color,
                 &mut sink,
             )?;
@@ -703,7 +759,7 @@ fn run_loop(
         }
 
         if want_redraw {
-            redraw(&mut view, &path_label, poll_interval);
+            redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
             last_redraw = Instant::now();
         }
 
@@ -735,7 +791,7 @@ fn run_loop(
                     return Ok(());
                 }
                 if should_redraw {
-                    redraw(&mut view, &path_label, poll_interval);
+                    redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
                     last_redraw = Instant::now();
                 }
             }
@@ -743,9 +799,16 @@ fn run_loop(
     }
 }
 
-fn redraw(view: &mut View, path_label: &str, poll_interval: Duration) {
+fn redraw(
+    view: &mut View,
+    path_label: &str,
+    poll_interval: Duration,
+    gutter: Option<&crate::gutter_view::Gutter>,
+    use_color: bool,
+) {
     let now_str = format_clock(Instant::now());
-    let frame = render_frame(view, path_label, &now_str, poll_interval.as_millis());
+    let frame =
+        render_frame(view, path_label, &now_str, poll_interval.as_millis(), gutter, use_color);
     tty::write_stdout(&frame);
 }
 
@@ -1031,6 +1094,110 @@ mod tests {
         assert_eq!(v.lines.len(), 15);
         assert_eq!(v.scroll_offset, 0);
         assert_eq!(v.lines[0], b"a5");
+    }
+
+    // --- gutter is composed at draw time, not baked into bodies ---
+
+    #[test]
+    fn line_no_of_tracks_starting_offset() {
+        let mut v = View::new(80, 24);
+        v.lines = vec![b"x".to_vec(); 5];
+        assert_eq!(v.line_no_of(0), 1);
+        assert_eq!(v.line_no_of(4), 5);
+        v.starting_line_no = 7;
+        assert_eq!(v.line_no_of(0), 7);
+        assert_eq!(v.line_no_of(4), 11);
+    }
+
+    #[test]
+    fn extend_lines_capped_advances_starting_line_no_on_drop() {
+        let mut v = View::new(80, 24);
+        let pre: Vec<Vec<u8>> = (0..20).map(|i| format!("a{i}").into_bytes()).collect();
+        v.extend_lines_capped(&pre, 100, 10);
+        assert_eq!(v.starting_line_no, 1);
+        let more: Vec<Vec<u8>> = (0..0).map(|_| Vec::new()).collect();
+        v.extend_lines_capped(&more, 15, 4);
+        // dropped 5 -> starting_line_no shifts to 6.
+        assert_eq!(v.starting_line_no, 6);
+        assert_eq!(v.line_no_of(0), 6);
+        assert_eq!(v.line_no_of(v.lines.len() - 1), 20);
+    }
+
+    #[test]
+    fn reset_lines_resets_starting_line_no() {
+        let mut v = View::new(80, 24);
+        v.starting_line_no = 50;
+        v.lines = vec![b"x".to_vec(); 3];
+        v.reset_lines();
+        assert_eq!(v.starting_line_no, 1);
+    }
+
+    #[test]
+    fn render_frame_composes_gutter_at_draw_time() {
+        // the bug fix: same body bytes, two different Gutter snapshots ->
+        // the rendered frames should differ in the gutter region. proves we
+        // compose at draw time rather than baking the prefix in.
+        use crate::gutter_view::Gutter;
+        use gutter::GutterMark;
+
+        let mut v = View::new(80, 4); // body_rows = 3
+        v.lines = vec![b"alpha".to_vec(), b"beta".to_vec(), b"gamma".to_vec()];
+
+        let g_clean =
+            Gutter { width: 2, marks: vec![GutterMark::None, GutterMark::None, GutterMark::None] };
+        let g_dirty = Gutter {
+            width: 2,
+            marks: vec![GutterMark::None, GutterMark::Added, GutterMark::Modified],
+        };
+
+        let frame_clean = render_frame(&mut v, "p", "00:00:00", 100, Some(&g_clean), false);
+        let frame_dirty = render_frame(&mut v, "p", "00:00:00", 100, Some(&g_dirty), false);
+
+        // bodies are unchanged across the two frames -- only the gutter cues
+        // (no-color: `+` for Added, `~` for Modified, `|` for None) shift.
+        assert!(frame_dirty.contains("+"));
+        assert!(frame_dirty.contains("~"));
+        assert!(!frame_clean.contains("+"));
+        assert!(!frame_clean.contains("~"));
+        assert!(frame_clean.contains("alpha"));
+        assert!(frame_dirty.contains("alpha"));
+    }
+
+    #[test]
+    fn render_frame_uses_correct_line_numbers_after_drop() {
+        // when oldest lines are evicted, surviving bodies should still get
+        // their original (file-level) line numbers in the gutter.
+        use crate::gutter_view::Gutter;
+        use gutter::GutterMark;
+
+        let mut v = View::new(80, 6); // body_rows = 5
+        v.lines = (0..10).map(|i| format!("L{i}").into_bytes()).collect();
+        v.starting_line_no = 3; // simulate having dropped 2 oldest
+
+        let g = Gutter { width: 2, marks: vec![GutterMark::None; 20] };
+        let frame = render_frame(&mut v, "p", "00:00:00", 100, Some(&g), false);
+
+        // tail mode pins to bottom (offset 5..10). these correspond to file
+        // line numbers starting_line_no + 5 .. starting_line_no + 9 = 8..12.
+        // we should see the right-aligned numbers 8..12 in the frame.
+        for n in 8..=12 {
+            let expected = format!("{n:>2} | ");
+            assert!(
+                frame.contains(&expected),
+                "expected {expected:?} in frame, full frame:\n{frame:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn render_frame_no_gutter_when_none() {
+        // no gutter means no prefix at all -- bodies render bare.
+        let mut v = View::new(80, 4);
+        v.lines = vec![b"alpha".to_vec(), b"beta".to_vec()];
+        let frame = render_frame(&mut v, "p", "00:00:00", 100, None, false);
+        assert!(frame.contains("alpha"));
+        assert!(frame.contains("beta"));
+        assert!(!frame.contains("|"));
     }
 
     // --- LineBuf adapter ---

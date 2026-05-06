@@ -302,24 +302,19 @@ fn resolve_pager() -> Option<String> {
     None
 }
 
-/// write one line to `writer`, optionally with a leading line number and ansi
-/// colour escapes from `color_map`. when `runtime` is `None`, the line is
-/// emitted as-is (no highlighting). when `gutter` is `Some((g, n))`, prepend
-/// the gutter prefix (right-aligned line number + separator) using mark
-/// information from `g`. used by both the bulk path (`print_highlighted`)
-/// and the follow paths.
-pub(crate) fn write_highlighted_line(
-    writer: &mut dyn Write,
+/// render the highlighted body bytes for a single line into `out`. no gutter
+/// prefix and no trailing newline -- the caller composes those. this is the
+/// shared core that `write_highlighted_line` (writes through to a stream)
+/// and the tui's `LineSink` (stores per-line for later composition) both
+/// build on.
+pub(crate) fn render_body(
     runtime: Option<&mut Runtime>,
     color_map: &[&str],
     line: &str,
-    gutter: Option<(&gutter_view::Gutter, usize)>,
     use_color: bool,
-) -> io::Result<()> {
-    if let Some((g, n)) = gutter {
-        gutter_view::write_prefix(writer, n, g.width, g.mark(n), use_color)?;
-    }
-
+    out: &mut Vec<u8>,
+) {
+    use std::io::Write as _;
     match runtime {
         Some(rt) => {
             let scratch = scratch_arena(None);
@@ -341,18 +336,41 @@ pub(crate) fn write_highlighted_line(
                     && let Some(color) = color_map.get(kind as usize)
                     && !color.is_empty()
                 {
-                    write!(writer, "{color}")?;
-                    writer.write_all(text)?;
-                    write!(writer, "\x1b[m")?;
+                    let _ = write!(out, "{color}");
+                    out.extend_from_slice(text);
+                    out.extend_from_slice(b"\x1b[m");
                 } else {
-                    writer.write_all(text)?;
+                    out.extend_from_slice(text);
                 }
             }
         }
         None => {
-            writer.write_all(line.as_bytes())?;
+            out.extend_from_slice(line.as_bytes());
         }
     }
+}
+
+/// write one line to `writer`, optionally with a leading line number and ansi
+/// colour escapes from `color_map`. when `runtime` is `None`, the line is
+/// emitted as-is (no highlighting). when `gutter` is `Some((g, n))`, prepend
+/// the gutter prefix (right-aligned line number + separator) using mark
+/// information from `g`. used by the bulk path (`print_highlighted`) and the
+/// streaming follow path; the tui follow path stores raw bodies and composes
+/// the prefix at render time so the gutter can update without re-rendering.
+pub(crate) fn write_highlighted_line(
+    writer: &mut dyn Write,
+    runtime: Option<&mut Runtime>,
+    color_map: &[&str],
+    line: &str,
+    gutter: Option<(&gutter_view::Gutter, usize)>,
+    use_color: bool,
+) -> io::Result<()> {
+    if let Some((g, n)) = gutter {
+        gutter_view::write_prefix(writer, n, g.width, g.mark(n), use_color)?;
+    }
+    let mut body = Vec::with_capacity(line.len() + 16);
+    render_body(runtime, color_map, line, use_color, &mut body);
+    writer.write_all(&body)?;
     writeln!(writer)?;
     Ok(())
 }
