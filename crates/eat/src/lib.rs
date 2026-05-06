@@ -213,7 +213,7 @@ fn parse_line_range(s: &str) -> Result<LineRange, String> {
 /// print short help and exit.
 fn print_short_help() -> ExitCode {
     eprintln!(
-        "usage: eat [-l <lang>] [-p] [-n] [-L] [--line-range <RANGE>] [--color <WHEN>] [--paging <WHEN>] [--version] [FILES...]"
+        "usage: eat [-l <lang>] [-p] [-n] [-L] [--line-range <RANGE>] [--color <WHEN>] [--paging <WHEN>] [-f [<DUR>]] [--version] [FILES...]"
     );
     eprintln!("try `eat --help` for more details.");
     ExitCode::from(0)

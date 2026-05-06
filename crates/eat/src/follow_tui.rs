@@ -292,7 +292,8 @@ impl View {
 fn render_frame(view: &mut View, path_label: &str, last_update: &str, interval_ms: u128) -> String {
     view.settle_offset();
     let mut buf = String::with_capacity(8 * 1024);
-    buf.push_str(CLEAR_SCREEN);
+    // home the cursor; per-row clear_eol does the actual erasing. avoids the
+    // full-screen flicker that \x1b[2J would cause on every tick.
     cursor_to(&mut buf, 1, 1);
 
     // header
