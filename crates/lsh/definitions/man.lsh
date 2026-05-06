@@ -1,0 +1,45 @@
+// Highlights post-rendered man pages (the output of `man` after stripping
+// overstrike + ansi). Designed to pair with eat as a `MANPAGER`:
+//
+//     MANPAGER='sh -c "sed -u -e \"s/\\x1B\\[[0-9;]*m//g; s/.\\x08//g\" | eat -l man"'
+//
+// Rendered man pages are plain text with conventional structure: a title line
+// of the form `NAME(SECTION) ... NAME(SECTION)`, ALL-CAPS section headings in
+// column 0, and indented bodies. We light up that structure plus inline
+// references like `func(3)` and command-line flags.
+#[display_name = "Manpage"]
+#[path = "**/*.man"]
+#[path = "**/*.[1-9]"]
+pub fn man() {
+    // Title line: `BAT(1) ... General Commands Manual ... BAT(1)`.
+    if /[A-Z][A-Z0-9_.-]*\([0-9][A-Za-z]*\).*/ {
+        yield meta.header;
+        return;
+    }
+
+    // ALL-CAPS section heading in column 0 (e.g. `NAME`, `ENVIRONMENT VARIABLES`).
+    // Anchored at col 0 because we haven't consumed any leading whitespace yet.
+    if /[A-Z][A-Z0-9 _-]*$/ {
+        yield markup.heading;
+        return;
+    }
+
+    until /$/ {
+        yield other;
+
+        if /[A-Za-z_][\w.-]*\([0-9][A-Za-z]*\)/ {
+            // Inline cross-reference like `cat(1)` or `printf(3p)`.
+            yield support.function;
+        } else if /--[A-Za-z][\w-]*/ {
+            yield keyword.other;
+        } else if /\$[A-Za-z_]\w*/ {
+            yield variable;
+        } else if /'/ {
+            single_quote_string();
+        } else if /"/ {
+            double_quote_string();
+        }
+
+        yield other;
+    }
+}

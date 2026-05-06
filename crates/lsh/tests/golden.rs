@@ -36,6 +36,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Json => "json",
         Language::Lsh => "lsh",
         Language::Makefile => "makefile",
+        Language::Man => "man",
         Language::Markdown => "markdown",
         Language::Powershell => "powershell",
         Language::Properties => "properties",

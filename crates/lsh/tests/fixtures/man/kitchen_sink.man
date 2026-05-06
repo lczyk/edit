@@ -1,0 +1,32 @@
+EAT(1)                      General Commands Manual                     EAT(1)
+
+NAME
+       eat - a syntax-highlighting cat
+
+SYNOPSIS
+       eat [OPTIONS] [FILE]...
+
+DESCRIPTION
+       eat prints the highlighted contents of FILEs. See also cat(1) and
+       printf(3p) for related tools.
+
+OPTIONS
+       -A, --show-all
+              Show non-printable characters.
+
+       -l, --language <LANG>
+              Override syntax detection.
+
+       -p, --plain
+              Disable highlighting and decorations.
+
+ENVIRONMENT VARIABLES
+       EAT_PAGER
+              The pager binary; falls back to $PAGER, then less.
+
+EXAMPLES
+       eat -l rust src/main.rs
+       printf 'hello' | eat -l shellscript
+
+SEE ALSO
+       bat(1), cat(1), less(1)

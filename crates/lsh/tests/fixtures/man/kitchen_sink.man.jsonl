@@ -1,0 +1,40 @@
+{"line":1,"kind":"meta.header","text":"EAT(1)                      General Commands Manual                     EAT(1)"}
+{"line":3,"kind":"markup.heading","text":"NAME"}
+{"line":4,"kind":"other","text":"       eat - a syntax-highlighting cat"}
+{"line":6,"kind":"markup.heading","text":"SYNOPSIS"}
+{"line":7,"kind":"other","text":"       eat [OPTIONS] [FILE]..."}
+{"line":9,"kind":"markup.heading","text":"DESCRIPTION"}
+{"line":10,"kind":"other","text":"       eat prints the highlighted contents of FILEs. See also "}
+{"line":10,"kind":"support.function","text":"cat(1)"}
+{"line":10,"kind":"other","text":" and"}
+{"line":11,"kind":"other","text":"       "}
+{"line":11,"kind":"support.function","text":"printf(3p)"}
+{"line":11,"kind":"other","text":" for related tools."}
+{"line":13,"kind":"markup.heading","text":"OPTIONS"}
+{"line":14,"kind":"other","text":"       -A, "}
+{"line":14,"kind":"keyword.other","text":"--show-all"}
+{"line":15,"kind":"other","text":"              Show non-printable characters."}
+{"line":17,"kind":"other","text":"       -l, "}
+{"line":17,"kind":"keyword.other","text":"--language"}
+{"line":17,"kind":"other","text":" <LANG>"}
+{"line":18,"kind":"other","text":"              Override syntax detection."}
+{"line":20,"kind":"other","text":"       -p, "}
+{"line":20,"kind":"keyword.other","text":"--plain"}
+{"line":21,"kind":"other","text":"              Disable highlighting and decorations."}
+{"line":23,"kind":"markup.heading","text":"ENVIRONMENT VARIABLES"}
+{"line":24,"kind":"other","text":"       EAT_PAGER"}
+{"line":25,"kind":"other","text":"              The pager binary; falls back to "}
+{"line":25,"kind":"variable","text":"$PAGER"}
+{"line":25,"kind":"other","text":", then less."}
+{"line":27,"kind":"markup.heading","text":"EXAMPLES"}
+{"line":28,"kind":"other","text":"       eat -l rust src/main.rs"}
+{"line":29,"kind":"other","text":"       printf "}
+{"line":29,"kind":"string","text":"'hello'"}
+{"line":29,"kind":"other","text":" | eat -l shellscript"}
+{"line":31,"kind":"markup.heading","text":"SEE ALSO"}
+{"line":32,"kind":"other","text":"       "}
+{"line":32,"kind":"support.function","text":"bat(1)"}
+{"line":32,"kind":"other","text":", "}
+{"line":32,"kind":"support.function","text":"cat(1)"}
+{"line":32,"kind":"other","text":", "}
+{"line":32,"kind":"support.function","text":"less(1)"}

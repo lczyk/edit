@@ -91,6 +91,7 @@ pub fn highlight_kind_color(kind: HighlightKind) -> Option<IndexedColor> {
         HighlightKind::ConstantNumeric => Some(IndexedColor::BrightGreen),
         HighlightKind::KeywordControl => Some(IndexedColor::BrightMagenta),
         HighlightKind::KeywordOther => Some(IndexedColor::BrightBlue),
+        HighlightKind::SupportFunction => Some(IndexedColor::Yellow),
         HighlightKind::MarkupBold => None,
         HighlightKind::MarkupChanged => Some(IndexedColor::BrightBlue),
         HighlightKind::MarkupDeleted => Some(IndexedColor::BrightRed),
