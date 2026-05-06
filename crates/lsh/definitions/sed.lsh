@@ -1,0 +1,85 @@
+// sed scripts. line-oriented stream-editor language: addresses,
+// substitution (`s/.../.../[flags]`), translit (`y/.../.../`),
+// single-letter commands, and labels. delimiters other than `/` (e.g.
+// `s|...|...|`) are not modelled; everyone uses `/`.
+#[display_name = "sed"]
+#[line_comment = "#"]
+#[path = "**/*.sed"]
+#[shebang = "sed"]
+pub fn sed() {
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /(s)\// {
+            yield $1 as keyword.other;
+            // pattern half of `s/PATTERN/REPL/[flags]`
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\// { yield other; break; }
+                await input;
+            }
+            // replacement half
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\// { yield other; break; }
+                await input;
+            }
+            // flags: g (global), p (print), i/I (case), m/M (multi-line),
+            // numeric Nth-match selector.
+            if /[gpiImM0-9]+/ {
+                yield keyword.other;
+            }
+        } else if /(y)\// {
+            yield $1 as keyword.other;
+            // source set of `y/SRC/DST/`
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\// { yield other; break; }
+                await input;
+            }
+            // dest set
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\// { yield other; break; }
+                await input;
+            }
+        } else if /\// {
+            // standalone address regex `/PAT/`
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\// { yield string; break; }
+                await input;
+            }
+        } else if /\\\d/ {
+            // backreferences `\1` ... `\9` and `&` (handled below)
+            yield variable;
+        } else if /&/ {
+            // whole-match reference in replacement -- typically inside the
+            // s-replacement half, but appears here when it leaks out.
+            yield variable;
+        } else if /\$/ {
+            // last-line address
+            yield variable;
+        } else if /-?\d+/ {
+            yield constant.numeric;
+        } else if /[abcdDgGhHilnNpPqQrRtTwWxz]\>/ {
+            // single-letter sed commands. s and y handled above; their match
+            // arms must precede this so the s/y prefix wins.
+            yield keyword.other;
+        } else if /[{}=:]/ {
+            // grouping (`{` `}`), `=` (print line number), `:` (label intro).
+            yield keyword.other;
+        } else if /\w+/ {
+            // gobble word chars (label names, etc.).
+        }
+
+        yield other;
+    }
+}

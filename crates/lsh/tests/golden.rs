@@ -44,6 +44,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Python => "python",
         Language::Ruby => "ruby",
         Language::Rust => "rust",
+        Language::Sed => "sed",
         Language::Shellscript => "shellscript",
         Language::Toml => "toml",
         Language::Xml => "xml",

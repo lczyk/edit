@@ -1,0 +1,83 @@
+{"line":1,"kind":"comment","text":"#!/usr/bin/sed -nf"}
+{"line":2,"kind":"comment","text":"# kitchen-sink sed fixture for lsh highlighting"}
+{"line":4,"kind":"comment","text":"# strip leading whitespace"}
+{"line":5,"kind":"keyword.other","text":"s"}
+{"line":5,"kind":"string","text":"/^[ \\t]*"}
+{"line":5,"kind":"other","text":"/"}
+{"line":5,"kind":"other","text":"/"}
+{"line":7,"kind":"comment","text":"# normalise tabs to two spaces, globally"}
+{"line":8,"kind":"keyword.other","text":"s"}
+{"line":8,"kind":"string","text":"/\\t"}
+{"line":8,"kind":"other","text":"/"}
+{"line":8,"kind":"string","text":"  "}
+{"line":8,"kind":"other","text":"/"}
+{"line":8,"kind":"keyword.other","text":"g"}
+{"line":10,"kind":"comment","text":"# print only lines matching FOO, then keep going"}
+{"line":11,"kind":"string","text":"/FOO/"}
+{"line":11,"kind":"keyword.other","text":"p"}
+{"line":13,"kind":"comment","text":"# delete blank lines"}
+{"line":14,"kind":"string","text":"/^$/"}
+{"line":14,"kind":"keyword.other","text":"d"}
+{"line":16,"kind":"comment","text":"# range: from a marker to end-of-file"}
+{"line":17,"kind":"string","text":"/BEGIN/"}
+{"line":17,"kind":"other","text":","}
+{"line":17,"kind":"variable","text":"$"}
+{"line":17,"kind":"other","text":" "}
+{"line":17,"kind":"keyword.other","text":"{"}
+{"line":18,"kind":"other","text":"    "}
+{"line":18,"kind":"keyword.other","text":"s"}
+{"line":18,"kind":"string","text":"/old"}
+{"line":18,"kind":"other","text":"/"}
+{"line":18,"kind":"string","text":"new"}
+{"line":18,"kind":"other","text":"/"}
+{"line":18,"kind":"keyword.other","text":"2gI"}
+{"line":19,"kind":"other","text":"    s|alt-delim|won'"}
+{"line":19,"kind":"keyword.other","text":"t"}
+{"line":19,"kind":"other","text":" be highlighted|"}
+{"line":19,"kind":"keyword.other","text":"g"}
+{"line":20,"kind":"keyword.other","text":"}"}
+{"line":22,"kind":"comment","text":"# transliterate vowels to uppercase via y command"}
+{"line":23,"kind":"keyword.other","text":"y"}
+{"line":23,"kind":"string","text":"/aeiou"}
+{"line":23,"kind":"other","text":"/"}
+{"line":23,"kind":"string","text":"AEIOU"}
+{"line":23,"kind":"other","text":"/"}
+{"line":25,"kind":"comment","text":"# numeric address + last-line"}
+{"line":26,"kind":"constant.numeric","text":"1"}
+{"line":26,"kind":"other","text":","}
+{"line":26,"kind":"variable","text":"$"}
+{"line":26,"kind":"other","text":" "}
+{"line":26,"kind":"keyword.other","text":"{"}
+{"line":27,"kind":"other","text":"    "}
+{"line":27,"kind":"keyword.other","text":"="}
+{"line":28,"kind":"other","text":"    "}
+{"line":28,"kind":"keyword.other","text":"p"}
+{"line":29,"kind":"keyword.other","text":"}"}
+{"line":31,"kind":"comment","text":"# label + branch"}
+{"line":32,"kind":"keyword.other","text":":"}
+{"line":32,"kind":"other","text":"loop"}
+{"line":33,"kind":"keyword.other","text":"N"}
+{"line":34,"kind":"keyword.other","text":"s"}
+{"line":34,"kind":"string","text":"/\\n"}
+{"line":34,"kind":"other","text":"/"}
+{"line":34,"kind":"string","text":", "}
+{"line":34,"kind":"other","text":"/"}
+{"line":34,"kind":"keyword.other","text":"g"}
+{"line":35,"kind":"keyword.other","text":"t"}
+{"line":35,"kind":"other","text":" loop"}
+{"line":37,"kind":"comment","text":"# backreferences in replacement"}
+{"line":38,"kind":"keyword.other","text":"s"}
+{"line":38,"kind":"string","text":"/\\(foo\\)\\(bar\\)"}
+{"line":38,"kind":"other","text":"/"}
+{"line":38,"kind":"string","text":"\\2-\\1"}
+{"line":38,"kind":"other","text":"/"}
+{"line":39,"kind":"keyword.other","text":"s"}
+{"line":39,"kind":"string","text":"/whole"}
+{"line":39,"kind":"other","text":"/"}
+{"line":39,"kind":"string","text":"[&]"}
+{"line":39,"kind":"other","text":"/"}
+{"line":39,"kind":"keyword.other","text":"g"}
+{"line":41,"kind":"comment","text":"# write the result to a file, then quit"}
+{"line":42,"kind":"keyword.other","text":"w"}
+{"line":42,"kind":"other","text":" out.txt"}
+{"line":43,"kind":"keyword.other","text":"q"}
