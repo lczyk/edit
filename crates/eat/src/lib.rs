@@ -96,20 +96,28 @@ impl argh::FromArgValue for PagingMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ListFormat {
+pub enum ListFormat {
     Pretty,
     Plain,
     Json,
 }
 
-impl argh::FromArgValue for ListFormat {
-    fn from_arg_value(value: &str) -> Result<Self, String> {
+impl ListFormat {
+    /// Parse a format name. Used by both eat's argh-driven cli and edit's
+    /// hand-rolled parser when they expose `-L [<format>]`.
+    pub fn parse(value: &str) -> Result<Self, String> {
         match value {
             "pretty" => Ok(ListFormat::Pretty),
             "plain" => Ok(ListFormat::Plain),
             "json" => Ok(ListFormat::Json),
             _ => Err(format!("invalid list format: {value}. expected pretty, plain, or json")),
         }
+    }
+}
+
+impl argh::FromArgValue for ListFormat {
+    fn from_arg_value(value: &str) -> Result<Self, String> {
+        Self::parse(value)
     }
 }
 
@@ -953,7 +961,11 @@ fn parse_cli() -> Cli {
     }
 }
 
-fn list_languages(format: ListFormat) -> ExitCode {
+/// Print the language list in the requested format and return an exit code.
+///
+/// Exposed publicly so the editor's own cli can offer the same `-L` surface
+/// without re-implementing the formatters.
+pub fn list_languages(format: ListFormat) -> ExitCode {
     match format {
         ListFormat::Pretty => list_languages_pretty(),
         ListFormat::Plain => list_languages_plain(),

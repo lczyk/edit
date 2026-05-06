@@ -276,6 +276,25 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 print_version();
                 return Ok(None);
             }
+            if arg == "-L" || arg == "--list-languages" {
+                eat::list_languages(eat::ListFormat::Pretty);
+                return Ok(None);
+            }
+            if let Some(value) = arg
+                .to_str()
+                .and_then(|s| s.strip_prefix("--list-languages=").or_else(|| s.strip_prefix("-L=")))
+            {
+                match eat::ListFormat::parse(value) {
+                    Ok(fmt) => {
+                        eat::list_languages(fmt);
+                        return Ok(None);
+                    }
+                    Err(e) => {
+                        sys::write_stdout(&format!("edit: {e}\n"));
+                        return Ok(None);
+                    }
+                }
+            }
             if let Some(list) = arg.to_str().and_then(|s| s.strip_prefix("--quirks=")) {
                 if seen_quirks_flag {
                     sys::write_stdout("edit: --quirks may only be passed once\n");
@@ -452,6 +471,10 @@ fn print_help() {
         "Options:\n",
         "    -h, --help       Print this help message\n",
         "    -v, --version    Print the version number\n",
+        "    -L, --list-languages[=FORMAT]\n",
+        "                     Print known syntax-highlighting languages and exit.\n",
+        "                     FORMAT is pretty (default), plain, or json.\n",
+        "                     Use --list-languages=FORMAT or -L=FORMAT to pick.\n",
         "    --               End of options. Subsequent arguments are treated as\n",
         "                     file names even if they start with `-`.\n",
         "                     Example: `edit -- --version` opens a file called `--version`.\n",
