@@ -6,15 +6,16 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: sync-version
-sync-version:  ## Sync crates/edit/Cargo.toml version from VERSION (source of truth)
+sync-version:  ## Sync crate Cargo.toml versions from VERSION (source of truth)
 	@v=$$(awk '/^[[:space:]]*#/ {next} /^[[:space:]]*$$/ {next} {gsub(/[[:space:]]/,""); print; exit}' VERSION); \
 	if [ -z "$$v" ]; then echo "VERSION has no version line" >&2; exit 1; fi; \
+	for crate in edit eat; do \
 	awk -v v="$$v" ' \
 	  /^version = ".*"[[:space:]]*#[[:space:]]*source:[[:space:]]*\/VERSION/ { \
 	    print "version = \"" v "\"  # source: /VERSION (synced by `make sync-version`; do not edit by hand)"; next \
 	  } \
 	  { print } \
-	' crates/edit/Cargo.toml > crates/edit/Cargo.toml.tmp && mv crates/edit/Cargo.toml.tmp crates/edit/Cargo.toml
+	' crates/$$crate/Cargo.toml > crates/$$crate/Cargo.toml.tmp && mv crates/$$crate/Cargo.toml.tmp crates/$$crate/Cargo.toml; done
 
 .PHONY: build
 build: sync-version  ## Release build (stable toolchain, larger binary)
@@ -30,6 +31,7 @@ du: build  ## Show release binary size
 .PHONY: install
 install: sync-version  ## Install the edit binary into ~/.cargo/bin
 	cargo install --path crates/edit --force
+	ln -sf edit "$${CARGO_INSTALL_ROOT:-$$HOME/.cargo}/bin/eat"
 
 .PHONY: check
 check:  ## Fast type-check across all targets and features

@@ -4,6 +4,8 @@ date: 2026-05-06
 description: busybox-style multicall -- when invoked as `eat`, the edit binary acts as a bat-like syntax-highlighting cat
 ---
 
+<!-- cspell:ignore gitgum multicall modelines uncolored EPIPE incl driveby coreutils mdbook -->
+
 # eat
 
 a busybox-style multicall persona for `edit`. when the binary is invoked under the name `eat` (via symlink), it acts like `bat`: read files, syntax-highlight via lsh, write to stdout, optionally page. the editor's tui never spins up. a separate standalone `eat` binary also exists in the source tree for testability and for environments where symlinks aren't available, but `make install` ships only the symlink.

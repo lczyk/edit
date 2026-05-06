@@ -1,7 +1,6 @@
 [package]
-name = "edit"
+name = "eat"
 version = "0.6.1"  # source: /VERSION (synced by `make sync-version`; do not edit by hand)
-
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -9,15 +8,12 @@ rust-version.workspace = true
 build = "build/main.rs"
 
 [dependencies]
-eat.workspace = true
 lsh.workspace = true
-polyflag.workspace = true
 stdext.workspace = true
-libc = "0.2"
-toml-span = { version = "0.7", default-features = false }
+argh = "*"
 version = { git = "https://github.com/lczyk/version", tag = "rust/v0.5.0" }
 
 [build-dependencies]
-stdext.workspace = true
 lsh.workspace = true
+stdext.workspace = true
 version = { git = "https://github.com/lczyk/version", tag = "rust/v0.5.0" }

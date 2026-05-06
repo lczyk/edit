@@ -59,6 +59,17 @@ const SCRATCH_ARENA_CAPACITY: usize = 512 * MEBI;
 // std::io::{stdin, stdout, stderr} machinery, and probably some more, which amounts to about 20KB.
 // It can technically be avoided nowadays with `#![no_main]`. Maybe a fun project for later? :)
 fn main() -> process::ExitCode {
+    let argv0 = env::args_os().next();
+    let name = argv0
+        .as_deref()
+        .and_then(|p| std::path::Path::new(p).file_stem())
+        .and_then(|s| s.to_str())
+        .unwrap_or("edit");
+
+    if name == "eat" {
+        return eat::main();
+    }
+
     if cfg!(debug_assertions) {
         let hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {

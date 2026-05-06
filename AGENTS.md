@@ -1,4 +1,4 @@
-<!-- cspell:ignore bindable keybinding -->
+<!-- cspell:ignore bindable keybinding multicall -->
 
 # AGENTS.md
 
@@ -64,7 +64,8 @@ Terminal issues: check `vt.rs`, `sys/unix.rs`, and `setup_terminal` first.
 
 ## Crates
 
-- `edit` -- main binary and library.
+- `edit` -- main binary and library. busybox-style multicall: when invoked as `eat` (via symlink), acts as a `bat`-like syntax-highlighting cat.
+- `eat` -- the cli + render glue for the `eat` persona. depends on `lsh` for tokens, `stdext` for arena/glob, `argh` for flag parsing.
 - `lsh` -- syntax-highlighting compiler and runtime. Language definitions in [crates/lsh/definitions/](crates/lsh/definitions/). See [crates/lsh/README.md](crates/lsh/README.md).
 - `lsh-bin` -- CLI for debugging LSH output.
 - `stdext` -- shared utilities (arena allocator, collections, SIMD helpers, sys shims).
