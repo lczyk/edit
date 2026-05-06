@@ -122,7 +122,7 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "eat"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "argh",
  "lsh",
@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "edit"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "eat",
  "libc",
@@ -373,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "toml-span"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f22ba417d437b5fa5dcba6c27dbd6c14f38845315b724d89fed73b7a426451b7"
 dependencies = [
