@@ -69,18 +69,17 @@ eat [OPTIONS] [FILES...]
   --line-range <RANGE>     N | N: | :M | N:M
   --color <WHEN>           auto (default), always, never
   --paging <WHEN>          auto (default), always, never
-  --list-languages         print known languages and exit
   --version                print shared edit/eat version and exit
   -h, --help               help
 ```
 
-deferred to v2: themes, `--theme`, multi-range `--line-range`, git gutter, `--diff`, `--show-all`, headers/grid `--style=`, file-globbing recursion.
+deferred to v2: themes, `--theme`, multi-range `--line-range`, git gutter, `--diff`, `--show-all`, headers/grid `--style=`, file-globbing recursion. no `--list-languages` (not needed -- lsh defs are the source of truth; users can read `crates/lsh/definitions/`).
 
 ### language detection
 
 bat-parity from day 1, in this priority:
 
-1. explicit `-l <name>` -- wins. if name doesn't match a known entrypoint, hard error with `eat: unknown language 'foo'. try --list-languages`, exit 2.
+1. explicit `-l <name>` -- wins. if name doesn't match a known entrypoint, hard error with `eat: unknown language 'foo'`, exit 2.
 2. path glob -- existing `#[path = "**/*.go"]` matching against the file path. (n/a for stdin.)
 3. shebang sniff -- read first line if it starts with `#!`, extract the interpreter token (basename of first word, or basename of second word if first is `env`), prefix-match against each entrypoint's `#[shebang = "..."]` tokens. first match wins.
 4. fallback -- plain (no colors, no warning).
@@ -172,7 +171,7 @@ padding width:
 
 - file doesn't exist -- error to stderr, continue with remaining files (cat-style), exit 1 if any file failed.
 - file is a directory -- error and skip, no recursion.
-- `-l <unknown>` -- hard error before any output, exit 2, suggest `--list-languages`.
+- `-l <unknown>` -- hard error before any output, exit 2.
 - mid-stream io error -- print error to stderr, exit 1, no buffer-and-replay attempt.
 - shebang miss -- silent plain output, no warning.
 
@@ -226,15 +225,13 @@ three layers, all of them:
 
 ## open questions
 
-- **edit's gutter rendering -- where exactly is the format defined?** mirror is the goal, but we need to actually find the code. probably in `crates/edit/src/tui/` (tui crate handles drawing), maybe `crates/edit/src/bin/edit/draw_editor.rs`. impl-time investigation.
+- **edit's gutter rendering -- where exactly is the format defined?** mirror edit's existing rendering exactly. locate the gutter format at impl time (likely `crates/edit/src/tui/` or `crates/edit/src/bin/edit/draw_editor.rs`), copy the format verbatim. no drift.
 - **edit -> argh as a driveby?** edit's `parse_args` is hand-rolled with polyflag for token-list flags. converting to argh+polyflag would homogenise the workspace (lsh-bin and eat would both use argh). flagged as a follow-up pr; bundling with eat balloons the diff and the test surface for a production binary.
-- **`--list-languages` source of truth** -- iterate `Assembly.entrypoints` and print each `display_name` (already in the lsh struct). format: one per line, or two-column with extensions. tbd at impl time.
 - **paged-output color forcing -- what about `--color=never` + `--paging=always`?** user explicitly asked for both, no color, into pager. respect the explicit `never`; the auto -> always rule applies only when `--color=auto`. should fall out naturally but worth a test case.
 - **shebang sniff for very short files (one-liner shell scripts)** -- if the file is literally `#!/bin/sh` and nothing else, eat reads one line, sniffs, then has nothing to highlight. not a bug, but worth a fixture.
-- **windows symlinks** -- `make install` uses `ln -sf` which is unix-only. windows users would have to use the standalone `bin/eat`. not a v1 concern (edit's install story is unix-shaped already) but worth noting.
 - **multi-line shebang sniff cap** -- 256 bytes for the first line. pathological input with no `\n` for megabytes would hit the cap, fall through to plain. acceptable.
 - **`EAT_PAGER` namespace** -- the var name commits to the tool name. if we ever rebrand, the env var follows. not a real concern but a thing to be aware of.
-- **what does `eat -` mean with no other args?** from the bat-style table: pipe + no-other-args = read stdin. `eat -` should be equivalent to `eat` (no args, pipe). worth an explicit test.
+- **what does `eat -` mean with no other args?** `eat -` with tty stdin and no other args prints short help (same as `eat` with no args -- the tty-no-args -> help rule fires before arg parsing reaches `-`). `eat -` with piped stdin reads stdin. worth explicit tests for both.
 
 ## decisions
 
@@ -244,11 +241,11 @@ three layers, all of them:
 - **lsh stays pure -- no color, no rendering.** theme + ansi live in eat. lsh-bin's `render` subcommand is left as-is (debug tool, separate concern). _confirmed._
 - **language detection: `-l` -> path glob -> shebang sniff -> plain.** full bat-parity from day 1. _confirmed._
 - **shebang as `#[shebang = "<token>"]`** on lsh defs, repeatable, prefix-match-on-interpreter-token-after-env-handling, matching done in eat not lsh. _confirmed._
-- **v1 surface = paging + line numbers + plain + color/paging mode flags + list-languages + version + help.** _confirmed._
+- **v1 surface = paging + line numbers + plain + color/paging mode flags + version + help.** _confirmed._
 - **argv0 dispatch at the very first line of `edit::main()`** -- before panic hook, before arena init, before anything. _confirmed._
 - **multi-file output: tty + 2+ files -> headers, otherwise concat.** ascii `--- <path> ---` separator. _confirmed._
 - **`make install` is opinionated symlink-only.** standalone bin exists for tests but not installed. _confirmed._
-- **stdin handling: bat-style.** tty-no-args -> help. _confirmed._
+- **stdin handling: bat-style, with tty-no-args -> help.** tty stdin + no args prints short help and exits 0 (avoids hanging on stdin). pipe stdin + no args reads stdin. _confirmed._
 - **theme: one hardcoded ansi-16 default in v1.** _confirmed._
 - **tests: unit + golden + two pty.** _confirmed._
 - **paging: `EAT_PAGER` -> `PAGER` -> `less`, inject `-R -F -X` on `less`, manual `$PATH` walk, fallback skip-paging on missing.** force color when paging. catch EPIPE. _confirmed._
@@ -259,6 +256,10 @@ three layers, all of them:
 - **arg parser: argh, plus polyflag if a token-list flag emerges.** edit -> argh conversion is a separate pr, not bundled. _confirmed._
 - **`which` crate not added** -- manual `$PATH` walk. _confirmed._
 - **docs: README + AGENTS.md, mdbook deferred.** _confirmed._
+- **no windows support.** edit's install story is unix-shaped; no `ln -sf` on windows. standalone `bin/eat` covers cargo-install users on any platform but that's incidental, not a design target. _confirmed 2026-05-06._
+- **no `--list-languages`.** lsh defs are the source of truth; users who need the list can read `crates/lsh/definitions/`. no reason to ship a runtime catalog. _confirmed 2026-05-06._
+- **`eat` no-args: tty -> help, pipe -> read stdin.** matches bat's learned behaviour. `eat -` with tty stdin also prints help (tty check fires before arg parsing). _confirmed 2026-05-06._
+- **gutter rendering: copy edit's format verbatim.** locate the gutter format at impl time, mirror exactly. no drift, no reinterpretation. _confirmed 2026-05-06._
 
 ## migration plan
 
