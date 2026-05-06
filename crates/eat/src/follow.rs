@@ -35,12 +35,21 @@ pub(crate) const DEFAULT_MISS_BUDGET: u32 = 20;
 
 /// what a single stat call sees. `id` is the inode on unix, 0 elsewhere
 /// (rotation on non-unix is detected by size shrink alone, which is the
-/// common shape there too).
+/// common shape there too). `mtime_ns` is nanoseconds since unix epoch --
+/// used as the cheap "did anything change" gate before the head-fingerprint
+/// check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FollowStat {
     pub size: u64,
     pub id: u64,
+    pub mtime_ns: i128,
 }
+
+/// number of bytes we sample at offset 0 to detect in-place rewrites that
+/// happen to leave the file at the same (or nearly same) size as before.
+/// 256 fits in one disk block on every filesystem we care about; the read
+/// is essentially free.
+pub const HEAD_FINGERPRINT_BYTES: usize = 256;
 
 /// abstraction over the file being followed, so tests can drive ticks
 /// against an in-memory buffer w/out touching the filesystem.
@@ -48,6 +57,17 @@ pub trait FollowSource {
     fn stat(&self) -> io::Result<FollowStat>;
     /// read the byte range `[offset, EOF)` and append into `buf`.
     fn read_from(&mut self, offset: u64, buf: &mut Vec<u8>) -> io::Result<()>;
+    /// read up to `HEAD_FINGERPRINT_BYTES` bytes starting at offset 0.
+    /// returning fewer bytes (eof) is fine; readers compare what's there.
+    fn read_head(&mut self, buf: &mut Vec<u8>) -> io::Result<()> {
+        // default impl in terms of read_from + truncation; fine for both
+        // FileSource and the test MemSource.
+        let mut tmp = Vec::with_capacity(HEAD_FINGERPRINT_BYTES);
+        self.read_from(0, &mut tmp)?;
+        tmp.truncate(HEAD_FINGERPRINT_BYTES);
+        buf.extend_from_slice(&tmp);
+        Ok(())
+    }
 }
 
 /// abstraction over `thread::sleep` for tests. the production loop owns the
@@ -88,7 +108,13 @@ fn id_of(_meta: &std::fs::Metadata) -> u64 {
 impl FollowSource for FileSource {
     fn stat(&self) -> io::Result<FollowStat> {
         let m = std::fs::metadata(&self.path)?;
-        Ok(FollowStat { size: m.len(), id: id_of(&m) })
+        let mtime_ns = m
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_nanos() as i128)
+            .unwrap_or(0);
+        Ok(FollowStat { size: m.len(), id: id_of(&m), mtime_ns })
     }
 
     fn read_from(&mut self, offset: u64, buf: &mut Vec<u8>) -> io::Result<()> {
@@ -99,6 +125,13 @@ impl FollowSource for FileSource {
         f.read_to_end(buf)?;
         Ok(())
     }
+
+    fn read_head(&mut self, buf: &mut Vec<u8>) -> io::Result<()> {
+        let f = File::open(&self.path)?;
+        let mut take = f.take(HEAD_FINGERPRINT_BYTES as u64);
+        take.read_to_end(buf)?;
+        Ok(())
+    }
 }
 
 /// per-loop state. keeping it separate from the runtime lets `tick` reset
@@ -107,6 +140,16 @@ pub struct FollowState {
     /// last seen stat. `None` before the first successful stat (initial bulk
     /// emission is modelled as "first tick from offset 0").
     pub last: Option<FollowStat>,
+    /// the file's first `HEAD_FINGERPRINT_BYTES` bytes (or fewer if the file
+    /// is smaller) at the time of the last successful read. used to detect
+    /// in-place rewrites that don't shrink the file (and so wouldn't trip
+    /// the size-shrink or id-change rotation triggers).
+    ///
+    /// stored as raw bytes rather than a hash so `tick` can compare over the
+    /// `min(prev_len, curr_len)` window -- an append on a tiny file extends
+    /// the head, but the leading bytes are unchanged, so we'd see a "no-
+    /// change" on the prefix-length match.
+    pub head_bytes: Vec<u8>,
     /// trailing bytes from the previous read that did not end in `\n`. we
     /// withhold these from the highlighter b/c emitting then re-emitting a
     /// line as it grows would corrupt output.
@@ -120,7 +163,14 @@ pub struct FollowState {
 
 impl FollowState {
     pub fn new(miss_budget: u32) -> Self {
-        Self { last: None, partial: Vec::new(), line_no: 1, miss_count: 0, miss_budget }
+        Self {
+            last: None,
+            head_bytes: Vec::new(),
+            partial: Vec::new(),
+            line_no: 1,
+            miss_count: 0,
+            miss_budget,
+        }
     }
 }
 
@@ -170,14 +220,102 @@ pub fn tick<S: FollowSource>(
     let prev = state.last;
     state.last = Some(stat);
 
-    // decide what to do. first tick is treated as "append from 0".
-    let (rotated, read_offset) = match prev {
-        None => (false, 0u64),
-        Some(p) if stat.size < p.size || stat.id != p.id => (true, 0u64),
-        Some(p) if stat.size > p.size => (false, p.size),
-        Some(_) => return Ok(TickOutcome::Idle),
+    // first tick: there's nothing to compare against. read everything from
+    // offset 0 and report it as a Wrote (not Reset -- nothing to "reset").
+    let Some(p) = prev else {
+        state.head_bytes.clear();
+        if stat.size > 0 {
+            src.read_head(&mut state.head_bytes)?;
+        }
+        let (rotated, read_offset) = (false, 0u64);
+        return finish_tick(
+            state,
+            src,
+            runtime,
+            runtime_entrypoint,
+            color_map,
+            gutter,
+            use_color,
+            writer,
+            rotated,
+            read_offset,
+        );
     };
 
+    // subsequent ticks. correctness traps we have to defuse:
+    //   - inode change or shrink: classic rotation. easy.
+    //   - mtime unchanged: nothing happened (cheap fast path; matches log files
+    //     that get a stat every tick but only update bursty).
+    //   - mtime changed but size + id unchanged: someone rewrote in place
+    //     w/out changing length. need a fingerprint check to confirm.
+    //   - mtime changed AND size grew: probably a true append, but could be
+    //     "truncate + write more bytes than were there" -- the new content's
+    //     leading bytes won't match the old. check the fingerprint to
+    //     disambiguate; if it changed, treat as rotation.
+    //   - mtime changed AND size shrank: rotation (covered by first branch).
+    let mtime_changed = p.mtime_ns != stat.mtime_ns;
+    let id_changed = p.id != stat.id;
+    let shrank = stat.size < p.size;
+    let grew = stat.size > p.size;
+
+    // mtime is the cheap "did anything happen" gate. some filesystems update
+    // mtime on touch w/out content changes; we still defer to the fingerprint
+    // before reacting.
+    if !mtime_changed && !id_changed && !shrank && !grew {
+        return Ok(TickOutcome::Idle);
+    }
+
+    // sample the current head and compare against the cached bytes over
+    // their common prefix length. an append on a tiny file widens the head
+    // window, but the bytes inside the original window are unchanged --
+    // hashing the FULL window would false-positive on rotation.
+    let mut curr_head = Vec::with_capacity(HEAD_FINGERPRINT_BYTES);
+    if stat.size > 0 {
+        src.read_head(&mut curr_head)?;
+    }
+    let cmp_len = state.head_bytes.len().min(curr_head.len());
+    let head_changed = state.head_bytes[..cmp_len] != curr_head[..cmp_len];
+    state.head_bytes.clear();
+    state.head_bytes.extend_from_slice(&curr_head);
+
+    let (rotated, read_offset) = if id_changed || shrank || head_changed {
+        (true, 0u64)
+    } else if grew {
+        (false, p.size) // confirmed pure append
+    } else {
+        // size + head + id all stable -- mtime moved alone (touch). no emit.
+        return Ok(TickOutcome::Idle);
+    };
+
+    finish_tick(
+        state,
+        src,
+        runtime,
+        runtime_entrypoint,
+        color_map,
+        gutter,
+        use_color,
+        writer,
+        rotated,
+        read_offset,
+    )
+}
+
+/// the read-and-emit half of `tick`, factored out so the first-tick branch
+/// can share it w/out duplicating the runtime-reset / partial-buffer dance.
+#[allow(clippy::too_many_arguments)]
+fn finish_tick<S: FollowSource>(
+    state: &mut FollowState,
+    src: &mut S,
+    runtime: Option<&mut Runtime<'static, 'static, 'static>>,
+    runtime_entrypoint: u32,
+    color_map: &[&str],
+    gutter: Option<&crate::gutter_view::Gutter>,
+    use_color: bool,
+    writer: &mut dyn Write,
+    rotated: bool,
+    read_offset: u64,
+) -> io::Result<TickOutcome> {
     // on rotation, drop accumulated runtime state + partial line + numbering.
     let mut owned_runtime;
     let runtime_ref: Option<&mut Runtime<'static, 'static, 'static>> = if rotated {
@@ -315,42 +453,61 @@ pub fn run(
 mod tests {
     use super::*;
 
-    /// in-memory `FollowSource`. `id` is bumped explicitly via `rotate()` to
-    /// model logrotate; `truncate()` shrinks size w/out changing id.
+    /// in-memory `FollowSource`. exposes the moves a real filesystem can
+    /// produce so we can drive `tick` against scripted scenarios:
+    ///   - `append`: bytes added at the end (mtime advances).
+    ///   - `rewrite_in_place`: content replaced w/out changing id (the bug
+    ///     class the user hit -- `> file` from a shell).
+    ///   - `replace`: content + id both replaced (atomic rename / logrotate).
+    ///   - `truncate`: shrink to empty w/out changing id.
+    ///   - `touch`: bump mtime, content unchanged (real `touch` from the cli).
     struct MemSource {
         content: Vec<u8>,
         id: u64,
-        stat_fail: u32, // forces stat to fail this many times, then succeed
+        mtime_ns: i128,
+        stat_fail: u32,
     }
 
     impl MemSource {
         fn new() -> Self {
-            Self { content: Vec::new(), id: 1, stat_fail: 0 }
+            Self { content: Vec::new(), id: 1, mtime_ns: 1_000_000_000, stat_fail: 0 }
         }
 
         fn append(&mut self, bytes: &[u8]) {
             self.content.extend_from_slice(bytes);
+            self.mtime_ns += 1_000_000;
+        }
+
+        fn rewrite_in_place(&mut self, bytes: &[u8]) {
+            self.content.clear();
+            self.content.extend_from_slice(bytes);
+            self.mtime_ns += 1_000_000;
+            // id stays the same -- truncate(2) + write(2) doesn't change inode.
         }
 
         fn replace(&mut self, bytes: &[u8]) {
             self.content.clear();
             self.content.extend_from_slice(bytes);
             self.id += 1;
+            self.mtime_ns += 1_000_000;
         }
 
         fn truncate(&mut self) {
             self.content.clear();
+            self.mtime_ns += 1_000_000;
+        }
+
+        fn touch(&mut self) {
+            self.mtime_ns += 1_000_000;
         }
     }
 
     impl FollowSource for MemSource {
         fn stat(&self) -> io::Result<FollowStat> {
-            // stat_fail is interior-immutable trick: not needed for current
-            // tests, but kept as a hook. for now treat stat_fail=0 as "ok".
             if self.stat_fail > 0 {
                 return Err(io::ErrorKind::NotFound.into());
             }
-            Ok(FollowStat { size: self.content.len() as u64, id: self.id })
+            Ok(FollowStat { size: self.content.len() as u64, id: self.id, mtime_ns: self.mtime_ns })
         }
 
         fn read_from(&mut self, offset: u64, buf: &mut Vec<u8>) -> io::Result<()> {
@@ -462,6 +619,135 @@ mod tests {
         assert_eq!(s(&out), "bbbb\n");
     }
 
+    // --- the bug: in-place rewrites that don't shrink + don't change id ---
+    // these are the cases where a shell `> file` from another terminal lands
+    // either at the same size or grows the file. classic id-based rotation
+    // detection misses them entirely; we use the head-bytes fingerprint to
+    // catch them.
+
+    #[test]
+    fn in_place_rewrite_same_size_resets() {
+        // shell `printf 'AAAAA\n' > file` after the file was 'BBBBB\n'.
+        // size identical (6 bytes), id identical, mtime advances. without
+        // the head fingerprint this would be Idle -- the user's "no update"
+        // bug.
+        let mut src = MemSource::new();
+        src.append(b"BBBBB\n");
+        let mut state = FollowState::new(20);
+        let mut out = Vec::new();
+
+        step_plain(&mut state, &mut src, &mut out);
+        out.clear();
+
+        src.rewrite_in_place(b"AAAAA\n");
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Reset(1));
+        assert_eq!(s(&out), "AAAAA\n");
+    }
+
+    #[test]
+    fn in_place_rewrite_growing_size_resets() {
+        // grew from 6 -> 13 bytes. without the head fingerprint we'd see
+        // grew=true and treat as append from offset 6, reading "world\n"
+        // into the view -- the "AAAAA" prefix would still be on screen
+        // pretending to be the file's first line. with the fingerprint we
+        // see that bytes [0..6) changed and treat it as rotation.
+        let mut src = MemSource::new();
+        src.append(b"AAAAA\n");
+        let mut state = FollowState::new(20);
+        let mut out = Vec::new();
+
+        step_plain(&mut state, &mut src, &mut out);
+        out.clear();
+
+        src.rewrite_in_place(b"hello world\n");
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Reset(1));
+        assert_eq!(s(&out), "hello world\n");
+    }
+
+    #[test]
+    fn in_place_rewrite_keeping_same_prefix_is_append() {
+        // tricky case: rewrite that happens to share the first N bytes with
+        // the previous content. since we only sample `min(prev, curr)` bytes,
+        // this LOOKS like an append. acceptable trade-off -- catching this
+        // would require comparing the full prev content, which defeats the
+        // point of a fixed-cost head check. document the behaviour so a
+        // future reader doesn't try to "fix" it.
+        let mut src = MemSource::new();
+        src.append(b"hello, ");
+        let mut state = FollowState::new(20);
+        let mut out = Vec::new();
+
+        step_plain(&mut state, &mut src, &mut out); // partial line, no emit
+        out.clear();
+
+        src.rewrite_in_place(b"hello, world\n");
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Wrote(1));
+        assert_eq!(s(&out), "hello, world\n");
+    }
+
+    #[test]
+    fn touch_is_idle() {
+        // touch-style mtime bump on an unchanged file. mtime moves, size
+        // and head are stable -> Idle.
+        let mut src = MemSource::new();
+        src.append(b"alpha\nbeta\n");
+        let mut state = FollowState::new(20);
+        let mut out = Vec::new();
+
+        step_plain(&mut state, &mut src, &mut out);
+        out.clear();
+
+        src.touch();
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Idle);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn rewrite_then_append_keeps_state_consistent() {
+        // walk a multi-step scenario:
+        //   t0: file = "a\nb\n"          -- bulk emit
+        //   t1: rewrite to "X\nY\n"      -- Reset
+        //   t2: append "Z\n"             -- Wrote
+        //   t3: no change                -- Idle
+        //   t4: rewrite to "P\n"         -- Reset
+        let mut src = MemSource::new();
+        src.append(b"a\nb\n");
+        let mut state = FollowState::new(20);
+        let mut out = Vec::new();
+
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Wrote(2));
+
+        out.clear();
+        src.rewrite_in_place(b"X\nY\n");
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Reset(2));
+        assert_eq!(s(&out), "X\nY\n");
+        assert_eq!(state.line_no, 3);
+
+        out.clear();
+        src.append(b"Z\n");
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Wrote(1));
+        assert_eq!(s(&out), "Z\n");
+        assert_eq!(state.line_no, 4);
+
+        out.clear();
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Idle);
+
+        out.clear();
+        src.rewrite_in_place(b"P\n");
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Reset(1));
+        assert_eq!(s(&out), "P\n");
+        assert_eq!(state.line_no, 2);
+    }
+
     #[test]
     fn crlf_is_normalised() {
         let mut src = MemSource::new();
@@ -552,7 +838,7 @@ mod tests {
                 if self.fails_left > 0 {
                     Err(io::ErrorKind::NotFound.into())
                 } else {
-                    Ok(FollowStat { size: self.content.len() as u64, id: 1 })
+                    Ok(FollowStat { size: self.content.len() as u64, id: 1, mtime_ns: 1 })
                 }
             }
             fn read_from(&mut self, offset: u64, buf: &mut Vec<u8>) -> io::Result<()> {
