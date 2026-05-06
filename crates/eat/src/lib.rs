@@ -930,9 +930,8 @@ fn parse_cli() -> Cli {
         let a = &argv[i];
         if a == "-L" || a == "--list-languages" {
             rewritten.push(a.clone());
-            let next_is_format = argv
-                .get(i + 1)
-                .is_some_and(|n| matches!(n.as_str(), "pretty" | "plain" | "json"));
+            let next_is_format =
+                argv.get(i + 1).is_some_and(|n| matches!(n.as_str(), "pretty" | "plain" | "json"));
             if !next_is_format {
                 rewritten.push("pretty".to_string());
             }
@@ -951,10 +950,7 @@ fn parse_cli() -> Cli {
                 std::process::exit(0);
             }
             Err(()) => {
-                eprintln!(
-                    "{}\nRun {} --help for more information.",
-                    early_exit.output, strs[0]
-                );
+                eprintln!("{}\nRun {} --help for more information.", early_exit.output, strs[0]);
                 std::process::exit(1);
             }
         },
