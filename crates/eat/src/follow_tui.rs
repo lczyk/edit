@@ -474,7 +474,10 @@ impl View {
 /// (when `gutter` is `Some`) at draw time using the current snapshot --
 /// this is what makes mark updates visible on already-stored body lines
 /// without re-rendering them.
-fn render_frame(
+///
+/// `pub` so the integration tests in `crates/eat/tests/` can drive the
+/// loop body directly w/out spinning up a real terminal.
+pub fn render_frame(
     view: &mut View,
     path_label: &str,
     last_update: &str,
@@ -586,7 +589,9 @@ fn push_truncated_ansi(buf: &mut String, s: &str, width: usize) {
 /// each `writeln!` call lands as one element in `lines`. `tick`'s emit_lines
 /// already calls `writeln!` exactly once per highlighted line, so this gives
 /// us one `Vec<u8>` per logical line w/out parsing.
-struct LineBuf {
+///
+/// `pub` so the integration tests can build their own loop fixtures.
+pub struct LineBuf {
     pub lines: Vec<Vec<u8>>,
     /// in-progress partial -- `tick` writes a line then writes `\n`; we close
     /// the current entry on `\n` and start a fresh one.
@@ -594,11 +599,17 @@ struct LineBuf {
 }
 
 impl LineBuf {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { lines: Vec::new(), cur: Vec::new() }
     }
-    fn take_new(&mut self) -> Vec<Vec<u8>> {
+    pub fn take_new(&mut self) -> Vec<Vec<u8>> {
         std::mem::take(&mut self.lines)
+    }
+}
+
+impl Default for LineBuf {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
