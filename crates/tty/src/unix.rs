@@ -211,7 +211,17 @@ pub fn read_stdin(arena: &Arena, mut timeout: time::Duration) -> Option<BString<
                     ret = libc::poll(&mut pollfd, 1, timeout.as_millis() as libc::c_int);
                 }
                 if ret < 0 {
-                    return None; // Error? Let's assume it's an EOF.
+                    // EINTR (typically from SIGWINCH while polling) is not an
+                    // error -- treat it like a no-op tick. anything else is a
+                    // real failure and we surface it to the caller as EOF.
+                    if errno() == libc::EINTR {
+                        if STATE.inject_resize {
+                            break; // fall through so the resize seq gets injected
+                        }
+                        timeout = timeout.saturating_sub(beg.elapsed());
+                        continue;
+                    }
+                    return None;
                 }
                 if ret == 0 {
                     break; // Timeout? We can stop reading.

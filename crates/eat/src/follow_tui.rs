@@ -30,6 +30,21 @@ const CLEAR_SCREEN: &str = "\x1b[2J";
 const RESET: &str = "\x1b[m";
 const DIM: &str = "\x1b[2m";
 
+// SGR mouse mode: ?1000h = button events, ?1006h = SGR coordinate format.
+// we use SGR exclusively (no X10 fallback) because legacy x10 emits raw
+// bytes that other terminals' alt-scroll converts into arrow keys -- we
+// already handle arrow keys, so this is fine. wheel events come through as
+// btn=64/65; our parser maps them to Up/Down.
+const MOUSE_ENABLE: &str = "\x1b[?1000h\x1b[?1006h";
+const MOUSE_DISABLE: &str = "\x1b[?1000l\x1b[?1006l";
+
+/// hard cap on buffered lines. the live-tail buffer would grow without
+/// bound on a busy log; once we exceed this, drop the oldest 10% in one
+/// shot. 200k lines * a few hundred bytes per line is ~50-100 MiB, which
+/// is generous for an interactive viewer.
+const LINE_CAP: usize = 200_000;
+const LINE_CAP_DROP: usize = LINE_CAP / 10;
+
 /// move cursor to 1-indexed (row, col).
 fn cursor_to(buf: &mut String, row: u16, col: u16) {
     use std::fmt::Write;
@@ -65,6 +80,11 @@ pub enum Key {
 /// SIGWINCH injection from the `tty` crate appears as `\x1b[8;H;Wt` -- we
 /// intercept it here and surface it as `Key::Resize`. callers don't need to
 /// query the size separately.
+///
+/// the parser is deliberately conservative: any unknown escape sequence (SS3,
+/// CSI with private prefix, mouse, focus reports, etc.) is consumed and
+/// emitted as `Key::Other`. quit is reserved for explicit user gestures
+/// (q, ctrl-c/d/q, bare ESC) so a stray terminal report can't kill the tui.
 pub fn parse_keys(bytes: &[u8]) -> Vec<Key> {
     let mut out = Vec::new();
     let mut i = 0;
@@ -81,36 +101,21 @@ pub fn parse_keys(bytes: &[u8]) -> Vec<Key> {
                 out.push(Key::Redraw);
                 i += 1;
             }
-            // ctrl-u -> page up; ctrl-f / ctrl-d are awkward (ctrl-d already quit)
+            // ctrl-u -> page up
             0x15 => {
                 out.push(Key::PgUp);
                 i += 1;
             }
-            // ESC -- start of a CSI sequence, or a bare ESC = quit.
+            // ESC -- start of a CSI / SS3 / other escape sequence, or a
+            // bare ESC at the end of the buffer = quit.
             0x1b => {
-                if i + 1 >= bytes.len() {
+                let consumed = parse_escape(&bytes[i..], &mut out);
+                if consumed == 0 {
+                    // bare ESC w/ no continuation
                     out.push(Key::Quit);
                     i += 1;
-                } else if bytes[i + 1] == b'[' {
-                    // CSI: \x1b[ ... <final-byte>
-                    let start = i + 2;
-                    let mut j = start;
-                    // params: digits, semicolons
-                    while j < bytes.len() && (bytes[j].is_ascii_digit() || bytes[j] == b';') {
-                        j += 1;
-                    }
-                    if j >= bytes.len() {
-                        // truncated; bail out
-                        break;
-                    }
-                    let final_byte = bytes[j];
-                    let params = &bytes[start..j];
-                    out.push(classify_csi(params, final_byte));
-                    i = j + 1;
                 } else {
-                    // ESC followed by something else -- treat as quit and consume both.
-                    out.push(Key::Quit);
-                    i += 2;
+                    i += consumed;
                 }
             }
             // printable ascii
@@ -147,6 +152,120 @@ pub fn parse_keys(bytes: &[u8]) -> Vec<Key> {
     out
 }
 
+/// parse one escape sequence starting at `bytes[0] == 0x1b`. returns the
+/// number of bytes consumed, or 0 if `bytes` is just `\x1b` with nothing
+/// following (caller decides what to do -- usually "Quit").
+///
+/// recognised:
+///   - `\x1b[ ...`   CSI (also covers private `?` / `<` / `>` prefixes)
+///   - `\x1b[M???`   X10 mouse: M + 3 raw bytes
+///   - `\x1bO X`     SS3 single-letter (arrow keys in keypad mode)
+///   - `\x1b]...\x07` or `...\x1b\\`  OSC (consumed, no key emitted)
+///
+/// unknown forms: consume `\x1b` plus the next byte as `Key::Other`. we
+/// deliberately avoid treating "ESC + something" as Quit -- terminals send
+/// a *lot* of unsolicited escape sequences (focus events, mouse, resize
+/// reports, etc.) and a stray bare-ESC misclassification would kill the tui
+/// every time the user clicks a window or moves the mouse.
+fn parse_escape(bytes: &[u8], out: &mut Vec<Key>) -> usize {
+    if bytes.len() < 2 {
+        return 0;
+    }
+    match bytes[1] {
+        b'[' => parse_csi(bytes, out),
+        b'O' => {
+            if bytes.len() < 3 {
+                // truncated SS3; eat what we have, no key.
+                bytes.len()
+            } else {
+                let key = match bytes[2] {
+                    b'A' => Key::Up,
+                    b'B' => Key::Down,
+                    b'H' => Key::Home,
+                    b'F' => Key::End,
+                    _ => Key::Other,
+                };
+                out.push(key);
+                3
+            }
+        }
+        b']' => {
+            // OSC: terminated by BEL (0x07) or ST (\x1b\\). just consume.
+            let mut j = 2;
+            while j < bytes.len() {
+                if bytes[j] == 0x07 {
+                    return j + 1;
+                }
+                if bytes[j] == 0x1b && bytes.get(j + 1) == Some(&b'\\') {
+                    return j + 2;
+                }
+                j += 1;
+            }
+            // unterminated; consume what we have.
+            bytes.len()
+        }
+        _ => {
+            // unknown escape; eat ESC + next byte and emit Other.
+            out.push(Key::Other);
+            2
+        }
+    }
+}
+
+fn parse_csi(bytes: &[u8], out: &mut Vec<Key>) -> usize {
+    debug_assert!(bytes.starts_with(b"\x1b["));
+    // X10 mouse: \x1b[M + 3 raw bytes (button, col, row, each +32).
+    if bytes.get(2) == Some(&b'M') {
+        if bytes.len() < 6 {
+            return bytes.len(); // truncated
+        }
+        // wheel up = button 64 (i.e. 96 = 64+32), wheel down = 65 (97).
+        let key = match bytes[3] {
+            96 => Key::Up,
+            97 => Key::Down,
+            _ => Key::Other,
+        };
+        out.push(key);
+        return 6;
+    }
+
+    // standard CSI: optional private-marker (`?` `<` `>` `=`), digits + `;`,
+    // then a single final byte in the range 0x40..=0x7e.
+    let mut j = 2;
+    let private = matches!(bytes.get(j), Some(b'?' | b'<' | b'>' | b'='));
+    if private {
+        j += 1;
+    }
+    let params_start = j;
+    while j < bytes.len() && (bytes[j].is_ascii_digit() || bytes[j] == b';') {
+        j += 1;
+    }
+    if j >= bytes.len() {
+        return bytes.len(); // truncated
+    }
+    let final_byte = bytes[j];
+    if !(0x40..=0x7e).contains(&final_byte) {
+        // malformed; eat what we scanned and move on.
+        out.push(Key::Other);
+        return j + 1;
+    }
+    let params = &bytes[params_start..j];
+
+    let key = if private {
+        match (bytes[2], final_byte) {
+            // SGR mouse: \x1b[<btn;col;rowM (press) or m (release).
+            (b'<', b'M' | b'm') => parse_sgr_mouse(params, final_byte == b'M'),
+            _ => Key::Other,
+        }
+    } else {
+        classify_csi(params, final_byte)
+    };
+    out.push(key);
+    j + 1
+}
+
+/// classify a non-private CSI sequence. params is the digits-and-semicolons
+/// chunk between `\x1b[` and the final letter.
 fn classify_csi(params: &[u8], final_byte: u8) -> Key {
     match final_byte {
         b'A' => Key::Up,
@@ -180,6 +299,28 @@ fn classify_csi(params: &[u8], final_byte: u8) -> Key {
             };
             Key::Resize(cols, rows)
         }
+        _ => Key::Other,
+    }
+}
+
+/// SGR mouse: params are `btn;col;row`. wheel up = 64, wheel down = 65;
+/// modifier bits (4=shift, 8=meta, 16=ctrl) are ignored. clicks/motion are
+/// suppressed -- only wheel events scroll the view.
+fn parse_sgr_mouse(params: &[u8], _press: bool) -> Key {
+    let s = match std::str::from_utf8(params) {
+        Ok(s) => s,
+        Err(_) => return Key::Other,
+    };
+    let mut it = s.split(';');
+    let btn: u32 = match it.next().and_then(|p| p.parse().ok()) {
+        Some(n) => n,
+        None => return Key::Other,
+    };
+    // strip modifier bits to get the bare button id.
+    let bare = btn & !(4 | 8 | 16);
+    match bare {
+        64 => Key::Up,   // wheel up
+        65 => Key::Down, // wheel down
         _ => Key::Other,
     }
 }
@@ -275,8 +416,23 @@ impl View {
     }
 
     /// extend the buffered lines with a slice of newly-arrived lines.
+    /// applies the `LINE_CAP` cap by dropping the oldest `LINE_CAP_DROP`
+    /// lines once the buffer overflows; updates `scroll_offset` so the
+    /// view doesn't visually jump when oldest lines are evicted.
     pub fn extend_lines(&mut self, new: &[Vec<u8>]) {
+        self.extend_lines_capped(new, LINE_CAP, LINE_CAP_DROP);
+    }
+
+    /// like `extend_lines` but with explicit cap parameters. used by tests
+    /// to exercise the cap-and-drop path w/out allocating 200k entries.
+    pub fn extend_lines_capped(&mut self, new: &[Vec<u8>], cap: usize, drop: usize) {
         self.lines.extend_from_slice(new);
+        if self.lines.len() > cap {
+            let to_drop = drop.max(self.lines.len() - cap);
+            let to_drop = to_drop.min(self.lines.len());
+            self.lines.drain(..to_drop);
+            self.scroll_offset = self.scroll_offset.saturating_sub(to_drop);
+        }
     }
 
     /// reset for rotation/truncation.
@@ -434,9 +590,9 @@ pub fn run(
     // drive a fake sigwinch so the first read_stdin returns size right away.
     tty::inject_window_size_into_stdin();
 
-    tty::write_stdout(&format!("{ALT_SCREEN_ENTER}{CURSOR_HIDE}{CLEAR_SCREEN}"));
+    tty::write_stdout(&format!("{ALT_SCREEN_ENTER}{CURSOR_HIDE}{CLEAR_SCREEN}{MOUSE_ENABLE}"));
     let cleanup_screen = || {
-        tty::write_stdout(&format!("{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
+        tty::write_stdout(&format!("{MOUSE_DISABLE}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
     };
 
     let result = run_loop(&mut src, &path, lang, show_numbers, use_color, poll_interval);
@@ -462,11 +618,17 @@ fn run_loop(
     let path_label = path.display().to_string();
 
     let mut last_tick = Instant::now() - poll_interval; // ensures first iteration ticks
+    let mut last_redraw = Instant::now() - Duration::from_secs(1);
     let arena_main = Arena::new(64 * 1024)?;
+
+    // 1Hz heartbeat: even when nothing is changing, refresh once a second so
+    // the "last update" timestamp keeps ticking.
+    let heartbeat = Duration::from_secs(1);
 
     loop {
         // 1. tick if it's time
         let now = Instant::now();
+        let mut want_redraw = false;
         if now.duration_since(last_tick) >= poll_interval {
             let outcome = tick(
                 &mut state,
@@ -479,11 +641,21 @@ fn run_loop(
                 &mut sink,
             )?;
             match outcome {
-                TickOutcome::Reset(_) => {
+                TickOutcome::Reset(n) => {
                     view.reset_lines();
                     view.extend_lines(&sink.take_new());
+                    if n > 0 {
+                        want_redraw = true;
+                    }
                 }
-                TickOutcome::Wrote(_) | TickOutcome::Idle => {
+                TickOutcome::Wrote(n) => {
+                    view.extend_lines(&sink.take_new());
+                    if n > 0 {
+                        want_redraw = true;
+                    }
+                }
+                TickOutcome::Idle => {
+                    // drain any leftover sink content (shouldn't be any).
                     view.extend_lines(&sink.take_new());
                 }
                 TickOutcome::GoneTooLong => {
@@ -494,11 +666,22 @@ fn run_loop(
                 }
             }
             last_tick = now;
-            redraw(&mut view, &path_label, poll_interval);
         }
 
-        // 2. wait for input until the next tick deadline
-        let wait = poll_interval.saturating_sub(Instant::now().duration_since(last_tick));
+        // heartbeat redraw so the timestamp keeps moving even if nothing else does.
+        if Instant::now().duration_since(last_redraw) >= heartbeat {
+            want_redraw = true;
+        }
+
+        if want_redraw {
+            redraw(&mut view, &path_label, poll_interval);
+            last_redraw = Instant::now();
+        }
+
+        // 2. wait for input until the next tick deadline (or heartbeat, whichever first)
+        let next_tick_in = poll_interval.saturating_sub(Instant::now().duration_since(last_tick));
+        let next_beat_in = heartbeat.saturating_sub(Instant::now().duration_since(last_redraw));
+        let wait = next_tick_in.min(next_beat_in).max(Duration::from_millis(1));
         let scratch = scratch_arena(Some(&arena_main));
         let chunk = tty::read_stdin(&scratch, wait);
         match chunk {
@@ -524,6 +707,7 @@ fn run_loop(
                 }
                 if should_redraw {
                     redraw(&mut view, &path_label, poll_interval);
+                    last_redraw = Instant::now();
                 }
             }
         }
@@ -607,6 +791,76 @@ mod tests {
         // partial sequence at end of buffer -- shouldn't panic.
         let _ = keys(b"\x1b[");
         let _ = keys(b"\x1b[5");
+    }
+
+    #[test]
+    fn ss3_arrows() {
+        // application-keypad mode: terminals send arrow keys as ESC O X
+        // instead of CSI X. used to crash the tui because the bare-ESC
+        // path treated the whole thing as Quit.
+        assert_eq!(keys(b"\x1bOA"), vec![Key::Up]);
+        assert_eq!(keys(b"\x1bOB"), vec![Key::Down]);
+        assert_eq!(keys(b"\x1bOH"), vec![Key::Home]);
+        assert_eq!(keys(b"\x1bOF"), vec![Key::End]);
+    }
+
+    #[test]
+    fn unknown_esc_does_not_quit() {
+        // any ESC + non-bracket sequence used to map to Quit. terminals send
+        // a *lot* of these (focus reports, mouse, alt-modified keys), so
+        // misclassifying as Quit would close the tui every time the user
+        // moused around or alt-tabbed.
+        assert_eq!(keys(b"\x1ba"), vec![Key::Other]); // alt-a
+        assert_eq!(keys(b"\x1b\x1b"), vec![Key::Other]); // double-escape
+    }
+
+    #[test]
+    fn x10_mouse_wheel() {
+        // \x1b[M then 3 raw bytes (button+32, col+32, row+32).
+        // wheel up = button 64 -> byte 96; wheel down = 65 -> 97.
+        assert_eq!(keys(b"\x1b[M\x60\x21\x21"), vec![Key::Up]);
+        assert_eq!(keys(b"\x1b[M\x61\x21\x21"), vec![Key::Down]);
+        // a regular click (button 0 -> byte 32) emits Other, not Quit.
+        assert_eq!(keys(b"\x1b[M\x20\x21\x21"), vec![Key::Other]);
+    }
+
+    #[test]
+    fn x10_mouse_with_low_coord_bytes_does_not_quit() {
+        // the bug we hit: column/row coords that happen to be 3 (= ctrl-c)
+        // would trigger a quit if the parser fell through to per-byte
+        // processing. with proper consumption they're swallowed.
+        // (real x10 uses +32 offset so this scenario doesn't actually
+        // arise on the wire, but we assert the consumption is exact.)
+        assert_eq!(keys(b"\x1b[M\x60\x03\x04").len(), 1);
+        assert_eq!(keys(b"\x1b[M\x60\x03\x04")[0], Key::Up);
+    }
+
+    #[test]
+    fn sgr_mouse_wheel() {
+        assert_eq!(keys(b"\x1b[<64;10;5M"), vec![Key::Up]);
+        assert_eq!(keys(b"\x1b[<65;10;5M"), vec![Key::Down]);
+        // wheel + shift modifier (4): bare button is still 64.
+        assert_eq!(keys(b"\x1b[<68;10;5M"), vec![Key::Up]);
+        // ordinary press/release: not a wheel, emit Other.
+        assert_eq!(keys(b"\x1b[<0;10;5M"), vec![Key::Other]);
+        assert_eq!(keys(b"\x1b[<0;10;5m"), vec![Key::Other]);
+    }
+
+    #[test]
+    fn private_csi_does_not_quit() {
+        // focus-in / focus-out (`\x1b[I`, `\x1b[O`) and similar reports.
+        // any CSI w/ a known final letter just classifies as Other.
+        assert_eq!(keys(b"\x1b[I"), vec![Key::Other]);
+        assert_eq!(keys(b"\x1b[O"), vec![Key::Other]);
+        assert_eq!(keys(b"\x1b[?1;2c"), vec![Key::Other]); // device attrs response
+    }
+
+    #[test]
+    fn osc_consumed_silently() {
+        // OSC ends with BEL or ST. consumer should swallow the whole thing
+        // and emit no key.
+        assert_eq!(keys(b"\x1b]0;some title\x07"), vec![]);
+        assert_eq!(keys(b"\x1b]0;some title\x1b\\"), vec![]);
     }
 
     // --- view ---
@@ -713,6 +967,41 @@ mod tests {
         let mut v = make_view(80, 24, 5); // body_rows=23, lines=5
         v.settle_offset();
         assert_eq!(v.scroll_offset, 0);
+    }
+
+    #[test]
+    fn extend_lines_capped_drops_oldest_when_over_cap() {
+        let mut v = View::new(80, 24);
+        // pre-fill with 8 lines, cap at 10, drop 3 at a time.
+        let pre: Vec<Vec<u8>> = (0..8).map(|i| format!("a{i}").into_bytes()).collect();
+        v.extend_lines_capped(&pre, 10, 3);
+        assert_eq!(v.lines.len(), 8); // under cap
+
+        // add 5 more -> total 13, over cap (10) by 3, drop 3 -> 10.
+        let more: Vec<Vec<u8>> = (0..5).map(|i| format!("b{i}").into_bytes()).collect();
+        v.extend_lines_capped(&more, 10, 3);
+        assert_eq!(v.lines.len(), 10);
+        // oldest 3 (a0, a1, a2) should be gone; first remaining is a3.
+        assert_eq!(v.lines[0], b"a3");
+        assert_eq!(v.lines.last().unwrap(), b"b4");
+    }
+
+    #[test]
+    fn extend_lines_capped_keeps_offset_in_view() {
+        // user has scrolled away from tail. drops shouldn't make the
+        // current visible window jump or invalidate the offset.
+        let mut v = View::new(80, 6); // body_rows=5
+        v.tail_mode = false;
+        let pre: Vec<Vec<u8>> = (0..20).map(|i| format!("a{i}").into_bytes()).collect();
+        v.extend_lines_capped(&pre, 100, 10);
+        v.scroll_offset = 5; // looking at lines 5..10
+        // overflow: add enough to exceed cap=15 and trigger drop=4.
+        let more: Vec<Vec<u8>> = (0..0).map(|_| Vec::new()).collect(); // no add
+        v.extend_lines_capped(&more, 15, 4);
+        // 20 > 15: drop max(4, 20-15)=5 -> 15 remain. offset 5 - 5 = 0.
+        assert_eq!(v.lines.len(), 15);
+        assert_eq!(v.scroll_offset, 0);
+        assert_eq!(v.lines[0], b"a5");
     }
 
     // --- LineBuf adapter ---
