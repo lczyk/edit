@@ -140,6 +140,7 @@ dependencies = [
  "polyflag",
  "stdext",
  "toml-span",
+ "tty",
  "version",
 ]
 
@@ -378,6 +379,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f22ba417d437b5fa5dcba6c27dbd6c14f38845315b724d89fed73b7a426451b7"
 dependencies = [
  "smallvec",
+]
+
+[[package]]
+name = "tty"
+version = "0.0.0"
+dependencies = [
+ "libc",
+ "stdext",
 ]
 
 [[package]]

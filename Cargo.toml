@@ -27,4 +27,5 @@ edit = { path = "./crates/edit" }
 lsh = { path = "./crates/lsh" }
 polyflag = { path = "./crates/polyflag" }
 stdext = { path = "./crates/stdext" }
+tty = { path = "./crates/tty" }
 unicode-gen = { path = "./crates/unicode-gen" }
