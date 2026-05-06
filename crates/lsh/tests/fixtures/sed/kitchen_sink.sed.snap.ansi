@@ -1,0 +1,44 @@
+[32m#!/usr/bin/sed -nf[m
+[32m# kitchen-sink sed fixture for lsh highlighting[m
+
+[32m# strip leading whitespace[m
+[94ms[m[91m/^[ \t]*[m//
+
+[32m# normalise tabs to two spaces, globally[m
+[94ms[m[91m/\t[m/[91m  [m/[94mg[m
+
+[32m# print only lines matching FOO, then keep going[m
+[91m/FOO/[m[94mp[m
+
+[32m# delete blank lines[m
+[91m/^$/[m[94md[m
+
+[32m# range: from a marker to end-of-file[m
+[91m/BEGIN/[m,[96m$[m [94m{[m
+    [94ms[m[91m/old[m/[91mnew[m/[94m2gI[m
+    s|alt-delim|won'[94mt[m be highlighted|[94mg[m
+[94m}[m
+
+[32m# transliterate vowels to uppercase via y command[m
+[94my[m[91m/aeiou[m/[91mAEIOU[m/
+
+[32m# numeric address + last-line[m
+[92m1[m,[96m$[m [94m{[m
+    [94m=[m
+    [94mp[m
+[94m}[m
+
+[32m# label + branch[m
+[94m:[mloop
+[94mN[m
+[94ms[m[91m/\n[m/[91m, [m/[94mg[m
+[94mt[m loop
+
+[32m# backreferences in replacement[m
+[94ms[m[91m/\(foo\)\(bar\)[m/[91m\2-\1[m/
+[94ms[m[91m/whole[m/[91m[&][m/[94mg[m
+
+[32m# write the result to a file, then quit[m
+[94mw[m out.txt
+[94mq[m
+
