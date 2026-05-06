@@ -34,6 +34,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Go => "go",
         Language::Ignore => "ignore",
         Language::Javascript => "javascript",
+        Language::Jq => "jq",
         Language::Json => "json",
         Language::Lsh => "lsh",
         Language::Makefile => "makefile",

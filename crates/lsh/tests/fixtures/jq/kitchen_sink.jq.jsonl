@@ -1,0 +1,181 @@
+{"line":1,"kind":"comment","text":"# kitchen-sink jq fixture for lsh highlighting"}
+{"line":3,"kind":"comment","text":"# numbers, strings, constants"}
+{"line":4,"kind":"keyword.control","text":"def"}
+{"line":4,"kind":"other","text":" pi: "}
+{"line":4,"kind":"constant.numeric","text":"3.14159"}
+{"line":4,"kind":"other","text":";"}
+{"line":5,"kind":"keyword.control","text":"def"}
+{"line":5,"kind":"other","text":" hex: "}
+{"line":5,"kind":"constant.numeric","text":"0xFF"}
+{"line":5,"kind":"other","text":";"}
+{"line":6,"kind":"keyword.control","text":"def"}
+{"line":6,"kind":"other","text":" truthy: "}
+{"line":6,"kind":"constant.language","text":"true"}
+{"line":6,"kind":"other","text":";"}
+{"line":7,"kind":"keyword.control","text":"def"}
+{"line":7,"kind":"other","text":" maybe: "}
+{"line":7,"kind":"constant.language","text":"null"}
+{"line":7,"kind":"other","text":";"}
+{"line":9,"kind":"comment","text":"# string interpolation, format strings"}
+{"line":10,"kind":"keyword.control","text":"def"}
+{"line":10,"kind":"other","text":" "}
+{"line":10,"kind":"method","text":"greet"}
+{"line":10,"kind":"other","text":"("}
+{"line":10,"kind":"variable","text":"$who"}
+{"line":10,"kind":"other","text":"): "}
+{"line":10,"kind":"string","text":"\"hello, "}
+{"line":10,"kind":"other","text":"\\($who"}
+{"line":10,"kind":"string","text":")!\""}
+{"line":10,"kind":"other","text":" | "}
+{"line":10,"kind":"support.function","text":"@text"}
+{"line":10,"kind":"other","text":";"}
+{"line":11,"kind":"keyword.control","text":"def"}
+{"line":11,"kind":"other","text":" csv_row: ["}
+{"line":11,"kind":"variable","text":".a"}
+{"line":11,"kind":"other","text":", "}
+{"line":11,"kind":"variable","text":".b"}
+{"line":11,"kind":"other","text":", "}
+{"line":11,"kind":"variable","text":".c"}
+{"line":11,"kind":"other","text":"] | "}
+{"line":11,"kind":"support.function","text":"@csv"}
+{"line":11,"kind":"other","text":";"}
+{"line":13,"kind":"comment","text":"# control flow"}
+{"line":14,"kind":"keyword.control","text":"def"}
+{"line":14,"kind":"other","text":" "}
+{"line":14,"kind":"method","text":"classify"}
+{"line":14,"kind":"other","text":"(n):"}
+{"line":15,"kind":"other","text":"  "}
+{"line":15,"kind":"keyword.control","text":"if"}
+{"line":15,"kind":"other","text":" n < "}
+{"line":15,"kind":"constant.numeric","text":"0"}
+{"line":15,"kind":"other","text":" "}
+{"line":15,"kind":"keyword.control","text":"then"}
+{"line":15,"kind":"other","text":" "}
+{"line":15,"kind":"string","text":"\"negative\""}
+{"line":16,"kind":"other","text":"  "}
+{"line":16,"kind":"keyword.control","text":"elif"}
+{"line":16,"kind":"other","text":" n == "}
+{"line":16,"kind":"constant.numeric","text":"0"}
+{"line":16,"kind":"other","text":" "}
+{"line":16,"kind":"keyword.control","text":"then"}
+{"line":16,"kind":"other","text":" "}
+{"line":16,"kind":"string","text":"\"zero\""}
+{"line":17,"kind":"other","text":"  "}
+{"line":17,"kind":"keyword.control","text":"else"}
+{"line":17,"kind":"other","text":" "}
+{"line":17,"kind":"string","text":"\"positive\""}
+{"line":18,"kind":"other","text":"  "}
+{"line":18,"kind":"keyword.control","text":"end"}
+{"line":18,"kind":"other","text":";"}
+{"line":20,"kind":"comment","text":"# comprehension via reduce + map"}
+{"line":21,"kind":"keyword.control","text":"def"}
+{"line":21,"kind":"other","text":" sum_evens: "}
+{"line":21,"kind":"keyword.control","text":"reduce"}
+{"line":21,"kind":"other","text":" .[] "}
+{"line":21,"kind":"keyword.control","text":"as"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"variable","text":"$x"}
+{"line":21,"kind":"other","text":" ("}
+{"line":21,"kind":"constant.numeric","text":"0"}
+{"line":21,"kind":"other","text":"; "}
+{"line":21,"kind":"keyword.control","text":"if"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"variable","text":"$x"}
+{"line":21,"kind":"other","text":" % "}
+{"line":21,"kind":"constant.numeric","text":"2"}
+{"line":21,"kind":"other","text":" == "}
+{"line":21,"kind":"constant.numeric","text":"0"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"keyword.control","text":"then"}
+{"line":21,"kind":"other","text":" . + "}
+{"line":21,"kind":"variable","text":"$x"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"keyword.control","text":"else"}
+{"line":21,"kind":"other","text":" . "}
+{"line":21,"kind":"keyword.control","text":"end"}
+{"line":21,"kind":"other","text":");"}
+{"line":23,"kind":"comment","text":"# pipeline + builtins"}
+{"line":24,"kind":"variable","text":".users"}
+{"line":25,"kind":"other","text":"| "}
+{"line":25,"kind":"support.function","text":"map"}
+{"line":25,"kind":"other","text":"("}
+{"line":25,"kind":"support.function","text":"select"}
+{"line":25,"kind":"other","text":"("}
+{"line":25,"kind":"variable","text":".active"}
+{"line":25,"kind":"other","text":"))"}
+{"line":26,"kind":"other","text":"| "}
+{"line":26,"kind":"support.function","text":"sort_by"}
+{"line":26,"kind":"other","text":"("}
+{"line":26,"kind":"variable","text":".name"}
+{"line":26,"kind":"other","text":")"}
+{"line":27,"kind":"other","text":"| "}
+{"line":27,"kind":"support.function","text":"group_by"}
+{"line":27,"kind":"other","text":"("}
+{"line":27,"kind":"variable","text":".team"}
+{"line":27,"kind":"other","text":")"}
+{"line":28,"kind":"other","text":"| "}
+{"line":28,"kind":"support.function","text":"map"}
+{"line":28,"kind":"other","text":"({team: .["}
+{"line":28,"kind":"constant.numeric","text":"0"}
+{"line":28,"kind":"other","text":"]"}
+{"line":28,"kind":"variable","text":".team"}
+{"line":28,"kind":"other","text":", count: "}
+{"line":28,"kind":"support.function","text":"length"}
+{"line":28,"kind":"other","text":", names: "}
+{"line":28,"kind":"support.function","text":"map"}
+{"line":28,"kind":"other","text":"("}
+{"line":28,"kind":"variable","text":".name"}
+{"line":28,"kind":"other","text":")})"}
+{"line":30,"kind":"comment","text":"# field access, optional, slice, iterator"}
+{"line":31,"kind":"variable","text":".foo"}
+{"line":31,"kind":"variable","text":".bar"}
+{"line":31,"kind":"other","text":"?"}
+{"line":32,"kind":"other","text":"| .["}
+{"line":32,"kind":"constant.numeric","text":"2"}
+{"line":32,"kind":"other","text":":"}
+{"line":32,"kind":"constant.numeric","text":"5"}
+{"line":32,"kind":"other","text":"]"}
+{"line":33,"kind":"other","text":"| .[]"}
+{"line":35,"kind":"comment","text":"# update assignments + alternative"}
+{"line":36,"kind":"variable","text":".score"}
+{"line":36,"kind":"other","text":" //= "}
+{"line":36,"kind":"constant.numeric","text":"0"}
+{"line":37,"kind":"other","text":"| "}
+{"line":37,"kind":"variable","text":".score"}
+{"line":37,"kind":"other","text":" += "}
+{"line":37,"kind":"constant.numeric","text":"1"}
+{"line":38,"kind":"other","text":"| "}
+{"line":38,"kind":"variable","text":".name"}
+{"line":38,"kind":"other","text":" |= "}
+{"line":38,"kind":"support.function","text":"ascii_upcase"}
+{"line":40,"kind":"comment","text":"# variables"}
+{"line":41,"kind":"variable","text":".items"}
+{"line":41,"kind":"other","text":" "}
+{"line":41,"kind":"keyword.control","text":"as"}
+{"line":41,"kind":"other","text":" "}
+{"line":41,"kind":"variable","text":"$all"}
+{"line":42,"kind":"other","text":"| "}
+{"line":42,"kind":"variable","text":"$all"}
+{"line":42,"kind":"other","text":" | "}
+{"line":42,"kind":"support.function","text":"length"}
+{"line":44,"kind":"comment","text":"# try/catch"}
+{"line":45,"kind":"keyword.control","text":"try"}
+{"line":45,"kind":"other","text":" ("}
+{"line":45,"kind":"variable","text":".bad"}
+{"line":45,"kind":"other","text":" | "}
+{"line":45,"kind":"support.function","text":"tonumber"}
+{"line":45,"kind":"other","text":") "}
+{"line":45,"kind":"keyword.control","text":"catch"}
+{"line":45,"kind":"other","text":" "}
+{"line":45,"kind":"string","text":"\"n/a\""}
+{"line":47,"kind":"comment","text":"# regex builtins"}
+{"line":48,"kind":"support.function","text":"split"}
+{"line":48,"kind":"other","text":"("}
+{"line":48,"kind":"string","text":"\",\""}
+{"line":48,"kind":"other","text":") | "}
+{"line":48,"kind":"support.function","text":"map"}
+{"line":48,"kind":"other","text":"("}
+{"line":48,"kind":"support.function","text":"test"}
+{"line":48,"kind":"other","text":"("}
+{"line":48,"kind":"string","text":"\"^[0-9]+$\""}
+{"line":48,"kind":"other","text":"))"}

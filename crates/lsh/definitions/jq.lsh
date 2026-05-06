@@ -1,0 +1,66 @@
+// jq filter scripts. also covers `yq` (the python yq, which is jq with a
+// yaml frontend, and the go yq when its expressions happen to look jq-ish
+// - the go yq has divergent syntax that this definition doesn't try to
+// model precisely).
+#[display_name = "jq"]
+#[line_comment = "#"]
+#[path = "**/*.jq"]
+#[path = "**/*.yq"]
+#[shebang = "jq"]
+#[shebang = "yq"]
+pub fn jq() {
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\\(/ {
+                    // string interpolation `"\(expr)"` -- gobble through
+                    // the matching close paren without nesting awareness
+                    // (good enough for the common case).
+                    until /$/ {
+                        yield other;
+                        if /\)/ { break; }
+                        if /\\./ {}
+                        await input;
+                    }
+                }
+                else if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /(?:if|then|elif|else|end|as|def|reduce|foreach|try|catch|label|import|include|module)\>/ {
+            yield keyword.control;
+        } else if /(?:and|or|not)\>/ {
+            yield keyword.other;
+        } else if /(?:true|false|null)\>/ {
+            yield constant.language;
+        } else if /\$[A-Za-z_]\w*/ {
+            yield variable;
+        } else if /@[A-Za-z_]\w*/ {
+            // format strings: @text, @json, @uri, @csv, @tsv, @sh, @base64, @base64d, ...
+            yield support.function;
+        } else if /(input_line_number|input_filename|todateiso8601|fromdateiso8601|ascii_downcase|ascii_upcase|keys_unsorted|map_values|to_entries|from_entries|with_entries|leaf_paths|halt_error|isinfinite|isnormal|sort_by|min_by|max_by|group_by|unique_by|startswith|endswith|ltrimstr|rtrimstr|tonumber|tostring|tojson|fromjson|todate|fromdate|delpaths|getpath|setpath|implode|explode|capture|recurse|inputs|input|debug|stderr|halt|length|keys|values|select|map|range|floor|ceil|round|sqrt|fabs|sort|min|max|unique|reverse|split|join|test|match|scan|splits|sub|gsub|ascii|paths|path|walk|env|now|localtime|gmtime|mktime|strftime|strptime|has|in|contains|inside|type|error|any|all|empty|first|last|nth|limit|until|while|repeat|isnan|infinite|nan|add)\>/ {
+            yield $1 as support.function;
+        } else if /(?i:-?(?:0x[\da-fA-F]+|[\d_]+\.?[\d_]*|\.[\d_]+)(?:e[+-]?[\d_]+)?)/ {
+            if /\w+/ {
+                // Invalid numeric literal
+            } else {
+                yield constant.numeric;
+            }
+        } else if /\.\w+/ {
+            // field access: `.foo`, `.bar`. multi-segment paths come out as
+            // separate spans because the next iter starts on the next dot.
+            yield variable;
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+            // gobble word chars to align on a word boundary.
+        }
+
+        yield other;
+    }
+}
