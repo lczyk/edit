@@ -4,8 +4,7 @@
 
 use std::path::Path;
 
-use edit::buffer::GutterMark;
-
+use crate::GutterMark;
 use crate::git;
 use crate::linediff::{self, LineOp};
 

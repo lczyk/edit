@@ -111,19 +111,11 @@ pub enum IoError {
     Icu(icu::Error),
 }
 
-/// Per-line marker shown in the margin to indicate how a line differs from
-/// its baseline (typically `HEAD:<path>`). Computed externally and stuffed
-/// in via [`TextBuffer::set_gutter_marks`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GutterMark {
-    None,
-    Added,
-    Modified,
-    /// Lines were deleted immediately above this one.
-    DeletedAbove,
-    /// Lines were deleted immediately below this one (used at EOF).
-    DeletedBelow,
-}
+// Per-line marker shown in the margin to indicate how a line differs from
+// its baseline (typically `HEAD:<path>`). The type lives in the `gutter`
+// workspace crate so `eat` can use it too; re-exported here for backwards
+// compat with existing `edit::buffer::GutterMark` consumers.
+pub use gutter::GutterMark;
 
 /// One row of the minimap rail. `width` glyphs starting at `glyphs[0]` are
 /// valid; the rest are unused. Computed externally and stuffed in via

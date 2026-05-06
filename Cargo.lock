@@ -125,6 +125,7 @@ name = "eat"
 version = "0.7.2"
 dependencies = [
  "argh",
+ "gutter",
  "lsh",
  "stdext",
  "tty",
@@ -136,6 +137,7 @@ name = "edit"
 version = "0.7.2"
 dependencies = [
  "eat",
+ "gutter",
  "libc",
  "lsh",
  "polyflag",
@@ -156,6 +158,10 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
+name = "gutter"
+version = "0.0.0"
 
 [[package]]
 name = "iana-time-zone"

@@ -24,8 +24,9 @@ use edit::helpers::{CoordType, Point};
 use edit::lsh::{FILE_ASSOCIATIONS, Language, language_from_shebang, process_file_associations};
 use edit::{path, sys};
 
+use gutter::gutter_diff::{self, BaselineState};
+
 use crate::apperr;
-use crate::gutter_diff::{self, BaselineState};
 use crate::minimap::MinimapState;
 use crate::settings::Settings;
 

@@ -24,6 +24,7 @@ incremental = true          # Improves re-compile times
 [workspace.dependencies]
 eat = { path = "./crates/eat" }
 edit = { path = "./crates/edit" }
+gutter = { path = "./crates/gutter" }
 lsh = { path = "./crates/lsh" }
 polyflag = { path = "./crates/polyflag" }
 stdext = { path = "./crates/stdext" }

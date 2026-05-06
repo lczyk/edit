@@ -10,6 +10,7 @@ build = "build/main.rs"
 
 [dependencies]
 eat.workspace = true
+gutter.workspace = true
 lsh.workspace = true
 polyflag.workspace = true
 stdext.workspace = true
