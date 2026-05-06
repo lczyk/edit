@@ -52,14 +52,31 @@ fn fixture_subdir(lang: Language) -> &'static str {
 
 const SNAP_SUFFIX: &str = ".jsonl";
 
-/// A file is treated as a snapshot iff its name is `<fixture-name>.jsonl`
-/// and a sibling `<fixture-name>` exists. That keeps `.jsonl` usable as a
-/// regular fixture extension (e.g. `sample.jsonl`) while still recognising
-/// snapshots like `kitchen_sink.md.jsonl` and `sample.jsonl.jsonl`.
+/// Suffixes that other test crates (e.g. `eat`) drop next to lsh fixtures.
+/// Files named `<fixture>.<suffix>` for any of these are not lsh fixtures
+/// and must be skipped during discovery.
+const SIBLING_SNAP_SUFFIXES: &[&str] = &[".snap.ansi"];
+
+/// A file is treated as a snapshot iff its name is `<fixture-name>.<suffix>`
+/// for one of our recognised snapshot suffixes and a sibling `<fixture-name>`
+/// exists. The sibling check keeps `.jsonl` usable as a regular fixture
+/// extension (e.g. `sample.jsonl`) while still recognising real snapshots
+/// like `kitchen_sink.md.jsonl` and `sample.jsonl.jsonl`.
 fn is_snap(p: &Path) -> bool {
     let Some(s) = p.to_str() else { return false };
-    let Some(stem) = s.strip_suffix(SNAP_SUFFIX) else { return false };
-    Path::new(stem).exists()
+    if let Some(stem) = s.strip_suffix(SNAP_SUFFIX)
+        && Path::new(stem).exists()
+    {
+        return true;
+    }
+    for suffix in SIBLING_SNAP_SUFFIXES {
+        if let Some(stem) = s.strip_suffix(suffix)
+            && Path::new(stem).exists()
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn discover_fixtures(root: &Path, out: &mut Vec<PathBuf>) {
