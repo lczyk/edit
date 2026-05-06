@@ -198,6 +198,8 @@ mod tests {
                 HighlightKind::MarkupList => "markup.list",
                 HighlightKind::MarkupStrikethrough => "markup.strikethrough",
                 HighlightKind::MetaHeader => "meta.header",
+                HighlightKind::StorageType => "storage.type",
+                HighlightKind::SupportFunction => "support.function",
             }
         };
         let mut out = Vec::new();

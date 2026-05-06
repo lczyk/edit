@@ -3,6 +3,8 @@
 #[path = "**/*.ps1"]
 #[path = "**/*.psd1"]
 #[path = "**/*.psm1"]
+#[shebang = "pwsh"]
+#[shebang = "powershell"]
 pub fn powershell() {
     until /$/ {
         yield other;

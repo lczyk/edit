@@ -208,11 +208,30 @@ impl TryFrom<u32> for HighlightKind {{
         output.push_str(&self.compiler.as_mermaid());
         output.push_str("*/\n");
 
+        output.push_str("\n#[rustfmt::skip]\n");
+        output.push_str("pub static EMPTY_SHEBANGS: &[&str] = &[];\n");
+        for (idx, ep) in assembly.entrypoints.iter().enumerate() {
+            if !ep.shebangs.is_empty() {
+                _ = write!(output, "#[rustfmt::skip]\npub static SHEBANGS_{idx}: &[&str] = &[");
+                for (i, s) in ep.shebangs.iter().enumerate() {
+                    if i > 0 {
+                        output.push_str(", ");
+                    }
+                    _ = write!(output, "{s:?}");
+                }
+                output.push_str("];\n");
+            }
+        }
         output.push_str("\n#[rustfmt::skip] pub const LANGUAGES: &[Language] = &[\n");
-        for ep in &assembly.entrypoints {
+        for (idx, ep) in assembly.entrypoints.iter().enumerate() {
+            let shebangs = if ep.shebangs.is_empty() {
+                "EMPTY_SHEBANGS".to_string()
+            } else {
+                format!("SHEBANGS_{idx}")
+            };
             _ = writeln!(
                 output,
-                "    Language {{ id: {:?}, name: {:?}, line_comment: {}, block_comment: {}, entrypoint: {} }},",
+                "    Language {{ id: {:?}, name: {:?}, line_comment: {}, block_comment: {}, shebangs: {shebangs}, entrypoint: {} }},",
                 ep.name.replace('_', "-"),
                 ep.display_name,
                 match &ep.line_comment {

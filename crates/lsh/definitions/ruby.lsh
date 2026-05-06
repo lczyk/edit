@@ -5,6 +5,7 @@
 #[path = "**/*.ru"]
 #[path = "**/Gemfile"]
 #[path = "**/Rakefile"]
+#[shebang = "ruby"]
 pub fn ruby() {
     var zero = 0;
     until /$/ {

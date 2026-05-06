@@ -36,3 +36,32 @@ func main() {
         fmt.Println("default")
     }
 }
+
+func builtins() {
+    s := make([]string, 0)
+    s = append(s, "x")
+    n := len(s)
+    c := cap(s)
+    _ = copy(s, s)
+    delete(m, "key")
+    if ok := true; ok {
+        panic("boom")
+    }
+    _ = new(int)
+    _ = complex(1, 2)
+    _ = real(c)
+    _ = imag(c)
+    _ = close(ch)
+    v := recover()
+    _ = v
+    println("print")
+    print("no newline")
+}
+
+var (
+    b bool
+    by byte
+    e error
+    a any
+    c comparable
+)

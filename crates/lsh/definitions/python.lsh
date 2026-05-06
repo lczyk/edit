@@ -3,6 +3,7 @@
 #[path = "**/*.py"]
 #[path = "**/*.pyi"]
 #[path = "**/*.pyw"]
+#[shebang = "python"]
 pub fn python() {
     until /$/ {
         yield other;

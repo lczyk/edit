@@ -80,6 +80,7 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             match key {
                 "display_name" => attributes.display_name = Some(value),
                 "path" => attributes.paths.push(value),
+                "shebang" => attributes.shebangs.push(value),
                 "line_comment" => attributes.line_comment = Some(value),
                 "block_comment_open" => attributes.block_comment_open = Some(value),
                 "block_comment_close" => attributes.block_comment_close = Some(value),

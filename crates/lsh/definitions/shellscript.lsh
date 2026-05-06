@@ -10,6 +10,9 @@
 #[path = "**/APKBUILD"]
 #[path = "**/PKGBUILD"]
 #[path = "**/zshrc"]
+#[shebang = "sh"]
+#[shebang = "bash"]
+#[shebang = "zsh"]
 pub fn shellscript() {
     until /$/ {
         yield other;

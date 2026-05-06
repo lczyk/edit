@@ -39,6 +39,9 @@ pub struct Language {
     /// `("<!--", "-->")` for markdown/html). `None` if the language has no
     /// block-comment syntax.
     pub block_comment: Option<(&'static str, &'static str)>,
+    /// Shebang interpreter tokens for automatic language detection
+    /// (e.g., `["python", "python3"]` for python).
+    pub shebangs: &'static [&'static str],
     /// Bytecode address where execution begins for this language.
     pub entrypoint: u32,
 }

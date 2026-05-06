@@ -33,15 +33,20 @@ pub fn go() {
             }
         } else if /'(?:\\.|[^'\\])'/ {
             yield string;
+        } else if /(package)\s+(\w+)/ {
+            yield $1 as keyword.other;
+            yield $2 as variable;
         } else if /(?:break|case|continue|default|defer|else|fallthrough|for|goto|if|range|return|select|switch)\>/ {
             yield keyword.control;
         } else if /(?:chan|const|func|go|import|interface|map|package|struct|type|var)\>/ {
             yield keyword.other;
         } else if /(?:bool|byte|rune|string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|uintptr|float32|float64|complex64|complex128|error|any|comparable)\>/ {
-            yield keyword.other;
+            yield storage.type;
         } else if /(?:true|false|nil|iota)\>/ {
             yield constant.language;
-        } else if /(?i:-?(?:0x[\da-f_]+|0b[01_]+|0o[0-7_]+|[\d_]+\.?[\d_]*|\.[\d_]+)(?:e[+-]?[\d_]+)?i?)/ {
+        } else if /(append|cap|close|complex|copy|delete|imag|len|make|new|min|max|panic|println|print|real|recover|clear)\s*\(/ {
+            yield $1 as support.function;
+        } else if /(?i:-?(?:0x[\da-f][\da-f_]*|0b[01][01_]*|0o[0-7][0-7_]*|\d[\d_]*\.?[\d_]*|\.\d[\d_]*)(?:e[+-]?\d[\d_]*)?i?)/ {
             if /\w+/ {
                 // Invalid numeric literal
             } else {

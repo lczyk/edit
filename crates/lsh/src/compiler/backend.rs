@@ -125,6 +125,7 @@ impl<'a> Backend<'a> {
                 name: f.name.to_string(),
                 display_name: f.attributes.display_name.unwrap_or(f.name).to_string(),
                 paths: f.attributes.paths.iter().map(|s| s.to_string()).collect(),
+                shebangs: f.attributes.shebangs.iter().map(|s| s.to_string()).collect(),
                 line_comment: f.attributes.line_comment.map(|s| s.to_string()),
                 block_comment: match (
                     f.attributes.block_comment_open,
