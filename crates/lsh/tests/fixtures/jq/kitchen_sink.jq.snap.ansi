@@ -1,0 +1,49 @@
+[32m# kitchen-sink jq fixture for lsh highlighting[m
+
+[32m# numbers, strings, constants[m
+[95mdef[m pi: [92m3.14159[m;
+[95mdef[m hex: [92m0xFF[m;
+[95mdef[m truthy: [94mtrue[m;
+[95mdef[m maybe: [94mnull[m;
+
+[32m# string interpolation, format strings[m
+[95mdef[m [93mgreet[m([96m$who[m): [91m"hello, [m\($who[91m)!"[m | [33m@text[m;
+[95mdef[m csv_row: [[96m.a[m, [96m.b[m, [96m.c[m] | [33m@csv[m;
+
+[32m# control flow[m
+[95mdef[m [93mclassify[m(n):
+  [95mif[m n < [92m0[m [95mthen[m [91m"negative"[m
+  [95melif[m n == [92m0[m [95mthen[m [91m"zero"[m
+  [95melse[m [91m"positive"[m
+  [95mend[m;
+
+[32m# comprehension via reduce + map[m
+[95mdef[m sum_evens: [95mreduce[m .[] [95mas[m [96m$x[m ([92m0[m; [95mif[m [96m$x[m % [92m2[m == [92m0[m [95mthen[m . + [96m$x[m [95melse[m . [95mend[m);
+
+[32m# pipeline + builtins[m
+[96m.users[m
+| [33mmap[m([33mselect[m([96m.active[m))
+| [33msort_by[m([96m.name[m)
+| [33mgroup_by[m([96m.team[m)
+| [33mmap[m({team: .[[92m0[m][96m.team[m, count: [33mlength[m, names: [33mmap[m([96m.name[m)})
+
+[32m# field access, optional, slice, iterator[m
+[96m.foo[m[96m.bar[m?
+| .[[92m2[m:[92m5[m]
+| .[]
+
+[32m# update assignments + alternative[m
+[96m.score[m //= [92m0[m
+| [96m.score[m += [92m1[m
+| [96m.name[m |= [33mascii_upcase[m
+
+[32m# variables[m
+[96m.items[m [95mas[m [96m$all[m
+| [96m$all[m | [33mlength[m
+
+[32m# try/catch[m
+[95mtry[m ([96m.bad[m | [33mtonumber[m) [95mcatch[m [91m"n/a"[m
+
+[32m# regex builtins[m
+[33msplit[m([91m","[m) | [33mmap[m([33mtest[m([91m"^[0-9]+$"[m))
+
