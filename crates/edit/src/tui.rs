@@ -1143,11 +1143,10 @@ impl Tui {
                     tc.cursor_visual_anim = Some((cv.x as f32, cv.y as f32));
                 }
 
-                let visual_offset =
-                    advance_scroll_animation(tc, self.frame_dt_secs, inner.height());
+                let visual_offset = advance_scroll_animation(tc, self.frame_dt_secs);
                 let cursor_target = tb.cursor_visual_pos();
                 let cursor_override =
-                    advance_cursor_animation(tc, cursor_target, self.frame_dt_secs, inner.height());
+                    advance_cursor_animation(tc, cursor_target, self.frame_dt_secs);
                 let still_animating =
                     visual_offset != tc.scroll_offset || cursor_override != cursor_target;
                 if still_animating && self.read_timeout > anim::FRAME_INTERVAL {
@@ -4316,15 +4315,14 @@ fn ease_out_cubic(alpha: f32) -> f32 {
 }
 
 /// Lerps `tc.scroll_offset_visual` toward `tc.scroll_offset` (the target) using
-/// a per-axis exponential time-constant, snaps within 0.5 cells, and hard-snaps
-/// when the delta exceeds twice the viewport height (PageDown across a long doc
-/// would otherwise read as motion sickness rather than smoothness). Returns the
-/// rounded integer offset to feed the renderer for this frame.
-fn advance_scroll_animation(
-    tc: &mut TextareaContent,
-    dt_secs: f32,
-    viewport_h: CoordType,
-) -> Point {
+/// a per-axis exponential time-constant and snaps within 0.5 cells. Returns
+/// the rounded integer offset to feed the renderer for this frame.
+///
+/// Animates regardless of jump size: a PageDown / Goto-Line / search jump
+/// across a long doc still slides, which actually helps the user keep their
+/// orientation after a big move. The exponential curve completes in ~6 tau
+/// (~360ms at the default tau), so even a 5000-line jump is over quickly.
+fn advance_scroll_animation(tc: &mut TextareaContent, dt_secs: f32) -> Point {
     if crate::glyphs::no_animations() {
         tc.scroll_offset_visual = (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
         return tc.scroll_offset;
@@ -4332,18 +4330,6 @@ fn advance_scroll_animation(
 
     let target_x = tc.scroll_offset.x as f32;
     let target_y = tc.scroll_offset.y as f32;
-
-    // Hard-snap on huge jumps -- otherwise a PageDown across a 5000-line doc
-    // turns into a multi-second crawl. Threshold = 2x viewport so normal
-    // PageUp/Down still animates.
-    let snap_threshold = (2 * viewport_h.max(1)) as f32;
-    if (target_y - tc.scroll_offset_visual.1).abs() > snap_threshold
-        || (target_x - tc.scroll_offset_visual.0).abs() > snap_threshold
-    {
-        tc.scroll_offset_visual.0 = target_x;
-        tc.scroll_offset_visual.1 = target_y;
-        return tc.scroll_offset;
-    }
 
     let alpha = lerp_alpha(dt_secs, anim::SCROLL_TAU_SECS);
     tc.scroll_offset_visual.0 += (target_x - tc.scroll_offset_visual.0) * alpha;
@@ -4366,12 +4352,10 @@ fn advance_scroll_animation(
 /// position. The buffer's logical cursor moves instantly; only the rendered
 /// glyph + line highlight follow the animated point. Returns the rounded
 /// integer position to feed back into the buffer as a render override.
-fn advance_cursor_animation(
-    tc: &mut TextareaContent,
-    target: Point,
-    dt_secs: f32,
-    viewport_h: CoordType,
-) -> Point {
+///
+/// Animates regardless of jump size for the same orientation reason as the
+/// scroll lerp.
+fn advance_cursor_animation(tc: &mut TextareaContent, target: Point, dt_secs: f32) -> Point {
     if crate::glyphs::no_animations() {
         tc.cursor_visual_anim = Some((target.x as f32, target.y as f32));
         return target;
@@ -4389,15 +4373,6 @@ fn advance_cursor_animation(
             return target;
         }
     };
-
-    // Hard-snap on huge jumps (e.g. goto-line across a long doc) to keep the
-    // animation feeling snappy rather than crawling.
-    let snap_threshold = (2 * viewport_h.max(1)) as f32;
-    if (target_y - visual.1).abs() > snap_threshold || (target_x - visual.0).abs() > snap_threshold
-    {
-        tc.cursor_visual_anim = Some((target_x, target_y));
-        return target;
-    }
 
     let alpha = ease_out_cubic(lerp_alpha(dt_secs, anim::CURSOR_TAU_SECS));
     let mut next =
