@@ -17,7 +17,7 @@ Same path on Linux and macOS. Embedded defaults live at `crates/edit/src/bin/edi
 
 The `Action` enum in `crates/edit/src/bin/edit/keybindings.rs` lists every bindable command. Roughly:
 
-- Menubar items: `exit`, `undo`, `redo`, `cut`, `copy`, `paste`, `select_all`, `find`, `replace`, `go_to_line`, `toggle_word_wrap`, `open_about`, `focus_menubar`, `focus_statusbar`.
+- Menubar items: `exit`, `save`, `undo`, `redo`, `cut`, `copy`, `paste`, `select_all`, `find`, `replace`, `go_to_line`, `toggle_word_wrap`, `open_about`, `focus_menubar`, `focus_statusbar`.
 - Editor commands: `move_line_up` / `_down`, `delete_line`, `toggle_line_comment`, `delete_to_line_start` / `_end`.
 - Cursor motion (mostly relevant on macOS where Cmd is the natural modifier): `small_jump_up` / `_down` (+ `_select` variants), `line_start` / `_end` (+ `_select`).
 
