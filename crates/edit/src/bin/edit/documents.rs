@@ -21,7 +21,10 @@ pub fn allow_create() -> bool {
 use edit::buffer::{RcTextBuffer, TextBuffer};
 use edit::framebuffer::IndexedColor;
 use edit::helpers::{CoordType, Point};
-use edit::lsh::{FILE_ASSOCIATIONS, Language, language_from_shebang, process_file_associations};
+use edit::lsh::{
+    FILE_ASSOCIATIONS, Language, language_from_content, language_from_shebang,
+    process_file_associations,
+};
 use edit::{path, sys};
 
 use gutter::gutter_diff::{self, BaselineState};
@@ -57,6 +60,12 @@ pub struct Document {
     minimap_dirty: bool,
     minimap_dirty_since: Option<std::time::Instant>,
     minimap_target_width: u8,
+
+    /// Buffer generation at the last auto-detect language probe over
+    /// content. Drives [`Self::language_check_dirty`] so a plain-text doc
+    /// can switch language as the user types enough to recognise it.
+    last_language_generation: u32,
+    language_dirty_since: Option<std::time::Instant>,
 }
 
 impl Document {
@@ -104,6 +113,8 @@ impl Document {
             minimap_dirty: true,
             minimap_dirty_since: None,
             minimap_target_width: 2,
+            last_language_generation: 0,
+            language_dirty_since: None,
         };
         doc.apply_path_metadata();
         // Build the minimap eagerly so the very first frame already has it.
@@ -270,11 +281,45 @@ impl Document {
             return Some(lang);
         }
 
-        // Path-based detection missed -- fall back to the shebang. Catches
-        // shell scripts w/out a recognised extension and similar.
+        // Path-based detection missed -- fall back to content-based probes.
+        // Shebang catches scripts w/out a recognised extension; the content
+        // sniff catches markdown-y files (README, NOTES, ...) saved w/out
+        // an `.md` suffix, or new buffers where the user has typed enough
+        // markdown for it to be obvious.
         let mut head = Vec::new();
-        self.buffer.borrow().copy_first_bytes(256, &mut head);
-        language_from_shebang(&head)
+        self.buffer.borrow().copy_first_bytes(4096, &mut head);
+        if let Some(lang) = language_from_shebang(&head) {
+            return Some(lang);
+        }
+        language_from_content(&head)
+    }
+
+    /// Bump the language-redetect dirty marker if the buffer has changed
+    /// since the last probe. Only relevant while the doc is in auto-detect
+    /// mode AND currently has no language -- once a language is locked in
+    /// or the user has explicitly picked one (incl. Plain Text), the loop
+    /// stops. Switching back to Auto Detect re-arms it.
+    pub fn language_check_dirty(&mut self) {
+        if self.language_override.is_some() {
+            return;
+        }
+        if self.buffer.borrow().language().is_some() {
+            return;
+        }
+        let buf_gen = self.buffer.borrow().generation();
+        if buf_gen != self.last_language_generation {
+            self.last_language_generation = buf_gen;
+            self.language_dirty_since = Some(std::time::Instant::now());
+        }
+    }
+
+    pub fn language_should_redetect(&self, debounce: std::time::Duration) -> bool {
+        self.language_dirty_since.is_some_and(|t| t.elapsed() >= debounce)
+    }
+
+    pub fn language_redetect(&mut self) {
+        self.language_dirty_since = None;
+        self.update_language();
     }
 }
 

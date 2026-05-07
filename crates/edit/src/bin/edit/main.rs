@@ -142,6 +142,7 @@ fn run() -> apperr::Result<()> {
 
     const GUTTER_REDIFF_DEBOUNCE: Duration = Duration::from_millis(300);
     const MINIMAP_REBUILD_DEBOUNCE: Duration = Duration::from_millis(300);
+    const LANGUAGE_REDETECT_DEBOUNCE: Duration = Duration::from_millis(500);
 
     loop {
         // Process a batch of input.
@@ -205,6 +206,13 @@ fn run() -> apperr::Result<()> {
         state.document.minimap_check_dirty();
         if state.document.minimap_should_rebuild(MINIMAP_REBUILD_DEBOUNCE) {
             state.document.minimap_refresh();
+        }
+
+        // Re-run language auto-detect on plain docs as their content grows.
+        // No-op once a language is found or the user picks one explicitly.
+        state.document.language_check_dirty();
+        if state.document.language_should_redetect(LANGUAGE_REDETECT_DEBOUNCE) {
+            state.document.language_redetect();
         }
 
         // Render the UI and write it to the terminal.
