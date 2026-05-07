@@ -9,6 +9,7 @@
 
 [keybindings]
 exit             = "Cmd+Q"
+save             = "Cmd+S"
 
 undo             = "Cmd+Z"
 redo             = "Cmd+Shift+Z"

@@ -577,6 +577,8 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
 
     if ctx.consume_shortcut(chord(Action::Exit)) {
         state.wants_exit = true;
+    } else if ctx.consume_shortcut(chord(Action::Save)) {
+        save_document(ctx, state);
     } else if ctx.consume_shortcut(chord(Action::GoToLine)) {
         state.wants_goto = true;
     } else if search_enabled && ctx.consume_shortcut(chord(Action::Find)) {

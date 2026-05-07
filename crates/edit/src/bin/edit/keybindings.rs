@@ -23,6 +23,7 @@ pub const DEFAULT_TOML: &str = include_str!("keybindings.linux.toml");
 #[repr(usize)]
 pub enum Action {
     Exit,
+    Save,
     Undo,
     Redo,
     Cut,
@@ -52,10 +53,11 @@ pub enum Action {
     DeleteToLineEnd,
 }
 
-const ACTION_COUNT: usize = 28;
+const ACTION_COUNT: usize = 29;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
+    (Action::Save, "save"),
     (Action::Undo, "undo"),
     (Action::Redo, "redo"),
     (Action::Cut, "cut"),
@@ -377,6 +379,7 @@ mod tests {
             kbmod::CTRL
         };
         assert_eq!(kb.chord(Action::Exit), primary | vk::Q);
+        assert_eq!(kb.chord(Action::Save), primary | vk::S);
         assert_eq!(kb.chord(Action::FocusMenubar), vk::F10);
     }
 

@@ -9,6 +9,7 @@
 
 [keybindings]
 exit             = "Ctrl+Q"
+save             = "Ctrl+S"
 
 undo             = "Ctrl+Z"
 redo             = "Ctrl+Y"

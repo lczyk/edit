@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::oklab::StraightRgba;
@@ -6,6 +8,12 @@ use edit::{buffer, icu};
 
 use crate::apperr;
 use crate::documents::Document;
+
+/// How long the "Saved" flash sits in the statusbar after a save. The flash
+/// auto-clears on the next redraw past this deadline; since redraws are
+/// driven by input/animation, an idle user will see it linger until they
+/// next interact -- intentional, reads as confirmation rather than noise.
+const SAVED_FLASH_DURATION: Duration = Duration::from_millis(1500);
 
 #[repr(transparent)]
 pub struct FormatApperr(apperr::Error);
@@ -80,6 +88,8 @@ pub struct State {
     pub osc_title_file_status: OscTitleFileStatus,
     pub osc_clipboard_sync: bool,
     pub exit: bool,
+
+    pub saved_flash_until: Option<Instant>,
 }
 
 impl State {
@@ -113,6 +123,8 @@ impl State {
             osc_title_file_status: Default::default(),
             osc_clipboard_sync: false,
             exit: false,
+
+            saved_flash_until: None,
         })
     }
 
@@ -126,6 +138,16 @@ impl State {
         self.error_log_index = (self.error_log_index + 1) % self.error_log.len();
         self.error_log_count = self.error_log.len().min(self.error_log_count + 1);
         true
+    }
+}
+
+pub fn save_document(ctx: &mut Context, state: &mut State) {
+    match state.document.save() {
+        Ok(()) => {
+            state.saved_flash_until = Some(Instant::now() + SAVED_FLASH_DURATION);
+            ctx.needs_rerender();
+        }
+        Err(err) => error_log_add(ctx, state, err),
     }
 }
 

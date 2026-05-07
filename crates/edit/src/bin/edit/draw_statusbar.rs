@@ -119,6 +119,14 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
         ctx.label("readonly", "RO");
     }
 
+    if let Some(deadline) = state.saved_flash_until {
+        if std::time::Instant::now() < deadline {
+            ctx.label("saved", "Saved");
+        } else {
+            state.saved_flash_until = None;
+        }
+    }
+
     if tb.is_dirty() {
         ctx.label("dirty", "*");
     }
