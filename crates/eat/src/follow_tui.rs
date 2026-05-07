@@ -53,6 +53,20 @@ const WRAP_ON: &str = "\x1b[?7h";
 const LINE_CAP: usize = 200_000;
 const LINE_CAP_DROP: usize = LINE_CAP / 10;
 
+/// scroll-animation time constant (seconds). matches edit's `SCROLL_TAU_SECS`
+/// in `crates/edit/src/tui.rs`. snappy enough to feel responsive, slow enough
+/// to read as "smooth" rather than "snap".
+const SCROLL_TAU_SECS: f32 = 0.060;
+
+/// snap target if the visual is within this many cells -- avoids the
+/// long exponential tail where movement is < 0.5 pixels per frame.
+const SCROLL_SNAP_EPSILON: f32 = 0.5;
+
+/// frame interval while a scroll animation is in flight (~60fps). in steady
+/// state the loop only wakes for ticks (poll_interval) or the 1Hz heartbeat;
+/// during animation we bump the wake rate so frames are actually visible.
+const ANIM_FRAME_MS: u64 = 16;
+
 /// move cursor to 1-indexed (row, col).
 fn cursor_to(buf: &mut String, row: u16, col: u16) {
     use std::fmt::Write;
@@ -345,7 +359,13 @@ fn parse_sgr_mouse(params: &[u8], _press: bool) -> Key {
 /// marks for already-on-screen lines.
 pub struct View {
     pub lines: Vec<Vec<u8>>,
+    /// logical (target) scroll offset -- where the viewport WILL be once
+    /// the animation settles.
     pub scroll_offset: usize,
+    /// animated current scroll position. lerps toward `scroll_offset` per
+    /// frame; rendering uses `scroll_offset_visual.round()`. matches edit's
+    /// `scroll_offset_visual` shape in `tui.rs`.
+    pub scroll_offset_visual: f32,
     pub tail_mode: bool,
     pub width: u16,
     pub height: u16,
@@ -360,6 +380,7 @@ impl View {
         Self {
             lines: Vec::new(),
             scroll_offset: 0,
+            scroll_offset_visual: 0.0,
             tail_mode: true,
             width,
             height,
@@ -370,6 +391,41 @@ impl View {
     /// 1-indexed line number for the `i`th body in `self.lines`.
     pub fn line_no_of(&self, i: usize) -> usize {
         self.starting_line_no + i
+    }
+
+    /// integer offset to feed the renderer this frame. uses the animated
+    /// visual position rounded to the nearest cell. clamped to a valid range
+    /// so a stale visual position (after lines were dropped, etc.) can't
+    /// produce an out-of-bounds slice.
+    pub fn render_offset(&self) -> usize {
+        let max = self.max_offset();
+        let raw = self.scroll_offset_visual.round();
+        if raw <= 0.0 {
+            0
+        } else if (raw as usize) > max {
+            max
+        } else {
+            raw as usize
+        }
+    }
+
+    /// true when the visual position has reached the target -- the loop
+    /// uses this to decide whether to schedule another animation frame.
+    pub fn animation_settled(&self) -> bool {
+        (self.scroll_offset as f32 - self.scroll_offset_visual).abs() < SCROLL_SNAP_EPSILON
+    }
+
+    /// step the visual position toward the target over `dt_secs`. uses the
+    /// same `1 - exp(-dt/tau)` lerp as edit's scroll animation. unlike edit
+    /// we deliberately omit the "snap on big jumps" guard -- the user
+    /// explicitly wants g / G (full-document jumps) to also animate.
+    pub fn advance_animation(&mut self, dt_secs: f32) {
+        let target = self.scroll_offset as f32;
+        let alpha = lerp_alpha(dt_secs, SCROLL_TAU_SECS);
+        self.scroll_offset_visual += (target - self.scroll_offset_visual) * alpha;
+        if (target - self.scroll_offset_visual).abs() < SCROLL_SNAP_EPSILON {
+            self.scroll_offset_visual = target;
+        }
     }
 
     /// number of body rows visible (excludes header).
@@ -387,7 +443,10 @@ impl View {
     }
 
     /// when tail_mode is on, refresh `scroll_offset` to pin to the bottom.
-    /// always called before rendering.
+    /// always called before rendering. does NOT touch `scroll_offset_visual`
+    /// -- the loop calls `tail_pin_snap` separately when new content arrives
+    /// while in tail mode (to snap the visual w/out an animation), and key
+    /// gestures like G leave the visual alone so the lerp can play.
     pub fn settle_offset(&mut self) {
         if self.tail_mode {
             self.scroll_offset = self.max_offset();
@@ -397,6 +456,15 @@ impl View {
                 self.scroll_offset = max;
             }
         }
+    }
+
+    /// snap visual to target (no animation). called by the loop after new
+    /// content arrives while tail_mode is on -- watching a busy log we don't
+    /// want to play a 360ms animation per appended chunk; that'd be motion
+    /// sickness. key-driven scroll changes (j/k/g/G/PgUp/PgDn) do animate.
+    pub fn tail_pin_snap(&mut self) {
+        self.settle_offset();
+        self.scroll_offset_visual = self.scroll_offset as f32;
     }
 
     /// apply a key. returns false iff the loop should exit.
@@ -464,6 +532,9 @@ impl View {
             // shift our notion of the first stored line forward so render
             // composes the right line numbers for the survivors.
             self.starting_line_no += to_drop;
+            // and drag the animated visual position with us so a mid-flight
+            // animation doesn't snap or jitter when oldest lines are evicted.
+            self.scroll_offset_visual = (self.scroll_offset_visual - to_drop as f32).max(0.0);
         }
     }
 
@@ -471,9 +542,18 @@ impl View {
     pub fn reset_lines(&mut self) {
         self.lines.clear();
         self.scroll_offset = 0;
+        self.scroll_offset_visual = 0.0;
         self.tail_mode = true;
         self.starting_line_no = 1;
     }
+}
+
+/// per-frame exponential-lerp alpha for a given time constant. matches edit's
+/// `lerp_alpha` -- saturates to 1.0 once `dt` exceeds ~6 tau (effectively done)
+/// so we don't pay the cost of `exp()` for the no-op tail.
+#[inline]
+fn lerp_alpha(dt_secs: f32, tau_secs: f32) -> f32 {
+    if dt_secs >= tau_secs * 6.0 { 1.0 } else { 1.0 - (-dt_secs / tau_secs).exp() }
 }
 
 // --- redraw ---------------------------------------------------------------
@@ -498,6 +578,9 @@ pub fn render_frame(
     // home the cursor; per-row clear_eol does the actual erasing. avoids the
     // full-screen flicker that \x1b[2J would cause on every tick.
     cursor_to(&mut buf, 1, 1);
+    // use the animated visual offset for the slice -- when no animation is
+    // in flight it equals view.scroll_offset (settle_offset just set it).
+    let render_off = view.render_offset();
 
     // header
     buf.push_str(DIM);
@@ -510,7 +593,7 @@ pub fn render_frame(
 
     // body
     let body_rows = view.body_rows();
-    let start = view.scroll_offset;
+    let start = render_off;
     let end = (start + body_rows).min(view.lines.len());
     // gutter prefix takes `width + 3` columns (number col + space + sep + space)
     // when present; the body has whatever's left. previously we passed the full
@@ -707,11 +790,14 @@ fn run_loop(
 
     let mut last_tick = Instant::now() - poll_interval; // ensures first iteration ticks
     let mut last_redraw = Instant::now() - Duration::from_secs(1);
+    let mut last_anim_step = Instant::now();
     let arena_main = Arena::new(64 * 1024)?;
+    let mut first_paint_done = false;
 
     // 1Hz heartbeat: even when nothing is changing, refresh once a second so
     // the "last update" timestamp keeps ticking.
     let heartbeat = Duration::from_secs(1);
+    let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
 
     loop {
         // 1. tick if it's time
@@ -746,6 +832,11 @@ fn run_loop(
                         });
                     }
                     if n > 0 {
+                        // tail-mode follow: snap visual to new bottom so a
+                        // busy log doesn't play a 360ms slide per chunk.
+                        if view.tail_mode {
+                            view.tail_pin_snap();
+                        }
                         want_redraw = true;
                     }
                 }
@@ -760,6 +851,9 @@ fn run_loop(
                                     crate::follow::FOLLOW_NUM_WIDTH,
                                 )
                             });
+                        }
+                        if view.tail_mode {
+                            view.tail_pin_snap();
                         }
                         want_redraw = true;
                     }
@@ -783,15 +877,36 @@ fn run_loop(
             want_redraw = true;
         }
 
+        // mid-flight scroll animation: step it forward and request a redraw.
+        let now2 = Instant::now();
+        if !view.animation_settled() {
+            let dt = now2.duration_since(last_anim_step).as_secs_f32();
+            view.advance_animation(dt);
+            want_redraw = true;
+        }
+        last_anim_step = now2;
+
         if want_redraw {
+            // very first paint: snap the visual to whatever the target is
+            // (initial bulk emission may have set scroll_offset to a non-zero
+            // value via tail mode; we don't want to slide in from 0).
+            if !first_paint_done {
+                view.scroll_offset_visual = view.scroll_offset as f32;
+                first_paint_done = true;
+            }
             redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
             last_redraw = Instant::now();
         }
 
-        // 2. wait for input until the next tick deadline (or heartbeat, whichever first)
+        // 2. wait for input. while a scroll animation is running, wake on
+        // ~16ms boundaries so frames are visibly smooth; otherwise wait until
+        // the next tick or heartbeat, whichever comes first.
         let next_tick_in = poll_interval.saturating_sub(Instant::now().duration_since(last_tick));
         let next_beat_in = heartbeat.saturating_sub(Instant::now().duration_since(last_redraw));
-        let wait = next_tick_in.min(next_beat_in).max(Duration::from_millis(1));
+        let mut wait = next_tick_in.min(next_beat_in).max(Duration::from_millis(1));
+        if !view.animation_settled() {
+            wait = wait.min(anim_frame);
+        }
         let scratch = scratch_arena(Some(&arena_main));
         let chunk = tty::read_stdin(&scratch, wait);
         match chunk {
@@ -1198,6 +1313,10 @@ mod tests {
         let mut v = View::new(80, 6); // body_rows = 5
         v.lines = (0..10).map(|i| format!("L{i}").into_bytes()).collect();
         v.starting_line_no = 3; // simulate having dropped 2 oldest
+        // snap the animated visual to the tail-mode target so we render
+        // from the bottom (production calls `tail_pin_snap` after content
+        // arrives in tail mode for the same reason).
+        v.tail_pin_snap();
 
         let g = Gutter { width: 2, marks: vec![GutterMark::None; 20] };
         let frame = render_frame(&mut v, "p", "00:00:00", 100, Some(&g), false);
@@ -1212,6 +1331,116 @@ mod tests {
                 "expected {expected:?} in frame, full frame:\n{frame:?}"
             );
         }
+    }
+
+    // --- smooth scroll ---
+
+    #[test]
+    fn lerp_alpha_saturates_past_six_tau() {
+        // long-frame fast-path: should return exactly 1.0 (no exp() call).
+        assert_eq!(lerp_alpha(1.0, 0.060), 1.0);
+        // mid-range: 1 tau ~= 63% closed.
+        let a = lerp_alpha(0.060, 0.060);
+        assert!((a - (1.0 - (-1.0_f32).exp())).abs() < 1e-6);
+    }
+
+    #[test]
+    fn advance_animation_lerps_toward_target() {
+        let mut v = View::new(80, 24);
+        v.scroll_offset = 100;
+        v.scroll_offset_visual = 0.0;
+        // step a single ~16ms frame -- alpha = 1 - exp(-0.016/0.060) ~= 0.234.
+        // visual should be ~23.4 after one step.
+        v.advance_animation(0.016);
+        let approx = 100.0 * (1.0 - (-0.016_f32 / 0.060).exp());
+        assert!((v.scroll_offset_visual - approx).abs() < 0.01);
+    }
+
+    #[test]
+    fn advance_animation_snaps_within_epsilon() {
+        let mut v = View::new(80, 24);
+        v.scroll_offset = 50;
+        v.scroll_offset_visual = 49.7; // within SCROLL_SNAP_EPSILON of target
+        v.advance_animation(0.016);
+        // should hard-snap to 50 rather than asymptote.
+        assert_eq!(v.scroll_offset_visual, 50.0);
+    }
+
+    #[test]
+    fn animation_settled_when_visual_at_target() {
+        let mut v = View::new(80, 24);
+        v.scroll_offset = 5;
+        v.scroll_offset_visual = 5.0;
+        assert!(v.animation_settled());
+        v.scroll_offset_visual = 4.7; // still within epsilon
+        assert!(v.animation_settled());
+        v.scroll_offset_visual = 3.0;
+        assert!(!v.animation_settled());
+    }
+
+    #[test]
+    fn render_offset_uses_visual_not_target() {
+        let mut v = View::new(80, 24);
+        v.lines = (0..50).map(|i| format!("{i}").into_bytes()).collect();
+        v.scroll_offset = 30; // target
+        v.scroll_offset_visual = 12.6; // mid-animation
+        // rounded to 13 -- the renderer should slice from there, not 30.
+        assert_eq!(v.render_offset(), 13);
+    }
+
+    #[test]
+    fn render_offset_clamps_into_valid_range() {
+        let mut v = View::new(80, 5); // body_rows = 4
+        v.lines = (0..10).map(|i| format!("{i}").into_bytes()).collect();
+        v.scroll_offset = 0;
+        // visual past the end (e.g. lines were dropped after the tick).
+        v.scroll_offset_visual = 99.0;
+        // max_offset = 10 - 4 = 6.
+        assert_eq!(v.render_offset(), 6);
+    }
+
+    #[test]
+    fn tail_pin_snap_sets_both_offsets() {
+        let mut v = View::new(80, 5); // body_rows = 4
+        v.lines = (0..20).map(|i| format!("{i}").into_bytes()).collect();
+        v.tail_mode = true;
+        v.scroll_offset_visual = 0.0;
+        v.tail_pin_snap();
+        // max_offset = 16; both target and visual snap there.
+        assert_eq!(v.scroll_offset, 16);
+        assert_eq!(v.scroll_offset_visual, 16.0);
+        assert!(v.animation_settled());
+    }
+
+    #[test]
+    fn key_scroll_leaves_visual_for_animation_to_catch_up() {
+        // proves the production split: apply_key only nudges the target,
+        // never the visual. the loop's per-frame `advance_animation` is
+        // what actually moves the rendered offset.
+        let mut v = View::new(80, 6); // body_rows = 5
+        v.lines = (0..200).map(|i| format!("{i}").into_bytes()).collect();
+        v.tail_pin_snap();
+        let v_before = v.scroll_offset_visual;
+        let target_before = v.scroll_offset;
+
+        v.apply_key(Key::Home); // jump to top
+        // target moves immediately, visual does not.
+        assert_eq!(v.scroll_offset, 0);
+        assert_eq!(v.scroll_offset_visual, v_before);
+        assert_ne!(v.scroll_offset, target_before);
+    }
+
+    #[test]
+    fn extend_lines_capped_drags_visual_offset_with_drop() {
+        let mut v = View::new(80, 24);
+        let pre: Vec<Vec<u8>> = (0..20).map(|i| format!("a{i}").into_bytes()).collect();
+        v.extend_lines_capped(&pre, 100, 10);
+        v.scroll_offset = 12;
+        v.scroll_offset_visual = 12.0;
+        v.extend_lines_capped(&[], 15, 4);
+        // dropped 5; both offsets shift back by 5 to keep the same window.
+        assert_eq!(v.scroll_offset, 7);
+        assert_eq!(v.scroll_offset_visual, 7.0);
     }
 
     #[test]
