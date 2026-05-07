@@ -351,9 +351,11 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
         path = Some(std::path::PathBuf::from(&arg));
     }
 
-    // Apply quirks that affect global rendering state.
+    // Apply quirks that affect global rendering state. NO_COLOR env var
+    // (per https://no-color.org) is honoured the same way as the explicit
+    // --quirks=nocolor flag -- either turns colour off across the editor.
     edit::glyphs::set_ascii_only(quirks.contains("ascii"));
-    edit::glyphs::set_no_color(quirks.contains("nocolor"));
+    edit::glyphs::set_no_color(quirks.contains("nocolor") || eat::env_disables_color());
     edit::glyphs::set_no_animations(quirks.contains("noanimations"));
     documents::set_allow_create(quirks.contains("allow-create"));
 

@@ -86,6 +86,64 @@ impl argh::FromArgValue for ColorMode {
     }
 }
 
+/// resolve whether to emit ansi colour, following the de-facto-standard
+/// precedence (highest wins):
+///
+///   1. explicit cli flag (`--color always|never`).
+///   2. `FORCE_COLOR` env var (any non-empty value other than `0`) -> on.
+///   3. `NO_COLOR` env var (any non-empty value, per <https://no-color.org>) -> off.
+///   4. fall back to whether the output stream is a tty.
+///
+/// kept as a free function so the various entry points (bulk render, follow,
+/// list-languages) can all share it. testable via the `_with_env` variant
+/// that takes the env values as parameters.
+pub(crate) fn resolve_use_color(mode: ColorMode, output_is_tty: bool) -> bool {
+    let force = std::env::var_os("FORCE_COLOR");
+    let no = std::env::var_os("NO_COLOR");
+    resolve_use_color_with_env(mode, output_is_tty, force.as_deref(), no.as_deref())
+}
+
+pub(crate) fn resolve_use_color_with_env(
+    mode: ColorMode,
+    output_is_tty: bool,
+    force_color: Option<&std::ffi::OsStr>,
+    no_color: Option<&std::ffi::OsStr>,
+) -> bool {
+    // explicit cli flag wins.
+    match mode {
+        ColorMode::Always => return true,
+        ColorMode::Never => return false,
+        ColorMode::Auto => {}
+    }
+    // FORCE_COLOR overrides NO_COLOR + tty status. accept any non-empty value
+    // except literal "0" (matches the convention used by chalk, supports-color,
+    // and friends in the js ecosystem).
+    if let Some(v) = force_color
+        && !v.is_empty()
+        && v != "0"
+    {
+        return true;
+    }
+    // NO_COLOR: any non-empty value disables, per https://no-color.org.
+    if let Some(v) = no_color
+        && !v.is_empty()
+    {
+        return false;
+    }
+    // fall back to terminal detection.
+    output_is_tty
+}
+
+/// public helper for callers that don't have an `eat`-flavoured `ColorMode`
+/// (e.g. `edit`'s quirks setup): returns true iff `NO_COLOR` is set to a
+/// non-empty value. `FORCE_COLOR` is intentionally not consulted here --
+/// `edit` is interactive, so "force colour" is the default state anyway,
+/// and asking the env to enable it would be confusing. mirrors the
+/// precedence implemented in `resolve_use_color`.
+pub fn env_disables_color() -> bool {
+    std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PagingMode {
     Auto,
@@ -396,15 +454,12 @@ fn print_highlighted(
         PagingMode::Auto => is_tty,
     };
 
-    // if paging, force color to always (stdout-is-tty returns false through the pipe)
-    let use_color = if should_page {
-        true
-    } else {
-        match color_mode {
-            ColorMode::Always => true,
-            ColorMode::Never => false,
-            ColorMode::Auto => is_tty,
-        }
+    // resolve color: --color never wins outright; otherwise paging upgrades
+    // Auto to "yes" (since stdout-is-tty returns false through the pager pipe);
+    // env vars (NO_COLOR / FORCE_COLOR) are consulted otherwise.
+    let use_color = match color_mode {
+        ColorMode::Never => false,
+        _ => should_page || resolve_use_color(color_mode, is_tty),
     };
 
     let pager = if should_page { resolve_pager() } else { None };
@@ -792,6 +847,57 @@ mod tests {
         assert!(<ColorMode as argh::FromArgValue>::from_arg_value("nope").is_err());
     }
 
+    // --- NO_COLOR / FORCE_COLOR resolution ---
+
+    fn rc(mode: ColorMode, tty: bool, force: Option<&str>, no: Option<&str>) -> bool {
+        use std::ffi::OsStr;
+        resolve_use_color_with_env(mode, tty, force.map(OsStr::new), no.map(OsStr::new))
+    }
+
+    #[test]
+    fn cli_always_wins_over_everything() {
+        assert!(rc(ColorMode::Always, false, None, Some("1")));
+        assert!(rc(ColorMode::Always, false, Some("0"), Some("yes")));
+    }
+
+    #[test]
+    fn cli_never_wins_over_everything() {
+        assert!(!rc(ColorMode::Never, true, Some("1"), None));
+        assert!(!rc(ColorMode::Never, true, None, None));
+    }
+
+    #[test]
+    fn force_color_overrides_no_color_and_tty() {
+        assert!(rc(ColorMode::Auto, false, Some("1"), Some("1")));
+        assert!(rc(ColorMode::Auto, false, Some("3"), None));
+        assert!(rc(ColorMode::Auto, false, Some("true"), None));
+    }
+
+    #[test]
+    fn force_color_zero_or_empty_does_not_force() {
+        assert!(!rc(ColorMode::Auto, false, Some("0"), None));
+        assert!(!rc(ColorMode::Auto, false, Some(""), None));
+    }
+
+    #[test]
+    fn no_color_disables_for_any_non_empty_value() {
+        assert!(!rc(ColorMode::Auto, true, None, Some("1")));
+        assert!(!rc(ColorMode::Auto, true, None, Some("yes")));
+        assert!(!rc(ColorMode::Auto, true, None, Some("anything")));
+    }
+
+    #[test]
+    fn no_color_empty_does_not_disable() {
+        // per the spec, only non-empty values count.
+        assert!(rc(ColorMode::Auto, true, None, Some("")));
+    }
+
+    #[test]
+    fn auto_falls_back_to_tty_when_env_silent() {
+        assert!(rc(ColorMode::Auto, true, None, None));
+        assert!(!rc(ColorMode::Auto, false, None, None));
+    }
+
     // --- paging mode parsing ---
 
     #[test]
@@ -915,7 +1021,7 @@ fn list_languages_plain() -> ExitCode {
 /// list-languages: pretty bat-style two-column output with shebangs.
 fn list_languages_pretty() -> ExitCode {
     let rows = collect_language_rows();
-    let use_color = io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
+    let use_color = resolve_use_color(ColorMode::Auto, io::stdout().is_terminal());
 
     // name column = max name length, capped, plus padding.
     let max_name = rows.iter().map(|(l, _)| l.name.len()).max().unwrap_or(0);
@@ -1179,11 +1285,7 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
         }),
     };
 
-    let use_color = match cli.color {
-        ColorMode::Always => true,
-        ColorMode::Never => false,
-        ColorMode::Auto => io::stdout().is_terminal(),
-    };
+    let use_color = resolve_use_color(cli.color, io::stdout().is_terminal());
 
     // poll interval comes from the parsed `--follow` value (already defaulted
     // by parse_cli's bare-`-f` rewrite, which also honours EAT_FOLLOW_INTERVAL_MS).
