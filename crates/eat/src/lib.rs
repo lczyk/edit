@@ -1264,7 +1264,12 @@ fn parse_cli() -> Cli {
                 std::process::exit(0);
             }
             Err(()) => {
-                eprintln!("{}\nRun {} --help for more information.", early_exit.output, strs[0]);
+                eprintln!(
+                    "{}\nRun {}{} for more information.",
+                    early_exit.output,
+                    strs[0],
+                    if via_eat_flag { " --eat --help" } else { " --help" },
+                );
                 std::process::exit(1);
             }
         },
