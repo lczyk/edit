@@ -204,7 +204,8 @@ fn strip_version_suffix(name: &[u8]) -> &[u8] {
 
 fn interpreter_to_language_id(name: &[u8]) -> Option<&'static str> {
     Some(match name {
-        b"sh" | b"bash" | b"zsh" | b"dash" | b"ksh" | b"ash" | b"mksh" | b"fish" => "shellscript",
+        b"sh" | b"bash" | b"zsh" | b"dash" | b"ksh" | b"ash" | b"mksh" => "shellscript",
+        b"fish" => "fish",
         b"python" => "python",
         b"node" | b"deno" | b"bun" => "javascript",
         b"pwsh" | b"powershell" => "powershell",
@@ -227,7 +228,7 @@ mod tests {
         assert_eq!(id(b"#!/usr/bin/env bash\n"), Some("shellscript"));
         assert_eq!(id(b"#!/usr/bin/env -S bash -e\n"), Some("shellscript"));
         assert_eq!(id(b"#!/usr/bin/zsh\n"), Some("shellscript"));
-        assert_eq!(id(b"#!/usr/bin/env fish\n"), Some("shellscript"));
+        assert_eq!(id(b"#!/usr/bin/env fish\n"), Some("fish"));
         assert_eq!(id(b"#!/bin/sh\r\n"), Some("shellscript"));
         assert_eq!(id(b"#!/bin/sh\nfollowed by other text"), Some("shellscript"));
         assert_eq!(id(b"#!\t/bin/bash\n"), Some("shellscript"));

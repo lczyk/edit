@@ -1,0 +1,51 @@
+#[display_name = "Fish"]
+#[line_comment = "#"]
+#[path = "**/*.fish"]
+#[path = "**/.config/fish/**"]
+#[shebang = "fish"]
+pub fn fish() {
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /'/ {
+            // Single-quoted strings: no escapes, no interpolation.
+            until /$/ {
+                yield string;
+                if /'/ { yield string; break; }
+                await input;
+            }
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /\$[A-Za-z_]\w*/ {
+                    yield variable;
+                }
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /\$[A-Za-z_]\w*(?:\[[\d. -]*\])?/ {
+            yield variable;
+        } else if /(?:begin|break|case|continue|else|end|for|if|in|return|switch|while)\>/ {
+            yield keyword.control;
+        } else if /function\>/ {
+            yield keyword.other;
+            if /\s+(\w+)/ {
+                yield $1 as method;
+            }
+        } else if /(?:and|argparse|builtin|command|emit|eval|exec|not|or|set|source|test|time)\>/ {
+            yield keyword.other;
+        } else if /(?:true|false)\>/ {
+            yield constant.language;
+        } else if /(?:(?i:0x[\da-fA-F]+|0b[01]+|0o[0-7]+)|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)\>/ {
+            yield constant.numeric;
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+        }
+
+        yield other;
+    }
+}

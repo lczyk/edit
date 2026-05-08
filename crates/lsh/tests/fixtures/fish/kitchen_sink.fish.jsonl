@@ -1,0 +1,343 @@
+{"line":1,"kind":"comment","text":"#!/usr/bin/env fish"}
+{"line":3,"kind":"comment","text":"# Comments"}
+{"line":4,"kind":"comment","text":"# This is a comment"}
+{"line":6,"kind":"comment","text":"# Numbers"}
+{"line":7,"kind":"other","text":"echo "}
+{"line":7,"kind":"constant.numeric","text":"42"}
+{"line":8,"kind":"other","text":"echo "}
+{"line":8,"kind":"constant.numeric","text":"3.14"}
+{"line":9,"kind":"other","text":"echo "}
+{"line":9,"kind":"constant.numeric","text":"-7"}
+{"line":10,"kind":"other","text":"echo "}
+{"line":10,"kind":"constant.numeric","text":"0xFF"}
+{"line":11,"kind":"other","text":"echo "}
+{"line":11,"kind":"constant.numeric","text":"0b1010"}
+{"line":12,"kind":"other","text":"echo "}
+{"line":12,"kind":"constant.numeric","text":"0o777"}
+{"line":13,"kind":"other","text":"echo "}
+{"line":13,"kind":"constant.numeric","text":"1.5e10"}
+{"line":15,"kind":"comment","text":"# Constants"}
+{"line":16,"kind":"constant.language","text":"true"}
+{"line":17,"kind":"constant.language","text":"false"}
+{"line":19,"kind":"comment","text":"# Single-quoted strings (no escapes, no interpolation)"}
+{"line":20,"kind":"other","text":"echo "}
+{"line":20,"kind":"string","text":"'hello world'"}
+{"line":21,"kind":"other","text":"echo "}
+{"line":21,"kind":"string","text":"'no $expansion here'"}
+{"line":22,"kind":"other","text":"echo "}
+{"line":22,"kind":"string","text":"'no \\n escapes either'"}
+{"line":24,"kind":"comment","text":"# Double-quoted strings (variable expansion + escapes)"}
+{"line":25,"kind":"other","text":"echo "}
+{"line":25,"kind":"string","text":"\"hello "}
+{"line":25,"kind":"variable","text":"$USER"}
+{"line":25,"kind":"string","text":"\""}
+{"line":26,"kind":"other","text":"echo "}
+{"line":26,"kind":"string","text":"\"escaped \\\" quote\""}
+{"line":27,"kind":"other","text":"echo "}
+{"line":27,"kind":"string","text":"\"escaped \\\\ backslash\""}
+{"line":28,"kind":"other","text":"echo "}
+{"line":28,"kind":"string","text":"\"tab\\there\""}
+{"line":29,"kind":"other","text":"echo "}
+{"line":29,"kind":"string","text":"\"value: "}
+{"line":29,"kind":"variable","text":"$argv"}
+{"line":29,"kind":"string","text":"\""}
+{"line":31,"kind":"comment","text":"# Variables"}
+{"line":32,"kind":"keyword.other","text":"set"}
+{"line":32,"kind":"other","text":" name "}
+{"line":32,"kind":"string","text":"\"world\""}
+{"line":33,"kind":"keyword.other","text":"set"}
+{"line":33,"kind":"other","text":" -l local_var "}
+{"line":33,"kind":"constant.numeric","text":"42"}
+{"line":34,"kind":"keyword.other","text":"set"}
+{"line":34,"kind":"other","text":" -g global_var "}
+{"line":34,"kind":"string","text":"\"hello\""}
+{"line":35,"kind":"keyword.other","text":"set"}
+{"line":35,"kind":"other","text":" -x EXPORTED "}
+{"line":35,"kind":"string","text":"\"visible\""}
+{"line":36,"kind":"keyword.other","text":"set"}
+{"line":36,"kind":"other","text":" -e old_var"}
+{"line":37,"kind":"keyword.other","text":"set"}
+{"line":37,"kind":"other","text":" -S name"}
+{"line":38,"kind":"keyword.other","text":"set"}
+{"line":38,"kind":"other","text":" list one two three"}
+{"line":39,"kind":"other","text":"echo "}
+{"line":39,"kind":"variable","text":"$name"}
+{"line":40,"kind":"other","text":"echo "}
+{"line":40,"kind":"variable","text":"$list[1]"}
+{"line":41,"kind":"other","text":"echo "}
+{"line":41,"kind":"variable","text":"$list[2..3]"}
+{"line":42,"kind":"other","text":"echo "}
+{"line":42,"kind":"variable","text":"$PATH"}
+{"line":44,"kind":"comment","text":"# Control flow"}
+{"line":45,"kind":"keyword.control","text":"if"}
+{"line":45,"kind":"other","text":" "}
+{"line":45,"kind":"keyword.other","text":"test"}
+{"line":45,"kind":"other","text":" -f /etc/passwd"}
+{"line":46,"kind":"other","text":"    echo "}
+{"line":46,"kind":"string","text":"\"exists\""}
+{"line":47,"kind":"keyword.control","text":"else"}
+{"line":47,"kind":"other","text":" "}
+{"line":47,"kind":"keyword.control","text":"if"}
+{"line":47,"kind":"other","text":" "}
+{"line":47,"kind":"keyword.other","text":"test"}
+{"line":47,"kind":"other","text":" -d /tmp"}
+{"line":48,"kind":"other","text":"    echo "}
+{"line":48,"kind":"string","text":"\"tmp exists\""}
+{"line":49,"kind":"keyword.control","text":"else"}
+{"line":50,"kind":"other","text":"    echo "}
+{"line":50,"kind":"string","text":"\"neither\""}
+{"line":51,"kind":"keyword.control","text":"end"}
+{"line":53,"kind":"keyword.control","text":"for"}
+{"line":53,"kind":"other","text":" i "}
+{"line":53,"kind":"keyword.control","text":"in"}
+{"line":53,"kind":"other","text":" "}
+{"line":53,"kind":"constant.numeric","text":"1"}
+{"line":53,"kind":"other","text":" "}
+{"line":53,"kind":"constant.numeric","text":"2"}
+{"line":53,"kind":"other","text":" "}
+{"line":53,"kind":"constant.numeric","text":"3"}
+{"line":54,"kind":"other","text":"    echo "}
+{"line":54,"kind":"variable","text":"$i"}
+{"line":55,"kind":"other","text":"    "}
+{"line":55,"kind":"keyword.control","text":"continue"}
+{"line":56,"kind":"keyword.control","text":"end"}
+{"line":58,"kind":"keyword.control","text":"while"}
+{"line":58,"kind":"other","text":" "}
+{"line":58,"kind":"constant.language","text":"true"}
+{"line":59,"kind":"other","text":"    "}
+{"line":59,"kind":"keyword.control","text":"break"}
+{"line":60,"kind":"keyword.control","text":"end"}
+{"line":62,"kind":"keyword.control","text":"switch"}
+{"line":62,"kind":"other","text":" "}
+{"line":62,"kind":"variable","text":"$argv[1]"}
+{"line":63,"kind":"other","text":"    "}
+{"line":63,"kind":"keyword.control","text":"case"}
+{"line":63,"kind":"other","text":" start"}
+{"line":64,"kind":"other","text":"        echo "}
+{"line":64,"kind":"string","text":"\"starting\""}
+{"line":65,"kind":"other","text":"    "}
+{"line":65,"kind":"keyword.control","text":"case"}
+{"line":65,"kind":"other","text":" stop"}
+{"line":66,"kind":"other","text":"        echo "}
+{"line":66,"kind":"string","text":"\"stopping\""}
+{"line":67,"kind":"other","text":"    "}
+{"line":67,"kind":"keyword.control","text":"case"}
+{"line":67,"kind":"other","text":" "}
+{"line":67,"kind":"string","text":"'*'"}
+{"line":68,"kind":"other","text":"        echo "}
+{"line":68,"kind":"string","text":"\"unknown\""}
+{"line":69,"kind":"keyword.control","text":"end"}
+{"line":71,"kind":"comment","text":"# Begin/end blocks"}
+{"line":72,"kind":"keyword.control","text":"begin"}
+{"line":73,"kind":"other","text":"    "}
+{"line":73,"kind":"keyword.other","text":"set"}
+{"line":73,"kind":"other","text":" -l scoped "}
+{"line":73,"kind":"string","text":"\"only here\""}
+{"line":74,"kind":"other","text":"    echo "}
+{"line":74,"kind":"variable","text":"$scoped"}
+{"line":75,"kind":"keyword.control","text":"end"}
+{"line":77,"kind":"comment","text":"# Logical operators"}
+{"line":78,"kind":"keyword.other","text":"test"}
+{"line":78,"kind":"other","text":" -f /etc/passwd; "}
+{"line":78,"kind":"keyword.other","text":"and"}
+{"line":78,"kind":"other","text":" echo "}
+{"line":78,"kind":"string","text":"\"yes\""}
+{"line":79,"kind":"keyword.other","text":"test"}
+{"line":79,"kind":"other","text":" -f /etc/passwd; "}
+{"line":79,"kind":"keyword.other","text":"or"}
+{"line":79,"kind":"other","text":" echo "}
+{"line":79,"kind":"string","text":"\"no\""}
+{"line":80,"kind":"keyword.other","text":"test"}
+{"line":80,"kind":"other","text":" -f /etc/passwd && echo "}
+{"line":80,"kind":"string","text":"\"yes\""}
+{"line":81,"kind":"keyword.other","text":"test"}
+{"line":81,"kind":"other","text":" -f /etc/passwd || echo "}
+{"line":81,"kind":"string","text":"\"no\""}
+{"line":82,"kind":"keyword.other","text":"not"}
+{"line":82,"kind":"other","text":" "}
+{"line":82,"kind":"keyword.other","text":"test"}
+{"line":82,"kind":"other","text":" -f /nonexistent"}
+{"line":84,"kind":"comment","text":"# Command substitution"}
+{"line":85,"kind":"keyword.other","text":"set"}
+{"line":85,"kind":"other","text":" "}
+{"line":85,"kind":"method","text":"files"}
+{"line":85,"kind":"other","text":" (ls /tmp)"}
+{"line":86,"kind":"keyword.other","text":"set"}
+{"line":86,"kind":"other","text":" "}
+{"line":86,"kind":"method","text":"today"}
+{"line":86,"kind":"other","text":" (date +%Y-%m-%d)"}
+{"line":87,"kind":"other","text":"echo "}
+{"line":87,"kind":"string","text":"\"today is \""}
+{"line":87,"kind":"other","text":"(date +%Y-%m-%d)"}
+{"line":89,"kind":"comment","text":"# Functions"}
+{"line":90,"kind":"keyword.other","text":"function "}
+{"line":90,"kind":"method","text":"greet"}
+{"line":91,"kind":"other","text":"    echo "}
+{"line":91,"kind":"string","text":"\"Hello, "}
+{"line":91,"kind":"variable","text":"$argv"}
+{"line":91,"kind":"string","text":"[1]\""}
+{"line":92,"kind":"other","text":"    "}
+{"line":92,"kind":"keyword.control","text":"return"}
+{"line":92,"kind":"other","text":" "}
+{"line":92,"kind":"constant.numeric","text":"0"}
+{"line":93,"kind":"keyword.control","text":"end"}
+{"line":95,"kind":"keyword.other","text":"function "}
+{"line":95,"kind":"method","text":"cleanup"}
+{"line":95,"kind":"other","text":" --on-event fish_exit"}
+{"line":96,"kind":"other","text":"    echo "}
+{"line":96,"kind":"string","text":"\"bye\""}
+{"line":97,"kind":"keyword.control","text":"end"}
+{"line":99,"kind":"keyword.other","text":"function "}
+{"line":99,"kind":"method","text":"__fish_helper"}
+{"line":99,"kind":"other","text":" --description "}
+{"line":99,"kind":"string","text":"\"private helper\""}
+{"line":100,"kind":"other","text":"    echo "}
+{"line":100,"kind":"string","text":"\"internal\""}
+{"line":101,"kind":"keyword.control","text":"end"}
+{"line":103,"kind":"other","text":"greet "}
+{"line":103,"kind":"string","text":"\"fish\""}
+{"line":104,"kind":"other","text":"cleanup"}
+{"line":106,"kind":"comment","text":"# Builtins"}
+{"line":107,"kind":"other","text":"abbr -a gco "}
+{"line":107,"kind":"string","text":"'git checkout'"}
+{"line":108,"kind":"other","text":"alias ll "}
+{"line":108,"kind":"string","text":"'ls -la'"}
+{"line":109,"kind":"other","text":"cd /tmp"}
+{"line":110,"kind":"other","text":"echo "}
+{"line":110,"kind":"string","text":"\"hello\""}
+{"line":111,"kind":"other","text":"printf "}
+{"line":111,"kind":"string","text":"\"%s\\n\""}
+{"line":111,"kind":"other","text":" "}
+{"line":111,"kind":"string","text":"\"hello\""}
+{"line":112,"kind":"other","text":"read -l -P "}
+{"line":112,"kind":"string","text":"\"name? \""}
+{"line":112,"kind":"other","text":" user_name"}
+{"line":113,"kind":"keyword.other","text":"source"}
+{"line":113,"kind":"other","text":" /dev/null"}
+{"line":114,"kind":"keyword.other","text":"eval"}
+{"line":114,"kind":"other","text":" "}
+{"line":114,"kind":"string","text":"'echo hi'"}
+{"line":115,"kind":"keyword.other","text":"exec"}
+{"line":115,"kind":"other","text":" /bin/sh"}
+{"line":116,"kind":"keyword.other","text":"emit"}
+{"line":116,"kind":"other","text":" custom_event"}
+{"line":117,"kind":"keyword.other","text":"builtin"}
+{"line":117,"kind":"other","text":" echo "}
+{"line":117,"kind":"string","text":"\"raw\""}
+{"line":118,"kind":"keyword.other","text":"command"}
+{"line":118,"kind":"other","text":" ls"}
+{"line":119,"kind":"keyword.other","text":"test"}
+{"line":119,"kind":"other","text":" -f /etc/passwd"}
+{"line":120,"kind":"keyword.other","text":"time"}
+{"line":120,"kind":"other","text":" sleep "}
+{"line":120,"kind":"constant.numeric","text":"0"}
+{"line":122,"kind":"comment","text":"# Argument parsing"}
+{"line":123,"kind":"keyword.other","text":"function "}
+{"line":123,"kind":"method","text":"my_cmd"}
+{"line":124,"kind":"other","text":"    "}
+{"line":124,"kind":"keyword.other","text":"argparse"}
+{"line":124,"kind":"other","text":" "}
+{"line":124,"kind":"string","text":"'h/help'"}
+{"line":124,"kind":"other","text":" "}
+{"line":124,"kind":"string","text":"'n/name='"}
+{"line":124,"kind":"other","text":" -- "}
+{"line":124,"kind":"variable","text":"$argv"}
+{"line":125,"kind":"other","text":"    "}
+{"line":125,"kind":"keyword.other","text":"or"}
+{"line":125,"kind":"other","text":" "}
+{"line":125,"kind":"keyword.control","text":"return"}
+{"line":126,"kind":"other","text":"    "}
+{"line":126,"kind":"keyword.control","text":"if"}
+{"line":126,"kind":"other","text":" "}
+{"line":126,"kind":"keyword.other","text":"set"}
+{"line":126,"kind":"other","text":" -q _flag_help"}
+{"line":127,"kind":"other","text":"        echo "}
+{"line":127,"kind":"string","text":"\"usage: my_cmd [-h] [-n NAME]\""}
+{"line":128,"kind":"other","text":"        "}
+{"line":128,"kind":"keyword.control","text":"return"}
+{"line":128,"kind":"other","text":" "}
+{"line":128,"kind":"constant.numeric","text":"0"}
+{"line":129,"kind":"other","text":"    "}
+{"line":129,"kind":"keyword.control","text":"end"}
+{"line":130,"kind":"other","text":"    echo "}
+{"line":130,"kind":"string","text":"\"name: "}
+{"line":130,"kind":"variable","text":"$_flag_name"}
+{"line":130,"kind":"string","text":"\""}
+{"line":131,"kind":"keyword.control","text":"end"}
+{"line":133,"kind":"comment","text":"# String operations"}
+{"line":134,"kind":"other","text":"string match -r "}
+{"line":134,"kind":"string","text":"'^\\d+$'"}
+{"line":134,"kind":"other","text":" "}
+{"line":134,"kind":"string","text":"\"123\""}
+{"line":135,"kind":"other","text":"string replace -a old new "}
+{"line":135,"kind":"string","text":"\"old string old\""}
+{"line":136,"kind":"other","text":"string split , "}
+{"line":136,"kind":"string","text":"\"a,b,c\""}
+{"line":137,"kind":"other","text":"string join \\n one two three"}
+{"line":138,"kind":"other","text":"string length "}
+{"line":138,"kind":"string","text":"\"hello\""}
+{"line":139,"kind":"other","text":"string sub -s "}
+{"line":139,"kind":"constant.numeric","text":"2"}
+{"line":139,"kind":"other","text":" -l "}
+{"line":139,"kind":"constant.numeric","text":"3"}
+{"line":139,"kind":"other","text":" "}
+{"line":139,"kind":"string","text":"\"hello\""}
+{"line":140,"kind":"other","text":"string trim "}
+{"line":140,"kind":"string","text":"\"  hello  \""}
+{"line":142,"kind":"comment","text":"# Math"}
+{"line":143,"kind":"other","text":"math "}
+{"line":143,"kind":"string","text":"\"2 + 3\""}
+{"line":144,"kind":"other","text":"math "}
+{"line":144,"kind":"string","text":"\"sqrt(144)\""}
+{"line":146,"kind":"comment","text":"# Status"}
+{"line":147,"kind":"other","text":"status is-interactive"}
+{"line":148,"kind":"other","text":"status filename"}
+{"line":150,"kind":"comment","text":"# Redirections"}
+{"line":151,"kind":"other","text":"echo "}
+{"line":151,"kind":"string","text":"\"out\""}
+{"line":151,"kind":"other","text":" > /dev/null"}
+{"line":152,"kind":"other","text":"echo "}
+{"line":152,"kind":"string","text":"\"append\""}
+{"line":152,"kind":"other","text":" >> /tmp/log"}
+{"line":153,"kind":"other","text":"echo "}
+{"line":153,"kind":"string","text":"\"stderr\""}
+{"line":153,"kind":"other","text":" "}
+{"line":153,"kind":"constant.numeric","text":"2"}
+{"line":153,"kind":"other","text":">/dev/null"}
+{"line":154,"kind":"other","text":"echo "}
+{"line":154,"kind":"string","text":"\"both\""}
+{"line":154,"kind":"other","text":" &>/dev/null"}
+{"line":156,"kind":"comment","text":"# Pipelines"}
+{"line":157,"kind":"other","text":"echo hello | cat"}
+{"line":158,"kind":"other","text":"ls | string match "}
+{"line":158,"kind":"string","text":"'*.txt'"}
+{"line":160,"kind":"comment","text":"# Path manipulation"}
+{"line":161,"kind":"other","text":"fish_add_path /usr/local/bin"}
+{"line":162,"kind":"keyword.other","text":"set"}
+{"line":162,"kind":"other","text":" -a PATH /opt/bin"}
+{"line":164,"kind":"comment","text":"# Completions"}
+{"line":165,"kind":"other","text":"complete -c my_cmd -s h -l help -d "}
+{"line":165,"kind":"string","text":"\"Show help\""}
+{"line":166,"kind":"other","text":"complete -c my_cmd -s n -l name -r -d "}
+{"line":166,"kind":"string","text":"\"Set name\""}
+{"line":168,"kind":"comment","text":"# Event handlers"}
+{"line":169,"kind":"keyword.other","text":"function "}
+{"line":169,"kind":"method","text":"on_var_change"}
+{"line":169,"kind":"other","text":" --on-variable MY_VAR"}
+{"line":170,"kind":"other","text":"    echo "}
+{"line":170,"kind":"string","text":"\"MY_VAR changed to "}
+{"line":170,"kind":"variable","text":"$MY_VAR"}
+{"line":170,"kind":"string","text":"\""}
+{"line":171,"kind":"keyword.control","text":"end"}
+{"line":173,"kind":"comment","text":"# Jobs"}
+{"line":174,"kind":"other","text":"sleep "}
+{"line":174,"kind":"constant.numeric","text":"10"}
+{"line":174,"kind":"other","text":" &"}
+{"line":175,"kind":"other","text":"jobs"}
+{"line":176,"kind":"other","text":"fg"}
+{"line":177,"kind":"other","text":"bg"}
+{"line":178,"kind":"other","text":"wait"}
+{"line":179,"kind":"other","text":"disown"}
+{"line":181,"kind":"comment","text":"# Exit"}
+{"line":182,"kind":"other","text":"exit "}
+{"line":182,"kind":"constant.numeric","text":"0"}
