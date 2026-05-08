@@ -1167,6 +1167,26 @@ fn json_str(s: &str) -> String {
 /// parse argv with one ergonomic adjustment: bare `-L` / `--list-languages` (no value
 /// following, or a non-format value following) is rewritten to `-L pretty` so the user
 /// can type `eat -L` and get the default pretty listing.
+/// Print argh help output, inserting ` --eat` into the Usage line when invoked
+/// via `edit --eat` so the user sees `Usage: edit --eat [options]`.
+fn print_help_maybe_eat(help: &str, via_eat_flag: bool, argv0: &str) {
+    if !via_eat_flag {
+        println!("{help}");
+        return;
+    }
+    if let Some((first, rest)) = help.split_once('\n') {
+        let prefix = format!("Usage: {argv0}");
+        if let Some(args) = first.strip_prefix(&prefix) {
+            println!("Usage: {argv0} --eat{args}");
+        } else {
+            println!("{first}");
+        }
+        println!("{rest}");
+    } else {
+        println!("{help}");
+    }
+}
+
 fn parse_cli() -> Cli {
     use argh::FromArgs;
     let argv: Vec<String> = std::env::args().collect();
@@ -1175,6 +1195,8 @@ fn parse_cli() -> Cli {
         std::process::exit(1);
     }
 
+    let via_eat_flag = std::env::var("EDIT_EAT_VIA_FLAG").is_ok();
+
     // --help/-h anywhere in args prints help and exits, position-independent.
     if argv.iter().skip(1).any(|a| a == "-h" || a == "--help") {
         let help_argv: [&str; 2] = [argv[0].as_str(), "--help"];
@@ -1182,7 +1204,7 @@ fn parse_cli() -> Cli {
             Ok(_) => unreachable!(),
             Err(early_exit) => match early_exit.status {
                 Ok(()) => {
-                    println!("{}", early_exit.output);
+                    print_help_maybe_eat(&early_exit.output, via_eat_flag, argv[0].as_str());
                     std::process::exit(0);
                 }
                 Err(()) => {
@@ -1192,8 +1214,6 @@ fn parse_cli() -> Cli {
             },
         }
     }
-
-    let via_eat_flag = std::env::var("EDIT_EAT_VIA_FLAG").is_ok();
 
     let mut rewritten: Vec<String> = Vec::with_capacity(argv.len() + 1);
     rewritten.push(argv[0].clone());
@@ -1240,7 +1260,7 @@ fn parse_cli() -> Cli {
         Ok(c) => c,
         Err(early_exit) => match early_exit.status {
             Ok(()) => {
-                println!("{}", early_exit.output);
+                print_help_maybe_eat(&early_exit.output, via_eat_flag, strs[0]);
                 std::process::exit(0);
             }
             Err(()) => {
