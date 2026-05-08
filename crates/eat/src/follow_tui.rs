@@ -727,6 +727,274 @@ impl io::Write for LineBuf {
     }
 }
 
+// --- snapshot header -----------------------------------------------------
+
+const YELLOW: &str = "\x1b[33m";
+
+/// render the snapshot header: "path @ HH:MM:SS" with optional yellow delta.
+fn render_snapshot_header(
+    path_label: &str,
+    captured_at: &str,
+    file_changed: bool,
+    width: u16,
+) -> String {
+    let mut header = format!("{path_label} @ {captured_at}");
+    if file_changed {
+        header.push_str("  ");
+        header.push_str(YELLOW);
+        header.push('\u{0394}');
+        header.push_str(RESET);
+    }
+    header.push_str("  (j/k g/G PgUp/PgDn scroll, q exit)");
+    let mut buf = String::with_capacity(header.len() + 32);
+    buf.push_str(DIM);
+    push_truncated_ansi(&mut buf, &header, width as usize);
+    buf.push_str(RESET);
+    clear_eol(&mut buf);
+    buf
+}
+
+// --- snapshot driver -----------------------------------------------------
+
+/// run the snapshot tui pager. reads file once, shows it in the alt-screen
+/// TUI with frozen content. polls disk every 2s for the delta indicator.
+pub fn run_snapshot(
+    path: PathBuf,
+    lang: Option<&'static Language>,
+    show_numbers: bool,
+    use_color: bool,
+) -> io::Result<()> {
+    let lines_str = crate::read_file(&path)?;
+
+    let color_map = crate::theme::color_map();
+    let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
+
+    // highlight each line into body bytes (no gutter prefix).
+    let mut sink = LineBuf::new();
+    for line in &lines_str {
+        crate::write_highlighted_line(
+            &mut sink,
+            runtime.as_mut(),
+            &color_map,
+            line,
+            None,
+            use_color,
+        )?;
+    }
+    let bodies = sink.take_new();
+
+    // gutter
+    let gutter: Option<crate::gutter_view::Gutter> = if show_numbers {
+        let mut bytes = Vec::with_capacity(lines_str.iter().map(|l| l.len() + 1).sum());
+        for l in &lines_str {
+            bytes.extend_from_slice(l.as_bytes());
+            bytes.push(b'\n');
+        }
+        Some(crate::gutter_view::Gutter::compute(&path, &bytes, 1))
+    } else {
+        None
+    };
+
+    // capture the timestamp and initial fingerprint
+    let captured_at = format_clock(Instant::now());
+    let initial_stat = stat_fingerprint(&path);
+
+    // bring up terminal
+    let _deinit = tty::init();
+    tty::switch_modes()?;
+    tty::inject_window_size_into_stdin();
+    tty::write_stdout(&format!("{ALT_SCREEN_ENTER}{CURSOR_HIDE}{CLEAR_SCREEN}{WRAP_OFF}"));
+    let cleanup_screen = || {
+        tty::write_stdout(&format!("{WRAP_ON}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
+    };
+
+    let result = run_snapshot_loop(&path, bodies, gutter.as_ref(), &captured_at, initial_stat, use_color);
+    cleanup_screen();
+    result
+}
+
+/// snapshot fingerprint for disk-change detection.
+struct SnapshotStat {
+    size: u64,
+    ino: u64,
+    mtime_ns: i128,
+}
+
+impl PartialEq for SnapshotStat {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size && self.ino == other.ino && self.mtime_ns == other.mtime_ns
+    }
+}
+
+fn stat_fingerprint(path: &Path) -> Option<SnapshotStat> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        let meta = std::fs::metadata(path).ok()?;
+        Some(SnapshotStat {
+            size: meta.size(),
+            ino: meta.ino(),
+            mtime_ns: meta.mtime() as i128 * 1_000_000_000 + meta.mtime_nsec() as i128,
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
+    }
+}
+
+fn run_snapshot_loop(
+    path: &Path,
+    bodies: Vec<Vec<u8>>,
+    gutter: Option<&crate::gutter_view::Gutter>,
+    captured_at: &str,
+    initial_stat: Option<SnapshotStat>,
+    use_color: bool,
+) -> io::Result<()> {
+    let path_label = path.display().to_string();
+    let mut view = View::new(80, 24);
+    view.extend_lines(&bodies);
+    // start at top, not tail mode
+    view.tail_mode = false;
+    view.scroll_offset = 0;
+    view.scroll_offset_visual = 0.0;
+
+    let arena_main = stdext::arena::Arena::new(64 * 1024)?;
+    let mut file_changed = false;
+    let mut last_disk_check = Instant::now();
+    let disk_check_interval = Duration::from_secs(2);
+    let heartbeat = Duration::from_secs(1);
+    let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
+    let mut last_redraw = Instant::now() - Duration::from_secs(1);
+    let mut last_anim_step = Instant::now();
+    let mut first_paint_done = false;
+
+    loop {
+        let mut want_redraw = false;
+
+        // disk change detection
+        if initial_stat.is_some() && Instant::now().duration_since(last_disk_check) >= disk_check_interval {
+            last_disk_check = Instant::now();
+            let current = stat_fingerprint(path);
+            let changed = match (&initial_stat, &current) {
+                (Some(a), Some(b)) => a != b,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if changed != file_changed {
+                file_changed = changed;
+                want_redraw = true;
+            }
+        }
+
+        // heartbeat
+        if Instant::now().duration_since(last_redraw) >= heartbeat {
+            want_redraw = true;
+        }
+
+        // animation
+        let now2 = Instant::now();
+        if !view.animation_settled() {
+            let dt = now2.duration_since(last_anim_step).as_secs_f32();
+            view.advance_animation(dt);
+            want_redraw = true;
+        }
+        last_anim_step = now2;
+
+        if want_redraw {
+            if !first_paint_done {
+                view.scroll_offset_visual = view.scroll_offset as f32;
+                first_paint_done = true;
+            }
+            redraw_snapshot(&mut view, &path_label, captured_at, file_changed, gutter, use_color);
+            last_redraw = Instant::now();
+        }
+
+        // wait for input
+        let next_beat_in = heartbeat.saturating_sub(Instant::now().duration_since(last_redraw));
+        let next_disk_in = disk_check_interval.saturating_sub(Instant::now().duration_since(last_disk_check));
+        let mut wait = next_beat_in.min(next_disk_in).max(Duration::from_millis(1));
+        if !view.animation_settled() {
+            wait = wait.min(anim_frame);
+        }
+        let scratch = scratch_arena(Some(&arena_main));
+        let chunk = tty::read_stdin(&scratch, wait);
+        match chunk {
+            None => return Ok(()),
+            Some(s) if s.is_empty() => {}
+            Some(s) => {
+                let mut should_redraw = false;
+                let mut quit = false;
+                for k in parse_keys(s.as_bytes()) {
+                    if !view.apply_key(k) {
+                        quit = true;
+                        break;
+                    }
+                    should_redraw = true;
+                }
+                if quit {
+                    return Ok(());
+                }
+                if should_redraw {
+                    redraw_snapshot(&mut view, &path_label, captured_at, file_changed, gutter, use_color);
+                    last_redraw = Instant::now();
+                }
+            }
+        }
+    }
+}
+
+fn redraw_snapshot(
+    view: &mut View,
+    path_label: &str,
+    captured_at: &str,
+    file_changed: bool,
+    gutter: Option<&crate::gutter_view::Gutter>,
+    use_color: bool,
+) {
+    view.settle_offset();
+    let mut buf = String::with_capacity(8 * 1024);
+    cursor_to(&mut buf, 1, 1);
+
+    // header
+    let header = render_snapshot_header(path_label, captured_at, file_changed, view.width);
+    buf.push_str(&header);
+
+    // body
+    let body_rows = view.body_rows();
+    let render_off = view.render_offset();
+    let start = render_off;
+    let end = (start + body_rows).min(view.lines.len());
+    let prefix_width = gutter.map(|g| g.width + 3).unwrap_or(0);
+    let body_width = (view.width as usize).saturating_sub(prefix_width);
+    for (i, line) in view.lines[start..end].iter().enumerate() {
+        cursor_to(&mut buf, 2 + i as u16, 1);
+        if let Some(g) = gutter {
+            let line_no = view.line_no_of(start + i);
+            let mut pbuf = Vec::with_capacity(32);
+            let _ = crate::gutter_view::write_prefix(
+                &mut pbuf,
+                line_no,
+                g.width,
+                g.mark(line_no),
+                use_color,
+            );
+            buf.push_str(&String::from_utf8_lossy(&pbuf));
+        }
+        match std::str::from_utf8(line) {
+            Ok(s) => push_truncated_ansi(&mut buf, s, body_width),
+            Err(_) => buf.push_str(&String::from_utf8_lossy(line)),
+        }
+        clear_eol(&mut buf);
+    }
+    for i in (end - start)..body_rows {
+        cursor_to(&mut buf, 2 + i as u16, 1);
+        clear_eol(&mut buf);
+    }
+    tty::write_stdout(&buf);
+}
+
 // --- driver --------------------------------------------------------------
 
 /// run the live tui pager. returns when the user exits or the file is gone

@@ -143,6 +143,7 @@ fn run() -> apperr::Result<()> {
     const GUTTER_REDIFF_DEBOUNCE: Duration = Duration::from_millis(300);
     const MINIMAP_REBUILD_DEBOUNCE: Duration = Duration::from_millis(300);
     const LANGUAGE_REDETECT_DEBOUNCE: Duration = Duration::from_millis(500);
+    const DISK_CHECK_INTERVAL: Duration = Duration::from_secs(2);
 
     loop {
         // Process a batch of input.
@@ -207,6 +208,8 @@ fn run() -> apperr::Result<()> {
         if state.document.minimap_should_rebuild(MINIMAP_REBUILD_DEBOUNCE) {
             state.document.minimap_refresh();
         }
+
+        state.document.check_disk_fingerprint(DISK_CHECK_INTERVAL);
 
         // Re-run language auto-detect on plain docs as their content grows.
         // No-op once a language is found or the user picks one explicitly.

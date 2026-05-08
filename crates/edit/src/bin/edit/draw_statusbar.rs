@@ -131,6 +131,13 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
         ctx.label("dirty", "*");
     }
 
+    if doc.file_changed_on_disk {
+        ctx.block_begin("file-changed");
+        ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::Red));
+        ctx.label("file-changed", edit::glyphs::file_changed());
+        ctx.block_end();
+    }
+
     ctx.block_begin("filename-container");
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
     {

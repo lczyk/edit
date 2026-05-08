@@ -41,6 +41,13 @@ pub struct Document {
     pub language_override: Option<Option<&'static Language>>,
     pub read_only: bool,
 
+    /// Fingerprint captured at open (or last save). Compared every 2s
+    /// against a fresh stat to detect external modifications.
+    pub disk_fingerprint: Option<sys::FileFingerprint>,
+    /// True when the file on disk differs from the fingerprint we hold.
+    pub file_changed_on_disk: bool,
+    last_disk_check: Option<std::time::Instant>,
+
     /// `None` until first refresh attempt; `Some` carries the cached
     /// baseline blob (or a `disabled` flag if the file isn't in a git repo
     /// or otherwise can't be diffed).
@@ -82,6 +89,7 @@ impl Document {
         };
 
         let file_id = if file.is_some() { Some(sys::file_id(file.as_ref(), &path)?) } else { None };
+        let disk_fingerprint = sys::FileFingerprint::from_path(&path).ok();
         let read_only = file.is_some() && !sys::is_path_writable(&path);
 
         let buffer = create_buffer()?;
@@ -104,6 +112,9 @@ impl Document {
             file_id,
             language_override: None,
             read_only,
+            disk_fingerprint,
+            file_changed_on_disk: false,
+            last_disk_check: None,
             baseline: None,
             last_gutter_generation: 0,
             gutter_dirty: true,
@@ -139,6 +150,8 @@ impl Document {
         if let Ok(id) = sys::file_id(None, &self.path) {
             self.file_id = Some(id);
         }
+        self.disk_fingerprint = sys::FileFingerprint::from_path(&self.path).ok();
+        self.file_changed_on_disk = false;
 
         // Saving doesn't change HEAD, so the cached baseline is still
         // valid. Mark gutter dirty so the next tick recomputes immediately.
@@ -320,6 +333,22 @@ impl Document {
     pub fn language_redetect(&mut self) {
         self.language_dirty_since = None;
         self.update_language();
+    }
+
+    /// Poll the file on disk and set `file_changed_on_disk` if the
+    /// fingerprint differs from the one captured at open / last save.
+    pub fn check_disk_fingerprint(&mut self, interval: std::time::Duration) {
+        let now = std::time::Instant::now();
+        if self.last_disk_check.is_some_and(|t| now.duration_since(t) < interval) {
+            return;
+        }
+        self.last_disk_check = Some(now);
+        let Some(ref saved) = self.disk_fingerprint else {
+            return;
+        };
+        if let Ok(current) = sys::FileFingerprint::from_path(&self.path) {
+            self.file_changed_on_disk = current != *saved;
+        }
     }
 }
 

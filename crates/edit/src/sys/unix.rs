@@ -32,6 +32,27 @@ pub struct FileId {
     st_ino: libc::ino_t,
 }
 
+/// Snapshot of a file's identity + modification state. Used to detect
+/// external changes between polls without reading file content.
+#[derive(Clone, PartialEq, Eq)]
+pub struct FileFingerprint {
+    pub ino: libc::ino_t,
+    pub size: u64,
+    pub mtime_ns: i128,
+}
+
+impl FileFingerprint {
+    pub fn from_path(path: &Path) -> io::Result<Self> {
+        use std::os::unix::fs::MetadataExt as _;
+        let meta = std::fs::metadata(path)?;
+        Ok(Self {
+            ino: meta.ino(),
+            size: meta.size(),
+            mtime_ns: meta.mtime() as i128 * 1_000_000_000 + meta.mtime_nsec() as i128,
+        })
+    }
+}
+
 /// Checks whether the current process has write permission on `path`.
 ///
 /// Uses `access(2)` with `W_OK`, which follows symlinks and honours the

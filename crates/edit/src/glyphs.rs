@@ -88,6 +88,9 @@ pub fn gutter_deleted_above() -> &'static str {
 pub fn gutter_deleted_below() -> &'static str {
     if ascii_only() { "v" } else { "▾" }
 }
+pub fn file_changed() -> &'static str {
+    if ascii_only() { "!" } else { "\u{0394}" }
+}
 
 // Minimap glyphs.
 //

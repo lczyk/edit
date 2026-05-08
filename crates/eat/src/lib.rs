@@ -59,6 +59,10 @@ struct Cli {
     #[argh(option, short = 'L')]
     list_languages: Option<ListFormat>,
 
+    /// open file in scrollable TUI pager with content frozen at invocation time
+    #[argh(switch)]
+    snapshot: bool,
+
     /// print version and exit
     #[argh(switch)]
     version: bool,
@@ -532,7 +536,7 @@ fn print_highlighted(
 }
 
 /// read a file into a Vec of lines.
-fn read_file(path: &Path) -> io::Result<Vec<String>> {
+pub(crate) fn read_file(path: &Path) -> io::Result<Vec<String>> {
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(128 * 1024, file);
     reader.lines().collect()
@@ -1309,6 +1313,54 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     }
 }
 
+fn run_snapshot_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
+    if cli.files.is_empty() || cli.files.iter().any(|f| f == "-") {
+        eprintln!("eat: --snapshot requires a file path (stdin is not supported)");
+        return ExitCode::from(2);
+    }
+    if cli.files.len() > 1 {
+        eprintln!("eat: --snapshot takes a single file");
+        return ExitCode::from(2);
+    }
+    if has_line_range {
+        eprintln!("eat: --snapshot cannot be combined with --line-range");
+        return ExitCode::from(2);
+    }
+    if cli.plain {
+        eprintln!("eat: --snapshot cannot be combined with --plain");
+        return ExitCode::from(2);
+    }
+
+    let path = PathBuf::from(&cli.files[0]);
+
+    let lang: Option<&'static Language> = match cli.language.as_deref() {
+        Some(name) => match find_language(name) {
+            Some(l) => Some(l),
+            None => {
+                eprintln!("eat: unknown language '{name}'");
+                return ExitCode::from(2);
+            }
+        },
+        None => detect_language_by_path(&path).or_else(|| {
+            let f = File::open(&path).ok()?;
+            let mut br = BufReader::new(f);
+            let mut first = String::new();
+            let _ = std::io::BufRead::read_line(&mut br, &mut first);
+            detect_language_by_shebang(first.trim_end_matches(['\n', '\r']))
+        }),
+    };
+
+    let use_color = resolve_use_color(cli.color, io::stdout().is_terminal());
+
+    match follow_tui::run_snapshot(path, lang, cli.number, use_color) {
+        Ok(()) => ExitCode::from(0),
+        Err(e) => {
+            eprintln!("eat: {e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 /// main entry point for eat. called from edit's argv0 dispatch and from the
 /// standalone `bin/eat` binary.
 pub fn main() -> ExitCode {
@@ -1337,8 +1389,17 @@ pub fn main() -> ExitCode {
         None
     };
 
+    if cli.follow.is_some() && cli.snapshot {
+        eprintln!("eat: --follow and --snapshot cannot be combined");
+        return ExitCode::from(2);
+    }
+
     if cli.follow.is_some() {
         return run_follow_cli(&cli, line_range.is_some());
+    }
+
+    if cli.snapshot {
+        return run_snapshot_cli(&cli, line_range.is_some());
     }
 
     run(
