@@ -809,7 +809,8 @@ pub fn run_snapshot(
         tty::write_stdout(&format!("{WRAP_ON}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
     };
 
-    let result = run_snapshot_loop(&path, bodies, gutter.as_ref(), &captured_at, initial_stat, use_color);
+    let result =
+        run_snapshot_loop(&path, bodies, gutter.as_ref(), &captured_at, initial_stat, use_color);
     cleanup_screen();
     result
 }
@@ -873,7 +874,9 @@ fn run_snapshot_loop(
         let mut want_redraw = false;
 
         // disk change detection
-        if initial_stat.is_some() && Instant::now().duration_since(last_disk_check) >= disk_check_interval {
+        if initial_stat.is_some()
+            && Instant::now().duration_since(last_disk_check) >= disk_check_interval
+        {
             last_disk_check = Instant::now();
             let current = stat_fingerprint(path);
             let changed = match (&initial_stat, &current) {
@@ -905,7 +908,8 @@ fn run_snapshot_loop(
         }
 
         // wait for input (disk check or animation frame, no heartbeat)
-        let next_disk_in = disk_check_interval.saturating_sub(Instant::now().duration_since(last_disk_check));
+        let next_disk_in =
+            disk_check_interval.saturating_sub(Instant::now().duration_since(last_disk_check));
         let mut wait = next_disk_in.max(Duration::from_millis(1));
         if !view.animation_settled() {
             wait = wait.min(anim_frame);
@@ -929,7 +933,14 @@ fn run_snapshot_loop(
                     return Ok(());
                 }
                 if should_redraw {
-                    redraw_snapshot(&mut view, &path_label, captured_at, file_changed, gutter, use_color);
+                    redraw_snapshot(
+                        &mut view,
+                        &path_label,
+                        captured_at,
+                        file_changed,
+                        gutter,
+                        use_color,
+                    );
                 }
             }
         }
@@ -1136,7 +1147,7 @@ fn run_loop(
             }
             redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
         } else if header_changed {
-            redraw_header_only(&mut view, &path_label, poll_interval);
+            redraw_header_only(&view, &path_label, poll_interval);
         }
 
         let next_tick_in = poll_interval.saturating_sub(Instant::now().duration_since(last_tick));

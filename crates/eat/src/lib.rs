@@ -1311,7 +1311,10 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
         return ExitCode::from(2);
     }
     if cli.files.len() > 1 {
-        eprintln!("{}: --follow takes a single file (multi-file follow is not supported)", prog_name());
+        eprintln!(
+            "{}: --follow takes a single file (multi-file follow is not supported)",
+            prog_name()
+        );
         return ExitCode::from(2);
     }
     if has_line_range {
