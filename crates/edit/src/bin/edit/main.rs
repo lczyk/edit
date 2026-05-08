@@ -63,8 +63,21 @@ fn main() -> process::ExitCode {
         .and_then(|s| s.to_str())
         .unwrap_or("edit");
 
+    // --eat wins over --help so `edit --eat --help` prints eat's help.
+    // Symlink (name == "eat") also takes priority.
     if name == "eat" {
         return eat::main();
+    }
+    if env::args_os().any(|a| a == "--eat") {
+        // SAFETY: single-threaded at this point in main.
+        unsafe { std::env::set_var("EDIT_EAT_VIA_FLAG", "1") };
+        return eat::main();
+    }
+
+    // --help/-h anywhere in remaining args prints edit's help.
+    if env::args_os().any(|a| a == "-h" || a == "--help") {
+        print_help();
+        return process::ExitCode::SUCCESS;
     }
 
     if cfg!(debug_assertions) {
@@ -479,6 +492,9 @@ fn print_help() {
     sys::write_stdout(concat!(
         "Usage: edit [OPTIONS] [--] FILE[:LINE[:COLUMN]]\n",
         "Options:\n",
+        "    --eat            Act as eat: read stdin if piped, or files from\n",
+        "                     arguments, and page through them.\n",
+        "                     Equivalent to running the eat binary directly.\n",
         "    -h, --help       Print this help message\n",
         "    -v, --version    Print the version number\n",
         "    -L, --list-languages[=FORMAT]\n",

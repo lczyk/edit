@@ -1174,12 +1174,36 @@ fn parse_cli() -> Cli {
         eprintln!("eat: empty argv");
         std::process::exit(1);
     }
+
+    // --help/-h anywhere in args prints help and exits, position-independent.
+    if argv.iter().skip(1).any(|a| a == "-h" || a == "--help") {
+        let help_argv: [&str; 2] = [argv[0].as_str(), "--help"];
+        match Cli::from_args(&[help_argv[0]], &help_argv[1..]) {
+            Ok(_) => unreachable!(),
+            Err(early_exit) => match early_exit.status {
+                Ok(()) => {
+                    println!("{}", early_exit.output);
+                    std::process::exit(0);
+                }
+                Err(()) => {
+                    eprintln!("{}", early_exit.output);
+                    std::process::exit(1);
+                }
+            },
+        }
+    }
+
+    let via_eat_flag = std::env::var("EDIT_EAT_VIA_FLAG").is_ok();
+
     let mut rewritten: Vec<String> = Vec::with_capacity(argv.len() + 1);
     rewritten.push(argv[0].clone());
     let mut i = 1;
     while i < argv.len() {
         let a = &argv[i];
-        if a == "-L" || a == "--list-languages" {
+        if via_eat_flag && a == "--eat" {
+            // strip --eat injected by `edit --eat` before argh sees it
+            i += 1;
+        } else if a == "-L" || a == "--list-languages" {
             rewritten.push(a.clone());
             let next_is_format =
                 argv.get(i + 1).is_some_and(|n| matches!(n.as_str(), "pretty" | "plain" | "json"));
