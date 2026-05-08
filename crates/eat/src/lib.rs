@@ -271,10 +271,12 @@ fn parse_line_range(s: &str) -> Result<LineRange, String> {
 
 /// print short help and exit.
 fn print_short_help() -> ExitCode {
+    let name = prog_name();
+    let eat_flag = if std::env::var("EDIT_EAT_VIA_FLAG").is_ok() { " --eat" } else { "" };
     eprintln!(
-        "usage: eat [-l <lang>] [-p] [-n] [-L] [--line-range <RANGE>] [--color <WHEN>] [--paging <WHEN>] [-f [<DUR>]] [--version] [FILES...]"
+        "usage: {name}{eat_flag} [-l <lang>] [-p] [-n] [-L] [--line-range <RANGE>] [--color <WHEN>] [--paging <WHEN>] [-f [<DUR>]] [--version] [FILES...]"
     );
-    eprintln!("try `eat --help` for more details.");
+    eprintln!("try `{name}{eat_flag} --help` for more details.");
     ExitCode::from(0)
 }
 
@@ -562,7 +564,7 @@ fn run(
     if let Some(name) = language_override
         && lang_override.is_none()
     {
-        eprintln!("eat: unknown language '{name}'");
+        eprintln!("{}: unknown language '{name}'", prog_name());
         return ExitCode::from(2);
     }
 
@@ -608,7 +610,7 @@ fn run(
                     (lines, Some(path.as_path()), label)
                 }
                 Err(e) => {
-                    eprintln!("eat: {}: {e}", path.display());
+                    eprintln!("{}: {}: {e}", prog_name(), path.display());
                     has_error = true;
                     continue;
                 }
@@ -616,7 +618,7 @@ fn run(
             EatInput::Stdin => match read_stdin() {
                 Ok(lines) => (lines, None, None),
                 Err(e) => {
-                    eprintln!("eat: stdin: {e}");
+                    eprintln!("{}: stdin: {e}", prog_name());
                     has_error = true;
                     continue;
                 }
@@ -727,7 +729,7 @@ fn run(
                 paging_mode,
                 gutter.as_ref(),
             ) {
-                eprintln!("eat: {e}");
+                eprintln!("{}: {e}", prog_name());
                 has_error = true;
             }
         } else {
@@ -1187,11 +1189,22 @@ fn print_help_maybe_eat(help: &str, via_eat_flag: bool, argv0: &str) {
     }
 }
 
+/// File stem of argv[0], used as the program name prefix in messages.
+fn prog_name() -> String {
+    std::env::args_os()
+        .next()
+        .as_deref()
+        .and_then(|p| std::path::Path::new(p).file_stem())
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "eat".to_string())
+}
+
 fn parse_cli() -> Cli {
     use argh::FromArgs;
     let argv: Vec<String> = std::env::args().collect();
     if argv.is_empty() {
-        eprintln!("eat: empty argv");
+        eprintln!("{}: empty argv", prog_name());
         std::process::exit(1);
     }
 
@@ -1294,22 +1307,22 @@ pub fn list_languages(format: ListFormat) -> ExitCode {
 fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     // disallowed combos
     if cli.files.is_empty() || cli.files.iter().any(|f| f == "-") {
-        eprintln!("eat: --follow requires a file path (stdin is not supported)");
+        eprintln!("{}: --follow requires a file path (stdin is not supported)", prog_name());
         return ExitCode::from(2);
     }
     if cli.files.len() > 1 {
-        eprintln!("eat: --follow takes a single file (multi-file follow is not supported)");
+        eprintln!("{}: --follow takes a single file (multi-file follow is not supported)", prog_name());
         return ExitCode::from(2);
     }
     if has_line_range {
-        eprintln!("eat: --follow cannot be combined with --line-range");
+        eprintln!("{}: --follow cannot be combined with --line-range", prog_name());
         return ExitCode::from(2);
     }
     if cli.plain {
         // plain + follow could work (just write raw bytes), but we'd need a
         // separate path; v1 keeps the surface tight. error rather than
         // silently doing one of the two.
-        eprintln!("eat: --follow cannot be combined with --plain");
+        eprintln!("{}: --follow cannot be combined with --plain", prog_name());
         return ExitCode::from(2);
     }
 
@@ -1321,7 +1334,7 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
         Some(name) => match find_language(name) {
             Some(l) => Some(l),
             None => {
-                eprintln!("eat: unknown language '{name}'");
+                eprintln!("{}: unknown language '{name}'", prog_name());
                 return ExitCode::from(2);
             }
         },
@@ -1352,7 +1365,7 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     match result {
         Ok(()) => ExitCode::from(0),
         Err(e) => {
-            eprintln!("eat: {e}");
+            eprintln!("{}: {e}", prog_name());
             ExitCode::from(1)
         }
     }
@@ -1370,7 +1383,7 @@ pub fn main() -> ExitCode {
     }
 
     if cli.version {
-        println!("eat {}", version::version!());
+        println!("{} {}", prog_name(), version::version!());
         return ExitCode::from(0);
     }
 
@@ -1378,7 +1391,7 @@ pub fn main() -> ExitCode {
         match parse_line_range(s) {
             Ok(r) => Some(r),
             Err(e) => {
-                eprintln!("eat: invalid --line-range: {e}");
+                eprintln!("{}: invalid --line-range: {e}", prog_name());
                 return ExitCode::from(2);
             }
         }
@@ -1403,7 +1416,7 @@ pub fn main() -> ExitCode {
             Some(name) => match find_language(name) {
                 Some(l) => Some(l),
                 None => {
-                    eprintln!("eat: unknown language '{name}'");
+                    eprintln!("{}: unknown language '{name}'", prog_name());
                     return ExitCode::from(2);
                 }
             },
@@ -1419,7 +1432,7 @@ pub fn main() -> ExitCode {
         return match follow_tui::run_snapshot(path, lang, cli.number, use_color) {
             Ok(()) => ExitCode::from(0),
             Err(e) => {
-                eprintln!("eat: {e}");
+                eprintln!("{}: {e}", prog_name());
                 ExitCode::from(1)
             }
         };
