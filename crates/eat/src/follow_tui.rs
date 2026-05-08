@@ -585,7 +585,7 @@ pub fn render_frame(
     // header
     buf.push_str(DIM);
     let header = format!(
-        "last update: {last_update}  --  {path_label}  ({interval_ms}ms, j/k g/G PgUp/PgDn scroll, q exit)"
+        "{path_label} @ {last_update}  ({interval_ms}ms, j/k g/G PgUp/PgDn scroll, q exit)"
     );
     push_truncated(&mut buf, &header, view.width as usize);
     buf.push_str(RESET);
@@ -744,6 +744,7 @@ fn render_snapshot_header(
         header.push_str(YELLOW);
         header.push('\u{0394}');
         header.push_str(RESET);
+        header.push_str(DIM);
     }
     header.push_str("  (j/k g/G PgUp/PgDn scroll, q exit)");
     let mut buf = String::with_capacity(header.len() + 32);
