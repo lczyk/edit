@@ -865,9 +865,7 @@ fn run_snapshot_loop(
     let mut file_changed = false;
     let mut last_disk_check = Instant::now();
     let disk_check_interval = Duration::from_secs(2);
-    let heartbeat = Duration::from_secs(1);
     let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
-    let mut last_redraw = Instant::now() - Duration::from_secs(1);
     let mut last_anim_step = Instant::now();
     let mut first_paint_done = false;
 
@@ -889,11 +887,6 @@ fn run_snapshot_loop(
             }
         }
 
-        // heartbeat
-        if Instant::now().duration_since(last_redraw) >= heartbeat {
-            want_redraw = true;
-        }
-
         // animation
         let now2 = Instant::now();
         if !view.animation_settled() {
@@ -909,13 +902,11 @@ fn run_snapshot_loop(
                 first_paint_done = true;
             }
             redraw_snapshot(&mut view, &path_label, captured_at, file_changed, gutter, use_color);
-            last_redraw = Instant::now();
         }
 
-        // wait for input
-        let next_beat_in = heartbeat.saturating_sub(Instant::now().duration_since(last_redraw));
+        // wait for input (disk check or animation frame, no heartbeat)
         let next_disk_in = disk_check_interval.saturating_sub(Instant::now().duration_since(last_disk_check));
-        let mut wait = next_beat_in.min(next_disk_in).max(Duration::from_millis(1));
+        let mut wait = next_disk_in.max(Duration::from_millis(1));
         if !view.animation_settled() {
             wait = wait.min(anim_frame);
         }
@@ -939,7 +930,6 @@ fn run_snapshot_loop(
                 }
                 if should_redraw {
                     redraw_snapshot(&mut view, &path_label, captured_at, file_changed, gutter, use_color);
-                    last_redraw = Instant::now();
                 }
             }
         }
@@ -1058,25 +1048,18 @@ fn run_loop(
     };
 
     let mut last_tick = Instant::now() - poll_interval; // ensures first iteration ticks
-    let mut last_redraw = Instant::now() - Duration::from_secs(1);
     let mut last_anim_step = Instant::now();
     let arena_main = Arena::new(64 * 1024)?;
     let mut first_paint_done = false;
 
-    // 1Hz heartbeat: even when nothing is changing, refresh once a second so
-    // the "last update" timestamp keeps ticking.
-    let heartbeat = Duration::from_secs(1);
     let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
 
     loop {
         // 1. tick if it's time
         let now = Instant::now();
-        let mut want_redraw = false;
+        let mut body_changed = false;
+        let mut header_changed = false;
         if now.duration_since(last_tick) >= poll_interval {
-            // tick passes gutter=None so emitted bytes are body-only; the
-            // current gutter is applied at draw time. this is what lets the
-            // gutter recompute below visibly update marks for already-stored
-            // lines on the next redraw.
             let outcome = tick(
                 &mut state,
                 src,
@@ -1100,14 +1083,10 @@ fn run_loop(
                             )
                         });
                     }
-                    if n > 0 {
-                        // tail-mode follow: snap visual to new bottom so a
-                        // busy log doesn't play a 360ms slide per chunk.
-                        if view.tail_mode {
-                            view.tail_pin_snap();
-                        }
-                        want_redraw = true;
+                    if n > 0 && view.tail_mode {
+                        view.tail_pin_snap();
                     }
+                    body_changed = true;
                 }
                 TickOutcome::Wrote(n) => {
                     view.extend_lines(&sink.take_new());
@@ -1124,11 +1103,10 @@ fn run_loop(
                         if view.tail_mode {
                             view.tail_pin_snap();
                         }
-                        want_redraw = true;
+                        body_changed = true;
                     }
                 }
                 TickOutcome::Idle => {
-                    // drain any leftover sink content (shouldn't be any).
                     view.extend_lines(&sink.take_new());
                 }
                 TickOutcome::GoneTooLong => {
@@ -1139,11 +1117,7 @@ fn run_loop(
                 }
             }
             last_tick = now;
-        }
-
-        // heartbeat redraw so the timestamp keeps moving even if nothing else does.
-        if Instant::now().duration_since(last_redraw) >= heartbeat {
-            want_redraw = true;
+            header_changed = true;
         }
 
         // mid-flight scroll animation: step it forward and request a redraw.
@@ -1151,28 +1125,22 @@ fn run_loop(
         if !view.animation_settled() {
             let dt = now2.duration_since(last_anim_step).as_secs_f32();
             view.advance_animation(dt);
-            want_redraw = true;
+            body_changed = true;
         }
         last_anim_step = now2;
 
-        if want_redraw {
-            // very first paint: snap the visual to whatever the target is
-            // (initial bulk emission may have set scroll_offset to a non-zero
-            // value via tail mode; we don't want to slide in from 0).
+        if body_changed {
             if !first_paint_done {
                 view.scroll_offset_visual = view.scroll_offset as f32;
                 first_paint_done = true;
             }
             redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
-            last_redraw = Instant::now();
+        } else if header_changed {
+            redraw_header_only(&mut view, &path_label, poll_interval);
         }
 
-        // 2. wait for input. while a scroll animation is running, wake on
-        // ~16ms boundaries so frames are visibly smooth; otherwise wait until
-        // the next tick or heartbeat, whichever comes first.
         let next_tick_in = poll_interval.saturating_sub(Instant::now().duration_since(last_tick));
-        let next_beat_in = heartbeat.saturating_sub(Instant::now().duration_since(last_redraw));
-        let mut wait = next_tick_in.min(next_beat_in).max(Duration::from_millis(1));
+        let mut wait = next_tick_in.max(Duration::from_millis(1));
         if !view.animation_settled() {
             wait = wait.min(anim_frame);
         }
@@ -1201,7 +1169,6 @@ fn run_loop(
                 }
                 if should_redraw {
                     redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
-                    last_redraw = Instant::now();
                 }
             }
         }
@@ -1219,6 +1186,21 @@ fn redraw(
     let frame =
         render_frame(view, path_label, &now_str, poll_interval.as_millis(), gutter, use_color);
     tty::write_stdout(&frame);
+}
+
+fn redraw_header_only(view: &View, path_label: &str, poll_interval: Duration) {
+    let now_str = format_clock(Instant::now());
+    let header = format!(
+        "{path_label} @ {now_str}  ({}ms, j/k g/G PgUp/PgDn scroll, q exit)",
+        poll_interval.as_millis()
+    );
+    let mut buf = String::with_capacity(header.len() + 64);
+    cursor_to(&mut buf, 1, 1);
+    buf.push_str(DIM);
+    push_truncated(&mut buf, &header, view.width as usize);
+    buf.push_str(RESET);
+    clear_eol(&mut buf);
+    tty::write_stdout(&buf);
 }
 
 /// approximate hh:mm:ss using system time. avoids a chrono dep.
