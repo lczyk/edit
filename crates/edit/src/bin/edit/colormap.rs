@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn default_toml_parses() {
         let cm = Colormap::from_defaults();
-        assert!(cm.use_colormap);
+        assert!(!cm.use_colormap);
         assert_eq!(cm.palette.len(), INDEXED_COLORS_COUNT);
     }
 

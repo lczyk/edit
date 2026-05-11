@@ -5,7 +5,7 @@
 #   true  -> colors below override terminal's reported palette
 #   false -> terminal's reported palette wins; colors below act as fallback
 
-use_colormap = true
+use_colormap = false
 
 [colors]
 black          = "#000000"
