@@ -483,6 +483,12 @@ impl Tui {
         self.framebuffer.set_indexed_colors(colors);
     }
 
+    /// Enables ANSI-16 SGR emission for palette-matched colors. See
+    /// [`crate::framebuffer::Framebuffer::set_emit_indexed_codes`].
+    pub fn setup_emit_indexed_codes(&mut self, value: bool) {
+        self.framebuffer.set_emit_indexed_codes(value);
+    }
+
     /// Set up translations for Ctrl/Alt/Shift modifiers.
     pub fn setup_modifier_translations(&mut self, translations: ModifierTranslations) {
         self.modifier_translations = translations;

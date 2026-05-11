@@ -805,7 +805,6 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
         let cm = colormap::borrow();
         (cm.palette, cm.use_colormap)
     };
-    let mut color_responses = 0;
     let mut ambiguous_width = 1;
 
     while !done {
@@ -875,7 +874,6 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
                     }
 
                     *color = StraightRgba::from_le(rgb | 0xff000000);
-                    color_responses += 1;
                     osc_buffer.clear();
                 }
                 _ => {}
@@ -889,10 +887,17 @@ fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) 
     }
 
     if force_colormap {
-        // colormap.toml wins — ignore terminal responses.
+        // colormap.toml wins -- ignore terminal responses. Render exact RGB.
         tui.setup_indexed_colors(colormap::borrow().palette);
-    } else if color_responses == indexed_colors.len() {
+    } else {
+        // Apply whatever the terminal reported. `indexed_colors` starts from the
+        // toml fallback palette; any OSC 4/10/11 responses get patched in above.
+        // Also opt into ANSI-16 emission for palette-matched colors so that
+        // terminals which drop some OSC 4 responses (e.g. through tmux) still
+        // render syntax highlights via their own palette -- matching what
+        // `eat` produces via raw ANSI codes.
         tui.setup_indexed_colors(indexed_colors);
+        tui.setup_emit_indexed_codes(true);
     }
 
     RestoreModes

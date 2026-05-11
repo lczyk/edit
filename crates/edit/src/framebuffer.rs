@@ -97,6 +97,13 @@ pub const DEFAULT_THEME: [StraightRgba; INDEXED_COLORS_COUNT] = [
 pub struct Framebuffer {
     /// Store the color palette.
     indexed_colors: [StraightRgba; INDEXED_COLORS_COUNT],
+    /// When true, `format_color` emits ANSI-16 escape codes (`\x1b[3Xm` /
+    /// `\x1b[4Xm`) for colors whose RGB matches a palette entry in
+    /// `indexed_colors[0..16]`. This lets the terminal apply its own palette
+    /// rather than rendering the queried/fallback RGB exactly. Useful when
+    /// terminals drop some OSC 4 responses and the fallback RGB drifts from
+    /// the user's actual terminal palette.
+    emit_indexed_codes: bool,
     /// Front and back buffers. Indexed by `frame_counter & 1`.
     buffers: [Buffer; 2],
     /// The current frame counter. Increments on every `flip` call.
@@ -119,6 +126,7 @@ impl Framebuffer {
     pub fn new() -> Self {
         Self {
             indexed_colors: DEFAULT_THEME,
+            emit_indexed_codes: false,
             buffers: Default::default(),
             frame_counter: 0,
             auto_colors: [
@@ -137,6 +145,12 @@ impl Framebuffer {
     ///
     /// If you call this method, [`Framebuffer`] expects that you
     /// successfully detect the light/dark mode of the terminal.
+    /// Enable/disable emission of ANSI-16 escape codes for palette-matched
+    /// colors. See [`Framebuffer::emit_indexed_codes`].
+    pub fn set_emit_indexed_codes(&mut self, value: bool) {
+        self.emit_indexed_codes = value;
+    }
+
     pub fn set_indexed_colors(&mut self, colors: [StraightRgba; INDEXED_COLORS_COUNT]) {
         self.indexed_colors = colors;
         self.background_fill = StraightRgba::zero();
@@ -613,8 +627,31 @@ impl Framebuffer {
 
         if color.alpha() != 0xff {
             let idx = if fg { IndexedColor::Foreground } else { IndexedColor::Background };
-            let dst = self.indexed(idx);
-            color = dst.oklab_blend(color);
+            let dst_color = self.indexed(idx);
+            color = dst_color.oklab_blend(color);
+        }
+
+        // When the color exactly matches a palette entry in indices 0..16 and
+        // `emit_indexed_codes` is set, emit the ANSI-16 SGR code instead of
+        // true-color. This makes the terminal apply its own palette, matching
+        // what tools like `eat` produce via raw ANSI codes.
+        if self.emit_indexed_codes && color.alpha() == 0xff {
+            for i in 0..16 {
+                if self.indexed_colors[i].to_ne() == color.to_ne() {
+                    // 0..7  -> 30..37 (fg) / 40..47 (bg)
+                    // 8..15 -> 90..97 (fg) / 100..107 (bg)
+                    let base = if i < 8 {
+                        if fg { 30 } else { 40 }
+                    } else if fg {
+                        90
+                    } else {
+                        100
+                    };
+                    let code = base + (i & 7);
+                    arena_write_fmt!(arena, dst, "\x1b[{code}m");
+                    return;
+                }
+            }
         }
 
         let r = color.red();
