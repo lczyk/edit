@@ -22,11 +22,12 @@ build: sync-version  ## Release build (stable toolchain, larger binary)
 	cargo build --release
 	@if command -v upx >/dev/null 2>&1; then \
 		upx target/release/edit || echo "upx failed, skipping compression"; \
+		upx target/release/eat || echo "upx failed, skipping compression"; \
 	fi
 
 .PHONY: du
 du: build  ## Show release binary size
-	du -h target/release/edit
+	du -h target/release/edit target/release/eat
 
 .PHONY: install
 install: sync-version  ## Install the edit binary into ~/.cargo/bin
