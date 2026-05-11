@@ -603,6 +603,11 @@ pub fn render_frame(
     let body_width = (view.width as usize).saturating_sub(prefix_width);
     for (i, line) in view.lines[start..end].iter().enumerate() {
         cursor_to(&mut buf, 2 + i as u16, 1);
+        // erase the whole row first -- body bytes may contain `\t`, which the
+        // terminal handles by advancing the cursor w/out painting skipped cells.
+        // clearing post-content would leave those skipped cells holding stale
+        // pixels from the previous frame (visible as bg bleed after scroll).
+        clear_eol(&mut buf);
 
         // gutter prefix, if any. composed against the *current* gutter and
         // the file-level line number, NOT a value baked in at write time.
@@ -624,7 +629,6 @@ pub fn render_frame(
             Ok(s) => push_truncated_ansi(&mut buf, s, body_width),
             Err(_) => buf.push_str(&String::from_utf8_lossy(line)),
         }
-        clear_eol(&mut buf);
     }
     // clear any leftover rows below the body
     for i in (end - start)..body_rows {
@@ -972,6 +976,9 @@ fn redraw_snapshot(
     let body_width = (view.width as usize).saturating_sub(prefix_width);
     for (i, line) in view.lines[start..end].iter().enumerate() {
         cursor_to(&mut buf, 2 + i as u16, 1);
+        // erase row before painting -- `\t` in body bytes skips cells w/out
+        // painting, so a post-content clear leaves stale pixels behind.
+        clear_eol(&mut buf);
         if let Some(g) = gutter {
             let line_no = view.line_no_of(start + i);
             let mut pbuf = Vec::with_capacity(32);
@@ -988,7 +995,6 @@ fn redraw_snapshot(
             Ok(s) => push_truncated_ansi(&mut buf, s, body_width),
             Err(_) => buf.push_str(&String::from_utf8_lossy(line)),
         }
-        clear_eol(&mut buf);
     }
     for i in (end - start)..body_rows {
         cursor_to(&mut buf, 2 + i as u16, 1);

@@ -368,3 +368,72 @@ fn f_path_rewrite(path: &PathBuf, bytes: &[u8]) {
     let mut f = fs::OpenOptions::new().write(true).truncate(true).create(true).open(path).unwrap();
     f.write_all(bytes).unwrap();
 }
+
+// --- tab artefact regression ------------------------------------------------
+
+#[test]
+fn tab_indented_lines_clear_eol_before_content() {
+    // regression: `\t` in a body line advances the cursor w/out painting cells.
+    // `clear_eol` must be emitted BEFORE the line bytes (cursor at col 1,
+    // erasing the whole row), not after them. a post-content clear would leave
+    // the cells skipped by the tab holding stale paint from the previous frame,
+    // visible as background bleed-through on transparent terminals after scroll.
+    //
+    // invariant: for every body row the frame string must have the pattern
+    //   \x1b[{row};1H  \x1b[K  <content>
+    // not  \x1b[{row};1H  <content>  \x1b[K
+    let f = Tmp::new("tab-erase", b"\tfirst\n\tsecond\n");
+    let mut fx = LoopFixture::new(&f.path, false);
+    fx.step();
+    let frame = fx.frame();
+
+    // check both body rows (header = row 1, body starts at row 2)
+    for row in [2u16, 3u16] {
+        let cur = format!("\x1b[{row};1H");
+        let pos = frame.find(&cur).unwrap_or_else(|| panic!("cursor escape for row {row} missing"));
+        let after = &frame[pos + cur.len()..];
+        assert!(
+            after.starts_with("\x1b[K"),
+            "row {row}: clear_eol must precede tab content; got: {:?}",
+            &after[..after.len().min(40)]
+        );
+    }
+}
+
+#[test]
+fn tab_stale_cells_absent_after_scroll() {
+    // build two frames: first renders lines without leading tabs; second renders
+    // tab-indented lines at the same rows via scroll. assert that col-1 cells
+    // in the second frame carry no text from the first frame.
+    //
+    // we do this by verifying `clear_eol` precedes the tab on every body row --
+    // if it does, the terminal is guaranteed to see an erase-before-paint,
+    // regardless of what the previous frame wrote to those cells.
+    //
+    // the file has 4 lines: first 2 plain (no tab), last 2 tab-indented.
+    // after rendering with scroll_offset=0, we shift to scroll_offset=2 so
+    // the tab-indented lines land on the same terminal rows as the plain ones.
+    let f = Tmp::new("tab-scroll", b"plain_a\nplain_b\n\ttab_c\n\ttab_d\n");
+    let mut fx = LoopFixture::new(&f.path, false);
+    fx.step();
+
+    // first frame: plain lines at rows 2-3
+    let _frame1 = fx.frame();
+
+    // scroll down 2 rows so tab-indented lines land at rows 2-3
+    fx.view.scroll_offset = 2;
+    fx.view.scroll_offset_visual = 2.0;
+    let frame2 = fx.frame();
+
+    // clear_eol must precede tab on rows 2 and 3
+    for row in [2u16, 3u16] {
+        let cur = format!("\x1b[{row};1H");
+        let pos = frame2.find(&cur).unwrap_or_else(|| panic!("cursor escape for row {row} missing"));
+        let after = &frame2[pos + cur.len()..];
+        assert!(
+            after.starts_with("\x1b[K"),
+            "row {row} after scroll: clear_eol must precede tab; got: {:?}",
+            &after[..after.len().min(40)]
+        );
+    }
+}
