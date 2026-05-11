@@ -318,7 +318,7 @@ fn finish_tick<S: FollowSource>(
 ) -> io::Result<TickOutcome> {
     // on rotation, drop accumulated runtime state + partial line + numbering.
     let mut owned_runtime;
-    let runtime_ref: Option<&mut Runtime<'static, 'static, 'static>> = if rotated {
+    let mut runtime_ref: Option<&mut Runtime<'static, 'static, 'static>> = if rotated {
         state.partial.clear();
         state.line_no = 1;
         if runtime.is_some() {
@@ -342,9 +342,9 @@ fn finish_tick<S: FollowSource>(
     let mut all = std::mem::take(&mut state.partial);
     all.extend_from_slice(&buf);
 
-    let emitted = emit_lines(
+    let mut emitted = emit_lines(
         &all,
-        runtime_ref,
+        runtime_ref.as_deref_mut(),
         color_map,
         gutter,
         use_color,
@@ -352,6 +352,18 @@ fn finish_tick<S: FollowSource>(
         &mut state.line_no,
         &mut state.partial,
     )?;
+
+    // reading from offset 0 means this is a fresh read of the file (first
+    // tick or post-rotation). any trailing bytes without a newline are the
+    // file's last line, not a mid-line append we should buffer. flush them.
+    if read_offset == 0 && !state.partial.is_empty() {
+        let cow = String::from_utf8_lossy(&state.partial);
+        let g = gutter.map(|g| (g, state.line_no));
+        write_highlighted_line(writer, runtime_ref.as_deref_mut(), color_map, &cow, g, use_color)?;
+        state.line_no += 1;
+        emitted += 1;
+        state.partial.clear();
+    }
 
     writer.flush()?;
     Ok(if rotated { TickOutcome::Reset(emitted) } else { TickOutcome::Wrote(emitted) })
@@ -545,19 +557,40 @@ mod tests {
     }
 
     #[test]
-    fn partial_line_is_buffered_until_newline() {
+    fn first_tick_flushes_trailing_partial_as_last_line() {
+        // file with no trailing newline: "hello\nhello"
         let mut src = MemSource::new();
-        src.append(b"hello, ");
+        src.append(b"hello\nhello");
         let mut state = FollowState::new(20);
         let mut out = Vec::new();
 
-        // first tick: nothing complete, partial "hello, "
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Wrote(2));
+        assert_eq!(s(&out), "hello\nhello\n");
+        assert!(state.partial.is_empty());
+        assert_eq!(state.line_no, 3);
+    }
+
+    #[test]
+    fn partial_line_is_buffered_until_newline() {
+        let mut src = MemSource::new();
+        // seed with a complete line so the next tick reads from offset > 0
+        // (mid-line append semantics, not initial read semantics).
+        src.append(b"first\n");
+        let mut state = FollowState::new(20);
+        let mut out = Vec::new();
+
+        step_plain(&mut state, &mut src, &mut out);
+        out.clear();
+
+        // append a partial line (no newline) -- should be buffered.
+        src.append(b"hello, ");
         let r = step_plain(&mut state, &mut src, &mut out);
         assert_eq!(r, TickOutcome::Wrote(0));
         assert_eq!(out, b"");
         assert_eq!(state.partial, b"hello, ");
 
-        // second tick: append "world\n", now we get one full line
+        // append the rest of the line -- partial + new bytes form one full line.
         src.append(b"world\n");
         let r = step_plain(&mut state, &mut src, &mut out);
         assert_eq!(r, TickOutcome::Wrote(1));
@@ -675,17 +708,25 @@ mod tests {
         // point of a fixed-cost head check. document the behaviour so a
         // future reader doesn't try to "fix" it.
         let mut src = MemSource::new();
-        src.append(b"hello, ");
+        src.append(b"hello, "); // no trailing newline
         let mut state = FollowState::new(20);
         let mut out = Vec::new();
 
-        step_plain(&mut state, &mut src, &mut out); // partial line, no emit
+        // first tick: read_offset=0, so trailing partial "hello, " is flushed
+        // as a complete line (it's the file's last line, not a mid-line append).
+        let r = step_plain(&mut state, &mut src, &mut out);
+        assert_eq!(r, TickOutcome::Wrote(1));
+        assert_eq!(s(&out), "hello, \n");
+        assert!(state.partial.is_empty());
         out.clear();
 
+        // rewrite shares prefix "hello, " -- head fingerprint match treats it
+        // as append from offset 7, so we only get "world\n" (not the full
+        // "hello, world\n"). the terminal sees two lines: "hello, " + "world\n".
         src.rewrite_in_place(b"hello, world\n");
         let r = step_plain(&mut state, &mut src, &mut out);
         assert_eq!(r, TickOutcome::Wrote(1));
-        assert_eq!(s(&out), "hello, world\n");
+        assert_eq!(s(&out), "world\n");
     }
 
     #[test]
