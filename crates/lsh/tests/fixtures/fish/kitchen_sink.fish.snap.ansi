@@ -1,0 +1,183 @@
+[32m#!/usr/bin/env fish[m
+
+[32m# Comments[m
+[32m# This is a comment[m
+
+[32m# Numbers[m
+echo [92m42[m
+echo [92m3.14[m
+echo [92m-7[m
+echo [92m0xFF[m
+echo [92m0b1010[m
+echo [92m0o777[m
+echo [92m1.5e10[m
+
+[32m# Constants[m
+[94mtrue[m
+[94mfalse[m
+
+[32m# Single-quoted strings (no escapes, no interpolation)[m
+echo [91m'hello world'[m
+echo [91m'no $expansion here'[m
+echo [91m'no \n escapes either'[m
+
+[32m# Double-quoted strings (variable expansion + escapes)[m
+echo [91m"hello [m[96m$USER[m[91m"[m
+echo [91m"escaped \" quote"[m
+echo [91m"escaped \\ backslash"[m
+echo [91m"tab\there"[m
+echo [91m"value: [m[96m$argv[m[91m"[m
+
+[32m# Variables[m
+[94mset[m name [91m"world"[m
+[94mset[m -l local_var [92m42[m
+[94mset[m -g global_var [91m"hello"[m
+[94mset[m -x EXPORTED [91m"visible"[m
+[94mset[m -e old_var
+[94mset[m -S name
+[94mset[m list one two three
+echo [96m$name[m
+echo [96m$list[1][m
+echo [96m$list[2..3][m
+echo [96m$PATH[m
+
+[32m# Control flow[m
+[95mif[m [94mtest[m -f /etc/passwd
+    echo [91m"exists"[m
+[95melse[m [95mif[m [94mtest[m -d /tmp
+    echo [91m"tmp exists"[m
+[95melse[m
+    echo [91m"neither"[m
+[95mend[m
+
+[95mfor[m i [95min[m [92m1[m [92m2[m [92m3[m
+    echo [96m$i[m
+    [95mcontinue[m
+[95mend[m
+
+[95mwhile[m [94mtrue[m
+    [95mbreak[m
+[95mend[m
+
+[95mswitch[m [96m$argv[1][m
+    [95mcase[m start
+        echo [91m"starting"[m
+    [95mcase[m stop
+        echo [91m"stopping"[m
+    [95mcase[m [91m'*'[m
+        echo [91m"unknown"[m
+[95mend[m
+
+[32m# Begin/end blocks[m
+[95mbegin[m
+    [94mset[m -l scoped [91m"only here"[m
+    echo [96m$scoped[m
+[95mend[m
+
+[32m# Logical operators[m
+[94mtest[m -f /etc/passwd; [94mand[m echo [91m"yes"[m
+[94mtest[m -f /etc/passwd; [94mor[m echo [91m"no"[m
+[94mtest[m -f /etc/passwd && echo [91m"yes"[m
+[94mtest[m -f /etc/passwd || echo [91m"no"[m
+[94mnot[m [94mtest[m -f /nonexistent
+
+[32m# Command substitution[m
+[94mset[m [93mfiles[m (ls /tmp)
+[94mset[m [93mtoday[m (date +%Y-%m-%d)
+echo [91m"today is "[m(date +%Y-%m-%d)
+
+[32m# Functions[m
+[94mfunction [m[93mgreet[m
+    echo [91m"Hello, [m[96m$argv[m[91m[1]"[m
+    [95mreturn[m [92m0[m
+[95mend[m
+
+[94mfunction [m[93mcleanup[m --on-event fish_exit
+    echo [91m"bye"[m
+[95mend[m
+
+[94mfunction [m[93m__fish_helper[m --description [91m"private helper"[m
+    echo [91m"internal"[m
+[95mend[m
+
+greet [91m"fish"[m
+cleanup
+
+[32m# Builtins[m
+abbr -a gco [91m'git checkout'[m
+alias ll [91m'ls -la'[m
+cd /tmp
+echo [91m"hello"[m
+printf [91m"%s\n"[m [91m"hello"[m
+read -l -P [91m"name? "[m user_name
+[94msource[m /dev/null
+[94meval[m [91m'echo hi'[m
+[94mexec[m /bin/sh
+[94memit[m custom_event
+[94mbuiltin[m echo [91m"raw"[m
+[94mcommand[m ls
+[94mtest[m -f /etc/passwd
+[94mtime[m sleep [92m0[m
+
+[32m# Argument parsing[m
+[94mfunction [m[93mmy_cmd[m
+    [94margparse[m [91m'h/help'[m [91m'n/name='[m -- [96m$argv[m
+    [94mor[m [95mreturn[m
+    [95mif[m [94mset[m -q _flag_help
+        echo [91m"usage: my_cmd [-h] [-n NAME]"[m
+        [95mreturn[m [92m0[m
+    [95mend[m
+    echo [91m"name: [m[96m$_flag_name[m[91m"[m
+[95mend[m
+
+[32m# String operations[m
+string match -r [91m'^\d+$'[m [91m"123"[m
+string replace -a old new [91m"old string old"[m
+string split , [91m"a,b,c"[m
+string join \n one two three
+string length [91m"hello"[m
+string sub -s [92m2[m -l [92m3[m [91m"hello"[m
+string trim [91m"  hello  "[m
+
+[32m# Math[m
+math [91m"2 + 3"[m
+math [91m"sqrt(144)"[m
+
+[32m# Status[m
+status is-interactive
+status filename
+
+[32m# Redirections[m
+echo [91m"out"[m > /dev/null
+echo [91m"append"[m >> /tmp/log
+echo [91m"stderr"[m [92m2[m>/dev/null
+echo [91m"both"[m &>/dev/null
+
+[32m# Pipelines[m
+echo hello | cat
+ls | string match [91m'*.txt'[m
+
+[32m# Path manipulation[m
+fish_add_path /usr/local/bin
+[94mset[m -a PATH /opt/bin
+
+[32m# Completions[m
+complete -c my_cmd -s h -l help -d [91m"Show help"[m
+complete -c my_cmd -s n -l name -r -d [91m"Set name"[m
+
+[32m# Event handlers[m
+[94mfunction [m[93mon_var_change[m --on-variable MY_VAR
+    echo [91m"MY_VAR changed to [m[96m$MY_VAR[m[91m"[m
+[95mend[m
+
+[32m# Jobs[m
+sleep [92m10[m &
+jobs
+fg
+bg
+wait
+disown
+
+[32m# Exit[m
+exit [92m0[m
+
