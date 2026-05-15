@@ -438,6 +438,22 @@ impl<'a> RegexParser<'a> {
             }
         }
 
+        // Inside `(?i:...)`, expand the charset to cover both cases of every
+        // ASCII letter. Do this *before* negation so `(?i:[^a])` excludes both
+        // `a` and `A` rather than excluding `a` and including `A`.
+        if self.case_insensitive {
+            for b in b'A'..=b'Z' {
+                if charset.get(b) {
+                    charset.set(b.to_ascii_lowercase(), true);
+                }
+            }
+            for b in b'a'..=b'z' {
+                if charset.get(b) {
+                    charset.set(b.to_ascii_uppercase(), true);
+                }
+            }
+        }
+
         if negated {
             charset.invert();
         }
@@ -562,15 +578,28 @@ impl<'a, 'c> CodeGen<'a, 'c> {
             }
 
             Regex::Alt(alts) => {
+                // Save the input offset at Alt entry so each alt can rewind
+                // on failure (alternation backtracking). Without this, a
+                // Concat alt like `0[xX]` that partially matches (consumes
+                // `0`) before failing would leave the next alt starting at
+                // the wrong offset, breaking patterns such as `0[xX]|0[bB]`.
+                let off_reg = self.compiler.get_reg(Register::InputOffset);
+                let save_reg = self.compiler.alloc_vreg();
+
                 let mut current_fail = on_fail;
 
                 // We iterate in reverse because of continuation-passing style,
                 // as explained in the module doc.
                 for alt in alts.iter().rev() {
-                    current_fail = self.emit(alt, on_match, current_fail)?;
+                    let restore =
+                        self.compiler.alloc_iri(IRI::Mov { dst: off_reg, src: save_reg });
+                    restore.borrow_mut().next = Some(current_fail);
+                    current_fail = self.emit(alt, on_match, restore)?;
                 }
 
-                Ok(current_fail)
+                let save = self.compiler.alloc_iri(IRI::Mov { dst: save_reg, src: off_reg });
+                save.borrow_mut().next = Some(current_fail);
+                Ok(save)
             }
 
             Regex::Repeat { inner, min, max } => {
