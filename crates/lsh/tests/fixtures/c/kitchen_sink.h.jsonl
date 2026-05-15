@@ -1,0 +1,309 @@
+{"line":1,"kind":"comment","text":"// Line comment"}
+{"line":2,"kind":"comment","text":"/* Single-line block comment */"}
+{"line":3,"kind":"comment","text":"/* Multi-line"}
+{"line":4,"kind":"comment","text":"   block comment"}
+{"line":5,"kind":"comment","text":"   continues here */"}
+{"line":7,"kind":"keyword.other","text":"#ifndef"}
+{"line":7,"kind":"other","text":" KITCHEN_SINK_H_"}
+{"line":8,"kind":"keyword.other","text":"#define"}
+{"line":8,"kind":"other","text":" KITCHEN_SINK_H_"}
+{"line":10,"kind":"keyword.other","text":"#include"}
+{"line":10,"kind":"other","text":" <stdio.h>"}
+{"line":11,"kind":"keyword.other","text":"#include"}
+{"line":11,"kind":"other","text":" <stdint.h>"}
+{"line":12,"kind":"keyword.other","text":"#include"}
+{"line":12,"kind":"other","text":" <stdbool.h>"}
+{"line":13,"kind":"keyword.other","text":"#include"}
+{"line":13,"kind":"other","text":" "}
+{"line":13,"kind":"string","text":"\"local_header.h\""}
+{"line":15,"kind":"keyword.other","text":"#ifdef"}
+{"line":15,"kind":"other","text":" _WIN32"}
+{"line":16,"kind":"keyword.other","text":"#  include"}
+{"line":16,"kind":"other","text":" <windows.h>"}
+{"line":17,"kind":"keyword.other","text":"#endif"}
+{"line":19,"kind":"keyword.other","text":"#if"}
+{"line":19,"kind":"other","text":" "}
+{"line":19,"kind":"keyword.other","text":"defined"}
+{"line":19,"kind":"other","text":"(__GNUC__) || "}
+{"line":19,"kind":"keyword.other","text":"defined"}
+{"line":19,"kind":"other","text":"(__clang__)"}
+{"line":20,"kind":"keyword.other","text":"#  define"}
+{"line":20,"kind":"other","text":" "}
+{"line":20,"kind":"method","text":"NOB_PRINTF_FORMAT"}
+{"line":20,"kind":"other","text":"(a, b) "}
+{"line":20,"kind":"method","text":"__attribute__"}
+{"line":20,"kind":"other","text":"(("}
+{"line":20,"kind":"method","text":"format"}
+{"line":20,"kind":"other","text":"(printf, a, b)))"}
+{"line":21,"kind":"keyword.other","text":"#else"}
+{"line":22,"kind":"keyword.other","text":"#  define"}
+{"line":22,"kind":"other","text":" "}
+{"line":22,"kind":"method","text":"NOB_PRINTF_FORMAT"}
+{"line":22,"kind":"other","text":"(a, b)"}
+{"line":23,"kind":"keyword.other","text":"#endif"}
+{"line":25,"kind":"keyword.other","text":"#define"}
+{"line":25,"kind":"other","text":" "}
+{"line":25,"kind":"method","text":"NOB_ARRAY_LEN"}
+{"line":25,"kind":"other","text":"(arr) ("}
+{"line":25,"kind":"keyword.other","text":"sizeof"}
+{"line":25,"kind":"other","text":"(arr) / "}
+{"line":25,"kind":"keyword.other","text":"sizeof"}
+{"line":25,"kind":"other","text":"((arr)["}
+{"line":25,"kind":"constant.numeric","text":"0"}
+{"line":25,"kind":"other","text":"]))"}
+{"line":26,"kind":"keyword.other","text":"#define"}
+{"line":26,"kind":"other","text":" "}
+{"line":26,"kind":"method","text":"NOB_UNUSED"}
+{"line":26,"kind":"other","text":"(x)      (("}
+{"line":26,"kind":"storage.type","text":"void"}
+{"line":26,"kind":"other","text":")(x))"}
+{"line":27,"kind":"keyword.other","text":"#define"}
+{"line":27,"kind":"other","text":" NOB_ASSERT         assert"}
+{"line":28,"kind":"keyword.other","text":"#define"}
+{"line":28,"kind":"other","text":" "}
+{"line":28,"kind":"method","text":"NOB_VA"}
+{"line":28,"kind":"other","text":"(...)        "}
+{"line":28,"kind":"constant.language","text":"__VA_ARGS__"}
+{"line":30,"kind":"comment","text":"// Numeric literals"}
+{"line":31,"kind":"storage.type","text":"int"}
+{"line":31,"kind":"other","text":" dec       = "}
+{"line":31,"kind":"constant.numeric","text":"42"}
+{"line":31,"kind":"other","text":";"}
+{"line":32,"kind":"storage.type","text":"int"}
+{"line":32,"kind":"other","text":" hex       = "}
+{"line":32,"kind":"constant.numeric","text":"0xFF"}
+{"line":32,"kind":"other","text":";"}
+{"line":33,"kind":"storage.type","text":"int"}
+{"line":33,"kind":"other","text":" oct       = "}
+{"line":33,"kind":"constant.numeric","text":"0755"}
+{"line":33,"kind":"other","text":";"}
+{"line":34,"kind":"storage.type","text":"int"}
+{"line":34,"kind":"other","text":" bin       = "}
+{"line":34,"kind":"constant.numeric","text":"0b1010"}
+{"line":34,"kind":"other","text":";"}
+{"line":35,"kind":"keyword.other","text":"unsigned"}
+{"line":35,"kind":"other","text":" "}
+{"line":35,"kind":"storage.type","text":"long"}
+{"line":35,"kind":"other","text":" big = "}
+{"line":35,"kind":"constant.numeric","text":"1000000000UL"}
+{"line":35,"kind":"other","text":";"}
+{"line":36,"kind":"storage.type","text":"float"}
+{"line":36,"kind":"other","text":" pi      = "}
+{"line":36,"kind":"constant.numeric","text":"3.14f"}
+{"line":36,"kind":"other","text":";"}
+{"line":37,"kind":"storage.type","text":"double"}
+{"line":37,"kind":"other","text":" avo    = "}
+{"line":37,"kind":"constant.numeric","text":"6.022e23"}
+{"line":37,"kind":"other","text":";"}
+{"line":38,"kind":"storage.type","text":"double"}
+{"line":38,"kind":"other","text":" hexf   = "}
+{"line":38,"kind":"constant.numeric","text":"0x1.8p+1"}
+{"line":38,"kind":"other","text":";"}
+{"line":40,"kind":"comment","text":"// Char literals"}
+{"line":41,"kind":"storage.type","text":"char"}
+{"line":41,"kind":"other","text":" a    = "}
+{"line":41,"kind":"string","text":"'a'"}
+{"line":41,"kind":"other","text":";"}
+{"line":42,"kind":"storage.type","text":"char"}
+{"line":42,"kind":"other","text":" nl   = "}
+{"line":42,"kind":"string","text":"'\\n'"}
+{"line":42,"kind":"other","text":";"}
+{"line":43,"kind":"storage.type","text":"char"}
+{"line":43,"kind":"other","text":" zero = "}
+{"line":43,"kind":"string","text":"'\\0'"}
+{"line":43,"kind":"other","text":";"}
+{"line":44,"kind":"storage.type","text":"char"}
+{"line":44,"kind":"other","text":" hex_c = "}
+{"line":44,"kind":"string","text":"'\\x1b'"}
+{"line":44,"kind":"other","text":";"}
+{"line":45,"kind":"storage.type","text":"char"}
+{"line":45,"kind":"other","text":" esc  = "}
+{"line":45,"kind":"string","text":"'\\\\'"}
+{"line":45,"kind":"other","text":";"}
+{"line":47,"kind":"comment","text":"// String literals (with prefixes)"}
+{"line":48,"kind":"keyword.other","text":"const"}
+{"line":48,"kind":"other","text":" "}
+{"line":48,"kind":"storage.type","text":"char"}
+{"line":48,"kind":"other","text":"     *s     = "}
+{"line":48,"kind":"string","text":"\"hello, world\""}
+{"line":48,"kind":"other","text":";"}
+{"line":49,"kind":"keyword.other","text":"const"}
+{"line":49,"kind":"other","text":" "}
+{"line":49,"kind":"storage.type","text":"char"}
+{"line":49,"kind":"other","text":"     *multi = "}
+{"line":49,"kind":"string","text":"\"line\\nbreak \\\"escaped\\\"\""}
+{"line":49,"kind":"other","text":";"}
+{"line":50,"kind":"keyword.other","text":"const"}
+{"line":50,"kind":"other","text":" "}
+{"line":50,"kind":"storage.type","text":"wchar_t"}
+{"line":50,"kind":"other","text":"  *w     = L"}
+{"line":50,"kind":"string","text":"\"wide\""}
+{"line":50,"kind":"other","text":";"}
+{"line":51,"kind":"keyword.other","text":"const"}
+{"line":51,"kind":"other","text":" "}
+{"line":51,"kind":"storage.type","text":"char"}
+{"line":51,"kind":"other","text":"     *u8s   = u8"}
+{"line":51,"kind":"string","text":"\"utf-8\""}
+{"line":51,"kind":"other","text":";"}
+{"line":52,"kind":"keyword.other","text":"const"}
+{"line":52,"kind":"other","text":" char16_t *u16s  = u"}
+{"line":52,"kind":"string","text":"\"utf-16\""}
+{"line":52,"kind":"other","text":";"}
+{"line":53,"kind":"keyword.other","text":"const"}
+{"line":53,"kind":"other","text":" char32_t *u32s  = U"}
+{"line":53,"kind":"string","text":"\"utf-32\""}
+{"line":53,"kind":"other","text":";"}
+{"line":55,"kind":"comment","text":"// Char literals (with prefixes and longer escapes)"}
+{"line":56,"kind":"storage.type","text":"char"}
+{"line":56,"kind":"other","text":" esc_x   = "}
+{"line":56,"kind":"string","text":"'\\x1b'"}
+{"line":56,"kind":"other","text":";"}
+{"line":57,"kind":"storage.type","text":"char"}
+{"line":57,"kind":"other","text":" esc_oct = "}
+{"line":57,"kind":"string","text":"'\\012'"}
+{"line":57,"kind":"other","text":";"}
+{"line":58,"kind":"storage.type","text":"wchar_t"}
+{"line":58,"kind":"other","text":" wc   = L"}
+{"line":58,"kind":"string","text":"'\\xFF'"}
+{"line":58,"kind":"other","text":";"}
+{"line":60,"kind":"comment","text":"// Types and qualifiers"}
+{"line":61,"kind":"keyword.other","text":"typedef"}
+{"line":61,"kind":"other","text":" "}
+{"line":61,"kind":"keyword.other","text":"struct"}
+{"line":61,"kind":"other","text":" Nob_Cmd {"}
+{"line":62,"kind":"other","text":"    "}
+{"line":62,"kind":"keyword.other","text":"const"}
+{"line":62,"kind":"other","text":" "}
+{"line":62,"kind":"storage.type","text":"char"}
+{"line":62,"kind":"other","text":" **items;"}
+{"line":63,"kind":"other","text":"    "}
+{"line":63,"kind":"storage.type","text":"size_t"}
+{"line":63,"kind":"other","text":"       count;"}
+{"line":64,"kind":"other","text":"    "}
+{"line":64,"kind":"storage.type","text":"size_t"}
+{"line":64,"kind":"other","text":"       capacity;"}
+{"line":65,"kind":"other","text":"} Nob_Cmd;"}
+{"line":67,"kind":"keyword.other","text":"typedef"}
+{"line":67,"kind":"other","text":" "}
+{"line":67,"kind":"keyword.other","text":"enum"}
+{"line":67,"kind":"other","text":" {"}
+{"line":68,"kind":"other","text":"    NOB_INFO = "}
+{"line":68,"kind":"constant.numeric","text":"0"}
+{"line":68,"kind":"other","text":","}
+{"line":69,"kind":"other","text":"    NOB_WARNING,"}
+{"line":70,"kind":"other","text":"    NOB_ERROR,"}
+{"line":71,"kind":"other","text":"} Nob_Log_Level;"}
+{"line":73,"kind":"comment","text":"// Function declaration with attribute"}
+{"line":74,"kind":"method","text":"__attribute__"}
+{"line":74,"kind":"other","text":"((deprecated))"}
+{"line":75,"kind":"keyword.other","text":"static"}
+{"line":75,"kind":"other","text":" "}
+{"line":75,"kind":"keyword.other","text":"inline"}
+{"line":75,"kind":"other","text":" "}
+{"line":75,"kind":"storage.type","text":"int"}
+{"line":75,"kind":"other","text":" "}
+{"line":75,"kind":"method","text":"nob_cmd_run"}
+{"line":75,"kind":"other","text":"(Nob_Cmd *cmd, "}
+{"line":75,"kind":"storage.type","text":"bool"}
+{"line":75,"kind":"other","text":" async) {"}
+{"line":76,"kind":"other","text":"    "}
+{"line":76,"kind":"keyword.control","text":"if"}
+{"line":76,"kind":"other","text":" (cmd == "}
+{"line":76,"kind":"constant.language","text":"NULL"}
+{"line":76,"kind":"other","text":") "}
+{"line":76,"kind":"keyword.control","text":"return"}
+{"line":76,"kind":"other","text":" "}
+{"line":76,"kind":"constant.numeric","text":"-1"}
+{"line":76,"kind":"other","text":";"}
+{"line":77,"kind":"other","text":"    "}
+{"line":77,"kind":"keyword.control","text":"for"}
+{"line":77,"kind":"other","text":" ("}
+{"line":77,"kind":"storage.type","text":"size_t"}
+{"line":77,"kind":"other","text":" i = "}
+{"line":77,"kind":"constant.numeric","text":"0"}
+{"line":77,"kind":"other","text":"; i < cmd->count; ++i) {"}
+{"line":78,"kind":"other","text":"        "}
+{"line":78,"kind":"method","text":"printf"}
+{"line":78,"kind":"other","text":"("}
+{"line":78,"kind":"string","text":"\"%s \""}
+{"line":78,"kind":"other","text":", cmd->items[i]);"}
+{"line":79,"kind":"other","text":"    }"}
+{"line":80,"kind":"other","text":"    "}
+{"line":80,"kind":"keyword.control","text":"return"}
+{"line":80,"kind":"other","text":" "}
+{"line":80,"kind":"constant.numeric","text":"0"}
+{"line":80,"kind":"other","text":";"}
+{"line":81,"kind":"other","text":"}"}
+{"line":83,"kind":"comment","text":"// Compound literal (C99)"}
+{"line":84,"kind":"other","text":"Nob_Cmd empty_cmd = (Nob_Cmd){"}
+{"line":84,"kind":"constant.numeric","text":"0"}
+{"line":84,"kind":"other","text":"};"}
+{"line":86,"kind":"comment","text":"// Control flow"}
+{"line":87,"kind":"storage.type","text":"void"}
+{"line":87,"kind":"other","text":" "}
+{"line":87,"kind":"method","text":"demo"}
+{"line":87,"kind":"other","text":"("}
+{"line":87,"kind":"storage.type","text":"int"}
+{"line":87,"kind":"other","text":" x) {"}
+{"line":88,"kind":"other","text":"    "}
+{"line":88,"kind":"keyword.control","text":"switch"}
+{"line":88,"kind":"other","text":" (x) {"}
+{"line":89,"kind":"other","text":"        "}
+{"line":89,"kind":"keyword.control","text":"case"}
+{"line":89,"kind":"other","text":" "}
+{"line":89,"kind":"constant.numeric","text":"1"}
+{"line":89,"kind":"other","text":":  "}
+{"line":89,"kind":"keyword.control","text":"break"}
+{"line":89,"kind":"other","text":";"}
+{"line":90,"kind":"other","text":"        "}
+{"line":90,"kind":"keyword.control","text":"case"}
+{"line":90,"kind":"other","text":" "}
+{"line":90,"kind":"constant.numeric","text":"2"}
+{"line":90,"kind":"other","text":":  "}
+{"line":90,"kind":"keyword.control","text":"goto"}
+{"line":90,"kind":"other","text":" end;"}
+{"line":91,"kind":"other","text":"        "}
+{"line":91,"kind":"keyword.control","text":"default"}
+{"line":91,"kind":"other","text":": x = "}
+{"line":91,"kind":"constant.numeric","text":"-1"}
+{"line":91,"kind":"other","text":";"}
+{"line":92,"kind":"other","text":"    }"}
+{"line":93,"kind":"other","text":"    "}
+{"line":93,"kind":"keyword.control","text":"do"}
+{"line":93,"kind":"other","text":" { x++; } "}
+{"line":93,"kind":"keyword.control","text":"while"}
+{"line":93,"kind":"other","text":" (x < "}
+{"line":93,"kind":"constant.numeric","text":"10"}
+{"line":93,"kind":"other","text":");"}
+{"line":94,"kind":"other","text":"    "}
+{"line":94,"kind":"keyword.control","text":"for"}
+{"line":94,"kind":"other","text":" ("}
+{"line":94,"kind":"storage.type","text":"int"}
+{"line":94,"kind":"other","text":" i = "}
+{"line":94,"kind":"constant.numeric","text":"0"}
+{"line":94,"kind":"other","text":"; i < "}
+{"line":94,"kind":"constant.numeric","text":"10"}
+{"line":94,"kind":"other","text":"; ++i) {"}
+{"line":95,"kind":"other","text":"        "}
+{"line":95,"kind":"keyword.control","text":"if"}
+{"line":95,"kind":"other","text":" (i == "}
+{"line":95,"kind":"constant.numeric","text":"5"}
+{"line":95,"kind":"other","text":") "}
+{"line":95,"kind":"keyword.control","text":"continue"}
+{"line":95,"kind":"other","text":";"}
+{"line":96,"kind":"other","text":"        "}
+{"line":96,"kind":"keyword.control","text":"if"}
+{"line":96,"kind":"other","text":" (i == "}
+{"line":96,"kind":"constant.numeric","text":"8"}
+{"line":96,"kind":"other","text":") "}
+{"line":96,"kind":"keyword.control","text":"return"}
+{"line":96,"kind":"other","text":";"}
+{"line":97,"kind":"other","text":"    }"}
+{"line":98,"kind":"other","text":"end:"}
+{"line":99,"kind":"other","text":"    "}
+{"line":99,"kind":"keyword.control","text":"return"}
+{"line":99,"kind":"other","text":";"}
+{"line":100,"kind":"other","text":"}"}
+{"line":102,"kind":"keyword.other","text":"#endif"}
+{"line":102,"kind":"other","text":" "}
+{"line":102,"kind":"comment","text":"// KITCHEN_SINK_H_"}

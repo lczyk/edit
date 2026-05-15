@@ -1,0 +1,103 @@
+[32m// Line comment[m
+[32m/* Single-line block comment */[m
+[32m/* Multi-line[m
+[32m   block comment[m
+[32m   continues here */[m
+
+[94m#ifndef[m KITCHEN_SINK_H_
+[94m#define[m KITCHEN_SINK_H_
+
+[94m#include[m <stdio.h>
+[94m#include[m <stdint.h>
+[94m#include[m <stdbool.h>
+[94m#include[m [91m"local_header.h"[m
+
+[94m#ifdef[m _WIN32
+[94m#  include[m <windows.h>
+[94m#endif[m
+
+[94m#if[m [94mdefined[m(__GNUC__) || [94mdefined[m(__clang__)
+[94m#  define[m [93mNOB_PRINTF_FORMAT[m(a, b) [93m__attribute__[m(([93mformat[m(printf, a, b)))
+[94m#else[m
+[94m#  define[m [93mNOB_PRINTF_FORMAT[m(a, b)
+[94m#endif[m
+
+[94m#define[m [93mNOB_ARRAY_LEN[m(arr) ([94msizeof[m(arr) / [94msizeof[m((arr)[[92m0[m]))
+[94m#define[m [93mNOB_UNUSED[m(x)      (([36mvoid[m)(x))
+[94m#define[m NOB_ASSERT         assert
+[94m#define[m [93mNOB_VA[m(...)        [94m__VA_ARGS__[m
+
+[32m// Numeric literals[m
+[36mint[m dec       = [92m42[m;
+[36mint[m hex       = [92m0xFF[m;
+[36mint[m oct       = [92m0755[m;
+[36mint[m bin       = [92m0b1010[m;
+[94munsigned[m [36mlong[m big = [92m1000000000UL[m;
+[36mfloat[m pi      = [92m3.14f[m;
+[36mdouble[m avo    = [92m6.022e23[m;
+[36mdouble[m hexf   = [92m0x1.8p+1[m;
+
+[32m// Char literals[m
+[36mchar[m a    = [91m'a'[m;
+[36mchar[m nl   = [91m'\n'[m;
+[36mchar[m zero = [91m'\0'[m;
+[36mchar[m hex_c = [91m'\x1b'[m;
+[36mchar[m esc  = [91m'\\'[m;
+
+[32m// String literals (with prefixes)[m
+[94mconst[m [36mchar[m     *s     = [91m"hello, world"[m;
+[94mconst[m [36mchar[m     *multi = [91m"line\nbreak \"escaped\""[m;
+[94mconst[m [36mwchar_t[m  *w     = L[91m"wide"[m;
+[94mconst[m [36mchar[m     *u8s   = u8[91m"utf-8"[m;
+[94mconst[m char16_t *u16s  = u[91m"utf-16"[m;
+[94mconst[m char32_t *u32s  = U[91m"utf-32"[m;
+
+[32m// Char literals (with prefixes and longer escapes)[m
+[36mchar[m esc_x   = [91m'\x1b'[m;
+[36mchar[m esc_oct = [91m'\012'[m;
+[36mwchar_t[m wc   = L[91m'\xFF'[m;
+
+[32m// Types and qualifiers[m
+[94mtypedef[m [94mstruct[m Nob_Cmd {
+    [94mconst[m [36mchar[m **items;
+    [36msize_t[m       count;
+    [36msize_t[m       capacity;
+} Nob_Cmd;
+
+[94mtypedef[m [94menum[m {
+    NOB_INFO = [92m0[m,
+    NOB_WARNING,
+    NOB_ERROR,
+} Nob_Log_Level;
+
+[32m// Function declaration with attribute[m
+[93m__attribute__[m((deprecated))
+[94mstatic[m [94minline[m [36mint[m [93mnob_cmd_run[m(Nob_Cmd *cmd, [36mbool[m async) {
+    [95mif[m (cmd == [94mNULL[m) [95mreturn[m [92m-1[m;
+    [95mfor[m ([36msize_t[m i = [92m0[m; i < cmd->count; ++i) {
+        [93mprintf[m([91m"%s "[m, cmd->items[i]);
+    }
+    [95mreturn[m [92m0[m;
+}
+
+[32m// Compound literal (C99)[m
+Nob_Cmd empty_cmd = (Nob_Cmd){[92m0[m};
+
+[32m// Control flow[m
+[36mvoid[m [93mdemo[m([36mint[m x) {
+    [95mswitch[m (x) {
+        [95mcase[m [92m1[m:  [95mbreak[m;
+        [95mcase[m [92m2[m:  [95mgoto[m end;
+        [95mdefault[m: x = [92m-1[m;
+    }
+    [95mdo[m { x++; } [95mwhile[m (x < [92m10[m);
+    [95mfor[m ([36mint[m i = [92m0[m; i < [92m10[m; ++i) {
+        [95mif[m (i == [92m5[m) [95mcontinue[m;
+        [95mif[m (i == [92m8[m) [95mreturn[m;
+    }
+end:
+    [95mreturn[m;
+}
+
+[94m#endif[m [32m// KITCHEN_SINK_H_[m
+

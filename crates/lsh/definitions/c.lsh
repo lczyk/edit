@@ -1,0 +1,53 @@
+#[display_name = "C"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
+#[path = "**/*.c"]
+#[path = "**/*.h"]
+#[path = "**/*.i"]
+pub fn c() {
+    until /$/ {
+        yield other;
+
+        if /\/\/.*/ {
+            yield comment;
+        } else if /\/\*/ {
+            loop {
+                yield comment;
+                if /\*\// { yield comment; break; }
+                await input;
+            }
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /'(?:\\(?:[xuU][\da-fA-F]+|[0-7]+|.)|[^'\\])'/ {
+            yield string;
+        } else if /#\s*(?:include|define|undef|ifdef|ifndef|elifdef|elifndef|if|elif|else|endif|pragma|error|warning|line|embed)\>/ {
+            yield keyword.other;
+        } else if /(?:break|case|continue|default|do|else|for|goto|if|return|switch|while)\>/ {
+            yield keyword.control;
+        } else if /(?:_Alignas|_Alignof|_Atomic|_Generic|_Noreturn|_Static_assert|_Thread_local|alignas|alignof|auto|const|constexpr|defined|enum|extern|inline|register|restrict|signed|sizeof|static|static_assert|struct|thread_local|typedef|typeof|typeof_unqual|union|unsigned|volatile)\>/ {
+            yield keyword.other;
+        } else if /(?:_Bool|_Complex|_Imaginary|bool|char|double|float|int|long|nullptr_t|ptrdiff_t|short|size_t|ssize_t|u?int(?:8|16|32|64|_fast8|_fast16|_fast32|_fast64|_least8|_least16|_least32|_least64|max|ptr)_t|uintptr_t|void|wchar_t)\>/ {
+            yield storage.type;
+        } else if /(?:NULL|true|false|nullptr|__func__|__FILE__|__LINE__|__VA_ARGS__|__VA_OPT__)\>/ {
+            yield constant.language;
+        } else if /-?(?i:(?:0x[\da-f][\da-f_]*(?:\.[\da-f_]*)?(?:p[+-]?\d+)?|0b[01][01_]*|0[0-7][0-7_]*|\d[\d_]*\.?[\d_]*|\.\d[\d_]*)(?:e[+-]?\d[\d_]*)?[ful]*)/ {
+            if /\w+/ {
+                // Invalid numeric literal
+            } else {
+                yield constant.numeric;
+            }
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+            // Gobble word chars to align the next iteration on a word boundary.
+        }
+
+        yield other;
+    }
+}

@@ -27,6 +27,7 @@ include!(concat!(env!("OUT_DIR"), "/language_enum.rs"));
 fn fixture_subdir(lang: Language) -> &'static str {
     match lang {
         Language::Awk => "awk",
+        Language::C => "c",
         Language::Diff => "diff",
         Language::Dockerfile => "dockerfile",
         Language::Fish => "fish",
