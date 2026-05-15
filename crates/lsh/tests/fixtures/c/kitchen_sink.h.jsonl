@@ -136,22 +136,22 @@
 {"line":50,"kind":"keyword.other","text":"const"}
 {"line":50,"kind":"other","text":" "}
 {"line":50,"kind":"storage.type","text":"wchar_t"}
-{"line":50,"kind":"other","text":"  *w     = L"}
-{"line":50,"kind":"string","text":"\"wide\""}
+{"line":50,"kind":"other","text":"  *w     = "}
+{"line":50,"kind":"string","text":"L\"wide\""}
 {"line":50,"kind":"other","text":";"}
 {"line":51,"kind":"keyword.other","text":"const"}
 {"line":51,"kind":"other","text":" "}
 {"line":51,"kind":"storage.type","text":"char"}
-{"line":51,"kind":"other","text":"     *u8s   = u8"}
-{"line":51,"kind":"string","text":"\"utf-8\""}
+{"line":51,"kind":"other","text":"     *u8s   = "}
+{"line":51,"kind":"string","text":"u8\"utf-8\""}
 {"line":51,"kind":"other","text":";"}
 {"line":52,"kind":"keyword.other","text":"const"}
-{"line":52,"kind":"other","text":" char16_t *u16s  = u"}
-{"line":52,"kind":"string","text":"\"utf-16\""}
+{"line":52,"kind":"other","text":" char16_t *u16s  = "}
+{"line":52,"kind":"string","text":"u\"utf-16\""}
 {"line":52,"kind":"other","text":";"}
 {"line":53,"kind":"keyword.other","text":"const"}
-{"line":53,"kind":"other","text":" char32_t *u32s  = U"}
-{"line":53,"kind":"string","text":"\"utf-32\""}
+{"line":53,"kind":"other","text":" char32_t *u32s  = "}
+{"line":53,"kind":"string","text":"U\"utf-32\""}
 {"line":53,"kind":"other","text":";"}
 {"line":55,"kind":"comment","text":"// Char literals (with prefixes and longer escapes)"}
 {"line":56,"kind":"storage.type","text":"char"}
@@ -163,8 +163,8 @@
 {"line":57,"kind":"string","text":"'\\012'"}
 {"line":57,"kind":"other","text":";"}
 {"line":58,"kind":"storage.type","text":"wchar_t"}
-{"line":58,"kind":"other","text":" wc   = L"}
-{"line":58,"kind":"string","text":"'\\xFF'"}
+{"line":58,"kind":"other","text":" wc   = "}
+{"line":58,"kind":"string","text":"L'\\xFF'"}
 {"line":58,"kind":"other","text":";"}
 {"line":60,"kind":"comment","text":"// Types and qualifiers"}
 {"line":61,"kind":"keyword.other","text":"typedef"}

@@ -17,14 +17,15 @@ pub fn c() {
                 if /\*\// { yield comment; break; }
                 await input;
             }
-        } else if /"/ {
+        } else if /(?:L|u8|u|U)?"/ {
+            yield string;
             until /$/ {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
                 await input;
             }
-        } else if /'(?:\\(?:[xuU][\da-fA-F]+|[0-7]+|.)|[^'\\])'/ {
+        } else if /(?:L|u|U)?'(?:\\(?:[xuU][\da-fA-F]+|[0-7]+|.)|[^'\\])'/ {
             yield string;
         } else if /#\s*(?:include|define|undef|ifdef|ifndef|elifdef|elifndef|if|elif|else|endif|pragma|error|warning|line|embed)\>/ {
             yield keyword.other;
