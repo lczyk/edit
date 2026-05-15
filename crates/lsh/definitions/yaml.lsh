@@ -13,7 +13,7 @@ pub fn yaml() {
         if /-\s+/ {
             // List item
         }
-        if /\w+:(?:\s+|$)/ {
+        if /[\w-]+:(?:\s+|$)/ {
             // Key: (Value follows)
         }
 
