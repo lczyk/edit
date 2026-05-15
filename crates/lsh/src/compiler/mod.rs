@@ -18,7 +18,6 @@ use std::path::Path;
 
 use stdext::arena::Arena;
 use stdext::collections::BString;
-use stdext::opt_ptr_eq;
 
 pub use self::charset::{Charset, SerializedCharset};
 use self::frontend::*;
@@ -145,55 +144,46 @@ impl<'a> Compiler<'a> {
 
     /// Collect all "interesting" characters from conditions in a loop body.
     /// Returns a charset where true = interesting character that should be checked.
+    ///
+    /// Traverses only `.next` (the failure / fall-through chain), never `.then`.
+    /// For fast-skip we only care about the FIRST char any condition can react
+    /// to, and the first-char checks are always reached via the failure chain
+    /// (since matching one always advances past it via `.then` into deeper
+    /// match steps or block code). Following `.then` would also drag in the
+    /// inverted-charset If of any nested loop's own fast-skip, which would
+    /// pollute the outer charset and defeat the optimisation.
+    ///
+    /// A previous implementation used `iter.skip_node(then)` for the same
+    /// purpose, but that permanently marked the target as visited even when
+    /// it was independently reachable via some later node's `.next`. That
+    /// broke patterns like `(?:L|U)?"` whose `"` literal is reached via the
+    /// final alt's failure chain -- the `"` never made it into the
+    /// interesting set, so fast-skip would gobble strings entirely.
     fn collect_interesting_charset(&self, loop_body: IRCell<'a>) -> Charset {
-        let mut iter = self.visit_nodes_from(loop_body);
         let mut charset = Charset::no();
+        let mut visited: HashSet<*const RefCell<IR<'a>>> = Default::default();
+        let mut stack: VecDeque<IRCell<'a>> = VecDeque::new();
+        stack.push_back(loop_body);
 
-        #[allow(clippy::while_let_loop)]
-        loop {
-            // Can't use `while let`, because that borrows `iter`
-            // and that prevents us from calling `skip_node()`.
-            let Some(node) = iter.next() else {
-                break;
-            };
+        while let Some(cell) = stack.pop_front() {
+            if !visited.insert(cell as *const _) {
+                continue;
+            }
 
-            let node = node.borrow();
-            if let IRI::If { condition, then } = node.instr {
-                // For the purpose of computing fast-skips the contents of if conditions are irrelevant,
-                // so skip the subtree. This is actually quite important. This this as an example:
-                //   loop {
-                //     if /a/ {
-                //       loop {
-                //         if /b/ {
-                //         }
-                //       }
-                //     }
-                //   }
-                // The inverted charset of the inner /b/ includes "a". If we merge that into the outer
-                // loop's charset we get one that covers all characters, making fast-skips impossible.
-                // --> Skip the "then" subtree.
-                //
-                // HOWEVER, imagine a condition like this:
-                //   if /a?b/ {}
-                // This compiles to something like:
-                //   if "a"
-                //     .then -> if "b" {}
-                //     .else -> if "b" {}      (aka: .next)
-                // In other words, "then" and "next" point to the same thing.
-                // --> Only skip "then" if it's not the same as "next".
-                if !opt_ptr_eq(Some(then), node.next) {
-                    iter.skip_node(then);
-                }
+            let node = cell.borrow();
 
+            if let Some(next) = node.next {
+                stack.push_back(next);
+            }
+
+            if let IRI::If { condition, .. } = node.instr {
                 match condition {
                     Condition::Cmp { .. } => {}
                     Condition::EndOfLine => {}
                     Condition::Charset { cs, .. } => {
-                        // Merge this charset
                         charset.merge(cs);
                     }
                     Condition::Prefix(s) | Condition::PrefixInsensitive(s) => {
-                        // First character of the prefix is interesting
                         if let Some(&b) = s.as_bytes().first() {
                             charset.set(b, true);
                             if matches!(condition, Condition::PrefixInsensitive(_)) {
@@ -344,12 +334,6 @@ struct TreeVisitor<'a> {
     current: Option<IRCell<'a>>,
     stack: VecDeque<IRCell<'a>>,
     visited: HashSet<*const RefCell<IR<'a>>>,
-}
-
-impl<'a> TreeVisitor<'a> {
-    fn skip_node(&mut self, node: IRCell<'a>) {
-        self.visited.insert(node as *const _);
-    }
 }
 
 impl<'a> Iterator for TreeVisitor<'a> {
