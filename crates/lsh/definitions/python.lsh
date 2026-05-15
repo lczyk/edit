@@ -5,22 +5,55 @@
 #[path = "**/*.pyw"]
 #[shebang = "python"]
 pub fn python() {
+    var zero = 0;
+    var force_string = 0;
+
     until /$/ {
         yield other;
 
         if /#.*/ {
             yield comment;
-        } else if /'''/ {
+        } else if /[a-zA-Z_]\w*'''/ {
+            // Prefixed triple-quoted string (e.g. `f'''...'''`, `b'''...'''`).
             loop {
                 yield string;
                 if /'''/ { yield string; break; }
                 await input;
             }
-        } else if /"""/ {
+        } else if /[a-zA-Z_]\w*"""/ {
+            // Prefixed triple-quoted string (e.g. `f"""..."""`, `r"""..."""`).
             loop {
                 yield string;
                 if /"""/ { yield string; break; }
                 await input;
+            }
+        } else if /'''/ {
+            if force_string == zero {
+                loop {
+                    yield comment;
+                    if /'''/ { yield comment; break; }
+                    await input;
+                }
+            } else {
+                loop {
+                    yield string;
+                    if /'''/ { yield string; break; }
+                    await input;
+                }
+            }
+        } else if /"""/ {
+            if force_string == zero {
+                loop {
+                    yield comment;
+                    if /"""/ { yield comment; break; }
+                    await input;
+                }
+            } else {
+                loop {
+                    yield string;
+                    if /"""/ { yield string; break; }
+                    await input;
+                }
             }
         } else if /'/ {
             until /$/ {
@@ -36,6 +69,12 @@ pub fn python() {
                 else if /"/ { yield string; break; }
                 await input;
             }
+        } else if /==|!=|<=|>=/ {
+            // Comparison operators -- not assignment.
+        } else if /=/ {
+            // Assignment context: any following triple-quoted string is a real
+            // string literal, not a standalone docstring / comment block.
+            force_string += 1;
         } else if /(?:break|case|continue|elif|else|except|finally|for|if|match|pass|raise|return|try|while|with)\>/ {
             yield keyword.control;
         } else if /(?:and|assert|async|as|await|class|def|del|from|global|import|in|is|lambda|nonlocal|not|or|type|yield)\>/ {
@@ -51,7 +90,12 @@ pub fn python() {
         } else if /@\w+/ {
             yield markup.link;
         } else if /(\w+)\s*\(/ {
+            // Function / method call. The `(` opens a paren context, so any
+            // triple-quoted string inside should be a real string literal.
             yield $1 as method;
+            force_string += 1;
+        } else if /\(/ {
+            force_string += 1;
         } else if /\w+/ {
             // Gobble word chars to align the next iteration on a word boundary.
         }

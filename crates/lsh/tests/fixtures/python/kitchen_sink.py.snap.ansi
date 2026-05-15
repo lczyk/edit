@@ -59,15 +59,33 @@
 [95mreturn[m  [32m# (only valid inside a function)[m
 
 [32m# Triple-quoted strings[m
-[91m"""[m
-[91mMulti-line[m
-[91mdocstring (double quotes)[m
+[32m"""[m
+[32mMulti-line[m
+[32mdocstring (double quotes)[m
+[32m"""[m
+
+[32m'''[m
+[32mMulti-line[m
+[32mstring (single quotes)[m
+[32m'''[m
+
+[32m# Assigned triple-quoted strings (colored as strings, not docstrings)[m
+_doc = [91m"""[m
+[91massigned multi-line (double quotes)[m
 [91m"""[m
 
+_doc2 = [91m'''[m
+[91massigned multi-line (single quotes)[m
 [91m'''[m
-[91mMulti-line[m
-[91mstring (single quotes)[m
-[91m'''[m
+
+[32m# Prefixed triple-quoted strings (colored as strings)[m
+[91mf"""f-prefixed triple-quoted"""[m
+[91mr'''r-prefixed triple-quoted'''[m
+[91mb"""b-prefixed triple-quoted"""[m
+
+[32m# Triple-quoted strings inside function calls (colored as strings)[m
+[93mprint[m([91m"""inside a function call"""[m)
+[93mgreet[m([91m'''inside a function call'''[m)
 
 [32m# Prefixed strings (f, r, b)[m
 f[91m"f-string: {1 + 2}"[m

@@ -115,198 +115,220 @@
 {"line":59,"kind":"other","text":"  "}
 {"line":59,"kind":"comment","text":"# (only valid inside a function)"}
 {"line":61,"kind":"comment","text":"# Triple-quoted strings"}
-{"line":62,"kind":"string","text":"\"\"\""}
-{"line":63,"kind":"string","text":"Multi-line"}
-{"line":64,"kind":"string","text":"docstring (double quotes)"}
-{"line":65,"kind":"string","text":"\"\"\""}
-{"line":67,"kind":"string","text":"'''"}
-{"line":68,"kind":"string","text":"Multi-line"}
-{"line":69,"kind":"string","text":"string (single quotes)"}
-{"line":70,"kind":"string","text":"'''"}
-{"line":72,"kind":"comment","text":"# Prefixed strings (f, r, b)"}
-{"line":73,"kind":"other","text":"f"}
-{"line":73,"kind":"string","text":"\"f-string: {1 + 2}\""}
-{"line":74,"kind":"other","text":"r"}
-{"line":74,"kind":"string","text":"\"raw string: \\n is literal\""}
-{"line":75,"kind":"other","text":"b"}
-{"line":75,"kind":"string","text":"\"byte string\""}
-{"line":77,"kind":"comment","text":"# Decorators"}
-{"line":78,"kind":"markup.link","text":"@staticmethod"}
-{"line":79,"kind":"keyword.other","text":"def"}
-{"line":79,"kind":"other","text":" "}
-{"line":79,"kind":"method","text":"helper"}
-{"line":79,"kind":"other","text":"():"}
-{"line":80,"kind":"other","text":"    "}
-{"line":80,"kind":"keyword.control","text":"pass"}
-{"line":82,"kind":"markup.link","text":"@property"}
-{"line":83,"kind":"keyword.other","text":"def"}
-{"line":83,"kind":"other","text":" "}
-{"line":83,"kind":"method","text":"name"}
-{"line":83,"kind":"other","text":"(self):"}
-{"line":84,"kind":"other","text":"    "}
-{"line":84,"kind":"keyword.control","text":"return"}
-{"line":84,"kind":"other","text":" self._name"}
-{"line":86,"kind":"markup.link","text":"@custom_decorator"}
-{"line":87,"kind":"keyword.other","text":"def"}
-{"line":87,"kind":"other","text":" "}
-{"line":87,"kind":"method","text":"decorated"}
-{"line":87,"kind":"other","text":"():"}
-{"line":88,"kind":"other","text":"    "}
-{"line":88,"kind":"keyword.control","text":"pass"}
-{"line":90,"kind":"comment","text":"# Other keywords (some are contextually reserved)"}
-{"line":91,"kind":"keyword.other","text":"import"}
-{"line":91,"kind":"other","text":" os"}
-{"line":92,"kind":"keyword.other","text":"from"}
-{"line":92,"kind":"other","text":" os "}
-{"line":92,"kind":"keyword.other","text":"import"}
-{"line":92,"kind":"other","text":" path"}
-{"line":93,"kind":"keyword.other","text":"import"}
-{"line":93,"kind":"other","text":" sys "}
-{"line":93,"kind":"keyword.other","text":"as"}
-{"line":93,"kind":"other","text":" system"}
-{"line":95,"kind":"keyword.other","text":"def"}
-{"line":95,"kind":"other","text":" "}
-{"line":95,"kind":"method","text":"greet"}
-{"line":95,"kind":"other","text":"(name):"}
-{"line":96,"kind":"other","text":"    "}
-{"line":96,"kind":"keyword.control","text":"return"}
-{"line":96,"kind":"other","text":" "}
-{"line":96,"kind":"string","text":"\"Hello, \""}
-{"line":96,"kind":"other","text":" + name"}
-{"line":98,"kind":"keyword.other","text":"async"}
-{"line":98,"kind":"other","text":" "}
-{"line":98,"kind":"keyword.other","text":"def"}
-{"line":98,"kind":"other","text":" "}
-{"line":98,"kind":"method","text":"fetch_data"}
-{"line":98,"kind":"other","text":"():"}
-{"line":99,"kind":"other","text":"    result = "}
-{"line":99,"kind":"keyword.other","text":"await"}
-{"line":99,"kind":"other","text":" "}
-{"line":99,"kind":"method","text":"some_coroutine"}
-{"line":99,"kind":"other","text":"()"}
-{"line":100,"kind":"other","text":"    "}
-{"line":100,"kind":"keyword.control","text":"return"}
-{"line":100,"kind":"other","text":" result"}
-{"line":102,"kind":"keyword.other","text":"class"}
-{"line":102,"kind":"other","text":" Animal:"}
-{"line":103,"kind":"other","text":"    count = "}
-{"line":103,"kind":"constant.numeric","text":"0"}
-{"line":105,"kind":"other","text":"    "}
+{"line":62,"kind":"comment","text":"\"\"\""}
+{"line":63,"kind":"comment","text":"Multi-line"}
+{"line":64,"kind":"comment","text":"docstring (double quotes)"}
+{"line":65,"kind":"comment","text":"\"\"\""}
+{"line":67,"kind":"comment","text":"'''"}
+{"line":68,"kind":"comment","text":"Multi-line"}
+{"line":69,"kind":"comment","text":"string (single quotes)"}
+{"line":70,"kind":"comment","text":"'''"}
+{"line":72,"kind":"comment","text":"# Assigned triple-quoted strings (colored as strings, not docstrings)"}
+{"line":73,"kind":"other","text":"_doc = "}
+{"line":73,"kind":"string","text":"\"\"\""}
+{"line":74,"kind":"string","text":"assigned multi-line (double quotes)"}
+{"line":75,"kind":"string","text":"\"\"\""}
+{"line":77,"kind":"other","text":"_doc2 = "}
+{"line":77,"kind":"string","text":"'''"}
+{"line":78,"kind":"string","text":"assigned multi-line (single quotes)"}
+{"line":79,"kind":"string","text":"'''"}
+{"line":81,"kind":"comment","text":"# Prefixed triple-quoted strings (colored as strings)"}
+{"line":82,"kind":"string","text":"f\"\"\"f-prefixed triple-quoted\"\"\""}
+{"line":83,"kind":"string","text":"r'''r-prefixed triple-quoted'''"}
+{"line":84,"kind":"string","text":"b\"\"\"b-prefixed triple-quoted\"\"\""}
+{"line":86,"kind":"comment","text":"# Triple-quoted strings inside function calls (colored as strings)"}
+{"line":87,"kind":"method","text":"print"}
+{"line":87,"kind":"other","text":"("}
+{"line":87,"kind":"string","text":"\"\"\"inside a function call\"\"\""}
+{"line":87,"kind":"other","text":")"}
+{"line":88,"kind":"method","text":"greet"}
+{"line":88,"kind":"other","text":"("}
+{"line":88,"kind":"string","text":"'''inside a function call'''"}
+{"line":88,"kind":"other","text":")"}
+{"line":90,"kind":"comment","text":"# Prefixed strings (f, r, b)"}
+{"line":91,"kind":"other","text":"f"}
+{"line":91,"kind":"string","text":"\"f-string: {1 + 2}\""}
+{"line":92,"kind":"other","text":"r"}
+{"line":92,"kind":"string","text":"\"raw string: \\n is literal\""}
+{"line":93,"kind":"other","text":"b"}
+{"line":93,"kind":"string","text":"\"byte string\""}
+{"line":95,"kind":"comment","text":"# Decorators"}
+{"line":96,"kind":"markup.link","text":"@staticmethod"}
+{"line":97,"kind":"keyword.other","text":"def"}
+{"line":97,"kind":"other","text":" "}
+{"line":97,"kind":"method","text":"helper"}
+{"line":97,"kind":"other","text":"():"}
+{"line":98,"kind":"other","text":"    "}
+{"line":98,"kind":"keyword.control","text":"pass"}
+{"line":100,"kind":"markup.link","text":"@property"}
+{"line":101,"kind":"keyword.other","text":"def"}
+{"line":101,"kind":"other","text":" "}
+{"line":101,"kind":"method","text":"name"}
+{"line":101,"kind":"other","text":"(self):"}
+{"line":102,"kind":"other","text":"    "}
+{"line":102,"kind":"keyword.control","text":"return"}
+{"line":102,"kind":"other","text":" self._name"}
+{"line":104,"kind":"markup.link","text":"@custom_decorator"}
 {"line":105,"kind":"keyword.other","text":"def"}
-{"line":105,"kind":"other","text":" __init__(self, name):"}
-{"line":106,"kind":"other","text":"        self.name = name"}
-{"line":107,"kind":"other","text":"        Animal.count += "}
-{"line":107,"kind":"constant.numeric","text":"1"}
-{"line":109,"kind":"other","text":"    "}
-{"line":109,"kind":"keyword.other","text":"def"}
-{"line":109,"kind":"other","text":" "}
-{"line":109,"kind":"method","text":"speak"}
-{"line":109,"kind":"other","text":"(self):"}
-{"line":110,"kind":"other","text":"        "}
-{"line":110,"kind":"keyword.control","text":"return"}
-{"line":110,"kind":"other","text":" f"}
-{"line":110,"kind":"string","text":"\"{self.name} speaks\""}
-{"line":112,"kind":"keyword.other","text":"class"}
-{"line":112,"kind":"other","text":" "}
-{"line":112,"kind":"method","text":"Dog"}
-{"line":112,"kind":"other","text":"(Animal):"}
-{"line":113,"kind":"other","text":"    "}
-{"line":113,"kind":"keyword.control","text":"pass"}
-{"line":115,"kind":"keyword.other","text":"lambda"}
-{"line":115,"kind":"other","text":" x: x + "}
-{"line":115,"kind":"constant.numeric","text":"1"}
-{"line":117,"kind":"other","text":"x = "}
-{"line":117,"kind":"constant.numeric","text":"1"}
-{"line":118,"kind":"keyword.other","text":"del"}
-{"line":118,"kind":"other","text":" x"}
-{"line":119,"kind":"keyword.other","text":"assert"}
-{"line":119,"kind":"other","text":" "}
-{"line":119,"kind":"constant.language","text":"True"}
-{"line":120,"kind":"keyword.other","text":"not"}
-{"line":120,"kind":"other","text":" "}
-{"line":120,"kind":"constant.language","text":"False"}
-{"line":121,"kind":"constant.language","text":"True"}
-{"line":121,"kind":"other","text":" "}
-{"line":121,"kind":"keyword.other","text":"and"}
-{"line":121,"kind":"other","text":" "}
-{"line":121,"kind":"constant.language","text":"False"}
-{"line":122,"kind":"constant.language","text":"True"}
-{"line":122,"kind":"other","text":" "}
-{"line":122,"kind":"keyword.other","text":"or"}
-{"line":122,"kind":"other","text":" "}
-{"line":122,"kind":"constant.language","text":"False"}
-{"line":123,"kind":"constant.numeric","text":"1"}
-{"line":123,"kind":"other","text":" "}
-{"line":123,"kind":"keyword.other","text":"is"}
-{"line":123,"kind":"other","text":" "}
-{"line":123,"kind":"constant.numeric","text":"1"}
-{"line":124,"kind":"constant.numeric","text":"1"}
-{"line":124,"kind":"other","text":" "}
-{"line":124,"kind":"keyword.other","text":"is"}
-{"line":124,"kind":"other","text":" "}
-{"line":124,"kind":"keyword.other","text":"not"}
-{"line":124,"kind":"other","text":" "}
-{"line":124,"kind":"constant.numeric","text":"2"}
+{"line":105,"kind":"other","text":" "}
+{"line":105,"kind":"method","text":"decorated"}
+{"line":105,"kind":"other","text":"():"}
+{"line":106,"kind":"other","text":"    "}
+{"line":106,"kind":"keyword.control","text":"pass"}
+{"line":108,"kind":"comment","text":"# Other keywords (some are contextually reserved)"}
+{"line":109,"kind":"keyword.other","text":"import"}
+{"line":109,"kind":"other","text":" os"}
+{"line":110,"kind":"keyword.other","text":"from"}
+{"line":110,"kind":"other","text":" os "}
+{"line":110,"kind":"keyword.other","text":"import"}
+{"line":110,"kind":"other","text":" path"}
+{"line":111,"kind":"keyword.other","text":"import"}
+{"line":111,"kind":"other","text":" sys "}
+{"line":111,"kind":"keyword.other","text":"as"}
+{"line":111,"kind":"other","text":" system"}
+{"line":113,"kind":"keyword.other","text":"def"}
+{"line":113,"kind":"other","text":" "}
+{"line":113,"kind":"method","text":"greet"}
+{"line":113,"kind":"other","text":"(name):"}
+{"line":114,"kind":"other","text":"    "}
+{"line":114,"kind":"keyword.control","text":"return"}
+{"line":114,"kind":"other","text":" "}
+{"line":114,"kind":"string","text":"\"Hello, \""}
+{"line":114,"kind":"other","text":" + name"}
+{"line":116,"kind":"keyword.other","text":"async"}
+{"line":116,"kind":"other","text":" "}
+{"line":116,"kind":"keyword.other","text":"def"}
+{"line":116,"kind":"other","text":" "}
+{"line":116,"kind":"method","text":"fetch_data"}
+{"line":116,"kind":"other","text":"():"}
+{"line":117,"kind":"other","text":"    result = "}
+{"line":117,"kind":"keyword.other","text":"await"}
+{"line":117,"kind":"other","text":" "}
+{"line":117,"kind":"method","text":"some_coroutine"}
+{"line":117,"kind":"other","text":"()"}
+{"line":118,"kind":"other","text":"    "}
+{"line":118,"kind":"keyword.control","text":"return"}
+{"line":118,"kind":"other","text":" result"}
+{"line":120,"kind":"keyword.other","text":"class"}
+{"line":120,"kind":"other","text":" Animal:"}
+{"line":121,"kind":"other","text":"    count = "}
+{"line":121,"kind":"constant.numeric","text":"0"}
+{"line":123,"kind":"other","text":"    "}
+{"line":123,"kind":"keyword.other","text":"def"}
+{"line":123,"kind":"other","text":" __init__(self, name):"}
+{"line":124,"kind":"other","text":"        self.name = name"}
+{"line":125,"kind":"other","text":"        Animal.count += "}
 {"line":125,"kind":"constant.numeric","text":"1"}
-{"line":125,"kind":"other","text":" "}
-{"line":125,"kind":"keyword.other","text":"in"}
-{"line":125,"kind":"other","text":" ["}
-{"line":125,"kind":"constant.numeric","text":"1"}
-{"line":125,"kind":"other","text":", "}
-{"line":125,"kind":"constant.numeric","text":"2"}
-{"line":125,"kind":"other","text":"]"}
-{"line":127,"kind":"keyword.other","text":"global"}
-{"line":127,"kind":"other","text":" _g"}
-{"line":128,"kind":"keyword.other","text":"nonlocal"}
-{"line":128,"kind":"other","text":"  "}
-{"line":128,"kind":"comment","text":"# (only valid inside nested function)"}
-{"line":130,"kind":"keyword.other","text":"def"}
+{"line":127,"kind":"other","text":"    "}
+{"line":127,"kind":"keyword.other","text":"def"}
+{"line":127,"kind":"other","text":" "}
+{"line":127,"kind":"method","text":"speak"}
+{"line":127,"kind":"other","text":"(self):"}
+{"line":128,"kind":"other","text":"        "}
+{"line":128,"kind":"keyword.control","text":"return"}
+{"line":128,"kind":"other","text":" f"}
+{"line":128,"kind":"string","text":"\"{self.name} speaks\""}
+{"line":130,"kind":"keyword.other","text":"class"}
 {"line":130,"kind":"other","text":" "}
-{"line":130,"kind":"method","text":"gen"}
-{"line":130,"kind":"other","text":"():"}
+{"line":130,"kind":"method","text":"Dog"}
+{"line":130,"kind":"other","text":"(Animal):"}
 {"line":131,"kind":"other","text":"    "}
-{"line":131,"kind":"keyword.other","text":"yield"}
-{"line":131,"kind":"other","text":" "}
-{"line":131,"kind":"constant.numeric","text":"1"}
-{"line":132,"kind":"other","text":"    "}
-{"line":132,"kind":"keyword.other","text":"yield"}
-{"line":132,"kind":"other","text":" "}
-{"line":132,"kind":"keyword.other","text":"from"}
-{"line":132,"kind":"other","text":" ["}
-{"line":132,"kind":"constant.numeric","text":"2"}
-{"line":132,"kind":"other","text":", "}
-{"line":132,"kind":"constant.numeric","text":"3"}
-{"line":132,"kind":"other","text":"]"}
-{"line":134,"kind":"keyword.other","text":"type"}
-{"line":134,"kind":"other","text":" Alias = int"}
-{"line":136,"kind":"comment","text":"# Function calls"}
-{"line":137,"kind":"method","text":"print"}
-{"line":137,"kind":"other","text":"("}
-{"line":137,"kind":"string","text":"\"hello\""}
-{"line":137,"kind":"other","text":")"}
-{"line":138,"kind":"method","text":"len"}
-{"line":138,"kind":"other","text":"(["}
-{"line":138,"kind":"constant.numeric","text":"1"}
-{"line":138,"kind":"other","text":", "}
-{"line":138,"kind":"constant.numeric","text":"2"}
-{"line":138,"kind":"other","text":", "}
-{"line":138,"kind":"constant.numeric","text":"3"}
-{"line":138,"kind":"other","text":"])"}
-{"line":139,"kind":"method","text":"list"}
-{"line":139,"kind":"other","text":"("}
-{"line":139,"kind":"method","text":"range"}
-{"line":139,"kind":"other","text":"("}
-{"line":139,"kind":"constant.numeric","text":"10"}
-{"line":139,"kind":"other","text":"))"}
-{"line":140,"kind":"method","text":"greet"}
-{"line":140,"kind":"other","text":"("}
-{"line":140,"kind":"string","text":"\"world\""}
-{"line":140,"kind":"other","text":")"}
-{"line":141,"kind":"method","text":"int"}
-{"line":141,"kind":"other","text":"("}
-{"line":141,"kind":"string","text":"\"42\""}
-{"line":141,"kind":"other","text":")"}
-{"line":142,"kind":"string","text":"\"hello\""}
-{"line":142,"kind":"other","text":"."}
-{"line":142,"kind":"method","text":"upper"}
-{"line":142,"kind":"other","text":"()"}
+{"line":131,"kind":"keyword.control","text":"pass"}
+{"line":133,"kind":"keyword.other","text":"lambda"}
+{"line":133,"kind":"other","text":" x: x + "}
+{"line":133,"kind":"constant.numeric","text":"1"}
+{"line":135,"kind":"other","text":"x = "}
+{"line":135,"kind":"constant.numeric","text":"1"}
+{"line":136,"kind":"keyword.other","text":"del"}
+{"line":136,"kind":"other","text":" x"}
+{"line":137,"kind":"keyword.other","text":"assert"}
+{"line":137,"kind":"other","text":" "}
+{"line":137,"kind":"constant.language","text":"True"}
+{"line":138,"kind":"keyword.other","text":"not"}
+{"line":138,"kind":"other","text":" "}
+{"line":138,"kind":"constant.language","text":"False"}
+{"line":139,"kind":"constant.language","text":"True"}
+{"line":139,"kind":"other","text":" "}
+{"line":139,"kind":"keyword.other","text":"and"}
+{"line":139,"kind":"other","text":" "}
+{"line":139,"kind":"constant.language","text":"False"}
+{"line":140,"kind":"constant.language","text":"True"}
+{"line":140,"kind":"other","text":" "}
+{"line":140,"kind":"keyword.other","text":"or"}
+{"line":140,"kind":"other","text":" "}
+{"line":140,"kind":"constant.language","text":"False"}
+{"line":141,"kind":"constant.numeric","text":"1"}
+{"line":141,"kind":"other","text":" "}
+{"line":141,"kind":"keyword.other","text":"is"}
+{"line":141,"kind":"other","text":" "}
+{"line":141,"kind":"constant.numeric","text":"1"}
+{"line":142,"kind":"constant.numeric","text":"1"}
+{"line":142,"kind":"other","text":" "}
+{"line":142,"kind":"keyword.other","text":"is"}
+{"line":142,"kind":"other","text":" "}
+{"line":142,"kind":"keyword.other","text":"not"}
+{"line":142,"kind":"other","text":" "}
+{"line":142,"kind":"constant.numeric","text":"2"}
+{"line":143,"kind":"constant.numeric","text":"1"}
+{"line":143,"kind":"other","text":" "}
+{"line":143,"kind":"keyword.other","text":"in"}
+{"line":143,"kind":"other","text":" ["}
+{"line":143,"kind":"constant.numeric","text":"1"}
+{"line":143,"kind":"other","text":", "}
+{"line":143,"kind":"constant.numeric","text":"2"}
+{"line":143,"kind":"other","text":"]"}
+{"line":145,"kind":"keyword.other","text":"global"}
+{"line":145,"kind":"other","text":" _g"}
+{"line":146,"kind":"keyword.other","text":"nonlocal"}
+{"line":146,"kind":"other","text":"  "}
+{"line":146,"kind":"comment","text":"# (only valid inside nested function)"}
+{"line":148,"kind":"keyword.other","text":"def"}
+{"line":148,"kind":"other","text":" "}
+{"line":148,"kind":"method","text":"gen"}
+{"line":148,"kind":"other","text":"():"}
+{"line":149,"kind":"other","text":"    "}
+{"line":149,"kind":"keyword.other","text":"yield"}
+{"line":149,"kind":"other","text":" "}
+{"line":149,"kind":"constant.numeric","text":"1"}
+{"line":150,"kind":"other","text":"    "}
+{"line":150,"kind":"keyword.other","text":"yield"}
+{"line":150,"kind":"other","text":" "}
+{"line":150,"kind":"keyword.other","text":"from"}
+{"line":150,"kind":"other","text":" ["}
+{"line":150,"kind":"constant.numeric","text":"2"}
+{"line":150,"kind":"other","text":", "}
+{"line":150,"kind":"constant.numeric","text":"3"}
+{"line":150,"kind":"other","text":"]"}
+{"line":152,"kind":"keyword.other","text":"type"}
+{"line":152,"kind":"other","text":" Alias = int"}
+{"line":154,"kind":"comment","text":"# Function calls"}
+{"line":155,"kind":"method","text":"print"}
+{"line":155,"kind":"other","text":"("}
+{"line":155,"kind":"string","text":"\"hello\""}
+{"line":155,"kind":"other","text":")"}
+{"line":156,"kind":"method","text":"len"}
+{"line":156,"kind":"other","text":"(["}
+{"line":156,"kind":"constant.numeric","text":"1"}
+{"line":156,"kind":"other","text":", "}
+{"line":156,"kind":"constant.numeric","text":"2"}
+{"line":156,"kind":"other","text":", "}
+{"line":156,"kind":"constant.numeric","text":"3"}
+{"line":156,"kind":"other","text":"])"}
+{"line":157,"kind":"method","text":"list"}
+{"line":157,"kind":"other","text":"("}
+{"line":157,"kind":"method","text":"range"}
+{"line":157,"kind":"other","text":"("}
+{"line":157,"kind":"constant.numeric","text":"10"}
+{"line":157,"kind":"other","text":"))"}
+{"line":158,"kind":"method","text":"greet"}
+{"line":158,"kind":"other","text":"("}
+{"line":158,"kind":"string","text":"\"world\""}
+{"line":158,"kind":"other","text":")"}
+{"line":159,"kind":"method","text":"int"}
+{"line":159,"kind":"other","text":"("}
+{"line":159,"kind":"string","text":"\"42\""}
+{"line":159,"kind":"other","text":")"}
+{"line":160,"kind":"string","text":"\"hello\""}
+{"line":160,"kind":"other","text":"."}
+{"line":160,"kind":"method","text":"upper"}
+{"line":160,"kind":"other","text":"()"}

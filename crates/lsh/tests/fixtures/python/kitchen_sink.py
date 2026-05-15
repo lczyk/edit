@@ -69,6 +69,24 @@ Multi-line
 string (single quotes)
 '''
 
+# Assigned triple-quoted strings (colored as strings, not docstrings)
+_doc = """
+assigned multi-line (double quotes)
+"""
+
+_doc2 = '''
+assigned multi-line (single quotes)
+'''
+
+# Prefixed triple-quoted strings (colored as strings)
+f"""f-prefixed triple-quoted"""
+r'''r-prefixed triple-quoted'''
+b"""b-prefixed triple-quoted"""
+
+# Triple-quoted strings inside function calls (colored as strings)
+print("""inside a function call""")
+greet('''inside a function call''')
+
 # Prefixed strings (f, r, b)
 f"f-string: {1 + 2}"
 r"raw string: \n is literal"
