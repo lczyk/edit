@@ -924,6 +924,7 @@ fn run_snapshot_loop(
             None => return Ok(()),
             Some(s) if s.is_empty() => {}
             Some(s) => {
+                let was_settled = view.animation_settled();
                 let mut should_redraw = false;
                 let mut quit = false;
                 for k in parse_keys(s.as_bytes()) {
@@ -945,6 +946,22 @@ fn run_snapshot_loop(
                         gutter,
                         use_color,
                     );
+                    // if the key un-settled a previously-settled animation,
+                    // reset last_anim_step so the next advance uses a fresh
+                    // dt instead of the full idle wait -- otherwise dt = idle
+                    // time -> alpha ~= 1 -> snap (looks like instant jump).
+                    // for continuous scroll where animation was already in
+                    // flight, leave last_anim_step alone to preserve dt.
+                    // checked AFTER redraw b/c `settle_offset` (inside redraw)
+                    // is what flips tail-mode End from settled to unsettled.
+                    if !view.animation_settled() && was_settled {
+                        last_anim_step = Instant::now();
+                    }
+                    // count this as the first paint -- otherwise the next
+                    // animation tick would snap visual to target on entering
+                    // the `if want_redraw` block above, killing animation of
+                    // the very first key-driven jump.
+                    first_paint_done = true;
                 }
             }
         }
@@ -1172,6 +1189,7 @@ fn run_loop(
                 // timeout: loop, will tick at top.
             }
             Some(s) => {
+                let was_settled = view.animation_settled();
                 let mut should_redraw = false;
                 let mut quit = false;
                 for k in parse_keys(s.as_bytes()) {
@@ -1186,6 +1204,11 @@ fn run_loop(
                 }
                 if should_redraw {
                     redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
+                    // see snapshot loop for rationale (must run after redraw).
+                    if !view.animation_settled() && was_settled {
+                        last_anim_step = Instant::now();
+                    }
+                    first_paint_done = true;
                 }
             }
         }
