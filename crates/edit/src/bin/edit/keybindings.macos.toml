@@ -21,7 +21,11 @@ find             = "Cmd+F"
 replace          = "Cmd+R"
 
 focus_statusbar  = ""
-go_to_line       = "Cmd+G"
+go_to_line       = "Cmd+L"
+
+# Jump to top/bottom of the file (vim-style g/G).
+jump_document_start = "Cmd+G"
+jump_document_end   = "Cmd+Shift+G"
 toggle_word_wrap = "Alt+Z"
 
 open_about       = ""

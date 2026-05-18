@@ -645,6 +645,17 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         state.document.buffer.borrow_mut().delete_to_line_edge(false);
     } else if ctx.consume_shortcut(chord(Action::DeleteToLineEnd)) {
         state.document.buffer.borrow_mut().delete_to_line_edge(true);
+    } else if ctx.consume_shortcut(chord(Action::JumpDocumentStart)) {
+        let mut tb = state.document.buffer.borrow_mut();
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb.set_preferred_column(0);
+        tb.make_cursor_visible();
+    } else if ctx.consume_shortcut(chord(Action::JumpDocumentEnd)) {
+        let mut tb = state.document.buffer.borrow_mut();
+        tb.cursor_move_to_logical(Point::MAX);
+        let x = tb.cursor_visual_pos().x;
+        tb.set_preferred_column(x);
+        tb.make_cursor_visible();
     } else {
         return;
     }

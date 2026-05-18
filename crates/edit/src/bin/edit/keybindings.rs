@@ -51,9 +51,11 @@ pub enum Action {
     LineEndSelect,
     DeleteToLineStart,
     DeleteToLineEnd,
+    JumpDocumentStart,
+    JumpDocumentEnd,
 }
 
-const ACTION_COUNT: usize = 29;
+const ACTION_COUNT: usize = 31;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
@@ -85,6 +87,8 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::LineEndSelect, "line_end_select"),
     (Action::DeleteToLineStart, "delete_to_line_start"),
     (Action::DeleteToLineEnd, "delete_to_line_end"),
+    (Action::JumpDocumentStart, "jump_document_start"),
+    (Action::JumpDocumentEnd, "jump_document_end"),
 ];
 
 pub struct Keybindings {
