@@ -1,4 +1,4 @@
-"""--quirks=allow-create gates new-file creation.
+"""--quirks=create gates new-file creation (alias: allow-create).
 
 Default (quirk off) refuses to open a path that doesn't exist, and refuses
 to save into a missing file. With the quirk on, both work. Directory
@@ -33,7 +33,7 @@ def default_refuses_missing_file():
         _rc, out = _run_cli([target])
         expect(b"refusing to create new file" in out,
                f"expected refusal message, got: {out!r}")
-        expect(b"--quirks=allow-create" in out,
+        expect(b"--quirks=create" in out,
                f"expected quirk hint, got: {out!r}")
         expect(not os.path.exists(target),
                "edit created the file despite refusing")
@@ -43,7 +43,7 @@ def default_refuses_missing_file():
 def allow_create_opens_missing_file():
     with tempfile.TemporaryDirectory() as tmp:
         target = os.path.join(tmp, "newfile.txt")
-        with Edit(["--quirks=allow-create", target]) as ed:
+        with Edit(["--quirks=create", target]) as ed:
             expect(b"newfile.txt" in ed.plain,
                    f"expected filename in titlebar, got: {ed.plain!r}")
 
@@ -69,7 +69,7 @@ def mkdir_always_refused():
         # Try open + save via the TUI. Even if save dialogs etc. don't
         # cleanly trigger here, the contract is: directory must not
         # appear. Drive a quick session that tries Ctrl+S then exits.
-        with Edit(["--quirks=allow-create", target]) as ed:
+        with Edit(["--quirks=create", target]) as ed:
             ed.send(b"hello")
             ed.send(b"\x13")  # Ctrl+S
             ed.drain(0.2)

@@ -8,7 +8,7 @@ This book collects notes that don't belong in the source tree itself: terminal i
 
 ## Sections
 
-- [Quirks](./quirks.md) -- `--quirks=...` / `EDIT_QUIRKS=...` opt-in toggles for non-default behaviour (looser filename gate, allow-create, ASCII-only render, no-colour).
+- [Quirks](./quirks.md) -- `--quirks=...` / `EDIT_QUIRKS=...` behaviour toggles. Positive canonical names (`safe-filenames`, `unicode`, `color`, `animations`, `create`); `NAME` enables, `-NAME` disables.
 - [Keybindings](./keybindings.md) -- config file format, what's bindable, chord syntax, the Cmd modifier on macOS.
 - [Terminal Keyboard](./terminal-keyboard.md) -- why some chords (`Cmd+C`, `Option+Backspace`, ...) don't reach `edit` out of the box, and how to fix it per terminal.
   - [Alacritty](./alacritty.md) -- concrete config snippets for Alacritty on macOS.

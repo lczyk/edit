@@ -1,4 +1,4 @@
-"""Under --quirks=nocolor the exit dialog's focused button gets a marker.
+"""Under --quirks=-color the exit dialog's focused button gets a marker.
 
 After making the buffer dirty and pressing Ctrl+Q, the "Unsaved Changes"
 modal opens with [Save] / [Don't Save] / [Cancel] buttons. The focused
@@ -11,7 +11,7 @@ from framework import CTRL_Q, Edit, expect, fixture, pause, test
 
 @test
 def nocolor_exit_dialog_focus_shows_marker():
-    with Edit(["--quirks=nocolor", fixture("hello.txt")]) as ed:
+    with Edit(["--quirks=-color", fixture("hello.txt")]) as ed:
         # Type something to make the buffer dirty.
         ed.send(b"x")
         pause(0.2)

@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static ALLOW_CREATE: AtomicBool = AtomicBool::new(false);
 
-/// Set by [`crate::parse_args`] from `--quirks=allow-create`. When false (the
+/// Set by [`crate::parse_args`] from `--quirks=create`. When false (the
 /// default), edit refuses to open a path that doesn't exist and refuses to
 /// save into a file that doesn't exist on disk. Directory creation is never
 /// permitted -- not even with the quirk on.
@@ -378,7 +378,7 @@ fn create_buffer() -> apperr::Result<RcTextBuffer> {
 
 fn open_for_writing(path: &Path) -> apperr::Result<File> {
     // edit never creates parent directories. Saving into a path with a
-    // missing parent always fails -- regardless of the `allow-create` quirk.
+    // missing parent always fails -- regardless of the `create` quirk.
     let mut opts = OpenOptions::new();
     opts.write(true).truncate(true);
     if allow_create() {

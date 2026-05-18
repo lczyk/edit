@@ -18,17 +18,19 @@ use std::path::Path;
 use std::time::Duration;
 use std::{env, process};
 
-/// Opt-in toggles for non-default behaviour. Parsed from `--quirks=a,b,c`.
+/// Toggleable behaviours. Parsed from `--quirks=a,b,c`.
 ///
-/// Each entry's canonical spelling is what `quirks.contains(...)` checks
-/// throughout the codebase; any alias (kebab / underscore / shorthand) on
-/// the cli or in `EDIT_QUIRKS` resolves to the same canonical entry.
+/// Canonical spellings are positive (`color`, `animations`). Entries
+/// marked `default` are on at startup and disabled with
+/// `--quirks=-NAME`; entries without `default` are off until enabled
+/// with `--quirks=NAME`. `polyflag::defaults` seeds the set from this
+/// table so it doubles as schema and policy.
 const KNOWN_QUIRKS: &[polyflag::KnownToken] = &[
-    polyflag::token!("weird-filenames"),
-    polyflag::token!("ascii"),
-    polyflag::token!("nocolor"; "no-color"),
-    polyflag::token!("noanimations"; "no-animations"),
-    polyflag::token!("allow-create"; "allowcreate"),
+    polyflag::token!(default "unicode"),
+    polyflag::token!(default "color"; "colour"),
+    polyflag::token!(default "animations"),
+    polyflag::token!(default "safe-filenames"),
+    polyflag::token!("create"; "allow-create", "allowcreate"),
 ];
 
 use draw_editor::*;
@@ -254,7 +256,7 @@ fn run() -> apperr::Result<()> {
 fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     let mut path: Option<std::path::PathBuf> = None;
     let mut accept_flags = true;
-    let mut quirks: HashSet<&'static str> = HashSet::new();
+    let mut quirks: HashSet<&'static str> = polyflag::defaults(KNOWN_QUIRKS);
     let mut seen_quirks_flag = false;
 
     // EDIT_QUIRKS layers in before any cli flag, so a `--quirks=-name`
@@ -376,35 +378,35 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     }
 
     // Apply quirks that affect global rendering state. NO_COLOR env var
-    // (per https://no-color.org) is honoured the same way as the explicit
-    // --quirks=nocolor flag -- either turns colour off across the editor.
-    edit::glyphs::set_ascii_only(quirks.contains("ascii"));
-    edit::glyphs::set_no_color(quirks.contains("nocolor") || eat::env_disables_color());
-    edit::glyphs::set_no_animations(quirks.contains("noanimations"));
-    documents::set_allow_create(quirks.contains("allow-create"));
+    // (per https://no-color.org) is honoured the same way as
+    // `--quirks=-color` -- either turns colour off across the editor.
+    edit::glyphs::set_ascii_only(!quirks.contains("unicode"));
+    edit::glyphs::set_no_color(!quirks.contains("color") || eat::env_disables_color());
+    edit::glyphs::set_no_animations(!quirks.contains("animations"));
+    documents::set_allow_create(quirks.contains("create"));
 
     match path {
         Some(p) => {
             // Refuse weird filenames (see [`is_safe_filename`]). Catches
             // creation of new files with surprising names and rare-but-real
             // existing files with weird names (e.g. left behind by a buggy
-            // tool). Override with `--quirks=weird-filenames`.
+            // tool). Disable with `--quirks=-safe-filenames`.
             let (file_path, _) = documents::parse_filename_goto(&p);
             let name = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-            if !quirks.contains("weird-filenames") && !is_safe_filename(name) {
+            if quirks.contains("safe-filenames") && !is_safe_filename(name) {
                 sys::write_stdout(&format!(
                     "edit: refusing filename {name:?}\n\
-                     pass `--quirks=weird-filenames` to allow\n"
+                     pass `--quirks=-safe-filenames` to allow\n"
                 ));
                 return Ok(None);
             }
-            // Refuse to create new files unless `--quirks=allow-create`.
+            // Refuse to create new files unless `--quirks=create`.
             // edit never creates directories regardless of this quirk.
-            if !quirks.contains("allow-create") && !file_path.exists() {
+            if !quirks.contains("create") && !file_path.exists() {
                 let display = file_path.display();
                 sys::write_stdout(&format!(
                     "edit: refusing to create new file: {display}\n\
-                     pass `--quirks=allow-create` to allow\n"
+                     pass `--quirks=create` to allow\n"
                 ));
                 return Ok(None);
             }
@@ -429,7 +431,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
 ///   the first segment is the stem; the rest are extensions and must be
 ///   plain alphanumerics (so `foo.tar.gz` is fine, `foo.b-c~d` is not).
 ///
-/// Override with `--quirks=weird-filenames`.
+/// Disable with `--quirks=-safe-filenames`.
 fn is_safe_filename(name: &str) -> bool {
     if name.is_empty() || name == "." || name == ".." || name.starts_with('-') {
         return false;
@@ -504,31 +506,30 @@ fn print_help() {
         "    --               End of options. Subsequent arguments are treated as\n",
         "                     file names even if they start with `-`.\n",
         "                     Example: `edit -- --version` opens a file called `--version`.\n",
-        "    --quirks=LIST    Comma-separated opt-in toggles for non-default behaviour.\n",
-        "                     Known quirks:\n",
-        "                       weird-filenames -- allow weird filenames. without this\n",
-        "                                          quirk, names are ASCII-only, must\n",
-        "                                          contain a letter, must not start with\n",
-        "                                          `-`, must have at most one leading\n",
-        "                                          dot, must not be `.` or `..`, and\n",
-        "                                          dot-separated parts are constrained:\n",
-        "                                          stem is [A-Za-z0-9_+-], extension(s)\n",
-        "                                          are alphanumeric only.\n",
-        "                       ascii           -- render UI with ASCII glyphs only\n",
-        "                                          (no box-drawing or other unicode).\n",
-        "                       nocolor         -- suppress all SGR colour output\n",
-        "                                          (text attributes still emitted).\n",
-        "                                          alias: no-color\n",
-        "                       noanimations    -- disable cursor / scroll / floater\n",
-        "                                          motion. logic stays instant; only the\n",
-        "                                          visible interpolation is suppressed.\n",
-        "                                          alias: no-animations\n",
-        "                       allow-create    -- allow creating new files. without this\n",
-        "                                          quirk, edit refuses to open a path that\n",
-        "                                          does not exist and refuses to save into\n",
-        "                                          a missing file. edit never creates\n",
-        "                                          directories regardless of this quirk.\n",
-        "                                          alias: allowcreate\n",
+        "    --quirks=LIST    Comma-separated toggles. `NAME` enables, `-NAME` disables.\n",
+        "                     Defaults shown in [brackets]. Known quirks:\n",
+        "                       [on]  unicode        -- render UI with unicode glyphs\n",
+        "                                              (box-drawing etc). disable for\n",
+        "                                              ASCII-only output.\n",
+        "                       [on]  color          -- emit SGR colour. disable to drop\n",
+        "                                              colour while keeping attributes.\n",
+        "                                              alias: colour\n",
+        "                       [on]  animations     -- cursor / scroll / floater motion.\n",
+        "                                              logic stays instant when disabled;\n",
+        "                                              only visible interpolation is\n",
+        "                                              suppressed.\n",
+        "                       [on]  safe-filenames -- refuse weird filenames. names\n",
+        "                                              must be ASCII-only, contain a\n",
+        "                                              letter, not start with `-`, have\n",
+        "                                              at most one leading dot, not be\n",
+        "                                              `.` or `..`; stem is [A-Za-z0-9_+-],\n",
+        "                                              extension(s) alphanumeric only.\n",
+        "                                              disable to permit weird names.\n",
+        "                       [off] create         -- allow creating new files. without\n",
+        "                                              this, edit refuses to open / save a\n",
+        "                                              missing path. edit never creates\n",
+        "                                              directories regardless.\n",
+        "                                              aliases: allow-create, allowcreate\n",
         "\n",
         "Arguments:\n",
         "    FILE[:LINE[:COLUMN]]    The file to open, optionally with line and column (e.g., foo.txt:123:45)\n",

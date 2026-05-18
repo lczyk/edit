@@ -1223,7 +1223,7 @@ impl Tui {
             self.render_node(&mut child);
         }
 
-        // Under nocolor, the usual bg/fg/reverse focus cues are invisible.
+        // Under `--quirks=-color`, the usual bg/fg/reverse focus cues are invisible.
         // Overlay `<>` on the focused leaf -- but only for single-line
         // widgets (buttons, menu items). Multi-line content like the
         // textarea would otherwise get markers down the entire visible

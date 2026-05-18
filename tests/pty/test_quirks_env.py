@@ -12,22 +12,22 @@ BOX_V = b"\xe2\x94\x82"
 
 @test
 def env_quirks_nocolor_suppresses_sgr():
-    with Edit([lsh_fixture("go/kitchen_sink.go")], env={"EDIT_QUIRKS": "nocolor"}) as ed:
+    with Edit([lsh_fixture("go/kitchen_sink.go")], env={"EDIT_QUIRKS": "-color"}) as ed:
         match = _SGR_RE.search(ed.buf)
         expect(match is None,
-               f"EDIT_QUIRKS=nocolor leaked SGR: {match.group(0) if match else None!r}")
+               f"EDIT_QUIRKS=-color leaked SGR: {match.group(0) if match else None!r}")
 
 
 @test
 def cli_negate_overrides_env_quirk():
-    # EDIT_QUIRKS=ascii would strip box drawing; --quirks=-ascii must
-    # negate that and let box drawing render.
+    # EDIT_QUIRKS=-unicode would strip box drawing; --quirks=unicode must
+    # re-enable it and let box drawing render.
     with Edit(
-        ["--quirks=-ascii", fixture("hello.txt")],
-        env={"EDIT_QUIRKS": "ascii"},
+        ["--quirks=unicode", fixture("hello.txt")],
+        env={"EDIT_QUIRKS": "-unicode"},
     ) as ed:
         expect(BOX_V in ed.buf,
-               "expected box drawing after --quirks=-ascii negated EDIT_QUIRKS=ascii")
+               "expected box drawing after --quirks=unicode re-enabled it over EDIT_QUIRKS=-unicode")
 
 
 @test
@@ -40,7 +40,7 @@ def env_quirks_unknown_token_errors():
 @test
 def double_quirks_flag_errors():
     with Edit(
-        ["--quirks=ascii", "--quirks=nocolor", fixture("hello.txt")],
+        ["--quirks=-unicode", "--quirks=-color", fixture("hello.txt")],
     ) as ed:
         expect(b"--quirks may only be passed once" in ed.plain,
                f"missing duplicate-quirks error: {ed.plain[:300]!r}")
