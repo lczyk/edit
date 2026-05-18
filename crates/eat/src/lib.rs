@@ -321,6 +321,33 @@ fn extract_shebang_token(line: &str) -> Option<&str> {
     Path::new(first_word).file_name().and_then(|n| n.to_str())
 }
 
+/// detect language by content sniffing the first few lines. last-resort
+/// fallback when path glob + shebang both miss -- mainly for stdin pipes
+/// (e.g. `git diff | eat`) and extensionless patch files.
+///
+/// currently only recognises unified/git diff output. signatures, any of:
+///   - line starts with `diff --git `
+///   - line starts with `Index: ` (svn/cvs style)
+///   - line starts with `--- ` immediately followed by a `+++ ` line
+///   - line starts with `@@ -` (hunk header)
+fn detect_language_by_content(lines: &[String]) -> Option<&'static Language> {
+    let scan = lines.iter().take(16);
+    let mut prev_minus = false;
+    for line in scan {
+        if line.starts_with("diff --git ") || line.starts_with("Index: ") {
+            return find_language("diff");
+        }
+        if line.starts_with("@@ -") {
+            return find_language("diff");
+        }
+        if prev_minus && line.starts_with("+++ ") {
+            return find_language("diff");
+        }
+        prev_minus = line.starts_with("--- ");
+    }
+    None
+}
+
 /// detect language from a shebang line by prefix-matching against entrypoint shebangs.
 fn detect_language_by_shebang(first_line: &str) -> Option<&'static Language> {
     let token = extract_shebang_token(first_line)?;
@@ -638,13 +665,15 @@ fn run(
         let lang = if let Some(l) = lang_override {
             Some(l)
         } else if let Some(p) = path_for_detection {
-            detect_language_by_path(p).or_else(|| {
-                // shebang sniff: read first line from already-loaded lines
-                lines.first().and_then(|l| detect_language_by_shebang(l))
-            })
+            detect_language_by_path(p)
+                .or_else(|| lines.first().and_then(|l| detect_language_by_shebang(l)))
+                .or_else(|| detect_language_by_content(&lines))
         } else {
-            // stdin with no path: try shebang sniff, otherwise plain
-            lines.first().and_then(|l| detect_language_by_shebang(l))
+            // stdin with no path: shebang sniff, then content sniff
+            lines
+                .first()
+                .and_then(|l| detect_language_by_shebang(l))
+                .or_else(|| detect_language_by_content(&lines))
         };
 
         if plain {
@@ -789,6 +818,48 @@ mod tests {
     #[test]
     fn shebang_empty_env() {
         assert_eq!(extract_shebang_token("#!/usr/bin/env"), None);
+    }
+
+    // --- content sniffing ---
+
+    fn s(v: &[&str]) -> Vec<String> {
+        v.iter().map(|x| x.to_string()).collect()
+    }
+
+    #[test]
+    fn content_sniff_git_diff() {
+        let lines = s(&["diff --git a/foo b/foo", "index abc..def 100644"]);
+        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
+    }
+
+    #[test]
+    fn content_sniff_unified_diff() {
+        let lines = s(&["--- a/foo\t2024-01-01", "+++ b/foo\t2024-01-02", "@@ -1 +1 @@"]);
+        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
+    }
+
+    #[test]
+    fn content_sniff_hunk_header_only() {
+        let lines = s(&["@@ -1,3 +1,4 @@", " ctx"]);
+        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
+    }
+
+    #[test]
+    fn content_sniff_svn_index() {
+        let lines = s(&["Index: foo.txt", "==================="]);
+        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
+    }
+
+    #[test]
+    fn content_sniff_non_diff() {
+        let lines = s(&["fn main() {", "    println!(\"hi\");", "}"]);
+        assert!(detect_language_by_content(&lines).is_none());
+    }
+
+    #[test]
+    fn content_sniff_minus_without_plus_no_match() {
+        let lines = s(&["--- standalone line, not a header", "next"]);
+        assert!(detect_language_by_content(&lines).is_none());
     }
 
     // --- line range parsing ---
