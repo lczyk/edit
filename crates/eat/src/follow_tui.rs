@@ -90,6 +90,7 @@ pub enum Key {
     Home, // jump to top + leave tail mode
     End,  // enter tail mode
     Redraw,
+    Reload,
     /// resize sequence: \x1b[8;H;Wt -- gives us the new (cols, rows).
     Resize(u16, u16),
     Other,
@@ -166,6 +167,10 @@ pub fn parse_keys(bytes: &[u8]) -> Vec<Key> {
             }
             b'G' => {
                 out.push(Key::End);
+                i += 1;
+            }
+            b'r' => {
+                out.push(Key::Reload);
                 i += 1;
             }
             b' ' => {
@@ -520,6 +525,9 @@ impl View {
             }
             // ctrl-l forces a repaint even when nothing changed.
             Key::Redraw => return KeyOutcome::Changed,
+            // Reload is handled by the snapshot loop before it reaches
+            // apply_key; the arm only exists so the match stays exhaustive.
+            Key::Reload => {}
             Key::Other => {}
         }
         let after = (self.scroll_offset, self.tail_mode, self.width, self.height);
@@ -764,7 +772,7 @@ fn render_snapshot_header(
         header.push_str(RESET);
         header.push_str(DIM);
     }
-    header.push_str("  (j/k g/G PgUp/PgDn scroll, q exit)");
+    header.push_str("  (j/k g/G PgUp/PgDn scroll, r reload, q exit)");
     let mut buf = String::with_capacity(header.len() + 32);
     buf.push_str(DIM);
     push_truncated_ansi(&mut buf, &header, width as usize);
@@ -827,8 +835,16 @@ pub fn run_snapshot(
         tty::write_stdout(&format!("{WRAP_ON}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
     };
 
-    let result =
-        run_snapshot_loop(&path, bodies, gutter.as_ref(), &captured_at, initial_stat, use_color);
+    let result = run_snapshot_loop(
+        &path,
+        lang,
+        show_numbers,
+        bodies,
+        gutter,
+        captured_at,
+        initial_stat,
+        use_color,
+    );
     cleanup_screen();
     result
 }
@@ -866,13 +882,16 @@ fn stat_fingerprint(path: &Path) -> Option<SnapshotStat> {
 
 fn run_snapshot_loop(
     path: &Path,
+    lang: Option<&'static Language>,
+    show_numbers: bool,
     bodies: Vec<Vec<u8>>,
-    gutter: Option<&crate::gutter_view::Gutter>,
-    captured_at: &str,
+    gutter: Option<crate::gutter_view::Gutter>,
+    captured_at: String,
     initial_stat: Option<SnapshotStat>,
     use_color: bool,
 ) -> io::Result<()> {
     let path_label = path.display().to_string();
+    let color_map = crate::theme::color_map();
     let mut view = View::new(80, 24);
     view.extend_lines(&bodies);
     // start at top, not tail mode
@@ -883,6 +902,9 @@ fn run_snapshot_loop(
     let arena_main = stdext::arena::Arena::new(64 * 1024)?;
     let mut file_changed = false;
     let mut last_disk_check = Instant::now();
+    let mut current_stat = initial_stat;
+    let mut current_gutter = gutter;
+    let mut current_captured_at = captured_at;
     let disk_check_interval = Duration::from_secs(2);
     let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
     let mut last_anim_step = Instant::now();
@@ -892,12 +914,12 @@ fn run_snapshot_loop(
         let mut want_redraw = false;
 
         // disk change detection
-        if initial_stat.is_some()
+        if current_stat.is_some()
             && Instant::now().duration_since(last_disk_check) >= disk_check_interval
         {
             last_disk_check = Instant::now();
-            let current = stat_fingerprint(path);
-            let changed = match (&initial_stat, &current) {
+            let now_stat = stat_fingerprint(path);
+            let changed = match (&current_stat, &now_stat) {
                 (Some(a), Some(b)) => a != b,
                 (Some(_), None) => true,
                 _ => false,
@@ -922,7 +944,14 @@ fn run_snapshot_loop(
                 view.scroll_offset_visual = view.scroll_offset as f32;
                 first_paint_done = true;
             }
-            redraw_snapshot(&mut view, &path_label, captured_at, file_changed, gutter, use_color);
+            redraw_snapshot(
+                &mut view,
+                &path_label,
+                &current_captured_at,
+                file_changed,
+                current_gutter.as_ref(),
+                use_color,
+            );
         }
 
         // wait for input (disk check or animation frame, no heartbeat)
@@ -941,7 +970,12 @@ fn run_snapshot_loop(
                 let was_settled = view.animation_settled();
                 let mut should_redraw = false;
                 let mut quit = false;
+                let mut want_reload = false;
                 for k in parse_keys(s.as_bytes()) {
+                    if matches!(k, Key::Reload) {
+                        want_reload = true;
+                        continue;
+                    }
                     match view.apply_key(k) {
                         KeyOutcome::Quit => {
                             quit = true;
@@ -954,13 +988,57 @@ fn run_snapshot_loop(
                 if quit {
                     return Ok(());
                 }
+                if want_reload {
+                    if let Ok(lines_str) = crate::read_file(path) {
+                        let mut runtime =
+                            lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
+                        let mut sink = LineBuf::new();
+                        for line in &lines_str {
+                            let _ = crate::write_highlighted_line(
+                                &mut sink,
+                                runtime.as_mut(),
+                                &color_map,
+                                line,
+                                None,
+                                use_color,
+                            );
+                        }
+                        let new_bodies = sink.take_new();
+                        current_gutter = if show_numbers {
+                            let mut bytes =
+                                Vec::with_capacity(lines_str.iter().map(|l| l.len() + 1).sum());
+                            for l in &lines_str {
+                                bytes.extend_from_slice(l.as_bytes());
+                                bytes.push(b'\n');
+                            }
+                            Some(crate::gutter_view::Gutter::compute(path, &bytes, 1))
+                        } else {
+                            None
+                        };
+                        current_captured_at = format_clock(Instant::now());
+                        current_stat = stat_fingerprint(path);
+                        file_changed = false;
+                        last_disk_check = Instant::now();
+                        let prev_offset = view.scroll_offset;
+                        let prev_tail = view.tail_mode;
+                        view.reset_lines();
+                        view.extend_lines(&new_bodies);
+                        if !prev_tail {
+                            view.tail_mode = false;
+                            view.scroll_offset = prev_offset.min(view.max_offset());
+                            view.scroll_offset_visual = view.scroll_offset as f32;
+                        }
+                        should_redraw = true;
+                        first_paint_done = true;
+                    }
+                }
                 if should_redraw {
                     redraw_snapshot(
                         &mut view,
                         &path_label,
-                        captured_at,
+                        &current_captured_at,
                         file_changed,
-                        gutter,
+                        current_gutter.as_ref(),
                         use_color,
                     );
                     // if the key un-settled a previously-settled animation,
