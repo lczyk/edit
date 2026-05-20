@@ -26,6 +26,32 @@ use stdext::arena::Arena;
 use stdext::arena_write_fmt;
 use stdext::collections::{BString, BVec};
 
+/// ANSI-16 colour identifier. Used by [`HighlightKind::default_color`] (the
+/// generated method) to express the canonical default colour for each
+/// highlight kind, decoupled from any specific output format. Consumers map
+/// to their target representation (ANSI SGR escape, indexed-palette entry,
+/// truecolor RGB, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Ansi16 {
+    Black = 0,
+    Red = 1,
+    Green = 2,
+    Yellow = 3,
+    Blue = 4,
+    Magenta = 5,
+    Cyan = 6,
+    White = 7,
+    BrightBlack = 8,
+    BrightRed = 9,
+    BrightGreen = 10,
+    BrightYellow = 11,
+    BrightBlue = 12,
+    BrightMagenta = 13,
+    BrightCyan = 14,
+    BrightWhite = 15,
+}
+
 /// A compiled language definition with its bytecode entrypoint.
 pub struct Language {
     /// Unique identifier (e.g., "rust", "markdown").

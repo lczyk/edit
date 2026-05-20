@@ -204,6 +204,32 @@ impl TryFrom<u32> for HighlightKind {{
             );
         }
 
+        // Canonical default colour per highlight kind. Single source of
+        // truth so all consumers (eat, edit, future tools) agree on the
+        // out-of-the-box palette regardless of which language definitions
+        // are loaded. Kinds without a colour fall through to `None`.
+        output.push_str("\nimpl HighlightKind {\n");
+        output.push_str("    /// Canonical default colour for this highlight kind.\n");
+        output.push_str("    /// `None` for kinds that have no colour by default\n");
+        output.push_str("    /// (e.g. `markup.bold`, `markup.italic` -- those need attribute\n");
+        output.push_str("    /// rendering, not a foreground colour).\n");
+        output.push_str("    pub fn default_color(self) -> Option<lsh::runtime::Ansi16> {\n");
+        output.push_str("        use lsh::runtime::Ansi16;\n");
+        output.push_str("        match self {\n");
+        for hk in &assembly.highlight_kinds {
+            if let Some(colour) = default_ansi16(hk.identifier) {
+                _ = writeln!(
+                    output,
+                    "            HighlightKind::{} => Some(Ansi16::{colour}),",
+                    hk.fmt_camelcase()
+                );
+            }
+        }
+        output.push_str("            _ => None,\n");
+        output.push_str("        }\n");
+        output.push_str("    }\n");
+        output.push_str("}\n");
+
         output.push_str("/*\n");
         output.push_str(&self.compiler.as_mermaid());
         output.push_str("*/\n");
@@ -341,4 +367,31 @@ impl TryFrom<u32> for HighlightKind {{
 
         Ok(output)
     }
+}
+
+/// Canonical default ANSI-16 colour for a highlight-kind identifier
+/// (the `dotted.lower.snake` form as it appears in `.lsh` `yield` statements).
+/// Returns the variant name of [`crate::runtime::Ansi16`] so the generator can
+/// emit a `match` arm directly. `None` means "no default colour" -- the
+/// consumer may still apply text attributes (bold, italic, etc.).
+fn default_ansi16(identifier: &str) -> Option<&'static str> {
+    Some(match identifier {
+        "comment" => "Green",
+        "method" => "BrightYellow",
+        "string" => "BrightRed",
+        "variable" => "BrightCyan",
+        "constant.language" => "BrightBlue",
+        "constant.numeric" => "BrightGreen",
+        "keyword.control" => "BrightMagenta",
+        "keyword.other" => "BrightBlue",
+        "storage.type" => "Cyan",
+        "support.function" => "Yellow",
+        "markup.changed" => "BrightBlue",
+        "markup.deleted" => "BrightRed",
+        "markup.heading" => "BrightBlue",
+        "markup.inserted" => "BrightGreen",
+        "markup.list" => "BrightBlue",
+        "meta.header" => "BrightBlue",
+        _ => return None,
+    })
 }
