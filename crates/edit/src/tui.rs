@@ -2553,19 +2553,46 @@ impl<'a> Context<'a, '_> {
                     }
                 }
             } else if minimap_rect.contains(self.tui.mouse_down_position) {
-                // Click-to-jump centres the viewport on the clicked rail row;
-                // drag continuations re-centre on each motion event so the
-                // viewport tracks the mouse.
-                if self.tui.mouse_state != InputMouseState::Release {
-                    let content_rows = tb.minimap_content_rows() as i64;
-                    let rail_h = minimap_rect.height() as i64;
-                    if content_rows > 0 && rail_h > 0 {
-                        let local_y = (mouse.y - minimap_rect.top).max(0) as i64;
-                        let target_row = (local_y * content_rows / rail_h) as CoordType;
-                        let viewport_height = inner.height();
-                        let max_scroll = (tb.visual_line_count() - 1).max(0);
-                        tc.scroll_offset.y =
-                            (target_row - viewport_height / 2).clamp(0, max_scroll);
+                // Rail row maps via the cell list (1:1 when rail >= n_cells,
+                // scaled otherwise) so each braille glyph corresponds to a
+                // contiguous source-row slice.
+                //
+                // - Pure click+release (no drag): jump so the clicked cell's
+                //   first source row becomes the topmost visible line. Lets
+                //   a misclick be aborted by moving off the rail first.
+                // - Drag: scroll proportionally with mouse delta so the
+                //   initial grab point on the band stays under the cursor
+                //   (real-scrollbar feel). No re-snap on release.
+                let content_rows = tb.minimap_content_rows() as i64;
+                let rail_h = minimap_rect.height() as i64;
+                if content_rows > 0 && rail_h > 0 {
+                    let rows_per_cell = MINIMAP_SOURCE_ROWS_PER_CELL as i64;
+                    let n_cells = (content_rows + rows_per_cell - 1) / rows_per_cell;
+                    let rail_used = n_cells.min(rail_h);
+                    let max_scroll = (tb.visual_line_count() - 1).max(0);
+
+                    if self.tui.mouse_state == InputMouseState::Release {
+                        if !self.tui.mouse_is_drag {
+                            let local_y = (mouse.y - minimap_rect.top).max(0) as i64;
+                            let cell_idx = if rail_h >= n_cells {
+                                local_y
+                            } else {
+                                local_y * n_cells / rail_h
+                            };
+                            let target_row = (cell_idx * rows_per_cell) as CoordType;
+                            tc.scroll_offset.y = target_row.clamp(0, max_scroll);
+                        }
+                        tc.scroll_offset_y_drag_start = CoordType::MIN;
+                    } else if self.tui.mouse_is_drag && rail_used > 0 {
+                        if tc.scroll_offset_y_drag_start == CoordType::MIN {
+                            tc.scroll_offset_y_drag_start = tc.scroll_offset.y;
+                        }
+                        let delta_y = (mouse.y - self.tui.mouse_down_position.y) as i64;
+                        // Source rows per rail row: cells_capacity / rail_used.
+                        let cells_capacity = n_cells * rows_per_cell;
+                        let delta_rows = (delta_y * cells_capacity / rail_used) as CoordType;
+                        tc.scroll_offset.y = (tc.scroll_offset_y_drag_start + delta_rows)
+                            .clamp(0, max_scroll);
                     }
                 }
             } else if track_rect.contains(self.tui.mouse_down_position) {
