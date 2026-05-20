@@ -95,6 +95,13 @@ pub enum Key {
     Other,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyOutcome {
+    Quit,
+    Changed,
+    Noop,
+}
+
 /// parse a chunk of bytes from stdin into a sequence of `Key`s. consumes
 /// every byte of input -- complete sequences become specific `Key`s, partial
 /// or unknown CSI sequences become `Key::Other` (caller usually ignores).
@@ -467,10 +474,14 @@ impl View {
         self.scroll_offset_visual = self.scroll_offset as f32;
     }
 
-    /// apply a key. returns false iff the loop should exit.
-    pub fn apply_key(&mut self, key: Key) -> bool {
+    /// apply a key. returns whether the loop should quit, redraw, or noop.
+    pub fn apply_key(&mut self, key: Key) -> KeyOutcome {
+        if matches!(key, Key::Quit) {
+            return KeyOutcome::Quit;
+        }
+        let before = (self.scroll_offset, self.tail_mode, self.width, self.height);
         match key {
-            Key::Quit => return false,
+            Key::Quit => unreachable!(),
             Key::Up => {
                 self.scroll_offset = self.scroll_offset.saturating_sub(1);
                 self.tail_mode = false;
@@ -507,9 +518,12 @@ impl View {
                 self.width = w;
                 self.height = h;
             }
-            Key::Redraw | Key::Other => {}
+            // ctrl-l forces a repaint even when nothing changed.
+            Key::Redraw => return KeyOutcome::Changed,
+            Key::Other => {}
         }
-        true
+        let after = (self.scroll_offset, self.tail_mode, self.width, self.height);
+        if after != before { KeyOutcome::Changed } else { KeyOutcome::Noop }
     }
 
     /// extend the buffered lines with a slice of newly-arrived lines.
@@ -928,11 +942,14 @@ fn run_snapshot_loop(
                 let mut should_redraw = false;
                 let mut quit = false;
                 for k in parse_keys(s.as_bytes()) {
-                    if !view.apply_key(k) {
-                        quit = true;
-                        break;
+                    match view.apply_key(k) {
+                        KeyOutcome::Quit => {
+                            quit = true;
+                            break;
+                        }
+                        KeyOutcome::Changed => should_redraw = true,
+                        KeyOutcome::Noop => {}
                     }
-                    should_redraw = true;
                 }
                 if quit {
                     return Ok(());
@@ -1193,11 +1210,14 @@ fn run_loop(
                 let mut should_redraw = false;
                 let mut quit = false;
                 for k in parse_keys(s.as_bytes()) {
-                    if !view.apply_key(k) {
-                        quit = true;
-                        break;
+                    match view.apply_key(k) {
+                        KeyOutcome::Quit => {
+                            quit = true;
+                            break;
+                        }
+                        KeyOutcome::Changed => should_redraw = true,
+                        KeyOutcome::Noop => {}
                     }
-                    should_redraw = true;
                 }
                 if quit {
                     return Ok(());
@@ -1462,9 +1482,24 @@ mod tests {
     }
 
     #[test]
-    fn quit_returns_false() {
+    fn quit_returns_quit_outcome() {
         let mut v = make_view(80, 24, 10);
-        assert!(!v.apply_key(Key::Quit));
+        assert_eq!(v.apply_key(Key::Quit), KeyOutcome::Quit);
+    }
+
+    #[test]
+    fn down_at_bottom_is_noop() {
+        let mut v = make_view(80, 24, 100);
+        v.apply_key(Key::End);
+        v.settle_offset();
+        assert_eq!(v.apply_key(Key::Down), KeyOutcome::Noop);
+    }
+
+    #[test]
+    fn up_at_top_is_noop() {
+        let mut v = make_view(80, 24, 100);
+        v.apply_key(Key::Home);
+        assert_eq!(v.apply_key(Key::Up), KeyOutcome::Noop);
     }
 
     #[test]
