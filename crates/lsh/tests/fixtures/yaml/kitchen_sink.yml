@@ -39,5 +39,9 @@ nested:
 empty_sequence: [foo, 123, bar]
 empty_mapping: { foo: bar }
 literal_colon: "value:with:colons"
+versioned-1.9_libs:
+  - some_item
+/usr/bin/cargo-1.93:
+  symlink: ../lib/rust-1.93/bin/cargo
 literal_dash: "-not-a-sequence"
 special_chars: "Tab:\t Newline:\n Unicode:\u2713"
