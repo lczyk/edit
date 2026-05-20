@@ -149,7 +149,10 @@ use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::{BString, BVec};
 use stdext::{arena_format, arena_write_fmt, opt_ptr_eq, str_from_raw_parts};
 
-use crate::buffer::{CursorMovement, MinimapCell, RcTextBuffer, TextBuffer, TextBufferCell};
+use crate::buffer::{
+    CursorMovement, MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RcTextBuffer, TextBuffer,
+    TextBufferCell,
+};
 use crate::cell::*;
 use crate::clipboard::Clipboard;
 use crate::document::WriteableDocument;
@@ -4424,15 +4427,31 @@ fn minimap_band_range(
 ) -> (CoordType, CoordType) {
     let rail_h = track_h as i64;
     let cr = content_rows as i64;
-    if rail_h <= 0 || cr <= 0 {
+    if rail_h <= 0 || cr <= 0 || viewport_h <= 0 {
         return (track_top, track_top);
     }
-    let band_h = ((viewport_h as i64 * rail_h + cr / 2) / cr).clamp(1, rail_h) as CoordType;
+    // Map currently-visible source rows to the cells that contain them, then
+    // to rail rows. Band shrinks toward the last cell as the viewport
+    // scrolls past the end (fewer source rows still on screen). When the
+    // viewport is fully past content, pin to the last cell.
+    let rows_per_cell = MINIMAP_SOURCE_ROWS_PER_CELL as i64;
+    let n_cells = (cr + rows_per_cell - 1) / rows_per_cell;
+
     let scroll = scroll_offset.max(0) as i64;
-    let raw_top = (scroll * rail_h / cr) as CoordType;
-    let max_top = (track_h - band_h).max(0);
-    let top = track_top + raw_top.clamp(0, max_top);
-    (top, top + band_h)
+    let view_start = scroll.min(cr);
+    // Bottom of band is derived from the full viewport extent (not clipped
+    // to `cr`), so the band keeps its viewport-shaped height and slides
+    // into the blank rail rows past the last cell when scrolled past end.
+    let view_end_unclipped = scroll + viewport_h as i64;
+    let cell_start = view_start / rows_per_cell;
+    let cell_end = (view_end_unclipped + rows_per_cell - 1) / rows_per_cell;
+
+    let map_cell = |c: i64| -> i64 {
+        if rail_h >= n_cells { c } else { c * rail_h / n_cells }
+    };
+    let band_top = map_cell(cell_start);
+    let band_bottom = map_cell(cell_end).max(band_top + 1).min(rail_h);
+    (track_top + band_top as CoordType, track_top + band_bottom as CoordType)
 }
 
 // Paints the minimap rail in `track`. Each minimap cell occupies one rail row;
