@@ -13,19 +13,19 @@ pub fn draw_menubar(ctx: &mut Context, state: &mut State) {
     {
         let contains_focus = ctx.contains_focus();
 
-        if ctx.menubar_menu_begin("File", 'F') {
+        if ctx.menubar_menu_begin("file", 'F') {
             draw_menu_file(ctx, state);
         }
         if !contains_focus && ctx.consume_shortcut(keybindings::chord(Action::FocusMenubar)) {
             ctx.steal_focus();
         }
-        if ctx.menubar_menu_begin("Edit", 'E') {
+        if ctx.menubar_menu_begin("edit", 'E') {
             draw_menu_edit(ctx, state);
         }
-        if ctx.menubar_menu_begin("View", 'V') {
+        if ctx.menubar_menu_begin("view", 'V') {
             draw_menu_view(ctx, state);
         }
-        if ctx.menubar_menu_begin("Help", 'H') {
+        if ctx.menubar_menu_begin("help", 'H') {
             draw_menu_help(ctx, state);
         }
     }
@@ -33,10 +33,10 @@ pub fn draw_menubar(ctx: &mut Context, state: &mut State) {
 }
 
 fn draw_menu_file(ctx: &mut Context, state: &mut State) {
-    if ctx.menubar_menu_button("Save", 'S', keybindings::chord(Action::Save)) {
+    if ctx.menubar_menu_button("save", 'S', keybindings::chord(Action::Save)) {
         save_document(ctx, state);
     }
-    if ctx.menubar_menu_button("Exit", 'X', keybindings::chord(Action::Exit)) {
+    if ctx.menubar_menu_button("exit", 'X', keybindings::chord(Action::Exit)) {
         state.wants_exit = true;
     }
     ctx.menubar_menu_end();
@@ -45,42 +45,42 @@ fn draw_menu_file(ctx: &mut Context, state: &mut State) {
 fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
     let mut tb = state.document.buffer.borrow_mut();
 
-    if ctx.menubar_menu_button("Undo", 'U', keybindings::chord(Action::Undo)) {
+    if ctx.menubar_menu_button("undo", 'U', keybindings::chord(Action::Undo)) {
         tb.undo();
         ctx.needs_rerender();
     }
-    if ctx.menubar_menu_button("Redo", 'R', keybindings::chord(Action::Redo)) {
+    if ctx.menubar_menu_button("redo", 'R', keybindings::chord(Action::Redo)) {
         tb.redo();
         ctx.needs_rerender();
     }
-    if ctx.menubar_menu_button("Cut", 'T', keybindings::chord(Action::Cut)) {
+    if ctx.menubar_menu_button("cut", 'T', keybindings::chord(Action::Cut)) {
         tb.cut(ctx.clipboard_mut());
         ctx.needs_rerender();
     }
-    if ctx.menubar_menu_button("Copy", 'C', keybindings::chord(Action::Copy)) {
+    if ctx.menubar_menu_button("copy", 'C', keybindings::chord(Action::Copy)) {
         tb.copy(ctx.clipboard_mut());
         ctx.needs_rerender();
     }
-    if ctx.menubar_menu_button("Paste", 'P', keybindings::chord(Action::Paste)) {
+    if ctx.menubar_menu_button("paste", 'P', keybindings::chord(Action::Paste)) {
         tb.paste(ctx.clipboard_ref());
         ctx.needs_rerender();
     }
     if state.wants_search.kind != StateSearchKind::Disabled {
-        if ctx.menubar_menu_button("Find", 'F', keybindings::chord(Action::Find)) {
+        if ctx.menubar_menu_button("find", 'F', keybindings::chord(Action::Find)) {
             state.wants_search.kind = StateSearchKind::Search;
             state.wants_search.focus = true;
         }
-        if ctx.menubar_menu_button("Replace", 'L', keybindings::chord(Action::Replace)) {
+        if ctx.menubar_menu_button("replace", 'L', keybindings::chord(Action::Replace)) {
             state.wants_search.kind = StateSearchKind::Replace;
             state.wants_search.focus = true;
         }
     }
-    if ctx.menubar_menu_button("Select All", 'A', keybindings::chord(Action::SelectAll)) {
+    if ctx.menubar_menu_button("select all", 'A', keybindings::chord(Action::SelectAll)) {
         tb.select_all();
         ctx.needs_rerender();
     }
     if ctx.menubar_menu_button(
-        "Toggle Line Comment",
+        "toggle line comment",
         'M',
         keybindings::chord(Action::ToggleLineComment),
     ) {
@@ -96,7 +96,7 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
         }
         ctx.needs_rerender();
     }
-    if ctx.menubar_menu_button("Toggle Block Comment", 'B', edit::input::vk::NULL) {
+    if ctx.menubar_menu_button("toggle block comment", 'B', edit::input::vk::NULL) {
         if let Some((open, close)) = tb.language().and_then(|l| l.block_comment) {
             tb.toggle_block_comment(open, close);
             ctx.needs_rerender();
@@ -118,14 +118,14 @@ fn draw_menu_view(ctx: &mut Context, state: &mut State) {
     let mut tb = state.document.buffer.borrow_mut();
     let word_wrap = tb.is_word_wrap_enabled();
 
-    if ctx.menubar_menu_button("Focus Statusbar", 'S', keybindings::chord(Action::FocusStatusbar)) {
+    if ctx.menubar_menu_button("focus statusbar", 'S', keybindings::chord(Action::FocusStatusbar)) {
         state.wants_statusbar_focus = true;
     }
-    if ctx.menubar_menu_button("Go to Line:Column…", 'G', keybindings::chord(Action::GoToLine)) {
+    if ctx.menubar_menu_button("go to line:column...", 'G', keybindings::chord(Action::GoToLine)) {
         state.wants_goto = true;
     }
     if ctx.menubar_menu_checkbox(
-        "Word Wrap",
+        "word wrap",
         'W',
         keybindings::chord(Action::ToggleWordWrap),
         word_wrap,
@@ -138,14 +138,14 @@ fn draw_menu_view(ctx: &mut Context, state: &mut State) {
 }
 
 fn draw_menu_help(ctx: &mut Context, state: &mut State) {
-    if ctx.menubar_menu_button("About", 'A', keybindings::chord(Action::OpenAbout)) {
+    if ctx.menubar_menu_button("about", 'A', keybindings::chord(Action::OpenAbout)) {
         state.wants_about = true;
     }
     ctx.menubar_menu_end();
 }
 
 pub fn draw_dialog_about(ctx: &mut Context, state: &mut State) {
-    ctx.modal_begin("about", "About");
+    ctx.modal_begin("about", "about");
     {
         ctx.block_begin("content");
         ctx.inherit_focus();
@@ -157,7 +157,7 @@ pub fn draw_dialog_about(ctx: &mut Context, state: &mut State) {
 
             ctx.label(
                 "version",
-                &arena_format!(ctx.arena(), "{}{}", "Version: ", env!("CARGO_PKG_VERSION")),
+                &arena_format!(ctx.arena(), "{}{}", "version: ", env!("CARGO_PKG_VERSION")),
             );
             ctx.attr_overflow(Overflow::TruncateHead);
             ctx.attr_position(Position::Center);
@@ -167,7 +167,7 @@ pub fn draw_dialog_about(ctx: &mut Context, state: &mut State) {
             ctx.attr_padding(Rect::three(1, 2, 0));
             ctx.attr_position(Position::Center);
             {
-                if ctx.button("ok", "Ok", ButtonStyle::default()) {
+                if ctx.button("ok", "ok", ButtonStyle::default()) {
                     state.wants_about = false;
                 }
                 ctx.inherit_focus();
