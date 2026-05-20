@@ -85,6 +85,11 @@ pub enum Key {
     Quit,
     Up,
     Down,
+    /// Ctrl/Cmd-modified Up. Scrolls by [`LARGE_JUMP_LINES`] -- matches
+    /// edit's `Ctrl+Alt+Up` small-jump cadence.
+    LargeUp,
+    /// Ctrl/Cmd-modified Down. Mirror of [`Key::LargeUp`].
+    LargeDown,
     PgUp,
     PgDn,
     Home, // jump to top + leave tail mode
@@ -102,6 +107,9 @@ pub enum KeyOutcome {
     Changed,
     Noop,
 }
+
+/// Lines scrolled per Ctrl/Cmd+Up/Down. Mirrors edit's `SMALL_JUMP_LINES`.
+pub const LARGE_JUMP_LINES: usize = 3;
 
 /// parse a chunk of bytes from stdin into a sequence of `Key`s. consumes
 /// every byte of input -- complete sequences become specific `Key`s, partial
@@ -302,8 +310,8 @@ fn parse_csi(bytes: &[u8], out: &mut Vec<Key>) -> usize {
 /// chunk between `\x1b[` and the final letter.
 fn classify_csi(params: &[u8], final_byte: u8) -> Key {
     match final_byte {
-        b'A' => Key::Up,
-        b'B' => Key::Down,
+        b'A' => arrow_key(params, Key::Up, Key::LargeUp),
+        b'B' => arrow_key(params, Key::Down, Key::LargeDown),
         b'H' => Key::Home,
         b'F' => Key::End,
         b'~' => match std::str::from_utf8(params).ok().and_then(|s| s.split(';').next()) {
@@ -335,6 +343,37 @@ fn classify_csi(params: &[u8], final_byte: u8) -> Key {
         }
         _ => Key::Other,
     }
+}
+
+/// CSI arrow with optional modifier. Returns `large` iff modifier carries
+/// Ctrl (bit 4) or Meta/Cmd (bit 8). xterm encodes modifiers as
+/// `(bitmask + 1)`. Accepts the common forms:
+///   - `\x1b[<n>;<mod>A` -- xterm standard (params = "1;5"); modifier is
+///     the second param.
+///   - `\x1b[<mod>A` -- compact form some terminals emit when only the
+///     modifier is present (params = "5"); a single param >= 2 is treated
+///     as a modifier (param "1" alone is the no-op default and falls back
+///     to plain).
+/// Plain arrows (no modifier, shift-only) return `plain`.
+fn arrow_key(params: &[u8], plain: Key, large: Key) -> Key {
+    let s = match std::str::from_utf8(params) {
+        Ok(s) => s,
+        Err(_) => return plain,
+    };
+    let parts: Vec<&str> = s.split(';').collect();
+    let m: u32 = match parts.as_slice() {
+        [_, b] => b.parse().unwrap_or(0),
+        [a] if !a.is_empty() => {
+            let n: u32 = a.parse().unwrap_or(0);
+            if n >= 2 { n } else { 0 }
+        }
+        _ => 0,
+    };
+    if m == 0 {
+        return plain;
+    }
+    let bits = m.saturating_sub(1);
+    if bits & (4 | 8) != 0 { large } else { plain }
 }
 
 /// SGR mouse: params are `btn;col;row`. wheel up = 64, wheel down = 65;
@@ -495,6 +534,18 @@ impl View {
                 self.scroll_offset = self.scroll_offset.saturating_add(1);
                 self.tail_mode = false;
                 // re-enter tail mode if we just scrolled past the bottom.
+                if self.scroll_offset >= self.max_offset() {
+                    self.scroll_offset = self.max_offset();
+                    self.tail_mode = true;
+                }
+            }
+            Key::LargeUp => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(LARGE_JUMP_LINES);
+                self.tail_mode = false;
+            }
+            Key::LargeDown => {
+                self.scroll_offset = self.scroll_offset.saturating_add(LARGE_JUMP_LINES);
+                self.tail_mode = false;
                 if self.scroll_offset >= self.max_offset() {
                     self.scroll_offset = self.max_offset();
                     self.tail_mode = true;
@@ -908,7 +959,18 @@ fn run_snapshot_loop(
     let disk_check_interval = Duration::from_secs(2);
     let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
     let mut last_anim_step = Instant::now();
-    let mut first_paint_done = false;
+    // Initial paint up-front so the loop's redraw branch never has to "first-
+    // paint snap" the visual to the target -- that would clobber the lerp
+    // when the user's first keypress triggers the first redraw.
+    view.scroll_offset_visual = view.scroll_offset as f32;
+    redraw_snapshot(
+        &mut view,
+        &path_label,
+        &current_captured_at,
+        file_changed,
+        current_gutter.as_ref(),
+        use_color,
+    );
 
     loop {
         let mut want_redraw = false;
@@ -940,10 +1002,6 @@ fn run_snapshot_loop(
         last_anim_step = now2;
 
         if want_redraw {
-            if !first_paint_done {
-                view.scroll_offset_visual = view.scroll_offset as f32;
-                first_paint_done = true;
-            }
             redraw_snapshot(
                 &mut view,
                 &path_label,
@@ -988,6 +1046,14 @@ fn run_snapshot_loop(
                 if quit {
                     return Ok(());
                 }
+                // If a key just kicked off a new animation from a settled
+                // state, reset `last_anim_step` so the first dt is one
+                // anim_frame instead of however long `read_stdin` blocked.
+                // Otherwise `lerp_alpha` saturates at >=6tau and snaps the
+                // visual to target on the first step, defeating the lerp.
+                if was_settled && !view.animation_settled() {
+                    last_anim_step = Instant::now();
+                }
                 if want_reload {
                     if let Ok(lines_str) = crate::read_file(path) {
                         let mut runtime =
@@ -1029,7 +1095,6 @@ fn run_snapshot_loop(
                             view.scroll_offset_visual = view.scroll_offset as f32;
                         }
                         should_redraw = true;
-                        first_paint_done = true;
                     }
                 }
                 if should_redraw {
@@ -1052,11 +1117,6 @@ fn run_snapshot_loop(
                     if !view.animation_settled() && was_settled {
                         last_anim_step = Instant::now();
                     }
-                    // count this as the first paint -- otherwise the next
-                    // animation tick would snap visual to target on entering
-                    // the `if want_redraw` block above, killing animation of
-                    // the very first key-driven jump.
-                    first_paint_done = true;
                 }
             }
         }
@@ -1300,6 +1360,9 @@ fn run_loop(
                 if quit {
                     return Ok(());
                 }
+                if was_settled && !view.animation_settled() {
+                    last_anim_step = Instant::now();
+                }
                 if should_redraw {
                     redraw(&mut view, &path_label, poll_interval, gutter.as_ref(), use_color);
                     // see snapshot loop for rationale (must run after redraw).
@@ -1386,6 +1449,25 @@ mod tests {
         assert_eq!(keys(b"\x1b[B"), vec![Key::Down]);
         assert_eq!(keys(b"\x1b[H"), vec![Key::Home]);
         assert_eq!(keys(b"\x1b[F"), vec![Key::End]);
+    }
+
+    #[test]
+    fn modified_arrow_keys() {
+        // xterm modifier encoding: param2 = bitmask + 1.
+        // Ctrl (bit 4) -> mod 5; Cmd/Meta (bit 8) -> mod 9.
+        assert_eq!(keys(b"\x1b[1;5A"), vec![Key::LargeUp]); // Ctrl+Up
+        assert_eq!(keys(b"\x1b[1;5B"), vec![Key::LargeDown]); // Ctrl+Down
+        assert_eq!(keys(b"\x1b[1;9A"), vec![Key::LargeUp]); // Cmd/Meta+Up
+        assert_eq!(keys(b"\x1b[1;9B"), vec![Key::LargeDown]); // Cmd/Meta+Down
+        // Ctrl+Shift (4|1 +1 = 6) still counts as Ctrl-modified.
+        assert_eq!(keys(b"\x1b[1;6A"), vec![Key::LargeUp]);
+        // Shift-only (1 +1 = 2) stays as plain arrow.
+        assert_eq!(keys(b"\x1b[1;2A"), vec![Key::Up]);
+        // Compact form (no leading "1;") -- some terminals emit Ctrl+Up
+        // as `\x1b[5A` instead of `\x1b[1;5A`.
+        assert_eq!(keys(b"\x1b[5A"), vec![Key::LargeUp]);
+        assert_eq!(keys(b"\x1b[5B"), vec![Key::LargeDown]);
+        assert_eq!(keys(b"\x1b[9A"), vec![Key::LargeUp]);
     }
 
     #[test]
