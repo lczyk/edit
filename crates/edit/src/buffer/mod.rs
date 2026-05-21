@@ -1773,6 +1773,9 @@ impl TextBuffer {
         // Collected during the per-line loop and replayed after the global
         // margin tint so the gutter colours aren't dimmed.
         let mut gutter_paint: Vec<(CoordType, GutterMark)> = Vec::new();
+        // Collected per-line selection rects; replayed after lsh highlight
+        // pass to force selection fg over any syntax-highlighted glyph color.
+        let mut selection_rects: Vec<Rect> = Vec::new();
 
         // Pick the cursor closer to the `origin.y`.
         let mut cursor = {
@@ -1958,17 +1961,20 @@ impl TextBuffer {
                     bottom: top + 1,
                 };
 
-                let mut bg = fb.indexed(IndexedColor::Foreground).oklab_blend(fb.indexed_alpha(
-                    IndexedColor::BrightBlue,
-                    1,
-                    2,
-                ));
+                // Selection bg matches the menubar fg color (the colour `file`,
+                // `edit` etc. are drawn in), which is the contrasted of the
+                // menubar bg = Background oklab BrightBlue/2.
+                let menubar_bg = fb.indexed(IndexedColor::Background).oklab_blend(
+                    fb.indexed_alpha(IndexedColor::BrightBlue, 1, 2),
+                );
+                let mut bg = fb.contrasted(menubar_bg);
                 if !focused {
                     bg = bg.oklab_blend(fb.indexed_alpha(IndexedColor::Background, 1, 2));
                 };
-                let fg = fb.contrasted(bg);
+                let fg = fb.indexed(IndexedColor::Black);
                 fb.blend_bg(rect, bg);
                 fb.blend_fg(rect, fg);
+                selection_rects.push(rect);
             }
 
             // Shadow-highlight matches of the current selection on this visual line.
@@ -2141,6 +2147,13 @@ impl TextBuffer {
         let logical_y_beg = self.cursor_for_rendering.unwrap().logical_pos.y;
         let logical_y_end = cursor.logical_pos.y + 1;
         self.render_apply_highlights(origin, destination, logical_y_beg..logical_y_end, fb);
+
+        // Force selection glyph color to black after lsh, so syntax-highlighted
+        // tokens (keywords etc.) inside the selection stay readable.
+        let sel_fg = fb.indexed(IndexedColor::Black);
+        for rect in &selection_rects {
+            fb.blend_fg(*rect, sel_fg);
+        }
 
         // Colorize the margin that we wrote above.
         if self.margin_width > 0 {
