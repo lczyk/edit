@@ -70,6 +70,12 @@ pub struct Language {
     pub shebangs: &'static [&'static str],
     /// Bytecode address where execution begins for this language.
     pub entrypoint: u32,
+    /// Bytecode address of an optional content-sniff detector. When `Some`,
+    /// the resolver can call [`Runtime::detect`] to disambiguate against
+    /// other path-glob candidates -- e.g. dialect-of-yaml definitions sharing
+    /// the same `*.yaml` glob. `None` means "always wins when its glob hits"
+    /// (the base-language fallback).
+    pub detect_entrypoint: Option<u32>,
 }
 
 impl PartialEq for &'static Language {
@@ -128,6 +134,189 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
             stack: Default::default(),
             registers: Registers { pc: entrypoint, ..Default::default() },
         }
+    }
+
+    /// Run a `fn detect()` body against the head of a buffer and return its
+    /// verdict. The bytecode halts via `return match;` (-> `true`) or
+    /// `return no_match;` (-> `false`); falling off the end of the budget
+    /// (line / byte cap) returns `false`.
+    ///
+    /// `detect_entrypoint` is the bytecode address compiled from a `fn
+    /// detect()` declaration. Pass the value of [`Language::detect_entrypoint`]
+    /// directly. The runtime's current entrypoint is left intact -- detect
+    /// runs against its own program counter without disturbing the caller's
+    /// state.
+    pub fn detect(&mut self, head: &[u8], detect_entrypoint: u32) -> bool {
+        // Per-invocation budgets. Tight by design: detect should fire on the
+        // first signal it cares about, not chew the whole buffer.
+        const MAX_LINES: usize = 80;
+        const MAX_BYTES: usize = 4096;
+        const MAX_INSTRUCTIONS: usize = 200_000;
+
+        let saved_stack = mem::take(&mut self.stack);
+        let saved_registers = self.registers;
+        let saved_entrypoint = self.entrypoint;
+
+        self.entrypoint = detect_entrypoint;
+        self.registers = Registers { pc: detect_entrypoint, ..Default::default() };
+
+        let head = &head[..head.len().min(MAX_BYTES)];
+        let mut verdict = false;
+        let mut decided = false;
+        let mut instructions = 0usize;
+
+        'outer: for (line_idx, line) in head.split(|&b| b == b'\n').enumerate() {
+            if line_idx >= MAX_LINES {
+                break;
+            }
+            let line = line.strip_suffix(b"\r").unwrap_or(line);
+
+            self.registers.off = 0;
+            self.registers.hs = 0;
+
+            loop {
+                if instructions >= MAX_INSTRUCTIONS {
+                    break 'outer;
+                }
+                instructions += 1;
+
+                instruction_decode!(self.assembly, self.registers.pc, {
+                    Mov { dst, src } => {
+                        let s = self.registers.get(src);
+                        self.registers.set(dst, s);
+                    }
+                    Add { dst, src } => {
+                        let d = self.registers.get(dst);
+                        let s = self.registers.get(src);
+                        self.registers.set(dst, d.saturating_add(s));
+                    }
+                    Sub { dst, src } => {
+                        let d = self.registers.get(dst);
+                        let s = self.registers.get(src);
+                        self.registers.set(dst, d.saturating_sub(s));
+                    }
+                    MovImm { dst, imm } => {
+                        self.registers.set(dst, imm);
+                    }
+                    AddImm { dst, imm } => {
+                        let d = self.registers.get(dst);
+                        self.registers.set(dst, d.saturating_add(imm));
+                    }
+                    SubImm { dst, imm } => {
+                        let d = self.registers.get(dst);
+                        self.registers.set(dst, d.saturating_sub(imm));
+                    }
+
+                    Call { tgt } => {
+                        self.registers.save_registers(&mut self.stack);
+                        self.registers.pc = tgt;
+                    }
+                    Return => {
+                        if !self.registers.load_registers(&mut self.stack) {
+                            // Empty stack on Return: detector reached the end of
+                            // its body without committing to a verdict. Treat as
+                            // "keep scanning subsequent lines".
+                            self.registers = Registers { pc: detect_entrypoint, ..Default::default() };
+                            break;
+                        }
+                    }
+
+                    JumpEQ { lhs, rhs, tgt } => {
+                        if self.registers.get(lhs) == self.registers.get(rhs) {
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpNE { lhs, rhs, tgt } => {
+                        if self.registers.get(lhs) != self.registers.get(rhs) {
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpLT { lhs, rhs, tgt } => {
+                        if self.registers.get(lhs) < self.registers.get(rhs) {
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpLE { lhs, rhs, tgt } => {
+                        if self.registers.get(lhs) <= self.registers.get(rhs) {
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpGT { lhs, rhs, tgt } => {
+                        if self.registers.get(lhs) > self.registers.get(rhs) {
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpGE { lhs, rhs, tgt } => {
+                        if self.registers.get(lhs) >= self.registers.get(rhs) {
+                            self.registers.pc = tgt;
+                        }
+                    }
+
+                    JumpIfEndOfLine { tgt } => {
+                        if (self.registers.off as usize) >= line.len() {
+                            self.registers.pc = tgt;
+                        }
+                    }
+
+                    JumpIfMatchCharset { idx, min, max, tgt } => {
+                        let off = self.registers.off as usize;
+                        let cs = &self.charsets[idx as usize];
+                        let min = min as usize;
+                        let max = max as usize;
+
+                        if let Some(off) = Self::charset_gobble(line, off, cs, min, max) {
+                            self.registers.off = off as u32;
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpIfMatchPrefix { idx, tgt } => {
+                        let off = self.registers.off as usize;
+                        let str = self.strings[idx as usize].as_bytes();
+
+                        if Self::inlined_memcmp(line, off, str) {
+                            self.registers.off = (off + str.len()) as u32;
+                            self.registers.pc = tgt;
+                        }
+                    }
+                    JumpIfMatchPrefixInsensitive { idx, tgt } => {
+                        let off = self.registers.off as usize;
+                        let str = self.strings[idx as usize].as_bytes();
+
+                        if Self::inlined_memicmp(line, off, str) {
+                            self.registers.off = (off + str.len()) as u32;
+                            self.registers.pc = tgt;
+                        }
+                    }
+
+                    FlushHighlight { kind } => {
+                        // Detectors don't emit highlights. Treat as a no-op so
+                        // a stray `yield` in a detect() body doesn't trip the
+                        // runtime, though the frontend forbids it.
+                        let _ = kind;
+                        self.registers.hs = self.registers.off;
+                    }
+                    AwaitInput => {
+                        let off = self.registers.off as usize;
+                        if off >= line.len() {
+                            break;
+                        }
+                    }
+                    Halt { result } => {
+                        verdict = result != 0;
+                        decided = true;
+                        break 'outer;
+                    }
+
+                    _ => unreachable!(),
+                });
+            }
+        }
+
+        self.stack = saved_stack;
+        self.registers = saved_registers;
+        self.entrypoint = saved_entrypoint;
+
+        if decided { verdict } else { false }
     }
 
     pub fn snapshot(&self) -> RuntimeState {
@@ -288,6 +477,15 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     if off >= line.len() {
                         break;
                     }
+                }
+                Halt { result } => {
+                    let _ = result;
+                    // Halt is only meaningful when driven by `detect()`. If a
+                    // language definition emits one inside a highlighter
+                    // entrypoint, treat it as a soft reset to the entrypoint
+                    // (mirrors empty-stack Return), preventing runaway loops.
+                    self.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                    break;
                 }
 
                 _ => unreachable!(),
@@ -552,6 +750,11 @@ pub enum Instruction {
 
     // Awaits more input to be available.
     AwaitInput,
+
+    // Terminates the current bytecode run and signals a binary verdict.
+    // Only used by `fn detect()` bodies. The runtime's `detect()` driver
+    // breaks its line loop on this opcode and surfaces `result` as a bool.
+    Halt { result: u32 },
 }
 
 macro_rules! instruction_decode {
@@ -581,6 +784,7 @@ macro_rules! instruction_decode {
 
         FlushHighlight { $flush_kind:ident } => $flush_handler:block
         AwaitInput => $await_handler:block
+        Halt { $halt_result:ident } => $halt_handler:block
 
         _ => $bad_opcode:expr $(,)?
     }) => {{
@@ -752,6 +956,12 @@ macro_rules! instruction_decode {
                 $pc += 1;
                 $await_handler
             }
+            20 => {
+                // Halt
+                $pc += 5;
+                let $halt_result = dec_u32(__asm, __off + 1);
+                $halt_handler
+            }
 
             _ => $bad_opcode,
         }
@@ -854,6 +1064,9 @@ impl Instruction {
                 bytes.push(arena, enc_reg_single(kind));
             }
             Instruction::AwaitInput => {}
+            Instruction::Halt { result } => {
+                bytes.extend_from_slice(arena, &enc_u32(result));
+            }
         }
 
         bytes
@@ -921,6 +1134,9 @@ impl Instruction {
             }
             AwaitInput=> {
                 Instruction::AwaitInput
+            }
+            Halt { result } => {
+                Instruction::Halt { result }
             }
             _ => return (None, 1),
         });
@@ -1034,6 +1250,9 @@ impl Instruction {
             }
             Instruction::AwaitInput => {
                 arena_write_fmt!(arena, str, "{_i}await{i_}");
+            }
+            Instruction::Halt { result } => {
+                arena_write_fmt!(arena, str, "{_i}halt{i_}   {_n}{result}{n_}");
             }
         }
 

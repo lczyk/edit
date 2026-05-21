@@ -301,6 +301,22 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
 
     fn parse_return(&mut self) -> CompileResult<IRSpan<'a>> {
         self.expect_keyword("return")?;
+
+        // Detector verdicts: `return match;` / `return no_match;` halt the
+        // bytecode and surface a bool to [`crate::runtime::Runtime::detect`].
+        // Plain `return;` keeps existing semantics (pop call frame or reset
+        // VM if the stack is empty).
+        if self.is_keyword("match") {
+            self.pos += 5;
+            self.expect(';')?;
+            return Ok(IRSpan::single(self.compiler.alloc_iri(IRI::Halt { result: 1 })));
+        }
+        if self.is_keyword("no_match") {
+            self.pos += 8;
+            self.expect(';')?;
+            return Ok(IRSpan::single(self.compiler.alloc_iri(IRI::Halt { result: 0 })));
+        }
+
         self.expect(';')?;
         Ok(IRSpan::single(self.compiler.alloc_iri(IRI::Return)))
     }

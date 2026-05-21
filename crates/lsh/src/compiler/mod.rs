@@ -301,6 +301,9 @@ impl<'a> Compiler<'a> {
                     IRI::AwaitInput => {
                         _ = write!(output, "[{offset}: await input]");
                     }
+                    IRI::Halt { result } => {
+                        _ = write!(output, "[{offset}: halt {result}]");
+                    }
                 }
 
                 match node.instr {
@@ -379,6 +382,10 @@ pub struct Entrypoint {
     pub line_comment: Option<String>,
     pub block_comment: Option<(String, String)>,
     pub address: usize,
+    /// Bytecode address of a sibling `fn <name>_detect()` body, if one was
+    /// defined. Used by the runtime's content-sniffing resolver to
+    /// disambiguate path-glob collisions (e.g. yaml dialects).
+    pub detect_address: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -462,6 +469,7 @@ enum IRI<'a> {
     Return,
     Flush { kind: IRRegCell<'a> },
     AwaitInput,
+    Halt { result: u32 },
 }
 
 #[derive(Default)]
@@ -556,6 +564,7 @@ impl<'a> IR<'a> {
                 false
             }
             IRI::Return => false,
+            IRI::Halt { .. } => false,
             _ => true,
         }
     }

@@ -9,7 +9,10 @@ use std::path::Path;
 pub use definitions::{FILE_ASSOCIATIONS, HighlightKind, LANGUAGES};
 pub use highlighter::*;
 pub use lsh::runtime::Language;
+use lsh::runtime::Runtime;
 use stdext::glob::glob_match;
+
+use crate::lsh::definitions::*;
 
 pub fn process_file_associations<T>(
     associations: &[(T, &'static Language)],
@@ -27,6 +30,68 @@ where
     }
 
     None
+}
+
+/// Collect every entry whose glob matches `path`, in iteration order, with
+/// duplicates filtered out. Used for content-aware dialect disambiguation:
+/// when two definitions share a glob (e.g. plain yaml and a yaml dialect both
+/// register `**/*.yaml`), the caller needs the full candidate set so it can
+/// run each candidate's [`Language::detect_entrypoint`] against the buffer
+/// head.
+pub fn match_file_associations<T>(
+    associations: &[(T, &'static Language)],
+    path: &Path,
+) -> Vec<&'static Language>
+where
+    T: AsRef<[u8]>,
+{
+    let path_bytes = path.as_os_str().as_encoded_bytes();
+    let mut hits: Vec<&'static Language> = Vec::new();
+    for a in associations {
+        if glob_match(a.0.as_ref(), path_bytes) && !hits.iter().any(|l| std::ptr::eq(*l, a.1)) {
+            hits.push(a.1);
+        }
+    }
+    hits
+}
+
+/// Pick the right language from a candidate set, using content-based
+/// disambiguation when the set has more than one entry. Rules:
+///
+/// - Single candidate -- returned as-is, no buffer read.
+/// - Multiple candidates -- each with a [`Language::detect_entrypoint`] is
+///   run against `head`. First detector that returns true wins.
+/// - If no detector matches, the first candidate w/out a `detect_entrypoint`
+///   is returned (the "base" fallback). If every candidate has a detector
+///   and none matched, the first listed candidate is returned to keep the
+///   call non-failing.
+pub fn disambiguate_language(
+    candidates: &[&'static Language],
+    head: &[u8],
+) -> Option<&'static Language> {
+    match candidates {
+        [] => None,
+        [only] => Some(only),
+        _ => {
+            let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, 0);
+            let mut base: Option<&'static Language> = None;
+            for &cand in candidates {
+                match cand.detect_entrypoint {
+                    Some(detect_ep) => {
+                        if runtime.detect(head, detect_ep) {
+                            return Some(cand);
+                        }
+                    }
+                    None => {
+                        if base.is_none() {
+                            base = Some(cand);
+                        }
+                    }
+                }
+            }
+            base.or_else(|| candidates.first().copied())
+        }
+    }
 }
 
 /// Try to identify the language of a buffer from its shebang (`#!...`) line.

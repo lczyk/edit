@@ -1,0 +1,10 @@
+version: [92m2[m
+jobs:
+  build:
+    runs-on: [91mubuntu-latest[m
+    steps:
+      - uses: [91mactions/checkout@v4[m
+      - run: [91mecho "hi"[m
+defaults:
+  shell: [91mbash[m
+

@@ -1,0 +1,115 @@
+// Chisel slice definition files (sdfs) -- canonical/chisel-releases dialect of
+// YAML. Adds dialect highlighting for the structural top-level keys
+// (package/essential/slices/contents/mutate). Otherwise behaves like generic
+// yaml: every other key/value is parsed identically. Path glob is intentionally
+// narrow until content-based detection lands; once detect() is wired up the
+// glob will broaden to **/*.yaml and disambiguation will be content-driven.
+
+// Content sniffer paired with `slice_yaml` by name convention
+// (`<entry>_detect`). The resolver runs this against the head of the buffer
+// when a path-glob candidate set contains more than one entry. Verdict is
+// signalled by `return match;` / `return no_match;`.
+//
+// Heuristic: the first non-blank non-comment line must be `package: <name>`,
+// and within the head budget we must see a top-level `slices:` line. Both are
+// universal across the chisel-releases corpus (validated on 654 files at
+// scoping time).
+fn slice_yaml_detect() {
+    if /\s*#.*/ {
+        // Skip leading comment lines.
+    } else if /\s*$/ {
+        // Skip blank lines.
+    } else if /package:\s+\S/ {
+        // Found the package declaration. Now look for `slices:` further down.
+        loop {
+            await input;
+            if /slices:\s*(?:#.*)?$/ {
+                return match;
+            }
+        }
+    } else {
+        // Anything else as the first non-blank, non-comment line means this is
+        // not a chisel slice file.
+        return no_match;
+    }
+}
+
+#[display_name = "Chisel Slice"]
+#[line_comment = "#"]
+#[path = "**/*.yaml"]
+pub fn slice_yaml() {
+    if /\s+/ {
+        // Leading whitespace
+    }
+
+    var indentation = off;
+
+    loop {
+        if /-\s+/ {
+            // List item
+        }
+
+        // Flush leading indent / list-dash as plain `other` before we attempt
+        // to match a structural key. Without this, the dialect highlight would
+        // swallow the indentation into the keyword span.
+        yield other;
+
+        // Structural slice-yaml keywords. Consumed together with the trailing
+        // `:` plus whitespace/EOL as a single all-or-nothing match so the whole
+        // token highlights as a structural key.
+        if /(?:package|essential|slices|contents|mutate):(?:\s+|$)/ {
+            yield keyword.other;
+        } else if /[\w.\/-]+:(?:\s+|$)/ {
+            // Generic Key: (Value follows)
+        }
+
+        if /[|>][-+]?.*/ {
+            // Multiline string inducer -- gobble continuation lines until
+            // indentation drops back to the inducer's level.
+            loop {
+                await input;
+
+                if /\s+/ {
+                }
+
+                if off <= indentation {
+                    break;
+                }
+
+                if /.*/ {
+                    yield string;
+                }
+            }
+        } else {
+            break;
+        }
+    }
+
+    yield other;
+
+    if /---/ {
+        yield other;
+    } else if /true|false|yes|no|null|~/ {
+        if /\s*[^\s#]+[^#]*/ {
+            yield string;
+        } else {
+            yield constant.language;
+        }
+    } else if /-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/ {
+        if /\s*[^\s#]+[^#]*/ {
+            yield string;
+        } else {
+            yield constant.numeric;
+        }
+    } else if /[^\s#]+[^#]*/ {
+        yield string;
+    }
+
+    if /\s+/ {
+        yield other;
+    }
+
+    if /#.*/ {
+        yield comment;
+    }
+}

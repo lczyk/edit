@@ -23,6 +23,7 @@ enum SubCommands {
     Compile(SubCommandOneCompile),
     Assembly(SubCommandAssembly),
     Render(SubCommandRender),
+    Detect(SubCommandDetect),
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -42,6 +43,20 @@ struct SubCommandAssembly {
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand, name = "render", description = "Highlight text files")]
 struct SubCommandRender {
+    #[argh(option, description = "source text file")]
+    input: PathBuf,
+    #[argh(positional, description = "source .lsh files or directories")]
+    lsh: Vec<PathBuf>,
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(
+    subcommand,
+    name = "detect",
+    description = "Resolve which language an input file would map to, honouring path globs and \
+                   content-based dialect detectors"
+)]
+struct SubCommandDetect {
     #[argh(option, description = "source text file")]
     input: PathBuf,
     #[argh(positional, description = "source .lsh files or directories")]
@@ -92,8 +107,59 @@ fn run() -> anyhow::Result<()> {
             read_lsh_inputs(&cmd.lsh)?;
             run_render(generator, &cmd.input)?;
         }
+        SubCommands::Detect(cmd) => {
+            read_lsh_inputs(&cmd.lsh)?;
+            run_detect(generator, &cmd.input)?;
+        }
     }
 
+    Ok(())
+}
+
+fn run_detect(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Result<()> {
+    let assembly = generator.assemble()?;
+
+    let path_bytes = path.as_os_str().as_encoded_bytes();
+    let candidates: Vec<_> = assembly
+        .entrypoints
+        .iter()
+        .filter(|ep| ep.paths.iter().any(|pat| glob_match(pat.as_bytes(), path_bytes)))
+        .collect();
+
+    if candidates.is_empty() {
+        bail!("no matching highlighting definition for {}", path.display());
+    }
+
+    let picked = if candidates.len() == 1 {
+        candidates[0]
+    } else {
+        let src = std::fs::read(path)?;
+        let head = &src[..src.len().min(4096)];
+        let charsets: Vec<SerializedCharset> =
+            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+        let mut runtime =
+            Runtime::new(&assembly.instructions, &assembly.strings, &charsets, 0);
+        let mut base = None;
+        let mut decided = None;
+        for cand in &candidates {
+            match cand.detect_address {
+                Some(addr) => {
+                    if runtime.detect(head, addr as u32) {
+                        decided = Some(*cand);
+                        break;
+                    }
+                }
+                None => {
+                    if base.is_none() {
+                        base = Some(*cand);
+                    }
+                }
+            }
+        }
+        decided.or(base).unwrap_or(candidates[0])
+    };
+
+    println!("{}", picked.name);
     Ok(())
 }
 

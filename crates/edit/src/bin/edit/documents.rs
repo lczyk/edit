@@ -22,8 +22,8 @@ use edit::buffer::{RcTextBuffer, TextBuffer};
 use edit::framebuffer::IndexedColor;
 use edit::helpers::{CoordType, Point};
 use edit::lsh::{
-    FILE_ASSOCIATIONS, Language, language_from_content, language_from_shebang,
-    process_file_associations,
+    FILE_ASSOCIATIONS, Language, disambiguate_language, language_from_content,
+    language_from_shebang, match_file_associations,
 };
 use edit::{path, sys};
 
@@ -287,11 +287,26 @@ impl Document {
         }
 
         let settings = Settings::borrow();
-        if let Some(lang) = process_file_associations(&settings.file_associations, &self.path) {
-            return Some(lang);
+        // Gather all path-glob candidates (user settings first, then built-ins)
+        // so dialect disambiguation can run when more than one definition
+        // shares a glob -- e.g. yaml + slice_yaml on `**/*.yaml`.
+        let mut candidates = match_file_associations(&settings.file_associations, &self.path);
+        for cand in match_file_associations(FILE_ASSOCIATIONS, &self.path) {
+            if !candidates.iter().any(|l| std::ptr::eq(*l, cand)) {
+                candidates.push(cand);
+            }
         }
-        if let Some(lang) = process_file_associations(FILE_ASSOCIATIONS, &self.path) {
-            return Some(lang);
+
+        if !candidates.is_empty() {
+            // Only pay the buffer-read cost when there's actual ambiguity.
+            let head = if candidates.len() > 1 {
+                let mut buf = Vec::new();
+                self.buffer.borrow().copy_first_bytes(4096, &mut buf);
+                buf
+            } else {
+                Vec::new()
+            };
+            return disambiguate_language(&candidates, &head);
         }
 
         // Path-based detection missed -- fall back to content-based probes.

@@ -1,0 +1,14 @@
+{"line":1,"kind":"other","text":"version: "}
+{"line":1,"kind":"constant.numeric","text":"2"}
+{"line":2,"kind":"other","text":"jobs:"}
+{"line":3,"kind":"other","text":"  build:"}
+{"line":4,"kind":"other","text":"    runs-on: "}
+{"line":4,"kind":"string","text":"ubuntu-latest"}
+{"line":5,"kind":"other","text":"    steps:"}
+{"line":6,"kind":"other","text":"      - uses: "}
+{"line":6,"kind":"string","text":"actions/checkout@v4"}
+{"line":7,"kind":"other","text":"      - run: "}
+{"line":7,"kind":"string","text":"echo \"hi\""}
+{"line":8,"kind":"other","text":"defaults:"}
+{"line":9,"kind":"other","text":"  shell: "}
+{"line":9,"kind":"string","text":"bash"}

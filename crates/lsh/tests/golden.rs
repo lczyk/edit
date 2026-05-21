@@ -50,6 +50,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Rust => "rust",
         Language::Sed => "sed",
         Language::Shellscript => "shellscript",
+        Language::SliceYaml => "slice_yaml",
         Language::Toml => "toml",
         Language::Xml => "xml",
         Language::Yaml => "yaml",
@@ -179,13 +180,46 @@ fn golden() {
 
     for fixture in &fixtures {
         let path_bytes = fixture.as_os_str().as_encoded_bytes();
-        let Some(entrypoint) = assembly
+        let candidates: Vec<_> = assembly
             .entrypoints
             .iter()
-            .find(|ep| ep.paths.iter().any(|pat| glob_match(pat.as_bytes(), path_bytes)))
-        else {
-            failures.push(format!("no entrypoint for {}", fixture.display()));
-            continue;
+            .filter(|ep| ep.paths.iter().any(|pat| glob_match(pat.as_bytes(), path_bytes)))
+            .collect();
+
+        let entrypoint = match candidates.as_slice() {
+            [] => {
+                failures.push(format!("no entrypoint for {}", fixture.display()));
+                continue;
+            }
+            [only] => *only,
+            _ => {
+                // Multiple definitions claim this path (e.g. yaml + dialects).
+                // Run each candidate's detector against the fixture head and
+                // pick the first that returns true; fall back to the first
+                // candidate w/o a detector (the base language).
+                let src = fs::read(fixture).unwrap();
+                let head = &src[..src.len().min(4096)];
+                let mut runtime =
+                    Runtime::new(&assembly.instructions, &assembly.strings, &charsets, 0);
+                let mut base = None;
+                let mut decided = None;
+                for cand in &candidates {
+                    match cand.detect_address {
+                        Some(addr) => {
+                            if runtime.detect(head, addr as u32) {
+                                decided = Some(*cand);
+                                break;
+                            }
+                        }
+                        None => {
+                            if base.is_none() {
+                                base = Some(*cand);
+                            }
+                        }
+                    }
+                }
+                decided.or(base).unwrap_or(candidates[0])
+            }
         };
 
         let mut runtime = Runtime::new(

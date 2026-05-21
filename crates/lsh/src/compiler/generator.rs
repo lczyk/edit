@@ -257,7 +257,7 @@ impl TryFrom<u32> for HighlightKind {{
             };
             _ = writeln!(
                 output,
-                "    Language {{ id: {:?}, name: {:?}, line_comment: {}, block_comment: {}, shebangs: {shebangs}, entrypoint: {} }},",
+                "    Language {{ id: {:?}, name: {:?}, line_comment: {}, block_comment: {}, shebangs: {shebangs}, entrypoint: {}, detect_entrypoint: {} }},",
                 ep.name.replace('_', "-"),
                 ep.display_name,
                 match &ep.line_comment {
@@ -269,6 +269,10 @@ impl TryFrom<u32> for HighlightKind {{
                     None => "None".to_string(),
                 },
                 ep.address,
+                match ep.detect_address {
+                    Some(addr) => format!("Some({addr})"),
+                    None => "None".to_string(),
+                },
             );
         }
         output.push_str("];\n");
