@@ -695,8 +695,14 @@ impl Tui {
                     // Double-/Triple-/Etc.-clicks are triggered on mouse-down,
                     // unlike the first initial click, which is triggered on mouse-up.
                     if self.mouse_click_counter != 0 {
+                        // Allow a 1-cell tolerance on repeat-click position so
+                        // tiny mouse jitter between clicks doesn't reset the
+                        // counter and demote a double-click to two singles.
+                        let dx = (self.first_click_position.x - next_position.x).abs();
+                        let dy = (self.first_click_position.y - next_position.y).abs();
+                        let position_drift = dx > 1 || dy > 1;
                         if self.first_click_target != target
-                            || self.first_click_position != next_position
+                            || position_drift
                             || (now - self.mouse_up_timestamp)
                                 > std::time::Duration::from_millis(500)
                         {
@@ -2492,7 +2498,15 @@ impl<'a> Context<'a, '_> {
             };
 
             if text_rect.contains(self.tui.mouse_down_position) {
-                if self.tui.mouse_is_drag {
+                // Freeze input during follow-up frames of a multi-click
+                // sequence (motion/release after the 2nd+ mouse-down). The
+                // initial multi-click frame carries `input_mouse_click >= 2`
+                // and is handled by the dispatch below; later frames have
+                // `input_mouse_click == 0` and would otherwise clobber the
+                // word/line selection via drag or cursor-move.
+                if self.tui.mouse_click_counter >= 2 && self.input_mouse_click == 0 {
+                    // no-op: keep multi-click selection intact
+                } else if self.tui.mouse_is_drag {
                     tb.selection_update_visual(pos);
                     tb.set_preferred_column(tb.cursor_visual_pos().x);
 
@@ -2535,8 +2549,14 @@ impl<'a> Context<'a, '_> {
                     match self.input_mouse_click {
                         5.. => {}
                         4 => tb.select_all(),
-                        3 => tb.select_line(),
-                        2 => tb.select_word(),
+                        3 => {
+                            tb.cursor_move_to_visual(pos);
+                            tb.select_line();
+                        }
+                        2 => {
+                            tb.cursor_move_to_visual(pos);
+                            tb.select_word();
+                        }
                         _ => match self.tui.mouse_state {
                             InputMouseState::Left => {
                                 if self.input_mouse_modifiers.contains(kbmod::SHIFT) {
