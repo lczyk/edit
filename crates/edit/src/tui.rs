@@ -704,7 +704,7 @@ impl Tui {
                         if self.first_click_target != target
                             || position_drift
                             || (now - self.mouse_up_timestamp)
-                                > std::time::Duration::from_millis(500)
+                                > std::time::Duration::from_millis(250)
                         {
                             // If the cursor moved / the focus changed in between, or if the user did a slow click,
                             // we reset the click counter. On mouse-up it'll transition to a regular click.
