@@ -2021,6 +2021,7 @@ impl TextBuffer {
                         bottom: top + 1,
                     };
                     fb.blend_bg(rect, bg);
+                    selection_rects.push(rect);
                 }
             }
 
