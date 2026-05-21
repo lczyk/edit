@@ -77,7 +77,7 @@ pub fn wrap_dot() -> char {
     if ascii_only() { '.' } else { '∙' }
 }
 pub fn visual_space() -> &'static str {
-    if ascii_only() { "_" } else { "･" }
+    if ascii_only() { "_" } else { "·" }
 }
 pub fn visual_tab() -> &'static str {
     if ascii_only() { ">       " } else { "￫       " }
@@ -134,7 +134,7 @@ mod tests {
         assert_eq!(modified_dot(), "● ");
         assert_eq!(scrollbar_thumb(), "█");
         assert_eq!(wrap_dot(), '∙');
-        assert_eq!(visual_space(), "･");
+        assert_eq!(visual_space(), "·");
         assert_eq!(visual_tab(), "￫       ");
         assert_eq!(gutter_deleted_above(), "▴");
         assert_eq!(gutter_deleted_below(), "▾");

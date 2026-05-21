@@ -61,8 +61,8 @@ fn margin_template() -> &'static str {
 fn tab_whitespace() -> &'static str {
     margin_template()
 }
-const VISUAL_SPACE_UNICODE: &str = "･";
-const VISUAL_SPACE_PREFIX_ADD_UNICODE: usize = '･'.len_utf8() - 1;
+const VISUAL_SPACE_UNICODE: &str = "·";
+const VISUAL_SPACE_PREFIX_ADD_UNICODE: usize = '·'.len_utf8() - 1;
 const VISUAL_TAB_UNICODE: &str = "￫       ";
 const VISUAL_TAB_PREFIX_ADD_UNICODE: usize = '￫'.len_utf8() - 1;
 fn visual_space() -> (&'static str, usize) {
