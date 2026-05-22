@@ -489,6 +489,17 @@ impl Tui {
         mem::replace(&mut self.read_timeout, time::Duration::MAX)
     }
 
+    /// Caps `read_timeout` to one animation frame, so the main loop
+    /// wakes up in time to render the next step of an in-flight
+    /// animation. Idempotent: callers may invoke this from any anim
+    /// site (floater open, scroll/cursor advance, line-move trail)
+    /// without worrying about ordering vs the existing cap.
+    fn request_animation_frame(&mut self) {
+        if self.read_timeout > anim::FRAME_INTERVAL {
+            self.read_timeout = anim::FRAME_INTERVAL;
+        }
+    }
+
     /// Returns the viewport size.
     pub fn size(&self) -> Size {
         // We don't use the size stored in the framebuffer, because until
@@ -953,9 +964,7 @@ impl Tui {
                     Self::clip_subtree_bottom(node, bottom);
                 }
             }
-            if self.read_timeout > anim::FRAME_INTERVAL {
-                self.read_timeout = anim::FRAME_INTERVAL;
-            }
+            self.request_animation_frame();
         }
 
         let outer_clipped = node.outer_clipped;
@@ -1130,8 +1139,8 @@ impl Tui {
                 );
                 let still_animating =
                     visual_offset != tc.scroll_offset || cursor_override != cursor_target;
-                if still_animating && self.read_timeout > anim::FRAME_INTERVAL {
-                    self.read_timeout = anim::FRAME_INTERVAL;
+                if still_animating {
+                    self.request_animation_frame();
                 }
 
                 tb.set_cursor_render_override(Some(cursor_override));
@@ -1164,9 +1173,7 @@ impl Tui {
                         t,
                         tb.line_move_bands(),
                     );
-                    if self.read_timeout > anim::FRAME_INTERVAL {
-                        self.read_timeout = anim::FRAME_INTERVAL;
-                    }
+                    self.request_animation_frame();
                 }
 
                 if minimap_w > 0 {
