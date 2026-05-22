@@ -2006,17 +2006,11 @@ impl TextBuffer {
                             sep
                         );
                     }
-                    // Blending in the background color will "dim" the indicator dots.
-                    let left = destination.left;
-                    let top = destination.top + y;
-                    fb.blend_fg(
-                        Rect {
-                            left,
-                            top,
-                            right: left + line_number_width as CoordType,
-                            bottom: top + 1,
-                        },
-                        fb.indexed_alpha(IndexedColor::Background, 1, 2),
+                    crate::anim::draw::dim_wrapped_margin(
+                        fb,
+                        destination.left,
+                        destination.top + y,
+                        line_number_width as CoordType,
                     );
                 }
             }

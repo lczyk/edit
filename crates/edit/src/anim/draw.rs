@@ -145,6 +145,17 @@ pub fn selection_force_fg(fb: &mut Framebuffer, rects: &[Rect], fg: crate::oklab
     }
 }
 
+/// Dims the indicator-dot margin of a wrapped (continuation) line by
+/// blending the line-number column toward the background colour. Run
+/// inline per visual row for rows whose gutter shows the wrap-marker
+/// dots instead of a real line number.
+pub fn dim_wrapped_margin(fb: &mut Framebuffer, left: CoordType, top: CoordType, width: CoordType) {
+    fb.blend_fg(
+        Rect { left, top, right: left + width, bottom: top + 1 },
+        fb.indexed_alpha(IndexedColor::Background, 1, 2),
+    );
+}
+
 /// Tints the textarea's margin column with a dimmed fg. Run after
 /// the per-line gutter writes so the line numbers + box separator
 /// inherit the dim, then run **before** the gutter-mark paint so
