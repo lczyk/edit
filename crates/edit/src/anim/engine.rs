@@ -611,4 +611,61 @@ mod tests {
         assert_eq!(displayed.cursor_visual, target_cursor);
         assert_eq!(displayed.scroll_offset, target_scroll);
     }
+
+    #[test]
+    fn animate_snaps_on_first_call() {
+        // First call: animator state starts fresh (cursor_visual:
+        // None). animate snaps to the target rather than sliding in
+        // from (0, 0); still_animating returns false.
+        let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
+        tb.set_width(80);
+        let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let target = crate::anim::physics::build_textarea_physics(
+            &tb,
+            Point { x: 0, y: 0 },
+            dest,
+            None,
+            true,
+        );
+        let target_cursor = target.cursor_visual;
+        let target_scroll = target.scroll_offset;
+        let mut state = TextareaAnimState::default();
+        let (displayed, still_animating) =
+            animate(&mut state, target, tb.generation(), 0.016, Instant::now());
+        assert_eq!(displayed.cursor_visual, target_cursor);
+        assert_eq!(displayed.scroll_offset, target_scroll);
+        assert!(!still_animating);
+        // State now carries the snapped position.
+        assert_eq!(state.cursor_visual, Some((target_cursor.x as f32, target_cursor.y as f32)));
+    }
+
+    #[test]
+    fn animate_reports_still_animating_when_lerping() {
+        // Cursor target moves from (0, 0) to (100, 100); the lerp
+        // covers part of the distance, so still_animating is true.
+        let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
+        tb.set_width(80);
+        let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let mut target = crate::anim::physics::build_textarea_physics(
+            &tb,
+            Point { x: 0, y: 0 },
+            dest,
+            None,
+            true,
+        );
+        // Pretend the cursor jumped to (50, 50) and the animator
+        // had previously seen (0, 0).
+        target.cursor_visual = Point { x: 50, y: 50 };
+        let mut state = TextareaAnimState {
+            cursor_visual: Some((0.0, 0.0)),
+            scroll_visual: (0.0, 0.0),
+            ..Default::default()
+        };
+        // Match the buffer gen so snap_on_buffer_edit doesn't fire.
+        state.last_buffer_generation = tb.generation();
+        let (displayed, still_animating) =
+            animate(&mut state, target, tb.generation(), 0.016, Instant::now());
+        assert!(still_animating);
+        assert!(displayed.cursor_visual.x > 0 && displayed.cursor_visual.x < 50);
+    }
 }
