@@ -4697,9 +4697,13 @@ fn draw_line_move_sweep(
 
     // Linear fade from `BASE_ALPHA_NUM / BASE_ALPHA_DEN` at t=0 down to 0
     // at t=1. Scaled up by 1024 so fractional alpha steps survive the
-    // integer division inside `tint_bg_with_fg`.
+    // integer division inside `tint_bg_with_fg`. Peak alpha is 1/1 so the
+    // blend can actually lerp all the way to the tint colour at flash
+    // start -- with 1/2 caps the lerp lands halfway between the (dark)
+    // Background and the tint, and transparent-bg cells like the empty
+    // tail of a wrapped continuation row read as "stuck near black".
     const BASE_ALPHA_NUM: u32 = 1;
-    const BASE_ALPHA_DEN: u32 = 2;
+    const BASE_ALPHA_DEN: u32 = 1;
     let fade = (1.0 - t).clamp(0.0, 1.0);
     let alpha_num = (BASE_ALPHA_NUM as f32 * 1024.0 * fade) as u32;
     if alpha_num == 0 {
