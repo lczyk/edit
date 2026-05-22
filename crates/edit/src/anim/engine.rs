@@ -540,4 +540,25 @@ mod tests {
         seed_line_move_trail(&mut slot, &mut last_seen, None, 6, Instant::now());
         assert_eq!(last_seen, 6, "gen advances even on None event");
     }
+
+    #[test]
+    fn animate_nil_round_trips_physics() {
+        // Identity contract: nothing the animator touches changes.
+        let tb = crate::buffer::TextBuffer::new(true).unwrap();
+        let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let target = crate::anim::physics::build_textarea_physics(
+            &tb,
+            Point { x: 0, y: 0 },
+            dest,
+            None,
+            true,
+        );
+        let target_dest = target.dest;
+        let target_cursor = target.cursor_visual;
+        let target_scroll = target.scroll_offset;
+        let displayed = animate_nil(target);
+        assert_eq!(displayed.dest, target_dest);
+        assert_eq!(displayed.cursor_visual, target_cursor);
+        assert_eq!(displayed.scroll_offset, target_scroll);
+    }
 }
