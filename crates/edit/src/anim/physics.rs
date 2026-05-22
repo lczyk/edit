@@ -41,54 +41,39 @@ pub fn textarea_scrollbar_width(single_line: bool, minimap_w: CoordType) -> Coor
 ///
 /// Coordinates are at the **target** state -- i.e. what the painter
 /// would produce iff the animator were nil. The animator wiggles
-/// `scroll_offset`, `cursor_visual`, and visibility of
-/// `line_move_band` based on elapsed time + cached per-feature
-/// animator state.
-///
-/// Today this struct documents intent; it's not yet wired in. Fields
-/// marked as **pulled from** indicate the existing pub API path the
-/// builder will use. Fields marked as **needs split** require the
-/// stage-1 `TextBuffer::render -> TextBuffer::layout` extraction
-/// before they can be populated.
+/// `scroll_offset`, `cursor_visual`, and visibility of the
+/// `line_move` flash based on elapsed time + cached per-feature
+/// animator state. The post-layout per-row data (text + decoration
+/// rects, gutter marks, ranges) lives in the embedded
+/// [`TextareaLayout`].
 pub struct TextareaPhysics<'a> {
     /// Framebuffer rect this textarea paints into. Already adjusted
     /// for minimap / scrollbar widths.
     pub dest: Rect,
     /// Target viewport scroll offset (post-layout, pre-animation).
-    /// pulled from `TextareaContent.scroll_offset`.
     pub scroll_offset: Point,
     /// Target visual cursor position (in document-visual coords).
-    /// pulled from `TextBuffer::cursor_visual_pos()`.
     pub cursor_visual: Point,
     /// Visible line count -- used by the scrollbar to size the thumb.
-    /// pulled from `TextBuffer::visual_line_count()`.
     pub visual_line_count: CoordType,
     /// Minimap rail cells, if the textarea has a minimap.
-    /// pulled from `TextBuffer::minimap_cells()`.
     pub minimap_cells: &'a [MinimapCell],
     /// Total content rows the minimap was built from.
-    /// pulled from `TextBuffer::minimap_content_rows()`.
     pub minimap_content_rows: u32,
     /// Per-row band shape for an in-flight line-move trail.
-    /// pulled from `TextBuffer::line_move_bands()`.
     pub line_move_bands: &'a [RowBand],
-    /// Most recently observed line-move event, if any. The animator
-    /// uses this to decide whether to paint a trail flash this frame
-    /// (and at what alpha).
-    ///
-    /// Today this is drained via `TextBuffer::take_pending_line_move`
-    /// -- in stage 4 it becomes non-draining so physics can read it
-    /// every frame until the animator decides the flash is done.
-    pub line_move: Option<LineMoveEvent>,
+    /// Most recently observed line-move event paired w/ its
+    /// monotonic generation. The animator carries the last-seen gen
+    /// and treats a higher gen as a fresh event worth starting a
+    /// trail flash for. `(None, 0)` means no move has happened yet
+    /// on the underlying buffer.
+    pub line_move: (Option<LineMoveEvent>, u32),
     /// Whether the textarea currently has keyboard focus.
-    /// pulled from `TextareaContent.has_focus`.
     pub focus: bool,
-    // Fields below require the `TextBuffer::render` split before
-    // they can be populated. Placeholder docs only.
-    //
-    // pub visual_lines: &'a [VisualLine<'a>],   // needs split
-    // pub selection_geom: Option<SelectionGeom>, // needs split
-    // pub gutter: GutterDraw<'a>,               // needs split
+    /// Per-row layout output (text + decoration rects) produced by
+    /// [`crate::buffer::TextBuffer::layout`]. `None` for textareas
+    /// whose dest rect is empty.
+    pub layout: Option<TextareaLayout>,
 }
 
 /// Per-visual-line layout output produced by pass 1 of
@@ -125,23 +110,23 @@ pub struct VisualLine {
 }
 
 /// Build a [`TextareaPhysics`] from the live `TextBuffer` +
-/// surrounding context. Today this only populates the fields the
-/// existing pub API can supply -- viewport + cursor + scrollbar +
-/// minimap geometry. The fields blocked on the stage-1 layout
-/// carve (`visual_lines`, `selection_geom`, `gutter`) are still
-/// commented out on the struct; they get filled in once
-/// `TextBuffer::layout()` exists.
+/// surrounding context. Runs `TextBuffer::layout()` to populate the
+/// post-layout per-row outputs as part of physics build; the
+/// resulting `TextareaPhysics` carries everything the eventual
+/// stage-2 `draw(physics, fb)` needs to render this textarea at its
+/// target state.
 ///
-/// `line_move` is `None` today because the existing path drains
-/// the event into the animator's slot inline. In stage 4 the
-/// buffer keeps the event non-draining and physics reads it
-/// directly.
+/// `&mut tb` because `layout()` writes the `cursor_for_rendering`
+/// cache. Once that cache becomes caller-owned, this can drop the
+/// mut.
 pub fn build_textarea_physics<'a>(
-    tb: &'a crate::buffer::TextBuffer,
+    tb: &'a mut crate::buffer::TextBuffer,
     scroll_offset: Point,
     dest: Rect,
+    cursor_override: Option<Point>,
     focus: bool,
 ) -> TextareaPhysics<'a> {
+    let layout = tb.layout(scroll_offset, dest, cursor_override);
     TextareaPhysics {
         dest,
         scroll_offset,
@@ -150,8 +135,9 @@ pub fn build_textarea_physics<'a>(
         minimap_cells: tb.minimap_cells(),
         minimap_content_rows: tb.minimap_content_rows(),
         line_move_bands: tb.line_move_bands(),
-        line_move: None,
+        line_move: tb.peek_pending_line_move(),
         focus,
+        layout,
     }
 }
 
@@ -230,14 +216,19 @@ mod tests {
         // Smoke test: a freshly-built TextBuffer w/ default state
         // gives us a physics record whose simple fields match what
         // the pub API exposes.
-        let tb = crate::buffer::TextBuffer::new(true).unwrap();
+        let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
+        tb.set_width(80);
         let dest = Rect { left: 0, top: 0, right: 80, bottom: 24 };
-        let phys = build_textarea_physics(&tb, Point { x: 0, y: 0 }, dest, true);
+        let cursor_pos = tb.cursor_visual_pos();
+        let line_count = tb.visual_line_count();
+        let phys = build_textarea_physics(&mut tb, Point { x: 0, y: 0 }, dest, None, true);
         assert_eq!(phys.dest, dest);
         assert_eq!(phys.scroll_offset, Point { x: 0, y: 0 });
-        assert_eq!(phys.cursor_visual, tb.cursor_visual_pos());
-        assert_eq!(phys.visual_line_count, tb.visual_line_count());
-        assert!(phys.line_move.is_none());
+        assert_eq!(phys.cursor_visual, cursor_pos);
+        assert_eq!(phys.visual_line_count, line_count);
+        assert!(phys.line_move.0.is_none());
+        assert_eq!(phys.line_move.1, 0);
         assert!(phys.focus);
+        assert!(phys.layout.is_some(), "non-empty dest produces a layout");
     }
 }
