@@ -297,13 +297,18 @@ pub struct BodyTextRects {
     pub control_chars: Vec<Rect>,
 }
 
-/// Per-row decoration set collected during the per-line layout pass
-/// of [`TextBuffer::render`] and consumed by a second paint pass
-/// after `fb.replace_text` has committed each row's body text. All
-/// fields are pure data -- no fb references, no buffer borrows.
+/// Per-row layout output collected during pass 1 of
+/// [`TextBuffer::render`] and consumed by pass 2 paint. All fields
+/// are pure data -- no fb references, no buffer borrows. The eventual
+/// public `TextBuffer::layout()` returns `Vec<LineDecor>` directly.
 struct LineDecor {
-    /// Framebuffer y for this row's paints.
+    /// Framebuffer y for this row's paints + text commit.
     fb_y: CoordType,
+    /// Body text including the margin prefix (gutter line numbers /
+    /// wrap markers / past-end template) and the visible-line glyphs
+    /// w/ visualisers substituted in. Pushed into the framebuffer
+    /// via `replace_text` during pass 2.
+    text: String,
     /// Whether the row's margin column should be dimmed (wrapped
     /// continuation indicator).
     dim_margin: bool,
@@ -2334,6 +2339,7 @@ impl TextBuffer {
             line.reserve(&*scratch, width as usize * 2);
             let mut decor = LineDecor {
                 fb_y: destination.top + y,
+                text: String::new(),
                 dim_margin: false,
                 sel_rect: None,
                 shadow_matches: Vec::new(),
@@ -2415,19 +2421,24 @@ impl TextBuffer {
                 visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
             }
 
-            fb.replace_text(destination.top + y, destination.left, destination.right, &line);
+            // Copy the per-iter arena-backed BString into the
+            // owned-text slot on `decor` so the layout output
+            // outlives the scratch arena. ~80 bytes per row; not a
+            // hot path.
+            decor.text.push_str(line.as_str());
             decors.push(decor);
 
             cursor = cursor_end;
         }
 
-        // Pass 2: paint per-row decorations now that all line text is
-        // committed. Order within a row matches the original inline
-        // sequence; `replace_text` writes only glyphs (not fg/bg), so
-        // running blends after replace_text is equivalent to running
-        // them before. Per-row paints are independent across rows.
+        // Pass 2: write each row's body text + apply blends. Order
+        // within a row matches the original inline sequence;
+        // `replace_text` writes only glyphs (not fg/bg), so running
+        // blends after replace_text is equivalent to running them
+        // before. Per-row paints are independent across rows.
         let shadow_bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
         for decor in &decors {
+            fb.replace_text(decor.fb_y, destination.left, destination.right, &decor.text);
             if decor.dim_margin {
                 crate::anim::draw::dim_wrapped_margin(
                     fb,
