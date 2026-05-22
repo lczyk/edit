@@ -161,45 +161,7 @@ use crate::hash::*;
 use crate::helpers::*;
 use crate::input::{InputKeyMod, kbmod, vk};
 use crate::oklab::StraightRgba;
-use crate::{input, simd, unicode};
-
-/// Animation timing knobs. Single place to tune the feel of every
-/// motion in the TUI -- cursor / selection / scroll lerp, dropdown
-/// slide, modal scale. Disabled wholesale by `glyphs::no_animations()`.
-mod anim {
-    use std::time::Duration;
-
-    /// Exponential-lerp time constant for the cursor block. Snappy --
-    /// cursor must feel responsive. `alpha = 1 - exp(-dt / TAU)` per
-    /// frame. Larger = slower / more visible motion.
-    pub const CURSOR_TAU_SECS: f32 = 0.060;
-
-    /// Exponential-lerp time constant for the viewport scroll offset.
-    /// Same target feel as the cursor; visible but not laggy on fast
-    /// PageDown / wheel bursts.
-    pub const SCROLL_TAU_SECS: f32 = 0.060;
-
-    /// One-shot open animation duration for slide-down dropdowns.
-    pub const SLIDE_DOWN_DURATION_SECS: f32 = 0.080;
-
-    /// One-shot open animation duration for scale-in modals.
-    pub const SCALE_IN_DURATION_SECS: f32 = 0.150;
-
-    /// Duration of the line-move (Alt+Up/Down) trail flash. Painted at
-    /// the new position and faded out -- no motion, just a transient
-    /// highlight that points the eye at where the line landed.
-    pub const LINE_MOVE_DURATION_SECS: f32 = 0.150;
-
-    /// Wakeup interval the main loop is asked to honour while any
-    /// animation is still in flight (~60 fps).
-    pub const FRAME_INTERVAL: Duration = Duration::from_millis(16);
-
-    /// Cap on the per-frame `dt` fed into the lerp. Without this, the
-    /// first frame after a long idle (no input for seconds) sees a
-    /// huge `dt`, the lerp jumps the entire distance in one step, and
-    /// the animation is invisible.
-    pub const MAX_DT_SECS: f32 = 0.020;
-}
+use crate::{anim, input, simd, unicode};
 
 const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
 const SHIFT_TAB: InputKey = vk::TAB.with_modifiers(kbmod::SHIFT);
