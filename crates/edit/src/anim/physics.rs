@@ -91,6 +91,53 @@ pub struct TextareaPhysics<'a> {
     // pub gutter: GutterDraw<'a>,               // needs split
 }
 
+/// Per-visual-line layout output. Produced by the eventual
+/// `TextBuffer::layout()` -- one per row of the visible viewport.
+///
+/// Today this is the target shape: today's `TextBuffer::render`
+/// builds equivalent data inline + paints in the same loop. The
+/// stage-1 carve splits the build from the paint, and this is what
+/// the build produces.
+pub struct VisualLine<'a> {
+    /// Framebuffer y coordinate this line writes into.
+    pub fb_y: CoordType,
+    /// Body text including the margin prefix (line numbers + box
+    /// glyph separator + space) and the visual-line content. Pushed
+    /// into the framebuffer via `replace_text`.
+    pub text: &'a str,
+    /// Gutter mark to paint for this line, if any. Pushed to a
+    /// `Vec<(fb_y, GutterMark)>` for the textarea_overlays pass.
+    pub gutter_mark: Option<gutter::GutterMark>,
+    /// Whether the line's margin column should be dimmed (wrapped
+    /// continuation row that doesn't show a real line number).
+    pub dim_wrapped_margin: bool,
+    /// Selection rect on this line, if the selection covers any of
+    /// it. `selection_force_fg` re-applies the fg colour after lsh.
+    pub selection_rect: Option<Rect>,
+    /// Shadow-match rects on this line (literal occurrences of the
+    /// selected text). Usually empty.
+    pub shadow_match_rects: &'a [Rect],
+    /// Per-cell rects for whitespace visualisers (central-dot for
+    /// spaces, rightward-arrow for tabs).
+    pub whitespace_visualizers: &'a [Rect],
+    /// Per-cell rects for control-character visualisers (U+2400-
+    /// range pictures inserted for unprintable bytes).
+    pub control_chars: &'a [Rect],
+}
+
+/// Selection geometry covering the whole visible viewport, in
+/// document-visual coords. Produced by the eventual `layout()`.
+/// The `active_edge_x` is the visual x of the cursor-anchored end
+/// of the selection -- the animator displaces this to keep the
+/// trailing edge glued to the animated cursor without disturbing
+/// the static end.
+pub struct SelectionGeom {
+    pub beg: Point,
+    pub end: Point,
+    /// `true` iff the cursor sits at the `end` endpoint (vs `beg`).
+    pub active_is_end: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
