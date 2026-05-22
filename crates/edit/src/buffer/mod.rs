@@ -1932,6 +1932,89 @@ impl TextBuffer {
         }
     }
 
+    /// Computes the per-row selection geometry: the byte-offset
+    /// sub-range of the line that is selected (used as a visualiser
+    /// mask for whitespace inside selections), and the visual rect
+    /// to paint as the selection band.
+    ///
+    /// Returns `(selection_off, Some(rect))` when the selection
+    /// touches this row, or `(0..0, None)` otherwise. `rect` is in
+    /// framebuffer coordinates.
+    ///
+    /// `cursor_override` + `cursor_visual_render` pin the active
+    /// edge of the selection to the animated cursor's exact x on
+    /// the cursor's row -- without that the selection ends at the
+    /// line's last logical column when the animated x is past it,
+    /// lagging the visible cursor on short lines.
+    #[allow(clippy::too_many_arguments)]
+    fn build_selection_row(
+        &self,
+        cursor_beg: &Cursor,
+        cursor_end: &Cursor,
+        selection_beg: Point,
+        selection_end: Point,
+        visual_line: CoordType,
+        cursor_override: Option<Point>,
+        cursor_visual_render: Point,
+        selection_active_is_end: bool,
+        destination: Rect,
+        origin: Point,
+        text_width: CoordType,
+        y: CoordType,
+    ) -> (Range<usize>, Option<Rect>) {
+        let mut selection_off = 0..0;
+        if !(cursor_beg.visual_pos.y == visual_line
+            && selection_beg <= cursor_end.logical_pos
+            && selection_end >= cursor_beg.logical_pos)
+        {
+            return (selection_off, None);
+        }
+
+        let mut cursor = *cursor_beg;
+
+        // By default, we assume the entire line is selected.
+        let mut selection_pos_beg = 0;
+        let mut selection_pos_end = COORD_TYPE_SAFE_MAX;
+        selection_off.start = cursor_beg.offset;
+        selection_off.end = cursor_end.offset;
+
+        // The start of the selection is within this line. We need to update selection_beg.
+        if selection_beg <= cursor_end.logical_pos && selection_beg >= cursor_beg.logical_pos {
+            cursor = self.cursor_move_to_logical_internal(cursor, selection_beg);
+            selection_off.start = cursor.offset;
+            selection_pos_beg = cursor.visual_pos.x;
+        }
+
+        // The end of the selection is within this line. We need to update selection_end.
+        if selection_end <= cursor_end.logical_pos && selection_end >= cursor_beg.logical_pos {
+            cursor = self.cursor_move_to_logical_internal(cursor, selection_end);
+            selection_off.end = cursor.offset;
+            selection_pos_end = cursor.visual_pos.x;
+        }
+
+        // On the cursor's animated row, pin the active edge to the
+        // anim cursor's exact visual x. Without this, selection ends
+        // at the line's last logical column when anim x is past it,
+        // which lags the visible cursor on short lines.
+        if cursor_override.is_some() && cursor_visual_render.y == visual_line {
+            if selection_active_is_end {
+                selection_pos_end = cursor_visual_render.x;
+            } else {
+                selection_pos_beg = cursor_visual_render.x;
+            }
+        }
+
+        let left = destination.left + self.margin_width - origin.x;
+        let top = destination.top + y;
+        let rect = Rect {
+            left: left + selection_pos_beg.max(origin.x),
+            top,
+            right: left + selection_pos_end.min(origin.x + text_width),
+            bottom: top + 1,
+        };
+        (selection_off, Some(rect))
+    }
+
     /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
     /// The `destination` rect is framebuffer coordinates. The extracted region within this
     /// text buffer has the given `origin` and the same size as the `destination` rect.
@@ -2046,60 +2129,21 @@ impl TextBuffer {
                 }
             }
 
-            let mut selection_off = 0..0;
-
-            // Figure out the selection range on this line, if any.
-            if cursor_beg.visual_pos.y == visual_line
-                && selection_beg <= cursor_end.logical_pos
-                && selection_end >= cursor_beg.logical_pos
-            {
-                let mut cursor = cursor_beg;
-
-                // By default, we assume the entire line is selected.
-                let mut selection_pos_beg = 0;
-                let mut selection_pos_end = COORD_TYPE_SAFE_MAX;
-                selection_off.start = cursor_beg.offset;
-                selection_off.end = cursor_end.offset;
-
-                // The start of the selection is within this line. We need to update selection_beg.
-                if selection_beg <= cursor_end.logical_pos
-                    && selection_beg >= cursor_beg.logical_pos
-                {
-                    cursor = self.cursor_move_to_logical_internal(cursor, selection_beg);
-                    selection_off.start = cursor.offset;
-                    selection_pos_beg = cursor.visual_pos.x;
-                }
-
-                // The end of the selection is within this line. We need to update selection_end.
-                if selection_end <= cursor_end.logical_pos
-                    && selection_end >= cursor_beg.logical_pos
-                {
-                    cursor = self.cursor_move_to_logical_internal(cursor, selection_end);
-                    selection_off.end = cursor.offset;
-                    selection_pos_end = cursor.visual_pos.x;
-                }
-
-                // On the cursor's animated row, pin the active edge to the
-                // anim cursor's exact visual x. Without this, selection ends
-                // at the line's last logical column when anim x is past it,
-                // which lags the visible cursor on short lines.
-                if cursor_override.is_some() && cursor_visual_render.y == visual_line {
-                    if selection_active_is_end {
-                        selection_pos_end = cursor_visual_render.x;
-                    } else {
-                        selection_pos_beg = cursor_visual_render.x;
-                    }
-                }
-
-                let left = destination.left + self.margin_width - origin.x;
-                let top = destination.top + y;
-                let rect = Rect {
-                    left: left + selection_pos_beg.max(origin.x),
-                    top,
-                    right: left + selection_pos_end.min(origin.x + text_width),
-                    bottom: top + 1,
-                };
-
+            let (selection_off, sel_rect) = self.build_selection_row(
+                &cursor_beg,
+                &cursor_end,
+                selection_beg,
+                selection_end,
+                visual_line,
+                cursor_override,
+                cursor_visual_render,
+                selection_active_is_end,
+                destination,
+                origin,
+                text_width,
+                y,
+            );
+            if let Some(rect) = sel_rect {
                 crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
             }
 
