@@ -10,7 +10,7 @@
 //! Functions in this module must not read time, `Tui`, `TextBuffer`,
 //! or any animator state. Their inputs are everything they need.
 
-use ::gutter::GutterMark;
+use gutter::GutterMark;
 
 use crate::buffer::{MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RowBand};
 use crate::framebuffer::{Framebuffer, IndexedColor};
@@ -380,5 +380,88 @@ pub fn line_move_trail(
                 fb.tint_bg_with_fg(rect, alpha_num, alpha_den);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::helpers::Size;
+
+    use super::*;
+
+    fn fb() -> Framebuffer {
+        let mut fb = Framebuffer::new();
+        fb.flip(Size { width: 80, height: 24 });
+        fb
+    }
+
+    #[test]
+    fn gutter_marks_skips_empty_list() {
+        gutter_marks(&mut fb(), 0, 6, &[]);
+    }
+
+    #[test]
+    fn gutter_marks_skips_narrow_margin() {
+        let marks = [(0, GutterMark::Added)];
+        // margin_width < 2 -- no room for the mark cell at margin-2.
+        gutter_marks(&mut fb(), 0, 1, &marks);
+    }
+
+    #[test]
+    fn gutter_marks_paints_each_kind() {
+        let marks = [
+            (0, GutterMark::Added),
+            (1, GutterMark::Modified),
+            (2, GutterMark::DeletedAbove),
+            (3, GutterMark::DeletedBelow),
+            (4, GutterMark::None),
+        ];
+        // Should run without panicking across all variants.
+        gutter_marks(&mut fb(), 0, 6, &marks);
+    }
+
+    #[test]
+    fn ruler_noop_when_column_zero() {
+        ruler(&mut fb(), 0, 0, 80, 24, 0, 0);
+    }
+
+    #[test]
+    fn ruler_clipped_when_past_right() {
+        // ruler_column = 200, viewport scroll = 0, text_right = 80
+        // -> left would be 200, falls outside text_right -- no-op.
+        ruler(&mut fb(), 0, 0, 80, 24, 0, 200);
+    }
+
+    #[test]
+    fn margin_tint_noop_when_width_zero() {
+        margin_tint(&mut fb(), 0, 0, 0, 24);
+    }
+
+    #[test]
+    fn selection_force_fg_empty_rects_no_op() {
+        let fg = crate::oklab::StraightRgba::from_le(0);
+        selection_force_fg(&mut fb(), &[], fg);
+    }
+
+    #[test]
+    fn cursor_block_skips_when_outside_text_rect() {
+        let dest = Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let origin = Point { x: 0, y: 0 };
+        // cursor_visual far past viewport -- the screen-space mapping
+        // lands outside `text` rect, so set_cursor + line_highlight
+        // are skipped.
+        cursor_block(&mut fb(), dest, origin, 6, Point { x: 500, y: 500 }, 0, false, true);
+    }
+
+    #[test]
+    fn minimap_rail_noop_when_empty() {
+        let track = Rect { left: 70, top: 0, right: 80, bottom: 24 };
+        minimap_rail(&mut fb(), track, &[], 0, 0, 24);
+    }
+
+    #[test]
+    fn line_move_trail_noop_when_height_zero() {
+        let dest = Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        line_move_trail(&mut fb(), dest, Point { x: 0, y: 0 }, 0, 0, 0.5, &[]);
     }
 }
