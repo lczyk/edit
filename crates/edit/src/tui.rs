@@ -150,7 +150,7 @@ use stdext::collections::{BString, BVec};
 use stdext::{arena_format, arena_write_fmt, opt_ptr_eq, str_from_raw_parts};
 
 use crate::buffer::{
-    CursorMovement, MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RcTextBuffer, TextBuffer,
+    CursorMovement, MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RcTextBuffer, RowBand, TextBuffer,
     TextBufferCell,
 };
 use crate::cell::*;
@@ -1203,7 +1203,8 @@ impl Tui {
 
                 // Half-block sweep overlay for the line-move animation. Runs
                 // after `tb.render` so it paints on top of the text. Expires
-                // once duration elapsed.
+                // once duration elapsed. Per-row band shape (which columns
+                // get tinted) comes from `tb.line_move_bands()`.
                 if let Some(anim_state) = tc.line_move_anim {
                     let elapsed =
                         time::Instant::now().duration_since(anim_state.started_at).as_secs_f32();
@@ -1214,9 +1215,10 @@ impl Tui {
                         draw_line_move_sweep(
                             &mut self.framebuffer,
                             destination,
-                            visual_offset.y,
+                            visual_offset,
                             anim_state,
                             t,
+                            tb.line_move_bands(),
                         );
                         if self.read_timeout > anim::FRAME_INTERVAL {
                             self.read_timeout = anim::FRAME_INTERVAL;
@@ -4665,17 +4667,23 @@ fn draw_minimap_rail(
 /// `height`-row tinted band from `from_y` to `to_y` (visual coords) using
 /// half-row resolution so the motion reads as a slide rather than a snap.
 ///
-/// At aligned positions (band edges land on cell boundaries) we just tint
-/// background with `blend_bg`, preserving text. At half-row offsets the
-/// top and bottom edge cells get a half-block glyph (U+2584 / U+2580) tinted with
-/// the band colour -- this briefly overwrites text on those edge rows
-/// for the ~120ms the animation runs.
+/// `bands` carries one entry per visual row of the moved block and decides
+/// which columns each row tints: `Skip` rows are left alone, `Full` rows
+/// span the textarea width, and `Range` rows narrow to the line's
+/// non-whitespace columns so trailing indent / blank tails don't get
+/// highlighted.
+///
+/// At aligned positions the band tints background with `blend_bg`,
+/// preserving text. At half-row offsets the top and bottom edge rows get a
+/// half-block glyph (U+2584 / U+2580) -- those briefly overwrite text for
+/// the ~120ms the animation runs.
 fn draw_line_move_sweep(
     fb: &mut Framebuffer,
     dest: Rect,
-    scroll_offset_y: CoordType,
+    scroll_offset: Point,
     anim: LineMoveAnim,
     t: f32,
+    bands: &[RowBand],
 ) {
     // No-colour fallback: a half-block sweep without colour is invisible.
     // Bailing keeps the text undisturbed; users on `--no-color` lose the
@@ -4683,71 +4691,83 @@ fn draw_line_move_sweep(
     if crate::glyphs::no_color() {
         return;
     }
-    if dest.is_empty() || anim.height <= 0 {
+    if dest.is_empty() || anim.height <= 0 || bands.is_empty() {
         return;
     }
 
     let distance = (anim.to_y - anim.from_y) as f32;
     let cur_visual_top = anim.from_y as f32 + distance * t;
-    let screen_top_f = dest.top as f32 + cur_visual_top - scroll_offset_y as f32;
+    let screen_top_f = dest.top as f32 + cur_visual_top - scroll_offset.y as f32;
 
     // Quantise to half-row grid. Even = aligned full row; odd = shifted by
     // half a row, edges need half-block glyphs.
     let half_rows = (screen_top_f * 2.0).round() as CoordType;
     let aligned = half_rows.rem_euclid(2) == 0;
     let top_row = half_rows.div_euclid(2);
-    let height = anim.height;
+    let height = anim.height.min(bands.len() as CoordType);
 
     let bg_tint = fb.indexed_alpha(IndexedColor::BrightYellow, 1, 2);
     let fg_tint = fb.indexed(IndexedColor::BrightYellow);
 
-    let clamp_y = |y: CoordType| y.clamp(dest.top, dest.bottom);
+    // Visual column -> screen column. `dest` already excludes the gutter /
+    // scrollbar, so the left edge maps to visual column `scroll_offset.x`.
+    let band_screen_range = |band: RowBand| -> Option<(CoordType, CoordType)> {
+        let (l, r) = match band {
+            RowBand::Skip => return None,
+            RowBand::Full => (dest.left, dest.right),
+            RowBand::Range(left_col, right_col) => {
+                let l = dest.left + left_col - scroll_offset.x;
+                let r = dest.left + right_col - scroll_offset.x;
+                (l.max(dest.left), r.min(dest.right))
+            }
+        };
+        if r > l { Some((l, r)) } else { None }
+    };
+
+    let paint_row = |fb: &mut Framebuffer, screen_y: CoordType, band: RowBand| {
+        if screen_y < dest.top || screen_y >= dest.bottom {
+            return;
+        }
+        if let Some((l, r)) = band_screen_range(band) {
+            let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
+            fb.blend_bg(rect, bg_tint);
+        }
+    };
+
+    let paint_half_row = |fb: &mut Framebuffer, screen_y: CoordType, band: RowBand, glyph: char| {
+        if screen_y < dest.top || screen_y >= dest.bottom {
+            return;
+        }
+        let Some((l, r)) = band_screen_range(band) else { return };
+        let width = (r - l) as usize;
+        if width == 0 {
+            return;
+        }
+        let mut s = String::with_capacity(width * 3);
+        for _ in 0..width {
+            s.push(glyph);
+        }
+        fb.replace_text(screen_y, l, r, &s);
+        let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
+        fb.blend_fg(rect, fg_tint);
+    };
 
     if aligned {
-        let y0 = clamp_y(top_row);
-        let y1 = clamp_y(top_row + height);
-        if y1 > y0 {
-            let band = Rect { left: dest.left, top: y0, right: dest.right, bottom: y1 };
-            fb.blend_bg(band, bg_tint);
+        for k in 0..height {
+            paint_row(fb, top_row + k, bands[k as usize]);
         }
         return;
     }
 
     // Shifted by half a row: band runs from (top_row + 0.5) to
-    // (top_row + height + 0.5). Rows [top_row+1, top_row+height) get the
-    // full tint; top_row's lower half and (top_row+height)'s upper half
-    // get half-block glyphs.
-    let mid_top = clamp_y(top_row + 1);
-    let mid_bot = clamp_y(top_row + height);
-    if mid_bot > mid_top {
-        let band = Rect { left: dest.left, top: mid_top, right: dest.right, bottom: mid_bot };
-        fb.blend_bg(band, bg_tint);
+    // (top_row + height + 0.5). The middle screen rows display both halves
+    // of the band; we approximate by tinting each screen row with the band
+    // row whose top half it shows (i.e. row k for screen `top_row + k`).
+    // Top and bottom edge rows get a half-block glyph for the half that's
+    // actually band.
+    paint_half_row(fb, top_row, bands[0], '\u{2584}');
+    for k in 1..height {
+        paint_row(fb, top_row + k, bands[k as usize]);
     }
-
-    // U+2584 lower-half block, U+2580 upper-half block. Repeat across the
-    // destination width so the half-band spans the textarea.
-    let width = (dest.right - dest.left).max(0) as usize;
-    if width == 0 {
-        return;
-    }
-    let mut lower_str = String::with_capacity(width * 3);
-    let mut upper_str = String::with_capacity(width * 3);
-    for _ in 0..width {
-        lower_str.push('\u{2584}');
-        upper_str.push('\u{2580}');
-    }
-
-    let top_edge = top_row;
-    if top_edge >= dest.top && top_edge < dest.bottom {
-        fb.replace_text(top_edge, dest.left, dest.right, &lower_str);
-        let row = Rect { left: dest.left, top: top_edge, right: dest.right, bottom: top_edge + 1 };
-        fb.blend_fg(row, fg_tint);
-    }
-
-    let bot_edge = top_row + height;
-    if bot_edge >= dest.top && bot_edge < dest.bottom {
-        fb.replace_text(bot_edge, dest.left, dest.right, &upper_str);
-        let row = Rect { left: dest.left, top: bot_edge, right: dest.right, bottom: bot_edge + 1 };
-        fb.blend_fg(row, fg_tint);
-    }
+    paint_half_row(fb, top_row + height, bands[(height - 1) as usize], '\u{2580}');
 }

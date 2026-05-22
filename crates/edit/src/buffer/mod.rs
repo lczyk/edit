@@ -263,6 +263,19 @@ pub enum MoveLineDirection {
     Down,
 }
 
+/// Per-visual-row paint shape for the line-move sweep band. See
+/// [`TextBuffer::line_move_bands`].
+#[derive(Clone, Copy, Debug)]
+pub enum RowBand {
+    /// Skip this row -- empty source line, nothing to highlight.
+    Skip,
+    /// Paint the full row width. Used for whitespace-only lines and for
+    /// wrapped logical lines (which by definition span the whole text width).
+    Full,
+    /// Paint visual columns `[left, right)` of this row.
+    Range(CoordType, CoordType),
+}
+
 /// One-shot record of the most recent `move_selected_lines` for the
 /// rendering layer to drive a slide animation. Coordinates are *visual* y
 /// so the band slides through the correct screen rows even when word-wrap
@@ -363,6 +376,13 @@ pub struct TextBuffer {
     /// One-shot signal from `move_selected_lines` so the renderer can drive
     /// a slide animation. Drained by [`TextBuffer::take_pending_line_move`].
     pending_line_move: Option<LineMoveEvent>,
+
+    /// Per-visual-row band shape for the most recent line move. One entry
+    /// per visual row of the moved block. Lives past `take_pending_line_move`
+    /// because the renderer reads it on every frame of the slide; gets
+    /// overwritten by the next move (or stays stale until then -- the
+    /// rendering layer guards reads behind an active `LineMoveAnim`).
+    line_move_bands: Vec<RowBand>,
 }
 
 impl TextBuffer {
@@ -424,6 +444,7 @@ impl TextBuffer {
             cursor_render_override: None,
 
             pending_line_move: None,
+            line_move_bands: Vec::new(),
         })
     }
 
@@ -654,6 +675,14 @@ impl TextBuffer {
     /// the first call following a `move_selected_lines`.
     pub fn take_pending_line_move(&mut self) -> Option<LineMoveEvent> {
         self.pending_line_move.take()
+    }
+
+    /// Per-visual-row band shape from the most recent line move. One entry
+    /// per visual row of the moved block. The rendering layer reads this on
+    /// every frame of the slide animation -- the slice persists past
+    /// `take_pending_line_move` because the anim outlives the event.
+    pub fn line_move_bands(&self) -> &[RowBand] {
+        &self.line_move_bands
     }
 
     pub fn cursor_visual_pos(&self) -> Point {
@@ -3406,6 +3435,66 @@ impl TextBuffer {
         (chars, columns)
     }
 
+    /// Classifies a logical line for the line-move slide animation. Reads
+    /// the raw bytes between the line start and the next line start,
+    /// strips the trailing CR/LF, then:
+    /// - empty -> `Skip`
+    /// - only ASCII space / tab -> `Full`
+    /// - otherwise -> `Range(first_visual_col, last_visual_col_exclusive)`
+    ///   where the bounds are the visual columns of the first and last
+    ///   non-whitespace bytes (space / tab being the only treated
+    ///   whitespace; unicode whitespace such as U+00A0 NBSP is not).
+    fn compute_line_band(&self, y: CoordType) -> RowBand {
+        let line_start = self.goto_line_start(self.cursor, y);
+        let next_line = self.cursor_move_to_logical_internal(line_start, Point { x: 0, y: y + 1 });
+        let line_off = line_start.offset;
+        let line_end = next_line.offset;
+
+        // Read the line into a contiguous buffer so we can scan from both
+        // ends. Strips the line terminator(s) so the band stops at the last
+        // content byte rather than running into the newline column.
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut o = line_off;
+        while o < line_end {
+            let chunk = self.read_forward(o);
+            if chunk.is_empty() {
+                break;
+            }
+            let take = (line_end - o).min(chunk.len());
+            bytes.extend_from_slice(&chunk[..take]);
+            o += take;
+        }
+        while matches!(bytes.last(), Some(b'\n' | b'\r')) {
+            bytes.pop();
+        }
+
+        if bytes.is_empty() {
+            return RowBand::Skip;
+        }
+
+        let is_ws = |b: u8| b == b' ' || b == b'\t';
+        let first = bytes.iter().position(|&b| !is_ws(b));
+        let last = bytes.iter().rposition(|&b| !is_ws(b));
+        let (Some(first), Some(last)) = (first, last) else {
+            return RowBand::Full;
+        };
+
+        // Visual column of the first non-ws byte: measure from line start
+        // to that byte offset.
+        let first_cursor = self.cursor_move_to_offset_internal(line_start, line_off + first);
+        let first_col = first_cursor.visual_pos.x;
+
+        // Visual column just past the last non-ws byte. `last` points at
+        // the first byte of the last non-ws *grapheme*; advance one
+        // grapheme so the band covers the whole glyph (handles multi-byte
+        // chars without manually decoding UTF-8).
+        let at_last = self.cursor_move_to_offset_internal(line_start, line_off + last);
+        let past_last = self.cursor_move_delta_internal(at_last, CursorMovement::Grapheme, 1);
+        let last_col_excl = past_last.visual_pos.x;
+
+        RowBand::Range(first_col, last_col_excl)
+    }
+
     /// Displaces the current, cursor or the selection, line(s) in the given direction.
     pub fn move_selected_lines(&mut self, direction: MoveLineDirection) {
         let selection = self.selection;
@@ -3447,11 +3536,33 @@ impl TextBuffer {
             MoveLineDirection::Up => block_top_v - visual_y_of(self, beg - 1),
             MoveLineDirection::Down => visual_y_of(self, end + 2) - block_end_excl_v,
         };
+        let visual_height = block_end_excl_v - block_top_v;
         let pre_move_event = LineMoveEvent {
             from_visual_y: block_top_v,
             to_visual_y: block_top_v + delta * displaced_h_v,
-            visual_height: block_end_excl_v - block_top_v,
+            visual_height,
         };
+
+        // Per-visual-row band shape for the slide animation. A logical line
+        // that wraps (occupies >1 visual rows) is treated as `Full` since
+        // wrapped content spans the entire text width by definition. Empty
+        // lines are skipped; whitespace-only lines are highlighted whole.
+        let mut bands: Vec<RowBand> = Vec::with_capacity(visual_height.max(0) as usize);
+        for y in beg..=end {
+            let line_top_v = visual_y_of(self, y);
+            let line_bot_v = visual_y_of(self, y + 1);
+            let line_visual_h = line_bot_v - line_top_v;
+            let raw = self.compute_line_band(y);
+            let band = if line_visual_h > 1 && matches!(raw, RowBand::Range(..)) {
+                RowBand::Full
+            } else {
+                raw
+            };
+            for _ in 0..line_visual_h {
+                bands.push(band);
+            }
+        }
+        self.line_move_bands = bands;
 
         self.edit_begin_grouping();
         {
