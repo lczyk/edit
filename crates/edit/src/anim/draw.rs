@@ -243,6 +243,76 @@ pub fn ruler(
     );
 }
 
+/// Paints the focused-textarea cursor block (terminal cursor at the
+/// caret cell, optional line-highlight band across the cursor's
+/// row).
+///
+/// `cursor_visual` is in document-visual coords (post-layout but
+/// pre-screen-translation); the fn handles the wrap-column edge case
+/// and translates into screen coords using `dest` + `origin` +
+/// `margin_width`. `line_highlight` is the composite "should the
+/// cursor row glow?" decision -- the caller checks
+/// `line_highlight_enabled && no selection` before calling.
+pub fn cursor_block(
+    fb: &mut Framebuffer,
+    dest: Rect,
+    origin: Point,
+    margin_width: CoordType,
+    cursor_visual: Point,
+    word_wrap_column: CoordType,
+    overtype: bool,
+    line_highlight: bool,
+) {
+    let mut x = cursor_visual.x;
+    let mut y = cursor_visual.y;
+
+    if word_wrap_column > 0 && x >= word_wrap_column {
+        // The line the cursor is on wraps exactly on the word wrap column
+        // which means the cursor is invisible. We need to move it to the
+        // next line.
+        //
+        // Sanity (C): hitting this branch means cursor.visual_pos.x landed
+        // exactly on the wrap column -- the bug class from the screenshot
+        // thread. Selection paint and line highlight still read the
+        // un-bumped visual_pos.y, so the caret appears on a row offset
+        // from where text is being inserted.
+        #[cfg(feature = "sanity")]
+        crate::sanity_check!(
+            render_cursor_on_wrap_boundary,
+            false,
+            "vp={:?} wrap_col={} -- caret bumped to next row, may desync from text",
+            cursor_visual,
+            word_wrap_column
+        );
+        x = 0;
+        y += 1;
+    }
+
+    // Move the cursor into screen space.
+    x += dest.left - origin.x + margin_width;
+    y += dest.top - origin.y;
+
+    let cursor = Point { x, y };
+    let text = Rect {
+        left: dest.left + margin_width,
+        top: dest.top,
+        right: dest.right,
+        bottom: dest.bottom,
+    };
+
+    if !text.contains(cursor) {
+        return;
+    }
+    fb.set_cursor(cursor, overtype);
+
+    if line_highlight {
+        fb.blend_bg(
+            Rect { left: dest.left, top: cursor.y, right: dest.right, bottom: cursor.y + 1 },
+            crate::oklab::StraightRgba::from_le(0x7f7f7f7f),
+        );
+    }
+}
+
 /// Trail-flash overlay for the alt+up/down line-move animation. Paints a
 /// per-row tinted band at the moved block's *new* position and fades the
 /// alpha down to zero over the animation duration. No sliding, no glyph

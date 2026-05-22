@@ -43,7 +43,6 @@ use crate::framebuffer::{Attributes, Framebuffer, IndexedColor};
 use crate::helpers::*;
 use crate::lsh::cache::HighlighterCache;
 use crate::lsh::{HighlightKind, Highlighter, Language};
-use crate::oklab::StraightRgba;
 use crate::simd::memchr2;
 use crate::unicode::{self, Cursor, MeasurementConfig};
 use crate::{icu, simd};
@@ -2296,58 +2295,16 @@ impl TextBuffer {
         );
 
         if focused {
-            let cursor_visual = cursor_override.unwrap_or(self.cursor.visual_pos);
-            let mut x = cursor_visual.x;
-            let mut y = cursor_visual.y;
-
-            if self.word_wrap_column > 0 && x >= self.word_wrap_column {
-                // The line the cursor is on wraps exactly on the word wrap column which
-                // means the cursor is invisible. We need to move it to the next line.
-                //
-                // Sanity (C): hitting this branch means cursor.visual_pos.x landed
-                // exactly on the wrap column -- the bug class from the screenshot
-                // thread. Selection paint and line highlight still read the
-                // un-bumped visual_pos.y, so the caret appears on a row offset
-                // from where text is being inserted.
-                #[cfg(feature = "sanity")]
-                crate::sanity_check!(
-                    render_cursor_on_wrap_boundary,
-                    false,
-                    "vp={:?} wrap_col={} -- caret bumped to next row, may desync from text",
-                    cursor_visual,
-                    self.word_wrap_column
-                );
-                x = 0;
-                y += 1;
-            }
-
-            // Move the cursor into screen space.
-            x += destination.left - origin.x + self.margin_width;
-            y += destination.top - origin.y;
-
-            let cursor = Point { x, y };
-            let text = Rect {
-                left: destination.left + self.margin_width,
-                top: destination.top,
-                right: destination.right,
-                bottom: destination.bottom,
-            };
-
-            if text.contains(cursor) {
-                fb.set_cursor(cursor, self.overtype);
-
-                if self.line_highlight_enabled && selection_beg >= selection_end {
-                    fb.blend_bg(
-                        Rect {
-                            left: destination.left,
-                            top: cursor.y,
-                            right: destination.right,
-                            bottom: cursor.y + 1,
-                        },
-                        StraightRgba::from_le(0x7f7f7f7f),
-                    );
-                }
-            }
+            crate::anim::draw::cursor_block(
+                fb,
+                destination,
+                origin,
+                self.margin_width,
+                cursor_override.unwrap_or(self.cursor.visual_pos),
+                self.word_wrap_column,
+                self.overtype,
+                self.line_highlight_enabled && selection_beg >= selection_end,
+            );
         }
 
         Some(RenderResult { visual_pos_x_max })
