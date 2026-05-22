@@ -1204,7 +1204,9 @@ impl Tui {
                 // Half-block sweep overlay for the line-move animation. Runs
                 // after `tb.render` so it paints on top of the text. Expires
                 // once duration elapsed. Per-row band shape (which columns
-                // get tinted) comes from `tb.line_move_bands()`.
+                // get tinted) comes from `tb.line_move_bands()`. We narrow
+                // `destination` to exclude the buffer's left margin (line
+                // numbers / gutter marks) so the band stays in the text area.
                 if let Some(anim_state) = tc.line_move_anim {
                     let elapsed =
                         time::Instant::now().duration_since(anim_state.started_at).as_secs_f32();
@@ -1212,9 +1214,11 @@ impl Tui {
                         tc.line_move_anim = None;
                     } else {
                         let t = elapsed / anim::LINE_MOVE_DURATION_SECS;
+                        let text_dest =
+                            Rect { left: destination.left + tb.margin_width(), ..destination };
                         draw_line_move_sweep(
                             &mut self.framebuffer,
-                            destination,
+                            text_dest,
                             visual_offset,
                             anim_state,
                             t,
