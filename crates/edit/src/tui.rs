@@ -4710,10 +4710,12 @@ fn draw_line_move_sweep(
     let top_row = half_rows.div_euclid(2);
     let height = anim.height.min(bands.len() as CoordType);
 
-    // Fallback accent for rows without a dominant-highlight colour (no
-    // language attached / colour disabled). Matches the previous
-    // BrightYellow look so the no-language case still flashes visibly.
-    const DEFAULT_TINT: IndexedColor = IndexedColor::BrightYellow;
+    // Fallback for rows without a dominant-highlight colour (no language
+    // attached, dominant kind is `Other`, etc.). Use the default text
+    // foreground -- that's what the chars on this row are actually drawn
+    // in, so the band reads as a tint of the real glyph colour rather
+    // than an unrelated accent.
+    const DEFAULT_TINT: IndexedColor = IndexedColor::Foreground;
 
     // Resolve a band's screen-column range and the colour index to tint
     // with. Doesn't touch `fb` so the caller is free to take a mutable
