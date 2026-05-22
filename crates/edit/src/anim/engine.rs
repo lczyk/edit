@@ -279,3 +279,122 @@ pub fn advance_cursor(visual: &mut Option<(f32, f32)>, target: Point, dt_secs: f
 
     Point { x: next.0.round() as CoordType, y: next.1.round() as CoordType }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
+    #[test]
+    fn lerp_alpha_saturates_past_six_tau() {
+        // Beyond ~6 tau, alpha is effectively 1.0 -- and we explicitly
+        // short-circuit to 1.0 instead of paying for exp().
+        assert_eq!(lerp_alpha(1.0, 0.01), 1.0);
+        assert_eq!(lerp_alpha(0.06, 0.01), 1.0);
+    }
+
+    #[test]
+    fn lerp_alpha_at_one_tau_is_one_minus_e_inv() {
+        // 1 - exp(-1) ~= 0.6321.
+        let a = lerp_alpha(0.060, 0.060);
+        assert!((a - (1.0 - (-1.0f32).exp())).abs() < 1e-5);
+    }
+
+    #[test]
+    fn lerp_alpha_zero_dt_is_zero() {
+        assert_eq!(lerp_alpha(0.0, 0.060), 0.0);
+    }
+
+    #[test]
+    fn ease_out_cubic_endpoints() {
+        assert_eq!(ease_out_cubic(0.0), 0.0);
+        assert_eq!(ease_out_cubic(1.0), 1.0);
+    }
+
+    #[test]
+    fn ease_out_cubic_front_loaded() {
+        // Front-loaded curve: ease(0.5) > 0.5 (more distance closed
+        // in the first half than the linear alpha would give).
+        assert!(ease_out_cubic(0.5) > 0.5);
+    }
+
+    #[test]
+    fn frame_dt_secs_first_frame() {
+        let now = Instant::now();
+        assert_eq!(frame_dt_secs(None, now), 0.016);
+    }
+
+    #[test]
+    fn frame_dt_secs_caps_at_max_dt() {
+        let prev = Instant::now();
+        let now = prev + Duration::from_secs(10);
+        assert_eq!(frame_dt_secs(Some(prev), now), super::super::MAX_DT_SECS);
+    }
+
+    #[test]
+    fn advance_line_move_trail_none_when_slot_empty() {
+        let mut slot: Option<LineMoveAnim> = None;
+        let t = advance_line_move_trail(&mut slot, Instant::now());
+        assert!(t.is_none());
+        assert!(slot.is_none());
+    }
+
+    #[test]
+    fn advance_line_move_trail_clears_when_expired() {
+        let started_at =
+            Instant::now() - Duration::from_secs_f32(super::super::LINE_MOVE_DURATION_SECS + 0.5);
+        let mut slot = Some(LineMoveAnim { to_y: 0, height: 1, started_at });
+        let t = advance_line_move_trail(&mut slot, Instant::now());
+        assert!(t.is_none());
+        assert!(slot.is_none(), "expired slot must be cleared");
+    }
+
+    #[test]
+    fn advance_line_move_trail_reports_progress() {
+        let now = Instant::now();
+        let started_at = now - Duration::from_secs_f32(super::super::LINE_MOVE_DURATION_SECS / 2.0);
+        let mut slot = Some(LineMoveAnim { to_y: 0, height: 1, started_at });
+        let t = advance_line_move_trail(&mut slot, now).expect("still in flight");
+        assert!((t - 0.5).abs() < 0.05);
+        assert!(slot.is_some(), "in-flight slot must be retained");
+    }
+
+    #[test]
+    fn snap_on_buffer_edit_no_op_when_gen_unchanged() {
+        let mut scroll = (1.2, 3.4);
+        let mut cursor = Some((5.6, 7.8));
+        let mut last_gen = 7u32;
+        let edited = snap_on_buffer_edit(
+            &mut scroll,
+            &mut cursor,
+            &mut last_gen,
+            7,
+            Point { x: 0, y: 0 },
+            Point { x: 0, y: 0 },
+        );
+        assert!(!edited);
+        assert_eq!(scroll, (1.2, 3.4));
+        assert_eq!(cursor, Some((5.6, 7.8)));
+        assert_eq!(last_gen, 7);
+    }
+
+    #[test]
+    fn snap_on_buffer_edit_snaps_when_gen_changed() {
+        let mut scroll = (1.2, 3.4);
+        let mut cursor = Some((5.6, 7.8));
+        let mut last_gen = 7u32;
+        let edited = snap_on_buffer_edit(
+            &mut scroll,
+            &mut cursor,
+            &mut last_gen,
+            8,
+            Point { x: 10, y: 20 },
+            Point { x: 30, y: 40 },
+        );
+        assert!(edited);
+        assert_eq!(scroll, (10.0, 20.0));
+        assert_eq!(cursor, Some((30.0, 40.0)));
+        assert_eq!(last_gen, 8);
+    }
+}
