@@ -300,7 +300,7 @@ pub struct BodyTextRects {
 // `LineDecor` is the alias inside buffer/mod.rs for the
 // physics-layer `VisualLine` -- they're the same shape. Aliasing
 // keeps the existing in-file name during the transition.
-use crate::anim::physics::VisualLine as LineDecor;
+use crate::anim::physics::{TextareaLayout, VisualLine as LineDecor};
 
 /// A [`TextBuffer`] with inner mutability.
 pub type TextBufferCell = SemiRefCell<TextBuffer>;
@@ -2235,17 +2235,17 @@ impl TextBuffer {
         BodyTextRects { whitespace_visualizers, control_chars }
     }
 
-    /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
-    /// The `destination` rect is framebuffer coordinates. The extracted region within this
-    /// text buffer has the given `origin` and the same size as the `destination` rect.
-    pub fn render(
+    /// Pass 1 of [`TextBuffer::render`]: build the per-row layout
+    /// outputs (text, dim-margin flag, selection rect, shadow-match
+    /// rects, visualiser rects) into a [`TextareaLayout`]. No fb
+    /// mutation; only self-mutation is the `cursor_for_rendering`
+    /// cache write at y==0.
+    pub fn layout(
         &mut self,
         origin: Point,
         destination: Rect,
-        focused: bool,
         cursor_override: Option<Point>,
-        fb: &mut Framebuffer,
-    ) -> Option<RenderResult> {
+    ) -> Option<TextareaLayout> {
         if destination.is_empty() {
             return None;
         }
@@ -2255,12 +2255,7 @@ impl TextBuffer {
         let line_number_width = self.margin_width.max(3) as usize - 3;
         let text_width = width - self.margin_width;
         let mut visual_pos_x_max = 0;
-        // Collected during the per-line loop and replayed after the global
-        // margin tint so the gutter colours aren't dimmed.
         let mut gutter_paint: Vec<(CoordType, GutterMark)> = Vec::new();
-        // Collected per-line selection rects; replayed after lsh highlight
-        // pass to force selection fg over any syntax-highlighted glyph color.
-        let mut selection_rects: Vec<Rect> = Vec::new();
 
         // Pick the cursor closer to the `origin.y`.
         let mut cursor = {
@@ -2408,39 +2403,66 @@ impl TextBuffer {
             cursor = cursor_end;
         }
 
+        let logical_y_beg = self.cursor_for_rendering.unwrap().logical_pos.y;
+        let logical_y_end = cursor.logical_pos.y + 1;
+        Some(TextareaLayout {
+            lines: decors,
+            gutter_marks: gutter_paint,
+            visual_pos_x_max,
+            cursor_visual_render,
+            selection_empty: selection_beg >= selection_end,
+            highlight_logical_y_range: logical_y_beg..logical_y_end,
+        })
+    }
+
+    /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
+    /// The `destination` rect is framebuffer coordinates. The extracted region within this
+    /// text buffer has the given `origin` and the same size as the `destination` rect.
+    pub fn render(
+        &mut self,
+        origin: Point,
+        destination: Rect,
+        focused: bool,
+        cursor_override: Option<Point>,
+        fb: &mut Framebuffer,
+    ) -> Option<RenderResult> {
+        let layout = self.layout(origin, destination, cursor_override)?;
+        let line_number_width = self.margin_width.max(3) as usize - 3;
+        // Collected per-line selection rects; replayed after lsh highlight
+        // pass to force selection fg over any syntax-highlighted glyph color.
+        let mut selection_rects: Vec<Rect> = Vec::new();
+
         // Pass 2: write each row's body text + apply blends. Order
         // within a row matches the original inline sequence;
         // `replace_text` writes only glyphs (not fg/bg), so running
         // blends after replace_text is equivalent to running them
         // before. Per-row paints are independent across rows.
         let shadow_bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
-        for decor in &decors {
-            fb.replace_text(decor.fb_y, destination.left, destination.right, &decor.text);
-            if decor.dim_wrapped_margin {
+        for line in &layout.lines {
+            fb.replace_text(line.fb_y, destination.left, destination.right, &line.text);
+            if line.dim_wrapped_margin {
                 crate::anim::draw::dim_wrapped_margin(
                     fb,
                     destination.left,
-                    decor.fb_y,
+                    line.fb_y,
                     line_number_width as CoordType,
                 );
             }
-            if let Some(rect) = decor.selection_rect {
+            if let Some(rect) = line.selection_rect {
                 crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
             }
-            for &rect in &decor.shadow_match_rects {
+            for &rect in &line.shadow_match_rects {
                 crate::anim::draw::shadow_match_rect(fb, rect, shadow_bg, &mut selection_rects);
             }
-            for &rect in &decor.whitespace_visualizers {
+            for &rect in &line.whitespace_visualizers {
                 crate::anim::draw::whitespace_visualizer(fb, rect);
             }
-            for &rect in &decor.control_chars {
+            for &rect in &line.control_chars {
                 crate::anim::draw::control_char_highlight(fb, rect);
             }
         }
 
-        let logical_y_beg = self.cursor_for_rendering.unwrap().logical_pos.y;
-        let logical_y_end = cursor.logical_pos.y + 1;
-        self.render_apply_highlights(origin, destination, logical_y_beg..logical_y_end, fb);
+        self.render_apply_highlights(origin, destination, layout.highlight_logical_y_range, fb);
 
         crate::anim::draw::textarea_overlays(
             fb,
@@ -2450,16 +2472,16 @@ impl TextBuffer {
                 margin_width: self.margin_width,
                 ruler_column: self.ruler,
                 selection_rects: &selection_rects,
-                gutter_marks: &gutter_paint,
+                gutter_marks: &layout.gutter_marks,
                 focused,
-                cursor_visual: cursor_visual_render,
+                cursor_visual: layout.cursor_visual_render,
                 word_wrap_column: self.word_wrap_column,
                 overtype: self.overtype,
-                line_highlight: self.line_highlight_enabled && selection_beg >= selection_end,
+                line_highlight: self.line_highlight_enabled && layout.selection_empty,
             },
         );
 
-        Some(RenderResult { visual_pos_x_max })
+        Some(RenderResult { visual_pos_x_max: layout.visual_pos_x_max })
     }
 
     /// Per-source-line dominant `IndexedColor`. Picks the `HighlightKind`

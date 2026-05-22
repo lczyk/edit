@@ -155,6 +155,34 @@ pub fn build_textarea_physics<'a>(
     }
 }
 
+/// Full layout output of [`crate::buffer::TextBuffer::layout`] --
+/// pass 1 of the eventual `render(physics)` flow. Carries every
+/// piece of data pass 2 paint needs: one [`VisualLine`] per visible
+/// row, the per-row gutter marks vec, the visual-x extent, and the
+/// scratch state pass 2 forwards into `render_apply_highlights` +
+/// `textarea_overlays`.
+pub struct TextareaLayout {
+    /// One per visible row.
+    pub lines: Vec<VisualLine>,
+    /// Per-row gutter marks to paint after the margin tint.
+    pub gutter_marks: Vec<(CoordType, gutter::GutterMark)>,
+    /// Max visual-x reached across all visible rows. Reported back
+    /// out via `RenderResult` so the textarea can update its
+    /// horizontal scroll cap.
+    pub visual_pos_x_max: CoordType,
+    /// Visual cursor position the paint pass uses for the cursor
+    /// block + line highlight (animated or buffer-authoritative).
+    pub cursor_visual_render: Point,
+    /// Whether the selection is empty after the active-edge pin.
+    /// Drives the line-highlight gate (line highlight shows only
+    /// when there's no selection).
+    pub selection_empty: bool,
+    /// Logical y range to scan for syntax highlights, derived from
+    /// the running cursor at the top of pass 1 and the cursor at
+    /// the end of the visible region.
+    pub highlight_logical_y_range: std::ops::Range<CoordType>,
+}
+
 /// Selection geometry covering the whole visible viewport, in
 /// document-visual coords. Produced by the eventual `layout()`.
 /// The `active_edge_x` is the visual x of the cursor-anchored end
