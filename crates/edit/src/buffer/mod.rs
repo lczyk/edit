@@ -281,12 +281,6 @@ pub struct LineMoveEvent {
     pub visual_height: CoordType,
 }
 
-/// The result of a call to [`TextBuffer::render()`].
-pub struct RenderResult {
-    /// The maximum visual X position we encountered during rendering.
-    pub visual_pos_x_max: CoordType,
-}
-
 /// Per-row collection of visualiser rects returned by
 /// [`TextBuffer::build_body_text`]. Each vec is empty for rows
 /// without visualisers. Caller paints whitespace visualisers via
@@ -2440,56 +2434,6 @@ impl TextBuffer {
     /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
     /// The `destination` rect is framebuffer coordinates. The extracted region within this
     /// text buffer has the given `origin` and the same size as the `destination` rect.
-    pub fn render(
-        &mut self,
-        origin: Point,
-        destination: Rect,
-        focused: bool,
-        cursor_override: Option<Point>,
-        fb: &mut Framebuffer,
-    ) -> Option<RenderResult> {
-        let layout = self.layout(origin, destination, cursor_override)?;
-        // Stash the start cursor for the next render's cursor walk +
-        // the lsh pass below.
-        self.cursor_for_rendering = layout.start_cursor;
-
-        // Pass 2: per-row text commit + per-row blends.
-        let selection_rects = crate::anim::draw::textarea_lines(
-            fb,
-            &layout,
-            destination.left,
-            destination.right,
-            self.margin_width,
-            focused,
-        );
-
-        self.render_apply_highlights(
-            origin,
-            destination,
-            layout.highlight_logical_y_range.clone(),
-            fb,
-        );
-
-        crate::anim::draw::textarea_overlays(
-            fb,
-            crate::anim::draw::TextareaOverlayOpts {
-                dest: destination,
-                origin,
-                margin_width: self.margin_width,
-                ruler_column: self.ruler,
-                selection_rects: &selection_rects,
-                gutter_marks: &layout.gutter_marks,
-                focused,
-                cursor_visual: layout.cursor_visual_render,
-                word_wrap_column: self.word_wrap_column,
-                overtype: self.overtype,
-                line_highlight: self.line_highlight_enabled && layout.selection_empty,
-            },
-        );
-
-        Some(RenderResult { visual_pos_x_max: layout.visual_pos_x_max })
-    }
-
     /// Per-source-line dominant `IndexedColor`. Picks the `HighlightKind`
     /// with the most byte coverage on that line (excluding `Other`) and maps
     /// it via [`highlight_kind_color`]. Returns an empty Vec if no language
@@ -4615,25 +4559,73 @@ mod tests {
         Rect { left: 0, top: 0, right: w, bottom: h }
     }
 
+    // Mirror of the orchestration in tui::render_textarea_content so
+    // smoke tests can exercise the layout + paint pipeline without
+    // pulling in the whole Tui setup. Drives the same fn calls Tui
+    // does: layout -> cursor seed -> textarea_lines -> lsh -> overlays.
+    fn render_smoke(
+        tb: &mut TextBuffer,
+        origin: Point,
+        destination: Rect,
+        focused: bool,
+        cursor_override: Option<Point>,
+        fb: &mut Framebuffer,
+    ) {
+        let Some(layout) = tb.layout(origin, destination, cursor_override) else {
+            return;
+        };
+        tb.set_cursor_for_rendering(layout.start_cursor);
+        let selection_rects = crate::anim::draw::textarea_lines(
+            fb,
+            &layout,
+            destination.left,
+            destination.right,
+            tb.margin_width(),
+            focused,
+        );
+        tb.render_apply_highlights(
+            origin,
+            destination,
+            layout.highlight_logical_y_range.clone(),
+            fb,
+        );
+        crate::anim::draw::textarea_overlays(
+            fb,
+            crate::anim::draw::TextareaOverlayOpts {
+                dest: destination,
+                origin,
+                margin_width: tb.margin_width(),
+                ruler_column: tb.ruler(),
+                selection_rects: &selection_rects,
+                gutter_marks: &layout.gutter_marks,
+                focused,
+                cursor_visual: layout.cursor_visual_render,
+                word_wrap_column: tb.word_wrap_column(),
+                overtype: tb.is_overtype(),
+                line_highlight: tb.is_line_highlight_enabled() && layout.selection_empty,
+            },
+        );
+    }
+
     #[test]
     fn render_empty_buffer_smoke() {
         let mut tb = TextBuffer::new(true).unwrap();
         tb.set_width(80);
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     #[test]
     fn render_one_line_smoke() {
         let mut tb = buf_with("hello world\n");
         tb.set_width(80);
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     #[test]
     fn render_many_lines_smoke() {
         let mut tb = buf_with("a\nb\nc\nd\ne\nf\n");
         tb.set_width(80);
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     #[test]
@@ -4641,7 +4633,7 @@ mod tests {
         let mut tb = buf_with("hello world\nsecond line\n");
         tb.set_width(80);
         select(&mut tb, Point { x: 0, y: 0 }, Point { x: 5, y: 1 });
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     #[test]
@@ -4649,7 +4641,7 @@ mod tests {
         let mut tb = buf_with("hello world\n");
         tb.set_width(80);
         select(&mut tb, Point { x: 0, y: 0 }, Point { x: 5, y: 0 });
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), false, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), false, None, &mut fb_at(80, 24));
     }
 
     #[test]
@@ -4659,7 +4651,8 @@ mod tests {
         let mut tb = buf_with("hello world\n");
         tb.set_width(80);
         tb.cursor_move_to_logical(Point { x: 11, y: 0 });
-        tb.render(
+        render_smoke(
+            &mut tb,
             Point { x: 0, y: 0 },
             rect(80, 24),
             true,
@@ -4672,7 +4665,7 @@ mod tests {
     fn render_with_tabs_smoke() {
         let mut tb = buf_with("\thello\n\t\tworld\n");
         tb.set_width(80);
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     #[test]
@@ -4682,14 +4675,14 @@ mod tests {
         let mut tb = TextBuffer::new(true).unwrap();
         tb.write_raw(b"hi\x07there\n");
         tb.set_width(80);
-        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     #[test]
     fn render_scrolled_smoke() {
         let mut tb = buf_with("a\nb\nc\nd\ne\nf\ng\nh\n");
         tb.set_width(80);
-        tb.render(Point { x: 0, y: 3 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+        render_smoke(&mut tb, Point { x: 0, y: 3 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
 
     // Layout-pass tests. layout() is &self / pure -- assertions can

@@ -149,8 +149,7 @@ pub struct TextareaLayout {
     /// Per-row gutter marks to paint after the margin tint.
     pub gutter_marks: Vec<(CoordType, gutter::GutterMark)>,
     /// Max visual-x reached across all visible rows. Reported back
-    /// out via `RenderResult` so the textarea can update its
-    /// horizontal scroll cap.
+    /// out so the textarea can update its horizontal scroll cap.
     pub visual_pos_x_max: CoordType,
     /// Visual cursor position the paint pass uses for the cursor
     /// block + line highlight (animated or buffer-authoritative).
