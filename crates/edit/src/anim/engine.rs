@@ -23,6 +23,32 @@ pub struct LineMoveAnim {
     pub started_at: Instant,
 }
 
+/// On buffer-edit detection, snap the scroll / cursor lerps to their
+/// target positions. Buffer edits (typing, paste, alt+up/down
+/// line-move, indent, etc.) move text under the cursor; if the lerps
+/// keep chasing, the cursor visibly slides *through* the moved
+/// content. Snapping keeps it glued.
+///
+/// `last_gen` is updated to `current_gen` on every call so the
+/// caller never sees a stale generation. Returns whether an edit was
+/// detected this frame.
+pub fn snap_on_buffer_edit(
+    scroll_visual: &mut (f32, f32),
+    cursor_visual: &mut Option<(f32, f32)>,
+    last_gen: &mut u32,
+    current_gen: u32,
+    scroll_target: Point,
+    cursor_target: Point,
+) -> bool {
+    let edited = current_gen != *last_gen;
+    *last_gen = current_gen;
+    if edited {
+        *scroll_visual = (scroll_target.x as f32, scroll_target.y as f32);
+        *cursor_visual = Some((cursor_target.x as f32, cursor_target.y as f32));
+    }
+    edited
+}
+
 /// Per-frame dt in seconds, with idle-gap capping. When the editor
 /// has been idle for seconds, a naive `now - prev` would feed the
 /// lerps a huge step and they would snap to target in one frame

@@ -1099,19 +1099,14 @@ impl Tui {
 
                 destination.right -= scrollbar_w + minimap_w;
 
-                // Buffer edits (typing, paste, alt+up/down line-move, indent,
-                // etc.) move text under the cursor. Snap animations to target
-                // so the cursor stays glued to the moved content instead of
-                // sliding through it.
-                let buf_gen = tb.generation();
-                let buffer_edited = buf_gen != tc.last_buffer_generation;
-                tc.last_buffer_generation = buf_gen;
-                if buffer_edited {
-                    tc.scroll_offset_visual =
-                        (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
-                    let cv = tb.cursor_visual_pos();
-                    tc.cursor_visual_anim = Some((cv.x as f32, cv.y as f32));
-                }
+                anim::engine::snap_on_buffer_edit(
+                    &mut tc.scroll_offset_visual,
+                    &mut tc.cursor_visual_anim,
+                    &mut tc.last_buffer_generation,
+                    tb.generation(),
+                    tc.scroll_offset,
+                    tb.cursor_visual_pos(),
+                );
 
                 // Pick up a freshly-fired line-move and seed the sweep band.
                 // Drain unconditionally so the event doesn't pool up while
