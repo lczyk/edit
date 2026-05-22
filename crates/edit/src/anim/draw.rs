@@ -135,6 +135,39 @@ pub fn minimap_rail(
     }
 }
 
+/// Forces a uniform foreground colour over a collected list of
+/// selection rects. Called after the lsh highlight pass so syntax
+/// tokens inside the selection don't show through with their syntax
+/// colour -- they get the contrast-friendly selection fg instead.
+pub fn selection_force_fg(fb: &mut Framebuffer, rects: &[Rect], fg: crate::oklab::StraightRgba) {
+    for rect in rects {
+        fb.blend_fg(*rect, fg);
+    }
+}
+
+/// Tints the textarea's margin column with a dimmed fg. Run after
+/// the per-line gutter writes so the line numbers + box separator
+/// inherit the dim, then run **before** the gutter-mark paint so
+/// marks aren't dimmed.
+pub fn margin_tint(
+    fb: &mut Framebuffer,
+    margin_left: CoordType,
+    margin_top: CoordType,
+    margin_width: CoordType,
+    margin_bottom: CoordType,
+) {
+    if margin_width <= 0 {
+        return;
+    }
+    let margin = Rect {
+        left: margin_left,
+        top: margin_top,
+        right: margin_left + margin_width,
+        bottom: margin_bottom,
+    };
+    fb.blend_fg(margin, crate::oklab::StraightRgba::from_le(0x7f7f7f7f));
+}
+
 /// Paints per-line gutter marks (added / modified / deleted-above /
 /// deleted-below) in the textarea margin. Replays the marks **after**
 /// the global margin tint, so the mark colours aren't dimmed by the

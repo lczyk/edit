@@ -2272,20 +2272,16 @@ impl TextBuffer {
         // Force selection glyph color to black after lsh, so syntax-highlighted
         // tokens (keywords etc.) inside the selection stay readable.
         let sel_fg = fb.indexed(IndexedColor::Black);
-        for rect in &selection_rects {
-            fb.blend_fg(*rect, sel_fg);
-        }
+        crate::anim::draw::selection_force_fg(fb, &selection_rects, sel_fg);
 
         // Colorize the margin that we wrote above.
-        if self.margin_width > 0 {
-            let margin = Rect {
-                left: destination.left,
-                top: destination.top,
-                right: destination.left + self.margin_width,
-                bottom: destination.bottom,
-            };
-            fb.blend_fg(margin, StraightRgba::from_le(0x7f7f7f7f));
-        }
+        crate::anim::draw::margin_tint(
+            fb,
+            destination.left,
+            destination.top,
+            self.margin_width,
+            destination.bottom,
+        );
 
         crate::anim::draw::gutter_marks(fb, destination.left, self.margin_width, &gutter_paint);
 
