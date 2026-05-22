@@ -2193,10 +2193,7 @@ impl TextBuffer {
                                     let top = destination.top + cursor_line.visual_pos.y - origin.y;
                                     Rect { left, top, right: left + 1, bottom: top + 1 }
                                 };
-                                fb.blend_fg(
-                                    visualizer_rect,
-                                    fb.indexed_alpha(IndexedColor::Foreground, 1, 2),
-                                );
+                                crate::anim::draw::whitespace_visualizer(fb, visualizer_rect);
                             }
 
                             line.push_str(&*scratch, &whitespace[..prefix_add + tab_size as usize]);
@@ -2225,10 +2222,7 @@ impl TextBuffer {
                                 let top = destination.top + cursor_line.visual_pos.y - origin.y;
                                 Rect { left, top, right: left + 1, bottom: top + 1 }
                             };
-                            let bg = fb.indexed(IndexedColor::Yellow);
-                            let fg = fb.contrasted(bg);
-                            fb.blend_bg(visualizer_rect, bg);
-                            fb.blend_fg(visualizer_rect, fg);
+                            crate::anim::draw::control_char_highlight(fb, visualizer_rect);
                         } else {
                             line.push(&*scratch, ch);
                         }

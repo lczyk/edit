@@ -135,6 +135,23 @@ pub fn minimap_rail(
     }
 }
 
+/// Dims the foreground of a whitespace visualizer cell (the
+/// `central-dot` for spaces, the `rightward-arrow` for tabs) so it
+/// reads as a hint rather than as content.
+pub fn whitespace_visualizer(fb: &mut Framebuffer, rect: Rect) {
+    fb.blend_fg(rect, fb.indexed_alpha(IndexedColor::Foreground, 1, 2));
+}
+
+/// Highlights a single C0 / C1 control character glyph (the
+/// `U+2400`-range pictures inserted for unprintable bytes) with a
+/// yellow bg + contrasted fg.
+pub fn control_char_highlight(fb: &mut Framebuffer, rect: Rect) {
+    let bg = fb.indexed(IndexedColor::Yellow);
+    let fg = fb.contrasted(bg);
+    fb.blend_bg(rect, bg);
+    fb.blend_fg(rect, fg);
+}
+
 /// Paints a single selection-rect with the menubar-derived bg
 /// colour + Black fg. Appends `rect` to `out` so the post-lsh pass
 /// can re-apply the fg after syntax tokens would have overwritten
