@@ -2080,6 +2080,133 @@ impl TextBuffer {
         out
     }
 
+    /// Encodes the body text for a single visual row into `line`:
+    /// the on-screen text after the gutter margin. Handles the
+    /// left-edge wide-glyph overlap, tab expansion, whitespace
+    /// visualisers for the selected region, and U+2400-range
+    /// pictures for C0 / C1 control bytes. Paints the per-cell
+    /// visualiser rects directly into `fb` via `anim::draw`.
+    ///
+    /// `selection_off` is the byte sub-range produced by
+    /// `build_selection_row`; used as a mask for whitespace
+    /// visualisers.
+    #[allow(clippy::too_many_arguments)]
+    fn build_body_text<'arena>(
+        &self,
+        line: &mut BString<'arena>,
+        scratch: &'arena Arena,
+        cursor_beg_in: Cursor,
+        cursor_end: &Cursor,
+        selection_off: Range<usize>,
+        destination: Rect,
+        origin: Point,
+        fb: &mut Framebuffer,
+    ) {
+        let mut cursor_beg = cursor_beg_in;
+        // If we couldn't reach the left edge, we may have stopped short due to a wide glyph.
+        // In that case we'll try to find the next character and then compute by how many
+        // columns it overlaps the left edge (can be anything between 1 and 7).
+        if cursor_beg.visual_pos.x < origin.x {
+            let cursor_next = self.cursor_move_to_logical_internal(
+                cursor_beg,
+                Point { x: cursor_beg.logical_pos.x + 1, y: cursor_beg.logical_pos.y },
+            );
+
+            if cursor_next.visual_pos.x > origin.x {
+                let overlap = cursor_next.visual_pos.x - origin.x;
+                crate::sanity_check!(
+                    tab_overlap_range,
+                    (1..=7).contains(&overlap),
+                    "overlap={} (expected 1..=7)",
+                    overlap
+                );
+                line.push_str(scratch, &tab_whitespace()[..overlap as usize]);
+                cursor_beg = cursor_next;
+            }
+        }
+
+        let mut visualizer_buf = [0xE2, 0x90, 0x80]; // U+2400 in UTF8
+        let mut global_off = cursor_beg.offset;
+        let mut cursor_line = cursor_beg;
+
+        while global_off < cursor_end.offset {
+            let chunk = self.read_forward(global_off);
+            let chunk = &chunk[..chunk.len().min(cursor_end.offset - global_off)];
+            let mut it = Utf8Chars::new(chunk, 0);
+
+            // TODO(perf): Looping char-by-char is bad for performance.
+            // >25% of the total rendering time is spent here.
+            loop {
+                let chunk_off = it.offset();
+                let global_off = global_off + chunk_off;
+                let Some(ch) = it.next() else {
+                    break;
+                };
+
+                if ch == ' ' || ch == '\t' {
+                    let is_tab = ch == '\t';
+                    let visualize = selection_off.contains(&global_off);
+                    let mut whitespace = tab_whitespace();
+                    let mut prefix_add = 0;
+
+                    if is_tab || visualize {
+                        // We need the character's visual position in order to either compute the tab size,
+                        // or set the foreground color of the visualizer, respectively.
+                        // TODO(perf): Doing this char-by-char is of course also bad for performance.
+                        cursor_line = self.cursor_move_to_offset_internal(cursor_line, global_off);
+                    }
+
+                    let tab_size = if is_tab { self.tab_size_eval(cursor_line.column) } else { 1 };
+
+                    if visualize {
+                        // If the whitespace is part of the selection,
+                        // we replace " " with the central dot and "\t" with the rightward arrow.
+                        (whitespace, prefix_add) =
+                            if is_tab { visual_tab() } else { visual_space() };
+
+                        // Make the visualized characters slightly gray.
+                        let visualizer_rect = {
+                            let left =
+                                destination.left + self.margin_width + cursor_line.visual_pos.x
+                                    - origin.x;
+                            let top = destination.top + cursor_line.visual_pos.y - origin.y;
+                            Rect { left, top, right: left + 1, bottom: top + 1 }
+                        };
+                        crate::anim::draw::whitespace_visualizer(fb, visualizer_rect);
+                    }
+
+                    line.push_str(scratch, &whitespace[..prefix_add + tab_size as usize]);
+                } else if ch <= '\x1f' || ('\u{7f}'..='\u{9f}').contains(&ch) {
+                    // Append a Unicode representation of the C0 or C1 control character.
+                    visualizer_buf[2] = if ch <= '\x1f' {
+                        0x80 | ch as u8 // U+2400..=U+241F
+                    } else if ch == '\x7f' {
+                        0xA1 // U+2421
+                    } else {
+                        0xA6 // U+2426, because there are no pictures for C1 control characters.
+                    };
+
+                    // Our manually constructed UTF8 is never going to be invalid. Trust.
+                    line.push_str(scratch, unsafe { str::from_utf8_unchecked(&visualizer_buf) });
+
+                    // Highlight the control character yellow.
+                    cursor_line = self.cursor_move_to_offset_internal(cursor_line, global_off);
+                    let visualizer_rect = {
+                        let left = destination.left + self.margin_width + cursor_line.visual_pos.x
+                            - origin.x;
+                        let top = destination.top + cursor_line.visual_pos.y - origin.y;
+                        Rect { left, top, right: left + 1, bottom: top + 1 }
+                    };
+                    crate::anim::draw::control_char_highlight(fb, visualizer_rect);
+                } else {
+                    line.push(scratch, ch);
+                }
+            }
+
+            global_off += chunk.len();
+        }
+    }
+
     /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
     /// The `destination` rect is framebuffer coordinates. The extracted region within this
     /// text buffer has the given `origin` and the same size as the `destination` rect.
@@ -2099,7 +2226,6 @@ impl TextBuffer {
         let height = destination.height();
         let line_number_width = self.margin_width.max(3) as usize - 3;
         let text_width = width - self.margin_width;
-        let mut visualizer_buf = [0xE2, 0x90, 0x80]; // U+2400 in UTF8
         let mut visual_pos_x_max = 0;
         // Collected during the per-line loop and replayed after the global
         // margin tint so the gutter colours aren't dimmed.
@@ -2161,7 +2287,7 @@ impl TextBuffer {
             line.reserve(&*scratch, width as usize * 2);
 
             let visual_line = origin.y + y;
-            let mut cursor_beg =
+            let cursor_beg =
                 self.cursor_move_to_visual_internal(cursor, Point { x: origin.x, y: visual_line });
             let cursor_end = self.cursor_move_to_visual_internal(
                 cursor_beg,
@@ -2235,115 +2361,16 @@ impl TextBuffer {
 
             // Nothing to do if the entire line is empty.
             if cursor_beg.offset != cursor_end.offset {
-                // If we couldn't reach the left edge, we may have stopped short due to a wide glyph.
-                // In that case we'll try to find the next character and then compute by how many
-                // columns it overlaps the left edge (can be anything between 1 and 7).
-                if cursor_beg.visual_pos.x < origin.x {
-                    let cursor_next = self.cursor_move_to_logical_internal(
-                        cursor_beg,
-                        Point { x: cursor_beg.logical_pos.x + 1, y: cursor_beg.logical_pos.y },
-                    );
-
-                    if cursor_next.visual_pos.x > origin.x {
-                        let overlap = cursor_next.visual_pos.x - origin.x;
-                        crate::sanity_check!(
-                            tab_overlap_range,
-                            (1..=7).contains(&overlap),
-                            "overlap={} (expected 1..=7)",
-                            overlap
-                        );
-                        line.push_str(&*scratch, &tab_whitespace()[..overlap as usize]);
-                        cursor_beg = cursor_next;
-                    }
-                }
-
-                let mut global_off = cursor_beg.offset;
-                let mut cursor_line = cursor_beg;
-
-                while global_off < cursor_end.offset {
-                    let chunk = self.read_forward(global_off);
-                    let chunk = &chunk[..chunk.len().min(cursor_end.offset - global_off)];
-                    let mut it = Utf8Chars::new(chunk, 0);
-
-                    // TODO: Looping char-by-char is bad for performance.
-                    // >25% of the total rendering time is spent here.
-                    loop {
-                        let chunk_off = it.offset();
-                        let global_off = global_off + chunk_off;
-                        let Some(ch) = it.next() else {
-                            break;
-                        };
-
-                        if ch == ' ' || ch == '\t' {
-                            let is_tab = ch == '\t';
-                            let visualize = selection_off.contains(&global_off);
-                            let mut whitespace = tab_whitespace();
-                            let mut prefix_add = 0;
-
-                            if is_tab || visualize {
-                                // We need the character's visual position in order to either compute the tab size,
-                                // or set the foreground color of the visualizer, respectively.
-                                // TODO: Doing this char-by-char is of course also bad for performance.
-                                cursor_line =
-                                    self.cursor_move_to_offset_internal(cursor_line, global_off);
-                            }
-
-                            let tab_size =
-                                if is_tab { self.tab_size_eval(cursor_line.column) } else { 1 };
-
-                            if visualize {
-                                // If the whitespace is part of the selection,
-                                // we replace " " with "･" and "\t" with "￫".
-                                (whitespace, prefix_add) =
-                                    if is_tab { visual_tab() } else { visual_space() };
-
-                                // Make the visualized characters slightly gray.
-                                let visualizer_rect = {
-                                    let left = destination.left
-                                        + self.margin_width
-                                        + cursor_line.visual_pos.x
-                                        - origin.x;
-                                    let top = destination.top + cursor_line.visual_pos.y - origin.y;
-                                    Rect { left, top, right: left + 1, bottom: top + 1 }
-                                };
-                                crate::anim::draw::whitespace_visualizer(fb, visualizer_rect);
-                            }
-
-                            line.push_str(&*scratch, &whitespace[..prefix_add + tab_size as usize]);
-                        } else if ch <= '\x1f' || ('\u{7f}'..='\u{9f}').contains(&ch) {
-                            // Append a Unicode representation of the C0 or C1 control character.
-                            visualizer_buf[2] = if ch <= '\x1f' {
-                                0x80 | ch as u8 // U+2400..=U+241F
-                            } else if ch == '\x7f' {
-                                0xA1 // U+2421
-                            } else {
-                                0xA6 // U+2426, because there are no pictures for C1 control characters.
-                            };
-
-                            // Our manually constructed UTF8 is never going to be invalid. Trust.
-                            line.push_str(&*scratch, unsafe {
-                                str::from_utf8_unchecked(&visualizer_buf)
-                            });
-
-                            // Highlight the control character yellow.
-                            cursor_line =
-                                self.cursor_move_to_offset_internal(cursor_line, global_off);
-                            let visualizer_rect = {
-                                let left =
-                                    destination.left + self.margin_width + cursor_line.visual_pos.x
-                                        - origin.x;
-                                let top = destination.top + cursor_line.visual_pos.y - origin.y;
-                                Rect { left, top, right: left + 1, bottom: top + 1 }
-                            };
-                            crate::anim::draw::control_char_highlight(fb, visualizer_rect);
-                        } else {
-                            line.push(&*scratch, ch);
-                        }
-                    }
-
-                    global_off += chunk.len();
-                }
-
+                self.build_body_text(
+                    &mut line,
+                    &scratch,
+                    cursor_beg,
+                    &cursor_end,
+                    selection_off,
+                    destination,
+                    origin,
+                    fb,
+                );
                 visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
             }
 
