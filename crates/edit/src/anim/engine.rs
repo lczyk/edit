@@ -23,6 +23,20 @@ pub struct LineMoveAnim {
     pub started_at: Instant,
 }
 
+/// Per-frame dt in seconds, with idle-gap capping. When the editor
+/// has been idle for seconds, a naive `now - prev` would feed the
+/// lerps a huge step and they would snap to target in one frame
+/// (invisible motion). Capping at one frame keeps the first step
+/// small so animation runs visibly across multiple frames driven by
+/// the read-timeout cadence. `prev = None` is the first-frame seed
+/// (no real dt yet) and returns one frame's worth.
+pub fn frame_dt_secs(prev: Option<Instant>, now: Instant) -> f32 {
+    match prev {
+        Some(prev) => (now - prev).as_secs_f32().min(super::MAX_DT_SECS),
+        None => 0.016,
+    }
+}
+
 /// Advance an in-flight line-move trail flash. Returns the
 /// normalised `[0, 1)` progress if the flash is still visible, or
 /// `None` once the duration has elapsed (also clears the slot so the

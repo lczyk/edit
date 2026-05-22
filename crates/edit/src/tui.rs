@@ -890,15 +890,7 @@ impl Tui {
     /// Renders the last frame into the framebuffer and returns the VT output.
     pub fn render<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
         let now = time::Instant::now();
-        // Cap dt aggressively: when the editor has been idle (no input for
-        // seconds), the first post-input frame would otherwise see a huge dt
-        // and the lerp would snap to target in one step -- invisible motion.
-        // Capping at ~one frame keeps the first step small so animation runs
-        // visibly across multiple frames driven by the 16ms read_timeout.
-        self.frame_dt_secs = match self.last_frame_time {
-            Some(prev) => (now - prev).as_secs_f32().min(anim::MAX_DT_SECS),
-            None => 0.016,
-        };
+        self.frame_dt_secs = anim::engine::frame_dt_secs(self.last_frame_time, now);
         self.last_frame_time = Some(now);
 
         // Drop slide-animation entries for nodes that no longer exist in the
