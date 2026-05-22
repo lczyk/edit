@@ -38,6 +38,11 @@ pub struct TuiAnimState {
     /// scale-in floater open animations. Entry exists from the first
     /// frame the node appears until the node disappears (closed).
     pub floater_opened_at: HashMap<u64, Instant>,
+    /// Per-textarea anim state, keyed by node id. Entries persist
+    /// across frames until the node disappears from `prev_node_map`
+    /// -- carry-over happens for free instead of via prev-frame
+    /// content copy at tree-build time.
+    pub textareas: HashMap<u64, TextareaAnimState>,
 }
 
 /// Per-textarea anim state that persists across frames. Grouped

@@ -895,8 +895,11 @@ impl Tui {
 
         // Drop slide-animation entries for nodes that no longer exist in the
         // current tree (dropdown closed, modal dismissed). Lookup uses the
-        // same prev_node_map the renderer walks.
+        // same prev_node_map the renderer walks. Same treatment for
+        // per-textarea anim state -- entries persist across frames keyed
+        // by node id, drop when the textarea unmounts.
         self.anim.floater_opened_at.retain(|id, _| self.prev_node_map.get(*id).is_some());
+        self.anim.textareas.retain(|id, _| self.prev_node_map.get(*id).is_some());
 
         self.framebuffer.flip(self.size);
         for child in self.prev_tree.iterate_roots() {
@@ -1084,7 +1087,7 @@ impl Tui {
                 content.overflow,
             ),
             NodeContent::Textarea(tc) => {
-                self.render_textarea_content(tc, inner, inner_clipped);
+                self.render_textarea_content(tc, node.id, inner, inner_clipped);
             }
             NodeContent::Scrollarea(sc) => {
                 let content = node.children.first.unwrap().borrow();
@@ -1144,6 +1147,7 @@ impl Tui {
     fn render_textarea_content(
         &mut self,
         tc: &mut TextareaContent,
+        node_id: u64,
         inner: Rect,
         inner_clipped: Rect,
     ) {
@@ -1160,10 +1164,17 @@ impl Tui {
 
         destination.right -= scrollbar_w + minimap_w;
 
+        // Per-textarea anim state lives in Tui::anim.textareas keyed
+        // by node id. Pull a Copy of the entry, mutate freely, write
+        // back at the end -- avoids holding a borrow on
+        // self.anim.textareas across the &mut self.framebuffer paint
+        // calls below.
+        let mut anim_state = *self.anim.textareas.entry(node_id).or_insert_with(Default::default);
+
         anim::engine::snap_on_buffer_edit(
-            &mut tc.anim.scroll_visual,
-            &mut tc.anim.cursor_visual,
-            &mut tc.anim.last_buffer_generation,
+            &mut anim_state.scroll_visual,
+            &mut anim_state.cursor_visual,
+            &mut anim_state.last_buffer_generation,
             tb.generation(),
             tc.scroll_offset,
             tb.cursor_visual_pos(),
@@ -1173,19 +1184,19 @@ impl Tui {
         // event doesn't pool up while animations are off -- the seed
         // fn handles the enable check internally.
         anim::engine::seed_line_move_trail(
-            &mut tc.anim.line_move,
+            &mut anim_state.line_move,
             tb.take_pending_line_move(),
             time::Instant::now(),
         );
 
         let visual_offset = anim::engine::advance_scroll(
-            &mut tc.anim.scroll_visual,
+            &mut anim_state.scroll_visual,
             tc.scroll_offset,
             self.anim.dt_secs,
         );
         let cursor_target = tb.cursor_visual_pos();
         let cursor_override = anim::engine::advance_cursor(
-            &mut tc.anim.cursor_visual,
+            &mut anim_state.cursor_visual,
             cursor_target,
             self.anim.dt_secs,
         );
@@ -1212,16 +1223,16 @@ impl Tui {
         // `destination` to exclude the buffer's left margin (line
         // numbers / gutter marks) so the band stays in the text area.
         if let Some(t) =
-            anim::engine::advance_line_move_trail(&mut tc.anim.line_move, time::Instant::now())
+            anim::engine::advance_line_move_trail(&mut anim_state.line_move, time::Instant::now())
         {
-            let anim_state = tc.anim.line_move.expect("just advanced past None");
+            let line_move = anim_state.line_move.expect("just advanced past None");
             let text_dest = Rect { left: destination.left + tb.margin_width(), ..destination };
             anim::draw::line_move_trail(
                 &mut self.framebuffer,
                 text_dest,
                 visual_offset,
-                anim_state.to_y,
-                anim_state.height,
+                line_move.to_y,
+                line_move.height,
                 t,
                 tb.line_move_bands(),
             );
@@ -1260,6 +1271,11 @@ impl Tui {
                 tb.visual_line_count() + inner.height() - 1,
             );
         }
+
+        // Write back the per-textarea anim state. Read-modify-write
+        // pattern avoids holding a borrow on `self.anim.textareas`
+        // across the &mut self.framebuffer paint calls above.
+        self.anim.textareas.insert(node_id, anim_state);
     }
 
     fn render_styled_text(
@@ -2385,7 +2401,6 @@ impl<'a> Context<'a, '_> {
         node.content = NodeContent::Textarea(TextareaContent {
             buffer,
             scroll_offset: Default::default(),
-            anim: anim::engine::TextareaAnimState::default(),
             scroll_offset_y_drag_start: CoordType::MIN,
             scroll_offset_x_max: 0,
             thumb_height: 0,
@@ -2406,7 +2421,6 @@ impl<'a> Context<'a, '_> {
             let node_prev = node_prev.borrow();
             if let NodeContent::Textarea(content_prev) = &node_prev.content {
                 content.scroll_offset = content_prev.scroll_offset;
-                content.anim = content_prev.anim;
                 content.scroll_offset_y_drag_start = content_prev.scroll_offset_y_drag_start;
                 content.scroll_offset_x_max = content_prev.scroll_offset_x_max;
                 content.thumb_height = content_prev.thumb_height;
@@ -4026,10 +4040,6 @@ struct TextareaContent<'a> {
 
     // Carries over between frames.
     scroll_offset: Point,
-    /// Per-textarea anim state (lerped scroll / cursor positions,
-    /// last buffer generation, active line-move trail). See
-    /// [`anim::engine::TextareaAnimState`].
-    anim: anim::engine::TextareaAnimState,
     scroll_offset_y_drag_start: CoordType,
     scroll_offset_x_max: CoordType,
     thumb_height: CoordType,
