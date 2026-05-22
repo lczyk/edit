@@ -212,3 +212,13 @@ partial-landed on `lczyk-remix` (63 commits past `v0.10.0`). per-stage state:
 
 remaining work:
 - (none tracked here; doc is design reference, not task list. both items below landed.)
+
+## shipped vs target shape
+
+the target shape at the top of this doc described a frame-wide `Physics` IR with `NodeDraw` variants (`Box`, `Text`, `Textarea`, `Scrollbar`, `Minimap`, `LineMoveBand`, `Floater`) and a single `draw(physics, fb)` entry point. what shipped is a per-textarea subset:
+
+- **`anim::physics`** -- `TextareaPhysics` + `TextareaLayout` + `VisualLine`. per-textarea only. the frame-wide IR (`NodeDraw` enum, tree walk producing a flat vec of draw commands) was descoped -- `Tui::render_node` still walks the tree and dispatches to per-node paint paths directly.
+- **`anim::draw`** -- per-textarea paint helpers (`textarea_lines`, `textarea_overlays`, `line_move_trail`) plus leaf draw fns. called from `Tui::render_textarea_content`, not from a single `draw(physics)` entry point.
+- **`anim::engine`** -- `TuiAnimState` + `TextareaAnimState` + per-feature advance fns + `animate`/`animate_nil` wrappers. `no_animations()` dispatch is a single `if/else` at the Tui level, not a pipeline-wide `animate_nil` vs `animate` switch on the full frame IR.
+
+the per-textarea cut was the right scope: it pulled the sidechannels out of `TextBuffer`, made paint pure, and collapsed anim state into one place. a future frame-wide-IR pass would sit on top of what's here -- `build_physics` would call `build_textarea_physics` (already written) and add the non-textarea nodes.
