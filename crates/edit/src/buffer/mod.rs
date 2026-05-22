@@ -264,16 +264,17 @@ pub enum MoveLineDirection {
 }
 
 /// One-shot record of the most recent `move_selected_lines` for the
-/// rendering layer to drive a slide animation. Logical y; in no-wrap mode
-/// this equals visual y. Consumed via [`TextBuffer::take_pending_line_move`].
+/// rendering layer to drive a slide animation. Coordinates are *visual* y
+/// so the band slides through the correct screen rows even when word-wrap
+/// is on. Consumed via [`TextBuffer::take_pending_line_move`].
 #[derive(Clone, Copy)]
 pub struct LineMoveEvent {
-    /// Logical y of the moved block's first line *before* the move.
-    pub from_y: CoordType,
-    /// Logical y of the moved block's first line *after* the move.
-    pub to_y: CoordType,
-    /// Number of logical lines in the moved block.
-    pub height: CoordType,
+    /// Visual y of the moved block's top row *before* the move.
+    pub from_visual_y: CoordType,
+    /// Visual y of the moved block's top row *after* the move.
+    pub to_visual_y: CoordType,
+    /// Number of visual rows the moved block occupies.
+    pub visual_height: CoordType,
 }
 
 /// The result of a call to [`TextBuffer::render()`].
@@ -3433,6 +3434,25 @@ impl TextBuffer {
             MoveLineDirection::Down => (end + 1, beg),
         };
 
+        // Capture pre-edit *visual* positions so the rendering layer can
+        // slide the band through the correct screen rows under word-wrap.
+        // `cursor_move_to_logical_internal` walks from the current cursor;
+        // targets are nearby so the cost is small.
+        let visual_y_of = |buf: &Self, y: CoordType| -> CoordType {
+            buf.cursor_move_to_logical_internal(buf.cursor, Point { x: 0, y }).visual_pos.y
+        };
+        let block_top_v = visual_y_of(self, beg);
+        let block_end_excl_v = visual_y_of(self, end + 1);
+        let displaced_h_v = match direction {
+            MoveLineDirection::Up => block_top_v - visual_y_of(self, beg - 1),
+            MoveLineDirection::Down => visual_y_of(self, end + 2) - block_end_excl_v,
+        };
+        let pre_move_event = LineMoveEvent {
+            from_visual_y: block_top_v,
+            to_visual_y: block_top_v + delta * displaced_h_v,
+            visual_height: block_end_excl_v - block_top_v,
+        };
+
         self.edit_begin_grouping();
         {
             // Let's say this is `MoveLineDirection::Up`.
@@ -3472,11 +3492,9 @@ impl TextBuffer {
             s
         }));
 
-        // Record the move so the rendering layer can drive a slide
-        // animation. `beg` was the pre-move first line; after the shift the
-        // block sits at `beg + delta`.
-        self.pending_line_move =
-            Some(LineMoveEvent { from_y: beg, to_y: beg + delta, height: end - beg + 1 });
+        // Publish the pre-measured visual move so the rendering layer can
+        // drive a slide animation.
+        self.pending_line_move = Some(pre_move_event);
     }
 
     /// Deletes the line(s) the cursor or selection touches. Mirrors

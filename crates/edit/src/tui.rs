@@ -1176,9 +1176,9 @@ impl Tui {
                     && !crate::glyphs::no_animations()
                 {
                     tc.line_move_anim = Some(LineMoveAnim {
-                        from_y: ev.from_y,
-                        to_y: ev.to_y,
-                        height: ev.height,
+                        from_y: ev.from_visual_y,
+                        to_y: ev.to_visual_y,
+                        height: ev.visual_height,
                         started_at: time::Instant::now(),
                     });
                 }
@@ -4059,8 +4059,9 @@ struct TextContent<'a> {
 /// sweeps from `from_y` to `to_y` across [`anim::LINE_MOVE_DURATION_SECS`]
 /// using half-block compositing for sub-row vertical resolution.
 ///
-/// Coordinates are logical y; in no-wrap mode these equal visual y. In
-/// word-wrap mode the band may visually drift from the actual moved block.
+/// Coordinates are visual y (document-space rows after word-wrap), so
+/// `to_y - from_y` is the displaced neighbour's visual height -- not
+/// necessarily 1 under wrap.
 #[derive(Clone, Copy)]
 struct LineMoveAnim {
     from_y: CoordType,
@@ -4661,7 +4662,7 @@ fn draw_minimap_rail(
 }
 
 /// Half-block sweep overlay for the alt+up/down line-move animation. Lerps a
-/// `height`-row tinted band from `from_y` to `to_y` (logical coords) using
+/// `height`-row tinted band from `from_y` to `to_y` (visual coords) using
 /// half-row resolution so the motion reads as a slide rather than a snap.
 ///
 /// At aligned positions (band edges land on cell boundaries) we just tint
@@ -4687,8 +4688,8 @@ fn draw_line_move_sweep(
     }
 
     let distance = (anim.to_y - anim.from_y) as f32;
-    let cur_logical_top = anim.from_y as f32 + distance * t;
-    let screen_top_f = dest.top as f32 + cur_logical_top - scroll_offset_y as f32;
+    let cur_visual_top = anim.from_y as f32 + distance * t;
+    let screen_top_f = dest.top as f32 + cur_visual_top - scroll_offset_y as f32;
 
     // Quantise to half-row grid. Even = aligned full row; odd = shifted by
     // half a row, edges need half-block glyphs.
