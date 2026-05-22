@@ -12,6 +12,36 @@ use std::time::Instant;
 use crate::buffer::LineMoveEvent;
 use crate::helpers::{CoordType, Point};
 
+/// Per-textarea anim state that persists across frames. Grouped
+/// together so the eventual stage-4 unified animator can own it as
+/// one chunk rather than scattered fields on `TextareaContent`.
+///
+/// Must not contain items that require `Drop` -- this lives inside
+/// `TextareaContent` which has that constraint (it sits in arena
+/// memory).
+#[derive(Default, Clone, Copy)]
+pub struct TextareaAnimState {
+    /// Animated visual scroll position (lerped toward the target each
+    /// render). Rounded to integer cells for actual draw / mouse
+    /// mapping.
+    pub scroll_visual: (f32, f32),
+    /// Animated cursor position in document-visual coordinates. Lerps
+    /// toward the buffer's current cursor visual pos each render.
+    /// `None` means "not yet initialised" -- snap to target on first
+    /// render.
+    pub cursor_visual: Option<(f32, f32)>,
+    /// Previous-frame buffer generation. When it changes, the buffer
+    /// was edited (typing, paste, line-move, indent, etc.) -- snap
+    /// cursor and scroll lerps to target so the cursor stays glued
+    /// to the moved content rather than lerping after it.
+    pub last_buffer_generation: u32,
+    /// Active line-move trail flash. `Some` from when
+    /// `move_selected_lines` fires until
+    /// [`super::LINE_MOVE_DURATION_SECS`] elapses; drives the
+    /// half-block trail overlay drawn after the textarea paint.
+    pub line_move: Option<LineMoveAnim>,
+}
+
 /// Trail-flash state for an alt+up/down line move. Tracks the moved
 /// block's post-move position and start time; alpha fades over
 /// [`super::LINE_MOVE_DURATION_SECS`].

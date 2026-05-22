@@ -1100,9 +1100,9 @@ impl Tui {
                 destination.right -= scrollbar_w + minimap_w;
 
                 anim::engine::snap_on_buffer_edit(
-                    &mut tc.scroll_offset_visual,
-                    &mut tc.cursor_visual_anim,
-                    &mut tc.last_buffer_generation,
+                    &mut tc.anim.scroll_visual,
+                    &mut tc.anim.cursor_visual,
+                    &mut tc.anim.last_buffer_generation,
                     tb.generation(),
                     tc.scroll_offset,
                     tb.cursor_visual_pos(),
@@ -1112,19 +1112,19 @@ impl Tui {
                 // event doesn't pool up while animations are off -- the seed
                 // fn handles the enable check internally.
                 anim::engine::seed_line_move_trail(
-                    &mut tc.line_move_anim,
+                    &mut tc.anim.line_move,
                     tb.take_pending_line_move(),
                     time::Instant::now(),
                 );
 
                 let visual_offset = crate::anim::engine::advance_scroll(
-                    &mut tc.scroll_offset_visual,
+                    &mut tc.anim.scroll_visual,
                     tc.scroll_offset,
                     self.frame_dt_secs,
                 );
                 let cursor_target = tb.cursor_visual_pos();
                 let cursor_override = crate::anim::engine::advance_cursor(
-                    &mut tc.cursor_visual_anim,
+                    &mut tc.anim.cursor_visual,
                     cursor_target,
                     self.frame_dt_secs,
                 );
@@ -1149,10 +1149,10 @@ impl Tui {
                 // `destination` to exclude the buffer's left margin (line
                 // numbers / gutter marks) so the band stays in the text area.
                 if let Some(t) = anim::engine::advance_line_move_trail(
-                    &mut tc.line_move_anim,
+                    &mut tc.anim.line_move,
                     time::Instant::now(),
                 ) {
-                    let anim_state = tc.line_move_anim.expect("just advanced past None");
+                    let anim_state = tc.anim.line_move.expect("just advanced past None");
                     let text_dest =
                         Rect { left: destination.left + tb.margin_width(), ..destination };
                     crate::anim::draw::line_move_trail(
@@ -2365,10 +2365,7 @@ impl<'a> Context<'a, '_> {
         node.content = NodeContent::Textarea(TextareaContent {
             buffer,
             scroll_offset: Default::default(),
-            scroll_offset_visual: (0.0, 0.0),
-            cursor_visual_anim: None,
-            last_buffer_generation: 0,
-            line_move_anim: None,
+            anim: anim::engine::TextareaAnimState::default(),
             scroll_offset_y_drag_start: CoordType::MIN,
             scroll_offset_x_max: 0,
             thumb_height: 0,
@@ -2389,10 +2386,7 @@ impl<'a> Context<'a, '_> {
             let node_prev = node_prev.borrow();
             if let NodeContent::Textarea(content_prev) = &node_prev.content {
                 content.scroll_offset = content_prev.scroll_offset;
-                content.scroll_offset_visual = content_prev.scroll_offset_visual;
-                content.cursor_visual_anim = content_prev.cursor_visual_anim;
-                content.last_buffer_generation = content_prev.last_buffer_generation;
-                content.line_move_anim = content_prev.line_move_anim;
+                content.anim = content_prev.anim;
                 content.scroll_offset_y_drag_start = content_prev.scroll_offset_y_drag_start;
                 content.scroll_offset_x_max = content_prev.scroll_offset_x_max;
                 content.thumb_height = content_prev.thumb_height;
@@ -4006,22 +4000,10 @@ struct TextareaContent<'a> {
 
     // Carries over between frames.
     scroll_offset: Point,
-    /// Animated visual scroll position (lerped toward `scroll_offset` each
-    /// render). Rounded to integer cells for actual draw / mouse mapping.
-    scroll_offset_visual: (f32, f32),
-    /// Animated cursor position in document-visual coordinates. Lerps toward
-    /// the buffer's current cursor visual pos each render. `None` means "not
-    /// yet initialised" -- snap to target on first render.
-    cursor_visual_anim: Option<(f32, f32)>,
-    /// Previous-frame buffer generation. When it changes, the buffer was
-    /// edited (typing, paste, line-move, indent, etc.) -- snap cursor and
-    /// scroll animation to target so the cursor stays glued to the moved
-    /// content rather than lerping after it.
-    last_buffer_generation: u32,
-    /// Active line-move slide animation. `Some` from when
-    /// `move_selected_lines` fires until [`anim::LINE_MOVE_DURATION_SECS`]
-    /// elapses; drives the half-block sweep overlay drawn after `tb.render`.
-    line_move_anim: Option<anim::engine::LineMoveAnim>,
+    /// Per-textarea anim state (lerped scroll / cursor positions,
+    /// last buffer generation, active line-move trail). See
+    /// [`anim::engine::TextareaAnimState`].
+    anim: anim::engine::TextareaAnimState,
     scroll_offset_y_drag_start: CoordType,
     scroll_offset_x_max: CoordType,
     thumb_height: CoordType,
