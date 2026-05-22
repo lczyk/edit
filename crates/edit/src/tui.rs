@@ -4696,7 +4696,8 @@ fn draw_line_move_sweep(
     let height = anim.height.min(bands.len() as CoordType);
 
     // Linear fade from `BASE_ALPHA_NUM / BASE_ALPHA_DEN` at t=0 down to 0
-    // at t=1. Kept as integer fraction so `indexed_alpha` can constant-fold.
+    // at t=1. Scaled up by 1024 so fractional alpha steps survive the
+    // integer division inside `tint_bg_with_fg`.
     const BASE_ALPHA_NUM: u32 = 1;
     const BASE_ALPHA_DEN: u32 = 2;
     let fade = (1.0 - t).clamp(0.0, 1.0);
@@ -4706,22 +4707,17 @@ fn draw_line_move_sweep(
     }
     let alpha_den = BASE_ALPHA_DEN * 1024;
 
-    // Fallback when a row has no dominant-highlight colour -- use the
-    // default text foreground so the tint matches whatever the row's
-    // glyphs are drawn in.
-    const DEFAULT_TINT: IndexedColor = IndexedColor::Foreground;
-
-    let band_screen = |band: RowBand| -> Option<(CoordType, CoordType, IndexedColor)> {
-        let (l, r, color) = match band {
+    let band_screen = |band: RowBand| -> Option<(CoordType, CoordType)> {
+        let (l, r) = match band {
             RowBand::Skip => return None,
-            RowBand::Full(c) => (dest.left, dest.right, c),
-            RowBand::Range(left_col, right_col, c) => {
+            RowBand::Full => (dest.left, dest.right),
+            RowBand::Range(left_col, right_col) => {
                 let l = dest.left + left_col - scroll_offset.x;
                 let r = dest.left + right_col - scroll_offset.x;
-                (l.max(dest.left), r.min(dest.right), c)
+                (l.max(dest.left), r.min(dest.right))
             }
         };
-        if r <= l { None } else { Some((l, r, color.unwrap_or(DEFAULT_TINT))) }
+        if r <= l { None } else { Some((l, r)) }
     };
 
     for k in 0..height {
@@ -4729,10 +4725,9 @@ fn draw_line_move_sweep(
         if screen_y < dest.top || screen_y >= dest.bottom {
             continue;
         }
-        if let Some((l, r, idx)) = band_screen(bands[k as usize]) {
-            let bg = fb.indexed_alpha(idx, alpha_num, alpha_den);
+        if let Some((l, r)) = band_screen(bands[k as usize]) {
             let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-            fb.blend_bg(rect, bg);
+            fb.tint_bg_with_fg(rect, alpha_num, alpha_den);
         }
     }
 }

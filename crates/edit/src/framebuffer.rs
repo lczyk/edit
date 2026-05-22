@@ -386,6 +386,42 @@ impl Framebuffer {
         contrast
     }
 
+    /// Blends each cell's background in `target` with that cell's existing
+    /// foreground colour, scaled by the given alpha fraction. Used by the
+    /// alt+up/down line-move trail flash so every glyph in the band picks up
+    /// its own (syntax-highlighted) colour as the wash instead of a single
+    /// per-line accent.
+    pub fn tint_bg_with_fg(&mut self, target: Rect, alpha_num: u32, alpha_den: u32) {
+        let back = &mut self.buffers[self.frame_counter & 1];
+        let size = back.bg_bitmap.size;
+        let target = target.intersect(size.as_rect());
+        if target.is_empty() || alpha_num == 0 {
+            return;
+        }
+        let alpha = (255 * alpha_num / alpha_den).min(255) << 24;
+        let stride = size.width as usize;
+        let row_left = target.left as usize;
+        let row_right = target.right as usize;
+        for y in target.top as usize..target.bottom as usize {
+            let row = y * stride;
+            // Run-detect same-fg neighbours so we only build the tint
+            // colour and call oklab_blend once per run.
+            let mut x = row_left;
+            while x < row_right {
+                let fg = back.fg_bitmap.data[row + x];
+                let mut end = x + 1;
+                while end < row_right && back.fg_bitmap.data[row + end] == fg {
+                    end += 1;
+                }
+                let tint = StraightRgba::from_le(alpha | (fg.to_le() & 0x00ffffff));
+                for cell in &mut back.bg_bitmap.data[row + x..row + end] {
+                    *cell = cell.oklab_blend(tint);
+                }
+                x = end;
+            }
+        }
+    }
+
     /// Blends the given sRGB color onto the background bitmap.
     ///
     /// TODO: The current approach blends foreground/background independently,
