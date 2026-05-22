@@ -23,6 +23,21 @@ pub struct LineMoveAnim {
     pub started_at: Instant,
 }
 
+/// Advance an in-flight line-move trail flash. Returns the
+/// normalised `[0, 1)` progress if the flash is still visible, or
+/// `None` once the duration has elapsed (also clears the slot so the
+/// caller doesn't need to). `None` is also returned immediately when
+/// the slot is empty.
+pub fn advance_line_move_trail(state: &mut Option<LineMoveAnim>, now: Instant) -> Option<f32> {
+    let anim = (*state)?;
+    let elapsed = now.duration_since(anim.started_at).as_secs_f32();
+    if elapsed >= super::LINE_MOVE_DURATION_SECS {
+        *state = None;
+        return None;
+    }
+    Some(elapsed / super::LINE_MOVE_DURATION_SECS)
+}
+
 /// Clip rect produced by a floater-open animation. The caller applies
 /// this to its node subtree -- `Bottom(y)` shrinks the visible region
 /// to `[outer.top, y]` (slide-down dropdowns), `Band(top, bottom)`

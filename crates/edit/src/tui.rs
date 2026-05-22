@@ -1166,27 +1166,24 @@ impl Tui {
                 // get tinted) comes from `tb.line_move_bands()`. We narrow
                 // `destination` to exclude the buffer's left margin (line
                 // numbers / gutter marks) so the band stays in the text area.
-                if let Some(anim_state) = tc.line_move_anim {
-                    let elapsed =
-                        time::Instant::now().duration_since(anim_state.started_at).as_secs_f32();
-                    if elapsed >= anim::LINE_MOVE_DURATION_SECS {
-                        tc.line_move_anim = None;
-                    } else {
-                        let t = elapsed / anim::LINE_MOVE_DURATION_SECS;
-                        let text_dest =
-                            Rect { left: destination.left + tb.margin_width(), ..destination };
-                        crate::anim::draw::line_move_trail(
-                            &mut self.framebuffer,
-                            text_dest,
-                            visual_offset,
-                            anim_state.to_y,
-                            anim_state.height,
-                            t,
-                            tb.line_move_bands(),
-                        );
-                        if self.read_timeout > anim::FRAME_INTERVAL {
-                            self.read_timeout = anim::FRAME_INTERVAL;
-                        }
+                if let Some(t) = anim::engine::advance_line_move_trail(
+                    &mut tc.line_move_anim,
+                    time::Instant::now(),
+                ) {
+                    let anim_state = tc.line_move_anim.expect("just advanced past None");
+                    let text_dest =
+                        Rect { left: destination.left + tb.margin_width(), ..destination };
+                    crate::anim::draw::line_move_trail(
+                        &mut self.framebuffer,
+                        text_dest,
+                        visual_offset,
+                        anim_state.to_y,
+                        anim_state.height,
+                        t,
+                        tb.line_move_bands(),
+                    );
+                    if self.read_timeout > anim::FRAME_INTERVAL {
+                        self.read_timeout = anim::FRAME_INTERVAL;
                     }
                 }
 
