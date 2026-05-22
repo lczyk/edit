@@ -135,6 +135,32 @@ pub fn minimap_rail(
     }
 }
 
+/// Paints a single selection-rect with the menubar-derived bg
+/// colour + Black fg. Appends `rect` to `out` so the post-lsh pass
+/// can re-apply the fg after syntax tokens would have overwritten
+/// it (see [`selection_force_fg`]).
+///
+/// The bg colour matches the menubar fg colour (the colour `file`,
+/// `edit` etc. are drawn in), which is the contrasted of the
+/// menubar bg = Background oklab BrightBlue/2. When the textarea is
+/// unfocused, the selection bg is dimmed by half toward the
+/// background colour for the muted-look unfocused-selection cue.
+pub fn selection_rect(fb: &mut Framebuffer, rect: Rect, focused: bool, out: &mut Vec<Rect>) {
+    let menubar_bg = fb.indexed(IndexedColor::Background).oklab_blend(fb.indexed_alpha(
+        IndexedColor::BrightBlue,
+        1,
+        2,
+    ));
+    let mut bg = fb.contrasted(menubar_bg);
+    if !focused {
+        bg = bg.oklab_blend(fb.indexed_alpha(IndexedColor::Background, 1, 2));
+    }
+    let fg = fb.indexed(IndexedColor::Black);
+    fb.blend_bg(rect, bg);
+    fb.blend_fg(rect, fg);
+    out.push(rect);
+}
+
 /// Forces a uniform foreground colour over a collected list of
 /// selection rects. Called after the lsh highlight pass so syntax
 /// tokens inside the selection don't show through with their syntax

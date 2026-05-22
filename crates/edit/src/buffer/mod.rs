@@ -2069,20 +2069,7 @@ impl TextBuffer {
                     bottom: top + 1,
                 };
 
-                // Selection bg matches the menubar fg color (the colour `file`,
-                // `edit` etc. are drawn in), which is the contrasted of the
-                // menubar bg = Background oklab BrightBlue/2.
-                let menubar_bg = fb
-                    .indexed(IndexedColor::Background)
-                    .oklab_blend(fb.indexed_alpha(IndexedColor::BrightBlue, 1, 2));
-                let mut bg = fb.contrasted(menubar_bg);
-                if !focused {
-                    bg = bg.oklab_blend(fb.indexed_alpha(IndexedColor::Background, 1, 2));
-                };
-                let fg = fb.indexed(IndexedColor::Black);
-                fb.blend_bg(rect, bg);
-                fb.blend_fg(rect, fg);
-                selection_rects.push(rect);
+                crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
             }
 
             // Shadow-highlight matches of the current selection on this visual line.
