@@ -263,20 +263,12 @@ pub enum MoveLineDirection {
     Down,
 }
 
-/// Per-visual-row paint shape for the line-move sweep band. See
-/// [`TextBuffer::line_move_bands`]. The renderer tints each glyph inside
-/// the band with its own foreground colour, so the band shape does not
-/// carry a per-line colour.
-#[derive(Clone, Copy)]
-pub enum RowBand {
-    /// Skip this row -- empty source line, nothing to highlight.
-    Skip,
-    /// Paint the full row width. Used for whitespace-only lines and for
-    /// wrapped logical lines (which by definition span the whole text width).
-    Full,
-    /// Paint visual columns `[left, right)` of this row.
-    Range(CoordType, CoordType),
-}
+/// Tinted column spans for a single visual row of the line-move sweep
+/// band. Empty slice = skip this row. Each pair is
+/// `(left_visual_col, right_visual_col_exclusive)` and they do not
+/// overlap. Multiple spans per row break up mid-line whitespace so only
+/// the cells holding glyphs get highlighted.
+pub type RowBand = Box<[(CoordType, CoordType)]>;
 
 /// One-shot record of the most recent `move_selected_lines` for the
 /// rendering layer to drive a trail-flash animation. Coordinates are
@@ -3435,24 +3427,22 @@ impl TextBuffer {
         (chars, columns)
     }
 
-    /// Classifies a logical line for the line-move slide animation. Reads
-    /// the raw bytes between the line start and the next line start,
-    /// strips the trailing CR/LF, then:
-    /// - empty -> `Skip`
-    /// - only ASCII space / tab -> `Full`
-    /// - otherwise -> `Range(first_visual_col, last_visual_col_exclusive)`
-    ///   where the bounds are the visual columns of the first and last
-    ///   non-whitespace bytes (space / tab being the only treated
-    ///   whitespace; unicode whitespace such as U+00A0 NBSP is not).
+    /// Builds the tinted column spans for one logical line of the
+    /// line-move sweep band. Splits on runs of ASCII space / tab so
+    /// whitespace cells (leading indent, trailing whitespace, gaps
+    /// between tokens) stay untinted. Returns an empty box for empty
+    /// lines and a single full-width span for whitespace-only lines.
+    /// Unicode whitespace (U+00A0 NBSP etc.) is not treated as
+    /// whitespace.
     fn compute_line_band(&self, y: CoordType) -> RowBand {
         let line_start = self.goto_line_start(self.cursor, y);
         let next_line = self.cursor_move_to_logical_internal(line_start, Point { x: 0, y: y + 1 });
         let line_off = line_start.offset;
         let line_end = next_line.offset;
 
-        // Read the line into a contiguous buffer so we can scan from both
-        // ends. Strips the line terminator(s) so the band stops at the last
-        // content byte rather than running into the newline column.
+        // Read the line into a contiguous buffer. Strips the line
+        // terminator(s) so spans stop at the last content byte rather
+        // than running into the newline column.
         let mut bytes: Vec<u8> = Vec::new();
         let mut o = line_off;
         while o < line_end {
@@ -3469,30 +3459,49 @@ impl TextBuffer {
         }
 
         if bytes.is_empty() {
-            return RowBand::Skip;
+            return Box::new([]);
         }
 
         let is_ws = |b: u8| b == b' ' || b == b'\t';
-        let first = bytes.iter().position(|&b| !is_ws(b));
-        let last = bytes.iter().rposition(|&b| !is_ws(b));
-        let (Some(first), Some(last)) = (first, last) else {
-            return RowBand::Full;
-        };
+        // Whitespace-only -> single full-width span. `text_width()`
+        // already accounts for the gutter / margin.
+        if bytes.iter().all(|&b| is_ws(b)) {
+            return Box::new([(0, self.text_width())]);
+        }
 
-        // Visual column of the first non-ws byte: measure from line start
-        // to that byte offset.
-        let first_cursor = self.cursor_move_to_offset_internal(line_start, line_off + first);
-        let first_col = first_cursor.visual_pos.x;
+        // Find byte-offset boundaries of each non-whitespace run. Ws
+        // checks only fire on ASCII bytes (0x20 / 0x09); UTF-8
+        // continuation bytes (0x80..0xBF) compare unequal and stay in
+        // the run, so multi-byte glyphs are kept whole.
+        let mut runs: Vec<(usize, usize)> = Vec::new();
+        let mut run_start: Option<usize> = None;
+        for (i, &b) in bytes.iter().enumerate() {
+            if is_ws(b) {
+                if let Some(s) = run_start.take() {
+                    runs.push((s, i));
+                }
+            } else if run_start.is_none() {
+                run_start = Some(i);
+            }
+        }
+        if let Some(s) = run_start.take() {
+            runs.push((s, bytes.len()));
+        }
 
-        // Visual column just past the last non-ws byte. `last` points at
-        // the first byte of the last non-ws *grapheme*; advance one
-        // grapheme so the band covers the whole glyph (handles multi-byte
-        // chars without manually decoding UTF-8).
-        let at_last = self.cursor_move_to_offset_internal(line_start, line_off + last);
-        let past_last = self.cursor_move_delta_internal(at_last, CursorMovement::Grapheme, 1);
-        let last_col_excl = past_last.visual_pos.x;
-
-        RowBand::Range(first_col, last_col_excl)
+        // Convert each byte-offset run to a visual-column span. Walk
+        // the cursor forward across runs so each measurement is local.
+        let mut spans: Vec<(CoordType, CoordType)> = Vec::with_capacity(runs.len());
+        let mut cur = line_start;
+        for &(beg, end) in &runs {
+            cur = self.cursor_move_to_offset_internal(cur, line_off + beg);
+            let l = cur.visual_pos.x;
+            cur = self.cursor_move_to_offset_internal(cur, line_off + end);
+            let r = cur.visual_pos.x;
+            if r > l {
+                spans.push((l, r));
+            }
+        }
+        spans.into_boxed_slice()
     }
 
     /// Displaces the current, cursor or the selection, line(s) in the given direction.
@@ -3544,21 +3553,24 @@ impl TextBuffer {
         // that wraps (occupies >1 visual rows) is treated as `Full` since
         // wrapped content spans the entire text width by definition. Empty
         // lines are skipped; whitespace-only lines are highlighted whole.
-        // The dominant-highlight colour for each line is mixed in so the
-        // band picks up the syntax tint of the moving content.
+        // The renderer tints each cell with its own fg colour, so the
+        // bands here only carry column-span shape.
         let mut bands: Vec<RowBand> = Vec::with_capacity(visual_height.max(0) as usize);
         for y in beg..=end {
             let line_top_v = visual_y_of(self, y);
             let line_bot_v = visual_y_of(self, y + 1);
             let line_visual_h = line_bot_v - line_top_v;
             let raw = self.compute_line_band(y);
-            let band = if line_visual_h > 1 && matches!(raw, RowBand::Range(..)) {
-                RowBand::Full
+            // Wrapped logical lines (visual height > 1) span the entire
+            // text width by definition -- collapse to a single full-row
+            // span so every wrapped continuation row gets highlighted.
+            let band: RowBand = if line_visual_h > 1 && !raw.is_empty() {
+                Box::new([(0, self.text_width())])
             } else {
                 raw
             };
             for _ in 0..line_visual_h {
-                bands.push(band);
+                bands.push(band.clone());
             }
         }
         self.line_move_bands = bands;

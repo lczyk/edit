@@ -4707,27 +4707,23 @@ fn draw_line_move_sweep(
     }
     let alpha_den = BASE_ALPHA_DEN * 1024;
 
-    let band_screen = |band: RowBand| -> Option<(CoordType, CoordType)> {
-        let (l, r) = match band {
-            RowBand::Skip => return None,
-            RowBand::Full => (dest.left, dest.right),
-            RowBand::Range(left_col, right_col) => {
-                let l = dest.left + left_col - scroll_offset.x;
-                let r = dest.left + right_col - scroll_offset.x;
-                (l.max(dest.left), r.min(dest.right))
-            }
+    let span_screen =
+        |left_col: CoordType, right_col: CoordType| -> Option<(CoordType, CoordType)> {
+            let l = (dest.left + left_col - scroll_offset.x).max(dest.left);
+            let r = (dest.left + right_col - scroll_offset.x).min(dest.right);
+            if r > l { Some((l, r)) } else { None }
         };
-        if r <= l { None } else { Some((l, r)) }
-    };
 
     for k in 0..height {
         let screen_y = screen_top + k;
         if screen_y < dest.top || screen_y >= dest.bottom {
             continue;
         }
-        if let Some((l, r)) = band_screen(bands[k as usize]) {
-            let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-            fb.tint_bg_with_fg(rect, alpha_num, alpha_den);
+        for &(left_col, right_col) in bands[k as usize].iter() {
+            if let Some((l, r)) = span_screen(left_col, right_col) {
+                let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
+                fb.tint_bg_with_fg(rect, alpha_num, alpha_den);
+            }
         }
     }
 }
