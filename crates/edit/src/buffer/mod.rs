@@ -4675,4 +4675,71 @@ mod tests {
         tb.set_width(80);
         tb.render(Point { x: 0, y: 3 }, rect(80, 24), true, None, &mut fb_at(80, 24));
     }
+
+    // Layout-pass tests. layout() is &self / pure -- assertions can
+    // poke at the returned struct directly without going through a
+    // framebuffer.
+
+    #[test]
+    fn layout_empty_dest_is_none() {
+        let tb = buf_with("hello\n");
+        let r = Rect { left: 0, top: 0, right: 0, bottom: 0 };
+        assert!(tb.layout(Point { x: 0, y: 0 }, r, None).is_none());
+    }
+
+    #[test]
+    fn layout_yields_one_line_per_visible_row() {
+        let mut tb = buf_with("a\nb\nc\n");
+        tb.set_width(80);
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(80, 5), None).unwrap();
+        assert_eq!(l.lines.len(), 5, "one VisualLine per visible row");
+        // First three rows hold buffer content -- text starts w/ the
+        // gutter margin then the body glyph.
+        assert!(l.lines[0].text.contains('a'));
+        assert!(l.lines[1].text.contains('b'));
+        assert!(l.lines[2].text.contains('c'));
+    }
+
+    #[test]
+    fn layout_start_cursor_seeds_first_visible_row() {
+        let mut tb = buf_with("a\nb\nc\nd\ne\n");
+        tb.set_width(80);
+        let l = tb.layout(Point { x: 0, y: 2 }, rect(80, 3), None).unwrap();
+        let start = l.start_cursor.expect("non-empty viewport has a start cursor");
+        assert_eq!(start.logical_pos.y, 2, "scroll origin y == start cursor logical y");
+    }
+
+    #[test]
+    fn layout_selection_rect_present_when_selection_crosses_row() {
+        let mut tb = buf_with("hello world\n");
+        tb.set_width(80);
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 5, y: 0 });
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(80, 24), None).unwrap();
+        assert!(l.lines[0].selection_rect.is_some(), "row 0 covered by selection");
+        assert!(l.lines[1].selection_rect.is_none(), "row 1 not covered");
+        assert!(!l.selection_empty);
+    }
+
+    #[test]
+    fn layout_no_selection_marks_selection_empty() {
+        let mut tb = buf_with("hello\n");
+        tb.set_width(80);
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(80, 24), None).unwrap();
+        assert!(l.selection_empty);
+        assert!(l.lines.iter().all(|line| line.selection_rect.is_none()));
+    }
+
+    #[test]
+    fn layout_idempotent_across_calls() {
+        // Pure &self -- calling twice should yield equivalent
+        // outputs.
+        let mut tb = buf_with("alpha\nbeta\n");
+        tb.set_width(80);
+        let l1 = tb.layout(Point { x: 0, y: 0 }, rect(80, 24), None).unwrap();
+        let l2 = tb.layout(Point { x: 0, y: 0 }, rect(80, 24), None).unwrap();
+        assert_eq!(l1.lines.len(), l2.lines.len());
+        assert_eq!(l1.lines[0].text, l2.lines[0].text);
+        assert_eq!(l1.visual_pos_x_max, l2.visual_pos_x_max);
+        assert_eq!(l1.cursor_visual_render, l2.cursor_visual_render);
+    }
 }
