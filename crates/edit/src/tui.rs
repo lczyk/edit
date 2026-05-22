@@ -1180,12 +1180,16 @@ impl Tui {
             tb.cursor_visual_pos(),
         );
 
-        // Drain the pending-line-move slot unconditionally so the
-        // event doesn't pool up while animations are off -- the seed
-        // fn handles the enable check internally.
+        // Peek the buffer's most-recent line-move event + generation.
+        // The seed fn compares the gen to the animator's last-seen
+        // value so re-reading an old event is a no-op, and gates the
+        // install on the no-animations() killswitch.
+        let (line_move_ev, line_move_gen) = tb.peek_pending_line_move();
         anim::engine::seed_line_move_trail(
             &mut anim_state.line_move,
-            tb.take_pending_line_move(),
+            &mut anim_state.last_line_move_gen,
+            line_move_ev,
+            line_move_gen,
             time::Instant::now(),
         );
 

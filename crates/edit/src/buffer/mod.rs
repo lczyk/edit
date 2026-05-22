@@ -272,7 +272,7 @@ pub type RowBand = Box<[(CoordType, CoordType)]>;
 /// One-shot record of the most recent `move_selected_lines` for the
 /// rendering layer to drive a trail-flash animation. Coordinates are
 /// *visual* y so the band lands on the right screen rows even when
-/// word-wrap is on. Consumed via [`TextBuffer::take_pending_line_move`].
+/// word-wrap is on. Observed via [`TextBuffer::peek_pending_line_move`].
 #[derive(Clone, Copy)]
 pub struct LineMoveEvent {
     /// Visual y of the moved block's top row *after* the move.
@@ -367,14 +367,21 @@ pub struct TextBuffer {
     minimap_cells: Vec<MinimapCell>,
     minimap_content_rows: u32,
 
-    /// One-shot signal from `move_selected_lines` so the renderer can drive
-    /// a slide animation. Drained by [`TextBuffer::take_pending_line_move`].
+    /// Most recent line-move event; **non-draining**. Set by
+    /// `move_selected_lines`. Animators distinguish "already seen"
+    /// from "fresh" via the companion [`pending_line_move_gen`]
+    /// counter -- bumped on every set, monotonic across the
+    /// buffer's lifetime.
     pending_line_move: Option<LineMoveEvent>,
+    /// Monotonic generation that bumps whenever `pending_line_move`
+    /// is set. Animators carry "last seen gen" and treat
+    /// `pending_line_move_gen > last_seen` as a new event.
+    pending_line_move_gen: u32,
 
     /// Per-visual-row band shape for the most recent line move. One entry
-    /// per visual row of the moved block. Lives past `take_pending_line_move`
-    /// because the renderer reads it on every frame of the slide; gets
-    /// overwritten by the next move (or stays stale until then -- the
+    /// per visual row of the moved block. Lives past the event observation
+    /// because the renderer reads it on every frame of the trail flash;
+    /// gets overwritten by the next move (or stays stale until then -- the
     /// rendering layer guards reads behind an active `LineMoveAnim`).
     line_move_bands: Vec<RowBand>,
 }
@@ -436,6 +443,7 @@ impl TextBuffer {
             minimap_content_rows: 0,
 
             pending_line_move: None,
+            pending_line_move_gen: 0,
             line_move_bands: Vec::new(),
         })
     }
@@ -653,17 +661,19 @@ impl TextBuffer {
         self.cursor.logical_pos
     }
 
-    /// Drain the most recent line-move event, if any. Called by the
-    /// rendering layer to seed slide animation state. Returns `None` after
-    /// the first call following a `move_selected_lines`.
-    pub fn take_pending_line_move(&mut self) -> Option<LineMoveEvent> {
-        self.pending_line_move.take()
+    /// Most recent line-move event paired w/ its monotonic
+    /// generation. **Non-draining** -- the slot persists across
+    /// calls; animators compare the generation to their last-seen
+    /// value to distinguish a fresh event from a stale one. `(None,
+    /// 0)` means no move has happened yet on this buffer.
+    pub fn peek_pending_line_move(&self) -> (Option<LineMoveEvent>, u32) {
+        (self.pending_line_move, self.pending_line_move_gen)
     }
 
     /// Per-visual-row band shape from the most recent line move. One entry
     /// per visual row of the moved block. The rendering layer reads this on
-    /// every frame of the slide animation -- the slice persists past
-    /// `take_pending_line_move` because the anim outlives the event.
+    /// every frame of the slide animation -- the slice persists past the
+    /// event observation because the anim outlives the event.
     pub fn line_move_bands(&self) -> &[RowBand] {
         &self.line_move_bands
     }
@@ -3613,6 +3623,7 @@ impl TextBuffer {
         // Publish the pre-measured visual move so the rendering layer can
         // drive a slide animation.
         self.pending_line_move = Some(pre_move_event);
+        self.pending_line_move_gen = self.pending_line_move_gen.wrapping_add(1);
     }
 
     /// Deletes the line(s) the cursor or selection touches. Mirrors

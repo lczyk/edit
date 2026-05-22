@@ -73,6 +73,10 @@ pub struct TextareaAnimState {
     /// [`super::LINE_MOVE_DURATION_SECS`] elapses; drives the
     /// half-block trail overlay drawn after the textarea paint.
     pub line_move: Option<LineMoveAnim>,
+    /// Last buffer line-move-event generation this animator has
+    /// observed. Compared against the buffer's current generation
+    /// to distinguish a fresh event from a re-read of an old one.
+    pub last_line_move_gen: u32,
 }
 
 /// Trail-flash state for an alt+up/down line move. Tracks the moved
@@ -127,16 +131,27 @@ pub fn frame_dt_secs(prev: Option<Instant>, now: Instant) -> f32 {
     }
 }
 
-/// Seed the line-move trail-flash slot from a freshly-fired event.
-/// When `ev` is `Some` and animations are enabled, installs a fresh
-/// [`LineMoveAnim`] starting at `now`. Existing slot contents are
-/// overwritten -- a new line-move always replaces the old trail. No
-/// effect when `ev` is `None` or animations are off.
+/// Seed the line-move trail-flash slot from a freshly-fired event,
+/// **non-draining-buffer** variant. The caller passes the buffer's
+/// current `(event, generation)` pair plus the animator's last-seen
+/// generation; a fresh event is one whose generation differs.
+///
+/// Updates `*last_seen_gen` to match the buffer's generation on
+/// every call -- subsequent calls with the same `ev_gen` are
+/// no-ops. When animations are disabled the gen is still bumped so
+/// re-enabling animations doesn't immediately re-trigger an old
+/// trail.
 pub fn seed_line_move_trail(
     slot: &mut Option<LineMoveAnim>,
+    last_seen_gen: &mut u32,
     ev: Option<LineMoveEvent>,
+    ev_gen: u32,
     now: Instant,
 ) {
+    if ev_gen == *last_seen_gen {
+        return;
+    }
+    *last_seen_gen = ev_gen;
     if let Some(ev) = ev
         && !crate::glyphs::no_animations()
     {
