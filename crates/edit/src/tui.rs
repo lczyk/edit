@@ -4667,20 +4667,23 @@ fn draw_minimap_rail(
     }
 }
 
-/// Half-block sweep overlay for the alt+up/down line-move animation. Lerps a
-/// `height`-row tinted band from `from_y` to `to_y` (visual coords) using
-/// half-row resolution so the motion reads as a slide rather than a snap.
+/// Sliding-band overlay for the alt+up/down line-move animation. Lerps a
+/// `height`-row tinted band from `from_y` to `to_y` (visual coords) by
+/// modulating per-row `blend_bg` alpha -- never replaces text, so the
+/// moving line stays readable through the slide.
 ///
 /// `bands` carries one entry per visual row of the moved block and decides
 /// which columns each row tints: `Skip` rows are left alone, `Full` rows
 /// span the textarea width, and `Range` rows narrow to the line's
-/// non-whitespace columns so trailing indent / blank tails don't get
+/// non-whitespace columns so trailing indent / blank tails do not get
 /// highlighted.
 ///
-/// At aligned positions the band tints background with `blend_bg`,
-/// preserving text. At half-row offsets the top and bottom edge rows get a
-/// half-block glyph (U+2584 / U+2580) -- those briefly overwrite text for
-/// the ~120ms the animation runs.
+/// Sub-row motion: at fractional position `frac` between two screen rows
+/// the leading (`top_row`) and trailing (`top_row + height`) rows fade in
+/// at alpha `(1 - frac) * base` and `frac * base` respectively. For
+/// 3+-row blocks the first and last band rows are also dimmed
+/// (`EDGE_ATTENUATION`), giving the band a soft gradient on its leading
+/// and trailing edges.
 fn draw_line_move_sweep(
     fb: &mut Framebuffer,
     dest: Rect,
@@ -4703,12 +4706,16 @@ fn draw_line_move_sweep(
     let cur_visual_top = anim.from_y as f32 + distance * t;
     let screen_top_f = dest.top as f32 + cur_visual_top - scroll_offset.y as f32;
 
-    // Quantise to half-row grid. Even = aligned full row; odd = shifted by
-    // half a row, edges need half-block glyphs.
-    let half_rows = (screen_top_f * 2.0).round() as CoordType;
-    let aligned = half_rows.rem_euclid(2) == 0;
-    let top_row = half_rows.div_euclid(2);
+    // Continuous sub-row position. `frac` is how far the band has slid
+    // below `top_row`'s top edge; partial-coverage screen rows attenuate
+    // their alpha by `(1 - frac)` (top) and `frac` (bottom) so the band
+    // appears to slide smoothly without ever replacing a glyph.
+    let top_row = screen_top_f.floor() as CoordType;
+    let frac = screen_top_f - top_row as f32;
     let height = anim.height.min(bands.len() as CoordType);
+    if height <= 0 {
+        return;
+    }
 
     // Fallback for rows without a dominant-highlight colour (no language
     // attached, dominant kind is `Other`, etc.). Use the default text
@@ -4733,52 +4740,46 @@ fn draw_line_move_sweep(
         if r <= l { None } else { Some((l, r, color.unwrap_or(DEFAULT_TINT))) }
     };
 
-    let paint_row = |fb: &mut Framebuffer, screen_y: CoordType, band: RowBand| {
-        if screen_y < dest.top || screen_y >= dest.bottom {
-            return;
-        }
-        if let Some((l, r, idx)) = band_screen(band) {
-            let bg = fb.indexed_alpha(idx, 1, 2);
-            let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-            fb.blend_bg(rect, bg);
-        }
-    };
+    // Base alpha for a fully-covered, fully-interior row. Lower than 1/2
+    // so the gradient edge attenuation still leaves the leading / trailing
+    // rows visible without being washy.
+    const BASE_ALPHA: f32 = 0.5;
+    // Band-row edge attenuation: when the moved block is >=3 rows tall,
+    // the first and last band rows are slightly dimmer than the interior
+    // so the band reads as a soft gradient rather than a hard rectangle.
+    const EDGE_ATTENUATION: f32 = 0.7;
 
-    let paint_half_row = |fb: &mut Framebuffer, screen_y: CoordType, band: RowBand, glyph: char| {
+    let last_screen_row = if frac > 0.0 { height } else { height - 1 };
+    for k in 0..=last_screen_row {
+        let screen_y = top_row + k;
         if screen_y < dest.top || screen_y >= dest.bottom {
-            return;
+            continue;
         }
-        let Some((l, r, idx)) = band_screen(band) else { return };
-        let width = (r - l) as usize;
-        if width == 0 {
-            return;
+        // The band row primarily shown in this screen row. When the band
+        // extends one extra screen row below (frac > 0), that overflow row
+        // shows the bottom half of the last band row.
+        let band_idx = k.min(height - 1) as usize;
+        let Some((l, r, idx)) = band_screen(bands[band_idx]) else { continue };
+
+        let position = if k == 0 {
+            1.0 - frac
+        } else if k == height {
+            frac
+        } else {
+            1.0
+        };
+        let edge = if height >= 3 && (band_idx == 0 || band_idx == (height - 1) as usize) {
+            EDGE_ATTENUATION
+        } else {
+            1.0
+        };
+        let alpha = BASE_ALPHA * position * edge;
+        let alpha_num = (alpha * 256.0).round().max(0.0) as u32;
+        if alpha_num == 0 {
+            continue;
         }
-        let mut s = String::with_capacity(width * 3);
-        for _ in 0..width {
-            s.push(glyph);
-        }
-        fb.replace_text(screen_y, l, r, &s);
-        let fg = fb.indexed(idx);
+        let bg = fb.indexed_alpha(idx, alpha_num, 256);
         let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-        fb.blend_fg(rect, fg);
-    };
-
-    if aligned {
-        for k in 0..height {
-            paint_row(fb, top_row + k, bands[k as usize]);
-        }
-        return;
+        fb.blend_bg(rect, bg);
     }
-
-    // Shifted by half a row: band runs from (top_row + 0.5) to
-    // (top_row + height + 0.5). The middle screen rows display both halves
-    // of the band; we approximate by tinting each screen row with the band
-    // row whose top half it shows (i.e. row k for screen `top_row + k`).
-    // Top and bottom edge rows get a half-block glyph for the half that's
-    // actually band.
-    paint_half_row(fb, top_row, bands[0], '\u{2584}');
-    for k in 1..height {
-        paint_row(fb, top_row + k, bands[k as usize]);
-    }
-    paint_half_row(fb, top_row + height, bands[(height - 1) as usize], '\u{2580}');
 }
