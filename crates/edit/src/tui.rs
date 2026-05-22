@@ -1084,124 +1084,7 @@ impl Tui {
                 content.overflow,
             ),
             NodeContent::Textarea(tc) => {
-                let mut tb = tc.buffer.borrow_mut();
-                let mut destination = Rect {
-                    left: inner_clipped.left,
-                    top: inner_clipped.top,
-                    right: inner_clipped.right,
-                    bottom: inner_clipped.bottom,
-                };
-
-                let minimap_w =
-                    anim::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
-                let scrollbar_w =
-                    anim::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
-
-                destination.right -= scrollbar_w + minimap_w;
-
-                anim::engine::snap_on_buffer_edit(
-                    &mut tc.anim.scroll_visual,
-                    &mut tc.anim.cursor_visual,
-                    &mut tc.anim.last_buffer_generation,
-                    tb.generation(),
-                    tc.scroll_offset,
-                    tb.cursor_visual_pos(),
-                );
-
-                // Drain the pending-line-move slot unconditionally so the
-                // event doesn't pool up while animations are off -- the seed
-                // fn handles the enable check internally.
-                anim::engine::seed_line_move_trail(
-                    &mut tc.anim.line_move,
-                    tb.take_pending_line_move(),
-                    time::Instant::now(),
-                );
-
-                let visual_offset = crate::anim::engine::advance_scroll(
-                    &mut tc.anim.scroll_visual,
-                    tc.scroll_offset,
-                    self.anim.dt_secs,
-                );
-                let cursor_target = tb.cursor_visual_pos();
-                let cursor_override = crate::anim::engine::advance_cursor(
-                    &mut tc.anim.cursor_visual,
-                    cursor_target,
-                    self.anim.dt_secs,
-                );
-                let still_animating =
-                    visual_offset != tc.scroll_offset || cursor_override != cursor_target;
-                if still_animating {
-                    self.request_animation_frame();
-                }
-
-                let render_res = tb.render(
-                    visual_offset,
-                    destination,
-                    tc.has_focus,
-                    Some(cursor_override),
-                    &mut self.framebuffer,
-                );
-                if let Some(res) = render_res {
-                    tc.scroll_offset_x_max = res.visual_pos_x_max;
-                }
-
-                // Half-block sweep overlay for the line-move animation. Runs
-                // after `tb.render` so it paints on top of the text. Expires
-                // once duration elapsed. Per-row band shape (which columns
-                // get tinted) comes from `tb.line_move_bands()`. We narrow
-                // `destination` to exclude the buffer's left margin (line
-                // numbers / gutter marks) so the band stays in the text area.
-                if let Some(t) = anim::engine::advance_line_move_trail(
-                    &mut tc.anim.line_move,
-                    time::Instant::now(),
-                ) {
-                    let anim_state = tc.anim.line_move.expect("just advanced past None");
-                    let text_dest =
-                        Rect { left: destination.left + tb.margin_width(), ..destination };
-                    crate::anim::draw::line_move_trail(
-                        &mut self.framebuffer,
-                        text_dest,
-                        visual_offset,
-                        anim_state.to_y,
-                        anim_state.height,
-                        t,
-                        tb.line_move_bands(),
-                    );
-                    self.request_animation_frame();
-                }
-
-                if minimap_w > 0 {
-                    let track = Rect {
-                        left: inner_clipped.right - scrollbar_w - minimap_w,
-                        top: inner_clipped.top,
-                        right: inner_clipped.right - scrollbar_w,
-                        bottom: inner_clipped.bottom,
-                    };
-                    crate::anim::draw::minimap_rail(
-                        &mut self.framebuffer,
-                        track,
-                        tb.minimap_cells(),
-                        tb.minimap_content_rows(),
-                        visual_offset.y,
-                        inner.height(),
-                    );
-                }
-
-                if scrollbar_w > 0 {
-                    // Render the scrollbar.
-                    let track = Rect {
-                        left: inner_clipped.right - 1,
-                        top: inner_clipped.top,
-                        right: inner_clipped.right,
-                        bottom: inner_clipped.bottom,
-                    };
-                    tc.thumb_height = self.framebuffer.draw_scrollbar(
-                        inner_clipped,
-                        track,
-                        visual_offset.y,
-                        tb.visual_line_count() + inner.height() - 1,
-                    );
-                }
+                self.render_textarea_content(tc, inner, inner_clipped);
             }
             NodeContent::Scrollarea(sc) => {
                 let content = node.children.first.unwrap().borrow();
@@ -1240,6 +1123,142 @@ impl Tui {
             let y = outer_clipped.top;
             self.framebuffer.replace_text(y, outer_clipped.left, outer_clipped.left + 1, "<");
             self.framebuffer.replace_text(y, outer_clipped.right - 1, outer_clipped.right, ">");
+        }
+    }
+
+    /// Renders the body of a `NodeContent::Textarea` node into the
+    /// framebuffer. Encapsulates the orchestration that was inline
+    /// in [`Tui::render_node`]:
+    ///
+    /// 1. Compute minimap / scrollbar widths, narrow destination.
+    /// 2. Snap lerps on buffer-edit detection.
+    /// 3. Drain pending line-move event into the trail-flash slot.
+    /// 4. Advance scroll + cursor lerps -- if either is still
+    ///    animating, cap read_timeout to one frame.
+    /// 5. Hand off to `TextBuffer::render` for the body paint
+    ///    (which itself runs the post-paint overlay pass).
+    /// 6. Paint the in-flight line-move trail overlay (if any).
+    /// 7. Paint the minimap rail (if visible).
+    /// 8. Paint the scrollbar (if visible, mutually exclusive w/
+    ///    the minimap).
+    fn render_textarea_content(
+        &mut self,
+        tc: &mut TextareaContent,
+        inner: Rect,
+        inner_clipped: Rect,
+    ) {
+        let mut tb = tc.buffer.borrow_mut();
+        let mut destination = Rect {
+            left: inner_clipped.left,
+            top: inner_clipped.top,
+            right: inner_clipped.right,
+            bottom: inner_clipped.bottom,
+        };
+
+        let minimap_w = anim::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
+        let scrollbar_w = anim::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
+
+        destination.right -= scrollbar_w + minimap_w;
+
+        anim::engine::snap_on_buffer_edit(
+            &mut tc.anim.scroll_visual,
+            &mut tc.anim.cursor_visual,
+            &mut tc.anim.last_buffer_generation,
+            tb.generation(),
+            tc.scroll_offset,
+            tb.cursor_visual_pos(),
+        );
+
+        // Drain the pending-line-move slot unconditionally so the
+        // event doesn't pool up while animations are off -- the seed
+        // fn handles the enable check internally.
+        anim::engine::seed_line_move_trail(
+            &mut tc.anim.line_move,
+            tb.take_pending_line_move(),
+            time::Instant::now(),
+        );
+
+        let visual_offset = anim::engine::advance_scroll(
+            &mut tc.anim.scroll_visual,
+            tc.scroll_offset,
+            self.anim.dt_secs,
+        );
+        let cursor_target = tb.cursor_visual_pos();
+        let cursor_override = anim::engine::advance_cursor(
+            &mut tc.anim.cursor_visual,
+            cursor_target,
+            self.anim.dt_secs,
+        );
+        let still_animating = visual_offset != tc.scroll_offset || cursor_override != cursor_target;
+        if still_animating {
+            self.request_animation_frame();
+        }
+
+        let render_res = tb.render(
+            visual_offset,
+            destination,
+            tc.has_focus,
+            Some(cursor_override),
+            &mut self.framebuffer,
+        );
+        if let Some(res) = render_res {
+            tc.scroll_offset_x_max = res.visual_pos_x_max;
+        }
+
+        // Trail-flash overlay for the line-move animation. Runs
+        // after `tb.render` so it paints on top of the text. Expires
+        // once duration elapsed. Per-row band shape (which columns
+        // get tinted) comes from `tb.line_move_bands()`. We narrow
+        // `destination` to exclude the buffer's left margin (line
+        // numbers / gutter marks) so the band stays in the text area.
+        if let Some(t) =
+            anim::engine::advance_line_move_trail(&mut tc.anim.line_move, time::Instant::now())
+        {
+            let anim_state = tc.anim.line_move.expect("just advanced past None");
+            let text_dest = Rect { left: destination.left + tb.margin_width(), ..destination };
+            anim::draw::line_move_trail(
+                &mut self.framebuffer,
+                text_dest,
+                visual_offset,
+                anim_state.to_y,
+                anim_state.height,
+                t,
+                tb.line_move_bands(),
+            );
+            self.request_animation_frame();
+        }
+
+        if minimap_w > 0 {
+            let track = Rect {
+                left: inner_clipped.right - scrollbar_w - minimap_w,
+                top: inner_clipped.top,
+                right: inner_clipped.right - scrollbar_w,
+                bottom: inner_clipped.bottom,
+            };
+            anim::draw::minimap_rail(
+                &mut self.framebuffer,
+                track,
+                tb.minimap_cells(),
+                tb.minimap_content_rows(),
+                visual_offset.y,
+                inner.height(),
+            );
+        }
+
+        if scrollbar_w > 0 {
+            // Render the scrollbar.
+            let track = Rect {
+                left: inner_clipped.right - 1,
+                top: inner_clipped.top,
+                right: inner_clipped.right,
+                bottom: inner_clipped.bottom,
+            };
+            tc.thumb_height = self.framebuffer.draw_scrollbar(
+                inner_clipped,
+                track,
+                visual_offset.y,
+                tb.visual_line_count() + inner.height() - 1,
+            );
         }
     }
 
