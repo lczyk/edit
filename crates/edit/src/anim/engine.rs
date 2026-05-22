@@ -233,6 +233,56 @@ pub fn advance_floater_open(
     }
 }
 
+/// Real animator: produces the displayed `TextareaPhysics` by
+/// perturbing the target with the per-feature lerps. Updates
+/// `state` in place w/ next-frame anim state. `tb_generation` is
+/// the buffer generation used by `snap_on_buffer_edit` to detect
+/// edits.
+///
+/// Returns the displayed physics + a `still_animating` bool so the
+/// caller can decide whether to request another animation frame.
+///
+/// Today this is a thin wrapper over the per-feature advance fns;
+/// in the eventual flow it's the single switching point that
+/// callers go through (vs. `animate_nil` when animations are
+/// disabled).
+pub fn animate<'a>(
+    state: &mut crate::anim::engine::TextareaAnimState,
+    mut target: crate::anim::physics::TextareaPhysics<'a>,
+    tb_generation: u32,
+    dt_secs: f32,
+    now: Instant,
+) -> (crate::anim::physics::TextareaPhysics<'a>, bool) {
+    let scroll_target = target.scroll_offset;
+    let cursor_target = target.cursor_visual;
+
+    snap_on_buffer_edit(
+        &mut state.scroll_visual,
+        &mut state.cursor_visual,
+        &mut state.last_buffer_generation,
+        tb_generation,
+        scroll_target,
+        cursor_target,
+    );
+
+    seed_line_move_trail(
+        &mut state.line_move,
+        &mut state.last_line_move_gen,
+        target.line_move.0,
+        target.line_move.1,
+        now,
+    );
+
+    let scroll_displayed = advance_scroll(&mut state.scroll_visual, scroll_target, dt_secs);
+    let cursor_displayed = advance_cursor(&mut state.cursor_visual, cursor_target, dt_secs);
+
+    target.scroll_offset = scroll_displayed;
+    target.cursor_visual = cursor_displayed;
+
+    let still_animating = scroll_displayed != scroll_target || cursor_displayed != cursor_target;
+    (target, still_animating)
+}
+
 /// Identity animator: returns the input physics unmodified.
 ///
 /// Stage 3's "nil animator" -- when animations are disabled the
