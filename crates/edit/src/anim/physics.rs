@@ -110,6 +110,13 @@ pub struct VisualLine {
     /// Per-cell rects for control-character visualisers (U+2400-
     /// range pictures inserted for unprintable bytes).
     pub control_chars: Vec<Rect>,
+    /// Per-row markup fg rects (lsh syntax colours), clipped to this
+    /// visual row's text extent. Computed in `TextBuffer::layout` so
+    /// wrapped continuation rows don't paint past their actual end.
+    pub markup_fg_rects: Vec<(Rect, crate::framebuffer::IndexedColor)>,
+    /// Per-row markup attribute rects (bold / italic / underline /
+    /// strikethrough), clipped the same way as `markup_fg_rects`.
+    pub markup_attr_rects: Vec<(Rect, crate::framebuffer::Attributes)>,
 }
 
 /// Build a [`TextareaPhysics`] from the live `TextBuffer` +
@@ -119,7 +126,7 @@ pub struct VisualLine {
 /// `textarea_lines` / `textarea_overlays` need to render this textarea at its
 /// target state.
 pub fn build_textarea_physics<'a>(
-    tb: &'a crate::buffer::TextBuffer,
+    tb: &'a mut crate::buffer::TextBuffer,
     scroll_offset: Point,
     dest: Rect,
     cursor_override: Option<Point>,
@@ -227,7 +234,7 @@ mod tests {
         let dest = Rect { left: 0, top: 0, right: 80, bottom: 24 };
         let cursor_pos = tb.cursor_visual_pos();
         let line_count = tb.visual_line_count();
-        let phys = build_textarea_physics(&tb, Point { x: 0, y: 0 }, dest, None, true);
+        let phys = build_textarea_physics(&mut tb, Point { x: 0, y: 0 }, dest, None, true);
         assert_eq!(phys.dest, dest);
         assert_eq!(phys.scroll_offset, Point { x: 0, y: 0 });
         assert_eq!(phys.cursor_visual, cursor_pos);

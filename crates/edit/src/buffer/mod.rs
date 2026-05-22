@@ -39,10 +39,11 @@ use stdext::{ReplaceRange as _, arena_write_fmt, minmax, slice_copy_safe};
 use crate::cell::SemiRefCell;
 use crate::clipboard::Clipboard;
 use crate::document::{ReadableDocument, WriteableDocument};
-use crate::framebuffer::{Attributes, Framebuffer, IndexedColor};
+use crate::framebuffer::{Attributes, IndexedColor};
 use crate::helpers::*;
 use crate::lsh::cache::HighlighterCache;
 use crate::lsh::{HighlightKind, Highlighter, Language};
+use lsh::runtime::Highlight;
 use crate::simd::memchr2;
 use crate::unicode::{self, Cursor, MeasurementConfig};
 use crate::{icu, simd};
@@ -2116,6 +2117,88 @@ impl TextBuffer {
         out
     }
 
+    /// Build per-row lsh markup rects: foreground colours + attribute
+    /// blits (bold / italic / underline / strikethrough), each clipped
+    /// to the visual row's actual text extent. Intersects every
+    /// highlight span with `[cursor_beg.offset, cursor_end.offset)` and
+    /// emits one rect per intersecting span -- so wrapped continuation
+    /// rows never paint past their wrap column (the bug the old
+    /// `render_apply_highlights` path had with `COORD_TYPE_SAFE_MAX`).
+    #[allow(clippy::too_many_arguments)]
+    fn build_markup_row(
+        &self,
+        cursor_beg: &Cursor,
+        cursor_end: &Cursor,
+        visual_line: CoordType,
+        highlights: &[Highlight<HighlightKind>],
+        destination: Rect,
+        origin: Point,
+        y: CoordType,
+    ) -> (Vec<(Rect, IndexedColor)>, Vec<(Rect, Attributes)>) {
+        let mut fg_rects: Vec<(Rect, IndexedColor)> = Vec::new();
+        let mut attr_rects: Vec<(Rect, Attributes)> = Vec::new();
+
+        if cursor_beg.visual_pos.y != visual_line || cursor_beg.offset >= cursor_end.offset {
+            return (fg_rects, attr_rects);
+        }
+        let line_beg = cursor_beg.offset;
+        let line_end = cursor_end.offset;
+        let row_end_x = cursor_end.visual_pos.x;
+        let text_left = destination.left + self.margin_width;
+        let text_right = destination.right;
+        let top = destination.top + y;
+
+        for pair in highlights.windows(2) {
+            let curr = &pair[0];
+            let next = &pair[1];
+            if curr.kind == HighlightKind::Other {
+                continue;
+            }
+            let hl_beg = curr.start;
+            let hl_end = next.start;
+            // Drop spans entirely outside this row's visible byte range.
+            if hl_end <= line_beg || hl_beg >= line_end {
+                continue;
+            }
+            let clip_beg = hl_beg.max(line_beg);
+            let clip_end = hl_end.min(line_end);
+            if clip_beg >= clip_end {
+                continue;
+            }
+
+            let mb = self.cursor_move_to_offset_internal(*cursor_beg, clip_beg);
+            let me = self.cursor_move_to_offset_internal(mb, clip_end);
+            // If a clamped cursor walks past the wrap boundary onto the
+            // next visual row, treat its visual_x as this row's actual
+            // end -- the rect must stay on `visual_line`.
+            let mb_x = if mb.visual_pos.y == visual_line { mb.visual_pos.x } else { row_end_x };
+            let me_x = if me.visual_pos.y == visual_line { me.visual_pos.x } else { row_end_x };
+
+            let screen_left = (text_left + mb_x - origin.x).max(text_left);
+            let screen_right = (text_left + me_x - origin.x).min(text_right);
+            if screen_left >= screen_right {
+                continue;
+            }
+            let rect = Rect { left: screen_left, top, right: screen_right, bottom: top + 1 };
+
+            if let Some(color) = highlight_kind_color(curr.kind) {
+                fg_rects.push((rect, color));
+            }
+            let attr = match curr.kind {
+                HighlightKind::MarkupBold => Some(Attributes::Bold),
+                HighlightKind::MarkupItalic => Some(Attributes::Italic),
+                HighlightKind::MarkupLink => Some(Attributes::Underlined),
+                HighlightKind::MarkupStrikethrough => Some(Attributes::Strikethrough),
+                _ => None,
+            };
+            if let Some(attr) = attr {
+                attr_rects.push((rect, attr));
+            }
+        }
+
+        (fg_rects, attr_rects)
+    }
+
     /// Encodes the body text for a single visual row into `line`:
     /// the on-screen text after the gutter margin. Handles the
     /// left-edge wide-glyph overlap, tab expansion, whitespace
@@ -2253,7 +2336,7 @@ impl TextBuffer {
     /// returned `start_cursor` back into `cursor_for_rendering`
     /// before invoking the lsh pass.
     pub fn layout(
-        &self,
+        &mut self,
         origin: Point,
         destination: Rect,
         cursor_override: Option<Point>,
@@ -2318,6 +2401,18 @@ impl TextBuffer {
 
         let mut decors: Vec<LineDecor> = Vec::with_capacity(height.max(0) as usize);
         let mut start_cursor: Option<Cursor> = None;
+
+        // lsh markup is computed inside the layout loop, intersected per
+        // visual row, so wrapped rows don't paint attrs (underline / bold /
+        // ...) past their actual text extent. Skipped when colour output is
+        // suppressed (no-color mode) or no language is set; in those cases
+        // markup rects stay empty and the draw step paints nothing extra.
+        let lsh_enabled = !crate::glyphs::no_color() && self.language.is_some();
+        let mut highlighter_opt =
+            self.language.map(|lang| Highlighter::new(&self.buffer, lang));
+        let mut hl_logical_y: Option<CoordType> = None;
+        let mut hl_buf: Vec<Highlight<HighlightKind>> = Vec::new();
+
         for y in 0..height {
             let scratch = scratch_arena(None);
             let mut line = BString::empty();
@@ -2330,6 +2425,8 @@ impl TextBuffer {
                 shadow_match_rects: Vec::new(),
                 whitespace_visualizers: Vec::new(),
                 control_chars: Vec::new(),
+                markup_fg_rects: Vec::new(),
+                markup_attr_rects: Vec::new(),
             };
 
             let visual_line = origin.y + y;
@@ -2408,6 +2505,38 @@ impl TextBuffer {
                 visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
             }
 
+            // Compute per-row lsh markup rects, clipped to this visual
+            // row's actual text extent. Done here (during linewrap) so
+            // wrapped continuation rows don't smear attrs across the
+            // trailing blanks past the wrap column.
+            if lsh_enabled && cursor_beg.offset != cursor_end.offset {
+                let logical_y = cursor_beg.logical_pos.y;
+                if hl_logical_y != Some(logical_y) {
+                    if let Some(ref mut highlighter) = highlighter_opt {
+                        let scratch_hl = scratch_arena(None);
+                        let parsed = self.highlighter_cache.parse_line(
+                            &scratch_hl,
+                            highlighter,
+                            logical_y,
+                        );
+                        hl_buf.clear();
+                        hl_buf.extend(parsed.iter().cloned());
+                        hl_logical_y = Some(logical_y);
+                    }
+                }
+                let (fg_rects, attr_rects) = self.build_markup_row(
+                    &cursor_beg,
+                    &cursor_end,
+                    visual_line,
+                    &hl_buf,
+                    destination,
+                    origin,
+                    y,
+                );
+                decor.markup_fg_rects = fg_rects;
+                decor.markup_attr_rects = attr_rects;
+            }
+
             // Copy the per-iter arena-backed BString into the
             // owned-text slot on `decor` so the layout output
             // outlives the scratch arena. ~80 bytes per row; not a
@@ -2471,139 +2600,6 @@ impl TextBuffer {
                 .and_then(|(k, _)| highlight_kind_color(k));
         }
         out
-    }
-
-    pub fn render_apply_highlights(
-        &mut self,
-        origin: Point,
-        destination: Rect,
-        logical_y_range: Range<CoordType>,
-        fb: &mut Framebuffer,
-    ) {
-        // Skip lsh entirely when colour output is suppressed -- the only
-        // remaining effect would be markup attrs (bold/italic/underline)
-        // for markdown, which we trade away for the per-frame cost.
-        if crate::glyphs::no_color() {
-            return;
-        }
-        let Some(language) = self.language else {
-            return;
-        };
-
-        let mut highlighter = Highlighter::new(&self.buffer, language);
-
-        // Track cursor position for efficient offset-to-position conversions.
-        // Start from the rendering cursor which is at the beginning of the visible area.
-        let mut cursor = self.cursor_for_rendering.unwrap();
-
-        // Visible vertical range in visual coordinates.
-        let visible_top = origin.y;
-        let visible_bottom = origin.y + destination.height();
-
-        // Text area boundaries in screen coordinates (excluding margin).
-        let text_left = destination.left + self.margin_width;
-        let text_right = destination.right;
-
-        for logical_y in logical_y_range {
-            // Seek cursor to the start of this logical line for efficient lookups.
-            // This is important because highlights are sorted by offset within
-            // each logical line.
-            cursor = self.goto_line_start(cursor, logical_y);
-
-            let scratch = scratch_arena(None);
-            let highlights =
-                self.highlighter_cache.parse_line(&scratch, &mut highlighter, logical_y);
-
-            for pair in highlights.windows(2) {
-                let curr = &pair[0];
-                let next = &pair[1];
-
-                // Skip highlights with no visual effect.
-                if curr.kind == HighlightKind::Other {
-                    continue;
-                }
-
-                // Convert byte offsets to cursor positions. Since highlights are
-                // sorted by offset, we chain from cursor -> beg -> end for efficiency.
-                let beg = self.cursor_move_to_offset_internal(cursor, curr.start);
-                let end = self.cursor_move_to_offset_internal(beg, next.start);
-                cursor = end;
-
-                let color = highlight_kind_color(curr.kind);
-                let attr = match curr.kind {
-                    HighlightKind::MarkupBold => Some(Attributes::Bold),
-                    HighlightKind::MarkupItalic => Some(Attributes::Italic),
-                    HighlightKind::MarkupLink => Some(Attributes::Underlined),
-                    HighlightKind::MarkupStrikethrough => Some(Attributes::Strikethrough),
-                    _ => None,
-                };
-
-                // Handle the case where the highlight spans multiple visual lines
-                // due to word wrapping. The range is [beg, end) in terms of offsets,
-                // which maps to visual lines [beg.visual_pos.y, end.visual_pos.y].
-                //
-                // When beg and end are on the same visual line, we highlight
-                // [beg.visual_pos.x, end.visual_pos.x).
-                //
-                // When they span multiple lines:
-                // - First line: [beg.visual_pos.x, end_of_line)
-                // - Middle lines: [0, end_of_line)
-                // - Last line: [0, end.visual_pos.x)
-                //
-                // However, if end.visual_pos.x == 0, the last line has no content
-                // to highlight (the span ends exactly at the line boundary).
-                let visual_y_end = if end.visual_pos.x == 0 && end.visual_pos.y > beg.visual_pos.y {
-                    // The span ends at position 0 of a new visual line, meaning
-                    // it actually ends at the end of the previous visual line.
-                    end.visual_pos.y - 1
-                } else {
-                    end.visual_pos.y
-                };
-
-                // Use min/max to skip visual lines outside the visible vertical range.
-                for visual_y in
-                    beg.visual_pos.y.max(visible_top)..(visual_y_end + 1).min(visible_bottom)
-                {
-                    let vis_left = if visual_y == beg.visual_pos.y {
-                        beg.visual_pos.x
-                    } else {
-                        // Wrapped continuation lines start at visual x=0.
-                        0
-                    };
-                    let vis_right = if visual_y == end.visual_pos.y {
-                        end.visual_pos.x
-                    } else {
-                        // Line extends to the word wrap column or beyond.
-                        COORD_TYPE_SAFE_MAX
-                    };
-
-                    // Convert to screen coordinates.
-                    let screen_left = text_left + vis_left - origin.x;
-                    let screen_right = (text_left + vis_right - origin.x).min(text_right);
-                    let screen_y = destination.top + visual_y - origin.y;
-
-                    // Create the target rectangle, clamped to the text area.
-                    let rect = Rect {
-                        left: screen_left.max(text_left),
-                        top: screen_y,
-                        right: screen_right,
-                        bottom: screen_y + 1,
-                    };
-
-                    // Skip empty or invalid rectangles.
-                    if rect.left >= rect.right {
-                        continue;
-                    }
-
-                    if let Some(color) = color {
-                        fb.blend_fg(rect, fb.indexed(color));
-                    }
-                    if let Some(attr) = attr {
-                        fb.replace_attr(rect, Attributes::All, attr);
-                    }
-                }
-            }
-        }
     }
 
     pub fn cut(&mut self, clipboard: &mut Clipboard) {
@@ -4168,6 +4164,7 @@ struct LineExtents {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::framebuffer::Framebuffer;
 
     fn buf_with(text: &str) -> TextBuffer {
         let mut tb = TextBuffer::new(true).unwrap();
@@ -4583,12 +4580,6 @@ mod tests {
             tb.margin_width(),
             focused,
         );
-        tb.render_apply_highlights(
-            origin,
-            destination,
-            layout.highlight_logical_y_range.clone(),
-            fb,
-        );
         crate::anim::draw::textarea_overlays(
             fb,
             crate::anim::draw::TextareaOverlayOpts {
@@ -4691,7 +4682,7 @@ mod tests {
 
     #[test]
     fn layout_empty_dest_is_none() {
-        let tb = buf_with("hello\n");
+        let mut tb = buf_with("hello\n");
         let r = Rect { left: 0, top: 0, right: 0, bottom: 0 };
         assert!(tb.layout(Point { x: 0, y: 0 }, r, None).is_none());
     }

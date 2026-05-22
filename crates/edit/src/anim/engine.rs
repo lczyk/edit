@@ -584,10 +584,10 @@ mod tests {
     #[test]
     fn animate_nil_round_trips_physics() {
         // Identity contract: nothing the animator touches changes.
-        let tb = crate::buffer::TextBuffer::new(true).unwrap();
+        let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
         let target = crate::anim::physics::build_textarea_physics(
-            &tb,
+            &mut tb,
             Point { x: 0, y: 0 },
             dest,
             None,
@@ -610,8 +610,9 @@ mod tests {
         let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
         tb.set_width(80);
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let buf_gen = tb.generation();
         let target = crate::anim::physics::build_textarea_physics(
-            &tb,
+            &mut tb,
             Point { x: 0, y: 0 },
             dest,
             None,
@@ -621,7 +622,7 @@ mod tests {
         let target_scroll = target.scroll_offset;
         let mut state = TextareaAnimState::default();
         let (displayed, still_animating) =
-            animate(&mut state, target, tb.generation(), 0.016, Instant::now());
+            animate(&mut state, target, buf_gen, 0.016, Instant::now());
         assert_eq!(displayed.cursor_visual, target_cursor);
         assert_eq!(displayed.scroll_offset, target_scroll);
         assert!(!still_animating);
@@ -638,8 +639,9 @@ mod tests {
         let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
         tb.set_width(80);
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let buf_gen = tb.generation();
         let mut target = crate::anim::physics::build_textarea_physics(
-            &tb,
+            &mut tb,
             Point { x: 0, y: 0 },
             dest,
             None,
@@ -649,17 +651,17 @@ mod tests {
         let mut state = TextareaAnimState {
             cursor_visual: Some((0.0, 0.0)),
             scroll_visual: (0.0, 0.0),
-            last_buffer_generation: tb.generation().wrapping_sub(1),
+            last_buffer_generation: buf_gen.wrapping_sub(1),
             ..Default::default()
         };
         // Buffer gen is one ahead of the animator's last-seen gen
         // -> snap fires, cursor jumps to target, still_animating
         // false on this frame.
         let (displayed, still_animating) =
-            animate(&mut state, target, tb.generation(), 0.016, Instant::now());
+            animate(&mut state, target, buf_gen, 0.016, Instant::now());
         assert!(!still_animating, "snap completes on the edit frame");
         assert_eq!(displayed.cursor_visual, Point { x: 50, y: 50 });
-        assert_eq!(state.last_buffer_generation, tb.generation());
+        assert_eq!(state.last_buffer_generation, buf_gen);
     }
 
     #[test]
@@ -669,8 +671,9 @@ mod tests {
         let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
         tb.set_width(80);
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let buf_gen = tb.generation();
         let mut target = crate::anim::physics::build_textarea_physics(
-            &tb,
+            &mut tb,
             Point { x: 0, y: 0 },
             dest,
             None,
@@ -682,12 +685,11 @@ mod tests {
         let mut state = TextareaAnimState {
             cursor_visual: Some((0.0, 0.0)),
             scroll_visual: (0.0, 0.0),
+            last_buffer_generation: buf_gen,
             ..Default::default()
         };
-        // Match the buffer gen so snap_on_buffer_edit doesn't fire.
-        state.last_buffer_generation = tb.generation();
         let (displayed, still_animating) =
-            animate(&mut state, target, tb.generation(), 0.016, Instant::now());
+            animate(&mut state, target, buf_gen, 0.016, Instant::now());
         assert!(still_animating);
         assert!(displayed.cursor_visual.x > 0 && displayed.cursor_visual.x < 50);
     }

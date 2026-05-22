@@ -56,6 +56,16 @@ pub fn textarea_lines(
         for &rect in &line.control_chars {
             control_char_highlight(fb, rect);
         }
+        // lsh markup -- per-row, already clipped to the row's text
+        // extent by `TextBuffer::build_markup_row`. Painted here
+        // (rather than in a separate pass after `textarea_lines`) so
+        // wrapped rows can't get attrs smeared onto trailing blanks.
+        for &(rect, color) in &line.markup_fg_rects {
+            fb.blend_fg(rect, fb.indexed(color));
+        }
+        for &(rect, attr) in &line.markup_attr_rects {
+            fb.replace_attr(rect, crate::framebuffer::Attributes::All, attr);
+        }
     }
     selection_rects
 }

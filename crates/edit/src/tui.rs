@@ -1243,12 +1243,6 @@ impl Tui {
                 tb.margin_width(),
                 tc.has_focus,
             );
-            tb.render_apply_highlights(
-                visual_offset,
-                destination,
-                layout.highlight_logical_y_range.clone(),
-                &mut self.framebuffer,
-            );
             anim::draw::textarea_overlays(
                 &mut self.framebuffer,
                 anim::draw::TextareaOverlayOpts {
