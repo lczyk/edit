@@ -9,6 +9,7 @@
 
 use std::time::Instant;
 
+use crate::buffer::LineMoveEvent;
 use crate::helpers::{CoordType, Point};
 
 /// Trail-flash state for an alt+up/down line move. Tracks the moved
@@ -60,6 +61,24 @@ pub fn frame_dt_secs(prev: Option<Instant>, now: Instant) -> f32 {
     match prev {
         Some(prev) => (now - prev).as_secs_f32().min(super::MAX_DT_SECS),
         None => 0.016,
+    }
+}
+
+/// Seed the line-move trail-flash slot from a freshly-fired event.
+/// When `ev` is `Some` and animations are enabled, installs a fresh
+/// [`LineMoveAnim`] starting at `now`. Existing slot contents are
+/// overwritten -- a new line-move always replaces the old trail. No
+/// effect when `ev` is `None` or animations are off.
+pub fn seed_line_move_trail(
+    slot: &mut Option<LineMoveAnim>,
+    ev: Option<LineMoveEvent>,
+    now: Instant,
+) {
+    if let Some(ev) = ev
+        && !crate::glyphs::no_animations()
+    {
+        *slot =
+            Some(LineMoveAnim { to_y: ev.to_visual_y, height: ev.visual_height, started_at: now });
     }
 }
 

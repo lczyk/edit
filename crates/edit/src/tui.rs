@@ -1108,19 +1108,14 @@ impl Tui {
                     tb.cursor_visual_pos(),
                 );
 
-                // Pick up a freshly-fired line-move and seed the sweep band.
-                // Drain unconditionally so the event doesn't pool up while
-                // animations are off; only install the anim state when we'll
-                // actually paint it.
-                if let Some(ev) = tb.take_pending_line_move()
-                    && !crate::glyphs::no_animations()
-                {
-                    tc.line_move_anim = Some(anim::engine::LineMoveAnim {
-                        to_y: ev.to_visual_y,
-                        height: ev.visual_height,
-                        started_at: time::Instant::now(),
-                    });
-                }
+                // Drain the pending-line-move slot unconditionally so the
+                // event doesn't pool up while animations are off -- the seed
+                // fn handles the enable check internally.
+                anim::engine::seed_line_move_trail(
+                    &mut tc.line_move_anim,
+                    tb.take_pending_line_move(),
+                    time::Instant::now(),
+                );
 
                 let visual_offset = crate::anim::engine::advance_scroll(
                     &mut tc.scroll_offset_visual,
