@@ -233,6 +233,19 @@ pub fn advance_floater_open(
     }
 }
 
+/// Identity animator: returns the input physics unmodified.
+///
+/// Stage 3's "nil animator" -- when animations are disabled the
+/// flow collapses to `draw(animate_nil(build_physics()))`, which is
+/// just `draw(build_physics())`. Used as the no-anim branch of the
+/// eventual `animate()` switch so the rest of the pipeline doesn't
+/// have to know about the killswitch.
+pub fn animate_nil<'a>(
+    phys: crate::anim::physics::TextareaPhysics<'a>,
+) -> crate::anim::physics::TextareaPhysics<'a> {
+    phys
+}
+
 /// Per-frame exponential-lerp alpha for a given time constant.
 /// Saturates to 1.0 once `dt` exceeds ~6 tau (effectively done) so we don't
 /// pay the cost of `exp()` for the no-op tail.
