@@ -7,7 +7,21 @@
 //! advance fns (cursor, scroll) plus the shared interpolation
 //! primitives they sit on top of.
 
+use std::time::Instant;
+
 use crate::helpers::{CoordType, Point};
+
+/// Trail-flash state for an alt+up/down line move. Tracks the moved
+/// block's post-move position and start time; alpha fades over
+/// [`super::LINE_MOVE_DURATION_SECS`].
+///
+/// Coordinates are visual y (document-space rows after word-wrap).
+#[derive(Clone, Copy)]
+pub struct LineMoveAnim {
+    pub to_y: CoordType,
+    pub height: CoordType,
+    pub started_at: Instant,
+}
 
 /// Per-frame exponential-lerp alpha for a given time constant.
 /// Saturates to 1.0 once `dt` exceeds ~6 tau (effectively done) so we don't

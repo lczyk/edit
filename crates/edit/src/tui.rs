@@ -1137,7 +1137,7 @@ impl Tui {
                 if let Some(ev) = tb.take_pending_line_move()
                     && !crate::glyphs::no_animations()
                 {
-                    tc.line_move_anim = Some(LineMoveAnim {
+                    tc.line_move_anim = Some(anim::engine::LineMoveAnim {
                         to_y: ev.to_visual_y,
                         height: ev.visual_height,
                         started_at: time::Instant::now(),
@@ -4030,18 +4030,6 @@ struct TextContent<'a> {
     overflow: Overflow,
 }
 
-/// Trail-flash state for an alt+up/down line move. Tracks the moved
-/// block's post-move position and start time; alpha fades over
-/// [`anim::LINE_MOVE_DURATION_SECS`].
-///
-/// Coordinates are visual y (document-space rows after word-wrap).
-#[derive(Clone, Copy)]
-struct LineMoveAnim {
-    to_y: CoordType,
-    height: CoordType,
-    started_at: time::Instant,
-}
-
 /// NOTE: Must not contain items that require drop().
 struct TextareaContent<'a> {
     buffer: &'a TextBufferCell,
@@ -4063,7 +4051,7 @@ struct TextareaContent<'a> {
     /// Active line-move slide animation. `Some` from when
     /// `move_selected_lines` fires until [`anim::LINE_MOVE_DURATION_SECS`]
     /// elapses; drives the half-block sweep overlay drawn after `tb.render`.
-    line_move_anim: Option<LineMoveAnim>,
+    line_move_anim: Option<anim::engine::LineMoveAnim>,
     scroll_offset_y_drag_start: CoordType,
     scroll_offset_x_max: CoordType,
     thumb_height: CoordType,
