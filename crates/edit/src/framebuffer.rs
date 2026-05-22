@@ -399,13 +399,13 @@ impl Framebuffer {
         // and read as a dark smudge rather than the colour the glyph is
         // actually drawn in.
         let default_fg = self.indexed_colors[IndexedColor::Foreground as usize].to_le();
-        // Default text background is used to fill cells whose bg has not
-        // been explicitly written. Without this baseline the blend below
-        // would leave the cell transparent and the SGR emit path would
-        // composite it against the indexed Background colour at full
-        // strength -- which, for past-end-of-text cells on a wrapped
-        // line, made the tint read as near-black during the fade.
-        let default_bg = self.indexed_colors[IndexedColor::Background as usize];
+        // Baseline for transparent-bg cells. Matches the half-alpha grey
+        // overlay the buffer's `line_highlight_enabled` path paints on
+        // the cursor row (0x7f7f7f7f), so cells past the end of text
+        // (and continuation rows of a wrapped line) read the same as
+        // the cursor-row cells during the flash instead of fading all
+        // the way back to a pure dark Background.
+        let transparent_bg_seed = StraightRgba::from_le(0x7f7f7f7f);
         let back = &mut self.buffers[self.frame_counter & 1];
         let size = back.bg_bitmap.size;
         let target = target.intersect(size.as_rect());
@@ -431,7 +431,7 @@ impl Framebuffer {
                 let tint = StraightRgba::from_le(alpha | rgb);
                 for cell in &mut back.bg_bitmap.data[row + x..row + end] {
                     if cell.alpha() == 0 {
-                        *cell = default_bg;
+                        *cell = transparent_bg_seed;
                     }
                     *cell = cell.oklab_blend(tint);
                 }
