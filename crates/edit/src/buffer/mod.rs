@@ -297,33 +297,10 @@ pub struct BodyTextRects {
     pub control_chars: Vec<Rect>,
 }
 
-/// Per-row layout output collected during pass 1 of
-/// [`TextBuffer::render`] and consumed by pass 2 paint. All fields
-/// are pure data -- no fb references, no buffer borrows. The eventual
-/// public `TextBuffer::layout()` returns `Vec<LineDecor>` directly.
-struct LineDecor {
-    /// Framebuffer y for this row's paints + text commit.
-    fb_y: CoordType,
-    /// Body text including the margin prefix (gutter line numbers /
-    /// wrap markers / past-end template) and the visible-line glyphs
-    /// w/ visualisers substituted in. Pushed into the framebuffer
-    /// via `replace_text` during pass 2.
-    text: String,
-    /// Whether the row's margin column should be dimmed (wrapped
-    /// continuation indicator).
-    dim_margin: bool,
-    /// Selection rect on this row, if the active selection covers
-    /// part of it.
-    sel_rect: Option<Rect>,
-    /// Shadow-match rects on this row (literal occurrences of the
-    /// selected text). Empty when there's no shadow match.
-    shadow_matches: Vec<Rect>,
-    /// Per-cell whitespace-visualiser rects for spaces / tabs inside
-    /// the selection.
-    whitespace_visualizers: Vec<Rect>,
-    /// Per-cell control-character highlight rects.
-    control_chars: Vec<Rect>,
-}
+// `LineDecor` is the alias inside buffer/mod.rs for the
+// physics-layer `VisualLine` -- they're the same shape. Aliasing
+// keeps the existing in-file name during the transition.
+use crate::anim::physics::VisualLine as LineDecor;
 
 /// A [`TextBuffer`] with inner mutability.
 pub type TextBufferCell = SemiRefCell<TextBuffer>;
@@ -2340,9 +2317,9 @@ impl TextBuffer {
             let mut decor = LineDecor {
                 fb_y: destination.top + y,
                 text: String::new(),
-                dim_margin: false,
-                sel_rect: None,
-                shadow_matches: Vec::new(),
+                dim_wrapped_margin: false,
+                selection_rect: None,
+                shadow_match_rects: Vec::new(),
                 whitespace_visualizers: Vec::new(),
                 control_chars: Vec::new(),
             };
@@ -2371,7 +2348,7 @@ impl TextBuffer {
                 if let Some(mark) = mark {
                     gutter_paint.push((destination.top + y, mark));
                 }
-                decor.dim_margin = dim;
+                decor.dim_wrapped_margin = dim;
             }
 
             let (selection_off, sel_rect) = self.build_selection_row(
@@ -2388,11 +2365,11 @@ impl TextBuffer {
                 text_width,
                 y,
             );
-            decor.sel_rect = sel_rect;
+            decor.selection_rect = sel_rect;
 
             // Shadow-highlight matches of the current selection on this visual line.
             if let Some((needle, sel_beg, sel_end)) = &shadow_match {
-                decor.shadow_matches = self.build_shadow_matches_row(
+                decor.shadow_match_rects = self.build_shadow_matches_row(
                     needle,
                     *sel_beg,
                     *sel_end,
@@ -2439,7 +2416,7 @@ impl TextBuffer {
         let shadow_bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
         for decor in &decors {
             fb.replace_text(decor.fb_y, destination.left, destination.right, &decor.text);
-            if decor.dim_margin {
+            if decor.dim_wrapped_margin {
                 crate::anim::draw::dim_wrapped_margin(
                     fb,
                     destination.left,
@@ -2447,10 +2424,10 @@ impl TextBuffer {
                     line_number_width as CoordType,
                 );
             }
-            if let Some(rect) = decor.sel_rect {
+            if let Some(rect) = decor.selection_rect {
                 crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
             }
-            for &rect in &decor.shadow_matches {
+            for &rect in &decor.shadow_match_rects {
                 crate::anim::draw::shadow_match_rect(fb, rect, shadow_bg, &mut selection_rects);
             }
             for &rect in &decor.whitespace_visualizers {

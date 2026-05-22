@@ -91,23 +91,22 @@ pub struct TextareaPhysics<'a> {
     // pub gutter: GutterDraw<'a>,               // needs split
 }
 
-/// Per-visual-line layout output. Produced by the eventual
-/// `TextBuffer::layout()` -- one per row of the visible viewport.
+/// Per-visual-line layout output produced by pass 1 of
+/// [`crate::buffer::TextBuffer::render`] (the eventual
+/// `TextBuffer::layout()`). One per row of the visible viewport.
 ///
-/// Today this is the target shape: today's `TextBuffer::render`
-/// builds equivalent data inline + paints in the same loop. The
-/// stage-1 carve splits the build from the paint, and this is what
-/// the build produces.
-pub struct VisualLine<'a> {
+/// Owned data only: `text` is `String`, rect collections are
+/// `Vec<Rect>`. This lets pass 1's output cross arena boundaries
+/// (per-iter scratch arenas can die before pass 2 paints from this
+/// struct). Cost is ~80 bytes of text copy per visible row, a few
+/// KB per render at common viewport sizes -- not a hot path.
+pub struct VisualLine {
     /// Framebuffer y coordinate this line writes into.
     pub fb_y: CoordType,
     /// Body text including the margin prefix (line numbers + box
     /// glyph separator + space) and the visual-line content. Pushed
     /// into the framebuffer via `replace_text`.
-    pub text: &'a str,
-    /// Gutter mark to paint for this line, if any. Pushed to a
-    /// `Vec<(fb_y, GutterMark)>` for the textarea_overlays pass.
-    pub gutter_mark: Option<gutter::GutterMark>,
+    pub text: String,
     /// Whether the line's margin column should be dimmed (wrapped
     /// continuation row that doesn't show a real line number).
     pub dim_wrapped_margin: bool,
@@ -116,13 +115,13 @@ pub struct VisualLine<'a> {
     pub selection_rect: Option<Rect>,
     /// Shadow-match rects on this line (literal occurrences of the
     /// selected text). Usually empty.
-    pub shadow_match_rects: &'a [Rect],
+    pub shadow_match_rects: Vec<Rect>,
     /// Per-cell rects for whitespace visualisers (central-dot for
     /// spaces, rightward-arrow for tabs).
-    pub whitespace_visualizers: &'a [Rect],
+    pub whitespace_visualizers: Vec<Rect>,
     /// Per-cell rects for control-character visualisers (U+2400-
     /// range pictures inserted for unprintable bytes).
-    pub control_chars: &'a [Rect],
+    pub control_chars: Vec<Rect>,
 }
 
 /// Build a [`TextareaPhysics`] from the live `TextBuffer` +
