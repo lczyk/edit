@@ -7,10 +7,31 @@
 //! advance fns (cursor, scroll) plus the shared interpolation
 //! primitives they sit on top of.
 
+use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::buffer::LineMoveEvent;
 use crate::helpers::{CoordType, Point};
+
+/// Tui-level anim state that persists across frames. Today this is
+/// just the per-frame timing pieces plus the floater-open timer
+/// table; in stage 4 it grows to own the per-textarea state too,
+/// keyed by node id, so `TextareaContent` no longer carries its own
+/// `anim` field.
+#[derive(Default)]
+pub struct TuiAnimState {
+    /// Wall-clock of the previous `render()` call. Used to derive
+    /// `dt_secs` for the per-frame lerps. `None` on the first frame.
+    pub last_frame_time: Option<Instant>,
+    /// Seconds elapsed since the previous `render()` call, capped at
+    /// `MAX_DT_SECS` so a long stall (debugger, suspended tab)
+    /// doesn't cause a giant lerp jump.
+    pub dt_secs: f32,
+    /// Per-node-id first-seen timestamps for the slide-down /
+    /// scale-in floater open animations. Entry exists from the first
+    /// frame the node appears until the node disappears (closed).
+    pub floater_opened_at: HashMap<u64, Instant>,
+}
 
 /// Per-textarea anim state that persists across frames. Grouped
 /// together so the eventual stage-4 unified animator can own it as

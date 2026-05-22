@@ -140,7 +140,6 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::{io, iter, mem, ptr, time};
@@ -375,17 +374,9 @@ pub struct Tui {
     settling_want: i32,
     read_timeout: time::Duration,
 
-    /// Wall-clock of the previous `render()` call. Used to derive `frame_dt_secs`
-    /// for time-based animation (smooth scroll). `None` on the first frame.
-    last_frame_time: Option<time::Instant>,
-    /// Seconds elapsed since the previous `render()` call, capped at 0.1s so a
-    /// long stall (debugger, suspended tab) doesn't cause a giant lerp jump.
-    frame_dt_secs: f32,
-
-    /// Per-node-id timers for the slide-down "open" animation on menubar
-    /// dropdowns and similar floaters. Entry exists from the first frame the
-    /// node appears until the node disappears from `prev_node_map` (closed).
-    slide_animations: HashMap<u64, time::Instant>,
+    /// Tui-level anim state (frame timing + floater open-timer table).
+    /// See [`anim::engine::TuiAnimState`].
+    anim: anim::engine::TuiAnimState,
 }
 
 impl Tui {
@@ -437,10 +428,7 @@ impl Tui {
             settling_want: 0,
             read_timeout: time::Duration::MAX,
 
-            last_frame_time: None,
-            frame_dt_secs: 0.0,
-
-            slide_animations: HashMap::new(),
+            anim: anim::engine::TuiAnimState::default(),
         };
         Self::clean_node_path(&mut tui.mouse_down_node_path);
         Self::clean_node_path(&mut tui.focused_node_path);
@@ -901,13 +889,13 @@ impl Tui {
     /// Renders the last frame into the framebuffer and returns the VT output.
     pub fn render<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
         let now = time::Instant::now();
-        self.frame_dt_secs = anim::engine::frame_dt_secs(self.last_frame_time, now);
-        self.last_frame_time = Some(now);
+        self.anim.dt_secs = anim::engine::frame_dt_secs(self.anim.last_frame_time, now);
+        self.anim.last_frame_time = Some(now);
 
         // Drop slide-animation entries for nodes that no longer exist in the
         // current tree (dropdown closed, modal dismissed). Lookup uses the
         // same prev_node_map the renderer walks.
-        self.slide_animations.retain(|id, _| self.prev_node_map.get(*id).is_some());
+        self.anim.floater_opened_at.retain(|id, _| self.prev_node_map.get(*id).is_some());
 
         self.framebuffer.flip(self.size);
         for child in self.prev_tree.iterate_roots() {
@@ -948,7 +936,7 @@ impl Tui {
         // `inner_clipped` of the entire subtree in place; the tree is
         // rebuilt next frame so the mutation is harmless beyond render.
         if let Some(clip) = anim::engine::advance_floater_open(
-            &mut self.slide_animations,
+            &mut self.anim.floater_opened_at,
             node.id,
             node.outer_clipped.top,
             node.outer_clipped.bottom,
@@ -1129,13 +1117,13 @@ impl Tui {
                 let visual_offset = crate::anim::engine::advance_scroll(
                     &mut tc.anim.scroll_visual,
                     tc.scroll_offset,
-                    self.frame_dt_secs,
+                    self.anim.dt_secs,
                 );
                 let cursor_target = tb.cursor_visual_pos();
                 let cursor_override = crate::anim::engine::advance_cursor(
                     &mut tc.anim.cursor_visual,
                     cursor_target,
-                    self.frame_dt_secs,
+                    self.anim.dt_secs,
                 );
                 let still_animating =
                     visual_offset != tc.scroll_offset || cursor_override != cursor_target;
