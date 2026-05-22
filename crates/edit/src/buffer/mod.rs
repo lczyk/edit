@@ -2015,6 +2015,71 @@ impl TextBuffer {
         (selection_off, Some(rect))
     }
 
+    /// Finds literal occurrences of the current selection's text
+    /// that fall on this visual row, and returns their visual rects
+    /// for the caller to paint as shadow-match highlights.
+    ///
+    /// Excludes the user's actual selection (matched by absolute
+    /// offset, not by content) so the real selection paints over
+    /// just once. Returns an empty vec when there are no matches
+    /// on this row, or when the row sits outside the line that
+    /// holds the active selection.
+    fn build_shadow_matches_row(
+        &self,
+        needle: &[u8],
+        sel_beg: usize,
+        sel_end: usize,
+        cursor_beg: &Cursor,
+        cursor_end: &Cursor,
+        visual_line: CoordType,
+        destination: Rect,
+        origin: Point,
+        y: CoordType,
+    ) -> Vec<Rect> {
+        let mut out = Vec::new();
+        if !(cursor_beg.visual_pos.y == visual_line && cursor_beg.offset < cursor_end.offset) {
+            return out;
+        }
+        let line_beg = cursor_beg.offset;
+        let line_end = cursor_end.offset;
+        // Extend the scan window to catch matches that cross the left edge.
+        let scan_beg = line_beg.saturating_sub(needle.len().saturating_sub(1));
+        let mut haystack = Vec::new();
+        self.buffer.extract_raw(scan_beg..line_end, &mut haystack, 0);
+
+        let mut i = 0;
+        while i + needle.len() <= haystack.len() {
+            if &haystack[i..i + needle.len()] != needle {
+                i += 1;
+                continue;
+            }
+            let match_beg = scan_beg + i;
+            let match_end = match_beg + needle.len();
+            i += 1;
+
+            // Keep only matches whose visible portion lies on this line.
+            if match_end <= line_beg || match_beg >= line_end {
+                continue;
+            }
+            // Skip the user's actual selection.
+            if match_beg == sel_beg && match_end == sel_end {
+                continue;
+            }
+
+            let mb = self.cursor_move_to_offset_internal(*cursor_beg, match_beg.max(line_beg));
+            let me = self.cursor_move_to_offset_internal(mb, match_end.min(line_end));
+            let left = destination.left + self.margin_width - origin.x;
+            let top = destination.top + y;
+            out.push(Rect {
+                left: left + mb.visual_pos.x,
+                top,
+                right: left + me.visual_pos.x,
+                bottom: top + 1,
+            });
+        }
+        out
+    }
+
     /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
     /// The `destination` rect is framebuffer coordinates. The extracted region within this
     /// text buffer has the given `origin` and the same size as the `destination` rect.
@@ -2148,49 +2213,23 @@ impl TextBuffer {
             }
 
             // Shadow-highlight matches of the current selection on this visual line.
-            if let Some((needle, sel_beg, sel_end)) = &shadow_match
-                && cursor_beg.visual_pos.y == visual_line
-                && cursor_beg.offset < cursor_end.offset
-            {
-                let line_beg = cursor_beg.offset;
-                let line_end = cursor_end.offset;
-                // Extend the scan window to catch matches that cross the left edge.
-                let scan_beg = line_beg.saturating_sub(needle.len().saturating_sub(1));
-                let mut haystack = Vec::new();
-                self.buffer.extract_raw(scan_beg..line_end, &mut haystack, 0);
-
-                let bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
-                let mut i = 0;
-                while i + needle.len() <= haystack.len() {
-                    if &haystack[i..i + needle.len()] != needle.as_slice() {
-                        i += 1;
-                        continue;
+            if let Some((needle, sel_beg, sel_end)) = &shadow_match {
+                let matches = self.build_shadow_matches_row(
+                    needle,
+                    *sel_beg,
+                    *sel_end,
+                    &cursor_beg,
+                    &cursor_end,
+                    visual_line,
+                    destination,
+                    origin,
+                    y,
+                );
+                if !matches.is_empty() {
+                    let bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
+                    for rect in matches {
+                        crate::anim::draw::shadow_match_rect(fb, rect, bg, &mut selection_rects);
                     }
-                    let match_beg = scan_beg + i;
-                    let match_end = match_beg + needle.len();
-                    i += 1;
-
-                    // Keep only matches whose visible portion lies on this line.
-                    if match_end <= line_beg || match_beg >= line_end {
-                        continue;
-                    }
-                    // Skip the user's actual selection.
-                    if match_beg == *sel_beg && match_end == *sel_end {
-                        continue;
-                    }
-
-                    let mb =
-                        self.cursor_move_to_offset_internal(cursor_beg, match_beg.max(line_beg));
-                    let me = self.cursor_move_to_offset_internal(mb, match_end.min(line_end));
-                    let left = destination.left + self.margin_width - origin.x;
-                    let top = destination.top + y;
-                    let rect = Rect {
-                        left: left + mb.visual_pos.x,
-                        top,
-                        right: left + me.visual_pos.x,
-                        bottom: top + 1,
-                    };
-                    crate::anim::draw::shadow_match_rect(fb, rect, bg, &mut selection_rects);
                 }
             }
 
