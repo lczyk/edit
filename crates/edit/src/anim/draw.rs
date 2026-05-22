@@ -10,6 +10,8 @@
 //! Functions in this module must not read time, `Tui`, `TextBuffer`,
 //! or any animator state. Their inputs are everything they need.
 
+use ::gutter::GutterMark;
+
 use crate::buffer::{MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RowBand};
 use crate::framebuffer::{Framebuffer, IndexedColor};
 use crate::helpers::{CoordType, Point, Rect};
@@ -130,6 +132,53 @@ pub fn minimap_rail(
             fb.blend_bg(band, fb.indexed(IndexedColor::BrightWhite));
             fb.blend_fg(band, fb.indexed(IndexedColor::Black));
         }
+    }
+}
+
+/// Paints per-line gutter marks (added / modified / deleted-above /
+/// deleted-below) in the textarea margin. Replays the marks **after**
+/// the global margin tint, so the mark colours aren't dimmed by the
+/// tint pass that comes before this in the textarea paint flow.
+///
+/// `margin_left` is the textarea's destination.left; `margin_width`
+/// is the full margin column width. The mark sits one column left of
+/// the box-vertical separator at `margin_left + margin_width - 2`.
+///
+/// When `--no-color` is in effect, Added and Modified marks would be
+/// invisible (they normally just recolour the box-vertical); this fn falls
+/// back to distinct glyphs so the cue survives.
+pub fn gutter_marks(
+    fb: &mut Framebuffer,
+    margin_left: CoordType,
+    margin_width: CoordType,
+    marks: &[(CoordType, GutterMark)],
+) {
+    if margin_width < 2 || marks.is_empty() {
+        return;
+    }
+    let mark_x = margin_left + margin_width - 2;
+    let no_color = crate::glyphs::no_color();
+    for (y, mark) in marks {
+        let cell = Rect { left: mark_x, top: *y, right: mark_x + 1, bottom: *y + 1 };
+        let (fg, glyph) = match mark {
+            GutterMark::Added => {
+                (fb.indexed(IndexedColor::BrightGreen), if no_color { Some("+") } else { None })
+            }
+            GutterMark::Modified => {
+                (fb.indexed(IndexedColor::BrightYellow), if no_color { Some("~") } else { None })
+            }
+            GutterMark::DeletedAbove => {
+                (fb.indexed(IndexedColor::BrightRed), Some(crate::glyphs::gutter_deleted_above()))
+            }
+            GutterMark::DeletedBelow => {
+                (fb.indexed(IndexedColor::BrightRed), Some(crate::glyphs::gutter_deleted_below()))
+            }
+            GutterMark::None => continue,
+        };
+        if let Some(g) = glyph {
+            fb.replace_text(*y, mark_x, mark_x + 1, g);
+        }
+        fb.blend_fg(cell, fg);
     }
 }
 
