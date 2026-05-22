@@ -182,6 +182,34 @@ pub fn gutter_marks(
     }
 }
 
+/// Paints the column ruler (a faint vertical band over the column
+/// past which lines wrap or are flagged as long). No-op if
+/// `ruler_column` is non-positive or the ruler falls outside the
+/// visible text area.
+///
+/// `text_left` is the textarea's destination.left + margin_width.
+pub fn ruler(
+    fb: &mut Framebuffer,
+    text_left: CoordType,
+    text_top: CoordType,
+    text_right: CoordType,
+    text_bottom: CoordType,
+    scroll_offset_x: CoordType,
+    ruler_column: CoordType,
+) {
+    if ruler_column <= 0 {
+        return;
+    }
+    let left = text_left + (ruler_column - scroll_offset_x).max(0);
+    if left >= text_right {
+        return;
+    }
+    fb.blend_bg(
+        Rect { left, top: text_top, right: text_right, bottom: text_bottom },
+        fb.indexed_alpha(IndexedColor::BrightRed, 1, 4),
+    );
+}
+
 /// Trail-flash overlay for the alt+up/down line-move animation. Paints a
 /// per-row tinted band at the moved block's *new* position and fades the
 /// alpha down to zero over the animation duration. No sliding, no glyph

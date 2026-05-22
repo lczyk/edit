@@ -2289,16 +2289,15 @@ impl TextBuffer {
 
         crate::anim::draw::gutter_marks(fb, destination.left, self.margin_width, &gutter_paint);
 
-        if self.ruler > 0 {
-            let left = destination.left + self.margin_width + (self.ruler - origin.x).max(0);
-            let right = destination.right;
-            if left < right {
-                fb.blend_bg(
-                    Rect { left, top: destination.top, right, bottom: destination.bottom },
-                    fb.indexed_alpha(IndexedColor::BrightRed, 1, 4),
-                );
-            }
-        }
+        crate::anim::draw::ruler(
+            fb,
+            destination.left + self.margin_width,
+            destination.top,
+            destination.right,
+            destination.bottom,
+            origin.x,
+            self.ruler,
+        );
 
         if focused {
             let cursor_visual = cursor_override.unwrap_or(self.cursor.visual_pos);
