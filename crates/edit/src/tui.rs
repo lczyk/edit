@@ -944,34 +944,25 @@ impl Tui {
         // ~150ms after the node first appears. We mutate `outer_clipped` /
         // `inner_clipped` of the entire subtree in place; the tree is
         // rebuilt next frame so the mutation is harmless beyond render.
-        if (node.attributes.slide_down || node.attributes.scale_in)
-            && !crate::glyphs::no_animations()
-        {
-            let now = time::Instant::now();
-            let opened_at = *self.slide_animations.entry(node.id).or_insert(now);
-            let elapsed = (now - opened_at).as_secs_f32();
-            let duration = if node.attributes.scale_in {
-                anim::SCALE_IN_DURATION_SECS
-            } else {
-                anim::SLIDE_DOWN_DURATION_SECS
-            };
-            if elapsed < duration {
-                let progress = (elapsed / duration).clamp(0.0, 1.0);
-                let full_h = node.outer_clipped.bottom - node.outer_clipped.top;
-                let visible = ((full_h as f32) * progress).round() as CoordType;
-                if node.attributes.scale_in {
-                    let centre = (node.outer_clipped.top + node.outer_clipped.bottom) / 2;
-                    let half = visible.max(1) / 2;
-                    let top = centre - half;
-                    let bottom = centre + (visible.max(1) - half);
+        if let Some(clip) = anim::engine::advance_floater_open(
+            &mut self.slide_animations,
+            node.id,
+            node.outer_clipped.top,
+            node.outer_clipped.bottom,
+            node.attributes.slide_down,
+            node.attributes.scale_in,
+            time::Instant::now(),
+        ) {
+            match clip {
+                anim::engine::FloaterClip::Band(top, bottom) => {
                     Self::clip_subtree_band(node, top, bottom);
-                } else {
-                    let bottom = node.outer_clipped.top + visible.max(0);
+                }
+                anim::engine::FloaterClip::Bottom(bottom) => {
                     Self::clip_subtree_bottom(node, bottom);
                 }
-                if self.read_timeout > anim::FRAME_INTERVAL {
-                    self.read_timeout = anim::FRAME_INTERVAL;
-                }
+            }
+            if self.read_timeout > anim::FRAME_INTERVAL {
+                self.read_timeout = anim::FRAME_INTERVAL;
             }
         }
 

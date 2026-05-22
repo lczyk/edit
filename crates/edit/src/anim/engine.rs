@@ -23,6 +23,64 @@ pub struct LineMoveAnim {
     pub started_at: Instant,
 }
 
+/// Clip rect produced by a floater-open animation. The caller applies
+/// this to its node subtree -- `Bottom(y)` shrinks the visible region
+/// to `[outer.top, y]` (slide-down dropdowns), `Band(top, bottom)`
+/// narrows to `[top, bottom]` (scale-in modals).
+#[derive(Clone, Copy)]
+pub enum FloaterClip {
+    Bottom(CoordType),
+    Band(CoordType, CoordType),
+}
+
+/// Advance the open-animation for a single floater node. Stores the
+/// node's first-seen `Instant` in `opened_at_map` keyed by its id, and
+/// returns the clip rect to apply this frame. `None` means the
+/// animation has finished (or animations are disabled wholesale) and
+/// the floater should render at full size.
+///
+/// `slide_down` and `scale_in` are mutually exclusive node attributes;
+/// when both are false this returns `None` immediately. `outer_top` /
+/// `outer_bottom` are the floater's full (unclipped) vertical extent.
+pub fn advance_floater_open(
+    opened_at_map: &mut std::collections::HashMap<u64, Instant>,
+    node_id: u64,
+    outer_top: CoordType,
+    outer_bottom: CoordType,
+    slide_down: bool,
+    scale_in: bool,
+    now: Instant,
+) -> Option<FloaterClip> {
+    if crate::glyphs::no_animations() {
+        return None;
+    }
+    if !slide_down && !scale_in {
+        return None;
+    }
+
+    let opened_at = *opened_at_map.entry(node_id).or_insert(now);
+    let elapsed = (now - opened_at).as_secs_f32();
+    let duration =
+        if scale_in { super::SCALE_IN_DURATION_SECS } else { super::SLIDE_DOWN_DURATION_SECS };
+    if elapsed >= duration {
+        return None;
+    }
+
+    let progress = (elapsed / duration).clamp(0.0, 1.0);
+    let full_h = outer_bottom - outer_top;
+    let visible = ((full_h as f32) * progress).round() as CoordType;
+    if scale_in {
+        let centre = (outer_top + outer_bottom) / 2;
+        let half = visible.max(1) / 2;
+        let top = centre - half;
+        let bottom = centre + (visible.max(1) - half);
+        Some(FloaterClip::Band(top, bottom))
+    } else {
+        let bottom = outer_top + visible.max(0);
+        Some(FloaterClip::Bottom(bottom))
+    }
+}
+
 /// Per-frame exponential-lerp alpha for a given time constant.
 /// Saturates to 1.0 once `dt` exceeds ~6 tau (effectively done) so we don't
 /// pay the cost of `exp()` for the no-op tail.
