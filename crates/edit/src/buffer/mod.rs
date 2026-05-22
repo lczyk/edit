@@ -2237,11 +2237,12 @@ impl TextBuffer {
 
     /// Pass 1 of [`TextBuffer::render`]: build the per-row layout
     /// outputs (text, dim-margin flag, selection rect, shadow-match
-    /// rects, visualiser rects) into a [`TextareaLayout`]. No fb
-    /// mutation; only self-mutation is the `cursor_for_rendering`
-    /// cache write at y==0.
+    /// rects, visualiser rects) into a [`TextareaLayout`]. Pure
+    /// `&self` -- no buffer mutation. The caller writes the
+    /// returned `start_cursor` back into `cursor_for_rendering`
+    /// before invoking the lsh pass.
     pub fn layout(
-        &mut self,
+        &self,
         origin: Point,
         destination: Rect,
         cursor_override: Option<Point>,
@@ -2305,6 +2306,7 @@ impl TextBuffer {
         });
 
         let mut decors: Vec<LineDecor> = Vec::with_capacity(height.max(0) as usize);
+        let mut start_cursor: Option<Cursor> = None;
         for y in 0..height {
             let scratch = scratch_arena(None);
             let mut line = BString::empty();
@@ -2327,9 +2329,11 @@ impl TextBuffer {
                 Point { x: origin.x + text_width, y: visual_line },
             );
 
-            // Accelerate the next render pass by remembering where we started off.
+            // Capture the y==0 cursor as the seed for the next render's
+            // cursor walk + the start cursor for the lsh pass. Caller
+            // writes it back to `self.cursor_for_rendering`.
             if y == 0 {
-                self.cursor_for_rendering = Some(cursor_beg);
+                start_cursor = Some(cursor_beg);
             }
 
             if line_number_width != 0 {
@@ -2403,7 +2407,7 @@ impl TextBuffer {
             cursor = cursor_end;
         }
 
-        let logical_y_beg = self.cursor_for_rendering.unwrap().logical_pos.y;
+        let logical_y_beg = start_cursor.map_or(0, |c| c.logical_pos.y);
         let logical_y_end = cursor.logical_pos.y + 1;
         Some(TextareaLayout {
             lines: decors,
@@ -2412,6 +2416,7 @@ impl TextBuffer {
             cursor_visual_render,
             selection_empty: selection_beg >= selection_end,
             highlight_logical_y_range: logical_y_beg..logical_y_end,
+            start_cursor,
         })
     }
 
@@ -2427,6 +2432,9 @@ impl TextBuffer {
         fb: &mut Framebuffer,
     ) -> Option<RenderResult> {
         let layout = self.layout(origin, destination, cursor_override)?;
+        // Stash the start cursor for the next render's cursor walk +
+        // the lsh pass below.
+        self.cursor_for_rendering = layout.start_cursor;
 
         // Pass 2: per-row text commit + per-row blends.
         let selection_rects = crate::anim::draw::textarea_lines(
@@ -2438,7 +2446,12 @@ impl TextBuffer {
             focused,
         );
 
-        self.render_apply_highlights(origin, destination, layout.highlight_logical_y_range, fb);
+        self.render_apply_highlights(
+            origin,
+            destination,
+            layout.highlight_logical_y_range.clone(),
+            fb,
+        );
 
         crate::anim::draw::textarea_overlays(
             fb,

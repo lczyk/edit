@@ -115,12 +115,8 @@ pub struct VisualLine {
 /// resulting `TextareaPhysics` carries everything the eventual
 /// stage-2 `draw(physics, fb)` needs to render this textarea at its
 /// target state.
-///
-/// `&mut tb` because `layout()` writes the `cursor_for_rendering`
-/// cache. Once that cache becomes caller-owned, this can drop the
-/// mut.
 pub fn build_textarea_physics<'a>(
-    tb: &'a mut crate::buffer::TextBuffer,
+    tb: &'a crate::buffer::TextBuffer,
     scroll_offset: Point,
     dest: Rect,
     cursor_override: Option<Point>,
@@ -167,6 +163,14 @@ pub struct TextareaLayout {
     /// the running cursor at the top of pass 1 and the cursor at
     /// the end of the visible region.
     pub highlight_logical_y_range: std::ops::Range<CoordType>,
+    /// Cursor at the start of the first visible row -- used as the
+    /// seed for the next render's cursor walk, and as the start
+    /// cursor for the syntax-highlight scan in
+    /// [`crate::buffer::TextBuffer::render_apply_highlights`]. The
+    /// caller writes this back into `TextBuffer::cursor_for_rendering`
+    /// before invoking the lsh pass. `None` when the visible area
+    /// is empty.
+    pub start_cursor: Option<crate::unicode::Cursor>,
 }
 
 /// Selection geometry covering the whole visible viewport, in
@@ -221,7 +225,7 @@ mod tests {
         let dest = Rect { left: 0, top: 0, right: 80, bottom: 24 };
         let cursor_pos = tb.cursor_visual_pos();
         let line_count = tb.visual_line_count();
-        let phys = build_textarea_physics(&mut tb, Point { x: 0, y: 0 }, dest, None, true);
+        let phys = build_textarea_physics(&tb, Point { x: 0, y: 0 }, dest, None, true);
         assert_eq!(phys.dest, dest);
         assert_eq!(phys.scroll_offset, Point { x: 0, y: 0 });
         assert_eq!(phys.cursor_visual, cursor_pos);
