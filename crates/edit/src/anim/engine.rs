@@ -21,11 +21,10 @@ use std::time::Instant;
 use crate::buffer::LineMoveEvent;
 use crate::helpers::{CoordType, Point};
 
-/// Tui-level anim state that persists across frames. Today this is
-/// just the per-frame timing pieces plus the floater-open timer
-/// table; in stage 4 it grows to own the per-textarea state too,
-/// keyed by node id, so `TextareaContent` no longer carries its own
-/// `anim` field.
+/// Tui-level anim state that persists across frames. Owns the
+/// per-frame timing pieces, the floater-open timer table, and the
+/// per-textarea anim state keyed by node id. `TextareaContent` no
+/// longer carries its own anim fields.
 #[derive(Default)]
 pub struct TuiAnimState {
     /// Wall-clock of the previous `render()` call. Used to derive
@@ -36,9 +35,9 @@ pub struct TuiAnimState {
     /// doesn't cause a giant lerp jump.
     pub dt_secs: f32,
     /// Monotonic frame counter, bumped at the top of every
-    /// `Tui::render` call. The stage-4 unified animator reads this to
-    /// tell "first sighting" of a `Physics` node from "subsequent
-    /// frame" -- e.g. so dropdown open animations don't replay if the
+    /// `Tui::render` call. Used to tell "first sighting" of a node
+    /// from "subsequent frame" -- e.g. so dropdown open animations
+    /// don't replay if the
     /// caller forces a re-render before the node closes. `u64` so it
     /// can't realistically wrap.
     pub frame: u64,
@@ -54,8 +53,8 @@ pub struct TuiAnimState {
 }
 
 /// Per-textarea anim state that persists across frames. Grouped
-/// together so the eventual stage-4 unified animator can own it as
-/// one chunk rather than scattered fields on `TextareaContent`.
+/// together as one chunk rather than scattered fields on
+/// `TextareaContent`.
 ///
 /// Must not contain items that require `Drop` -- this lives inside
 /// `TextareaContent` which has that constraint (it sits in arena
@@ -247,10 +246,8 @@ pub fn advance_floater_open(
 /// Returns the displayed physics + a `still_animating` bool so the
 /// caller can decide whether to request another animation frame.
 ///
-/// Today this is a thin wrapper over the per-feature advance fns;
-/// in the eventual flow it's the single switching point that
-/// callers go through (vs. `animate_nil` when animations are
-/// disabled).
+/// This is the switching point callers go through (vs. `animate_nil`
+/// when animations are disabled).
 pub fn animate<'a>(
     state: &mut crate::anim::engine::TextareaAnimState,
     mut target: crate::anim::physics::TextareaPhysics<'a>,
@@ -290,11 +287,11 @@ pub fn animate<'a>(
 
 /// Identity animator: returns the input physics unmodified.
 ///
-/// Stage 3's "nil animator" -- when animations are disabled the
-/// flow collapses to `draw(animate_nil(build_physics()))`, which is
-/// just `draw(build_physics())`. Used as the no-anim branch of the
-/// eventual `animate()` switch so the rest of the pipeline doesn't
-/// have to know about the killswitch.
+/// When animations are disabled the flow collapses to
+/// `draw(animate_nil(build_physics()))`, which is just
+/// `draw(build_physics())`. The `no_animations()` branch at the Tui
+/// level skips the real `animate()` path; the rest of the pipeline
+/// doesn't have to know about the killswitch.
 pub fn animate_nil<'a>(
     phys: crate::anim::physics::TextareaPhysics<'a>,
 ) -> crate::anim::physics::TextareaPhysics<'a> {

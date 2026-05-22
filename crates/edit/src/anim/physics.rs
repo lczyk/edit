@@ -79,9 +79,9 @@ pub struct TextareaPhysics<'a> {
     pub layout: Option<TextareaLayout>,
 }
 
-/// Per-visual-line layout output produced by pass 1 of
-/// [`crate::buffer::TextBuffer::render`] (the eventual
-/// `TextBuffer::layout()`). One per row of the visible viewport.
+/// Per-visual-line layout output produced by
+/// [`crate::buffer::TextBuffer::layout`]. One per row of the
+/// visible viewport.
 ///
 /// Owned data only: `text` is `String`, rect collections are
 /// `Vec<Rect>`. This lets pass 1's output cross arena boundaries
@@ -115,8 +115,8 @@ pub struct VisualLine {
 /// Build a [`TextareaPhysics`] from the live `TextBuffer` +
 /// surrounding context. Runs `TextBuffer::layout()` to populate the
 /// post-layout per-row outputs as part of physics build; the
-/// resulting `TextareaPhysics` carries everything the eventual
-/// stage-2 `draw(physics, fb)` needs to render this textarea at its
+/// resulting `TextareaPhysics` carries everything
+/// `textarea_lines` / `textarea_overlays` need to render this textarea at its
 /// target state.
 pub fn build_textarea_physics<'a>(
     tb: &'a crate::buffer::TextBuffer,
@@ -141,8 +141,8 @@ pub fn build_textarea_physics<'a>(
 }
 
 /// Full layout output of [`crate::buffer::TextBuffer::layout`] --
-/// pass 1 of the eventual `render(physics)` flow. Carries every
-/// piece of data pass 2 paint needs: one [`VisualLine`] per visible
+/// the first pass of the textarea render flow. Carries every piece
+/// of data the second paint pass needs: one [`VisualLine`] per visible
 /// row, the per-row gutter marks vec, the visual-x extent, and the
 /// scratch state pass 2 forwards into `render_apply_highlights` +
 /// `textarea_overlays`.
@@ -176,7 +176,7 @@ pub struct TextareaLayout {
 }
 
 /// Selection geometry covering the whole visible viewport, in
-/// document-visual coords. Produced by the eventual `layout()`.
+/// document-visual coords. Produced by [`TextBuffer::layout`].
 /// The `active_edge_x` is the visual x of the cursor-anchored end
 /// of the selection -- the animator displaces this to keep the
 /// trailing edge glued to the animated cursor without disturbing

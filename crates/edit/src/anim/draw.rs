@@ -66,9 +66,8 @@ pub fn textarea_lines(
 /// block) into one shape so the caller doesn't have to remember the
 /// order or thread shared geometry through each.
 ///
-/// Forward-looking: stage-2's top-level `draw(physics)` fn will
-/// consume a `Physics` IR with this shape pre-computed; today it's
-/// populated inline by `TextBuffer::render`.
+/// Passed to [`textarea_overlays`] after the per-row text blit.
+/// Carries every post-text paint input the overlay fn needs.
 pub struct TextareaOverlayOpts<'a> {
     /// Full destination rect (incl. margin).
     pub dest: Rect,

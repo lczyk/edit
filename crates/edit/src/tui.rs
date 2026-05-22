@@ -1140,15 +1140,13 @@ impl Tui {
     /// in [`Tui::render_node`]:
     ///
     /// 1. Compute minimap / scrollbar widths, narrow destination.
-    /// 2. Snap lerps on buffer-edit detection.
-    /// 3. Drain pending line-move event into the trail-flash slot.
-    /// 4. Advance scroll + cursor lerps -- if either is still
-    ///    animating, cap read_timeout to one frame.
-    /// 5. Hand off to `TextBuffer::render` for the body paint
-    ///    (which itself runs the post-paint overlay pass).
-    /// 6. Paint the in-flight line-move trail overlay (if any).
-    /// 7. Paint the minimap rail (if visible).
-    /// 8. Paint the scrollbar (if visible, mutually exclusive w/
+    /// 2. Dispatch on `no_animations()` -- snap or advance lerps.
+    /// 3. Seed line-move trail from buffer event if fresh.
+    /// 4. Call `tb.layout()` + orchestrate the two-pass paint via
+    ///    `anim::draw::textarea_lines` + `textarea_overlays`.
+    /// 5. Paint the in-flight line-move trail overlay (if any).
+    /// 6. Paint the minimap rail (if visible).
+    /// 7. Paint the scrollbar (if visible, mutually exclusive w/
     ///    the minimap).
     fn render_textarea_content(
         &mut self,
@@ -1230,10 +1228,11 @@ impl Tui {
             (visual_offset, cursor_override)
         };
 
-        // Stage-3 wiring: orchestrate layout + paint here rather than
-        // inside tb.render. tb.layout returns an owned TextareaLayout;
-        // paint runs in two passes (text rows + lsh + overlays) with
-        // tb borrowed mutably only where it must be (cursor seed, lsh).
+        // Orchestrate layout + paint here: tb.layout returns an owned
+        // TextareaLayout; paint runs in two passes (text rows + lsh +
+        // overlays) with tb borrowed mutably only where it must be
+        // (cursor seed, lsh). Formerly lived inside the now-deleted
+        // TextBuffer::render.
         if let Some(layout) = tb.layout(visual_offset, destination, Some(cursor_override)) {
             tb.set_cursor_for_rendering(layout.start_cursor);
             let selection_rects = anim::draw::textarea_lines(
@@ -1270,8 +1269,9 @@ impl Tui {
         }
 
         // Trail-flash overlay for the line-move animation. Runs
-        // after `tb.render` so it paints on top of the text. Expires
-        // once duration elapsed. Per-row band shape (which columns
+        // after the textarea paint pass so it sits on top of the
+        // text. Expires once duration elapsed. Per-row band shape
+        // (which columns
         // get tinted) comes from `tb.line_move_bands()`. We narrow
         // `destination` to exclude the buffer's left margin (line
         // numbers / gutter marks) so the band stays in the text area.

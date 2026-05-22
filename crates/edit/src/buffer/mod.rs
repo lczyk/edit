@@ -2246,9 +2246,9 @@ impl TextBuffer {
         BodyTextRects { whitespace_visualizers, control_chars }
     }
 
-    /// Pass 1 of [`TextBuffer::render`]: build the per-row layout
-    /// outputs (text, dim-margin flag, selection rect, shadow-match
-    /// rects, visualiser rects) into a [`TextareaLayout`]. Pure
+    /// Build the per-row layout outputs (text, dim-margin flag,
+    /// selection rect, shadow-match rects, visualiser rects) into a
+    /// [`TextareaLayout`]. Pure
     /// `&self` -- no buffer mutation. The caller writes the
     /// returned `start_cursor` back into `cursor_for_rendering`
     /// before invoking the lsh pass.
