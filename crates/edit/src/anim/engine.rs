@@ -478,4 +478,53 @@ mod tests {
         assert_eq!(cursor, Some((30.0, 40.0)));
         assert_eq!(last_gen, 8);
     }
+
+    #[test]
+    fn seed_line_move_trail_skips_stale_event() {
+        // Same gen as last seen -- no fresh install.
+        let mut slot: Option<LineMoveAnim> = None;
+        let mut last_seen = 5u32;
+        seed_line_move_trail(
+            &mut slot,
+            &mut last_seen,
+            Some(LineMoveEvent { to_visual_y: 3, visual_height: 1 }),
+            5,
+            Instant::now(),
+        );
+        assert!(slot.is_none());
+        assert_eq!(last_seen, 5);
+    }
+
+    #[test]
+    fn seed_line_move_trail_installs_on_new_gen() {
+        let mut slot: Option<LineMoveAnim> = None;
+        let mut last_seen = 5u32;
+        seed_line_move_trail(
+            &mut slot,
+            &mut last_seen,
+            Some(LineMoveEvent { to_visual_y: 3, visual_height: 2 }),
+            6,
+            Instant::now(),
+        );
+        let line_move = slot.expect("fresh event installs slot");
+        assert_eq!(line_move.to_y, 3);
+        assert_eq!(line_move.height, 2);
+        assert_eq!(last_seen, 6);
+    }
+
+    #[test]
+    fn seed_line_move_trail_advances_gen_when_disabled() {
+        // Even on a fresh event w/ no animation install, the
+        // last-seen gen advances so re-enabling animations later
+        // doesn't immediately re-trigger an old trail.
+        //
+        // Verifies the post-condition for the None-event branch
+        // since toggling the global no_animations() flag from a
+        // test is racy.
+        let mut slot: Option<LineMoveAnim> =
+            Some(LineMoveAnim { to_y: 0, height: 0, started_at: Instant::now() });
+        let mut last_seen = 5u32;
+        seed_line_move_trail(&mut slot, &mut last_seen, None, 6, Instant::now());
+        assert_eq!(last_seen, 6, "gen advances even on None event");
+    }
 }
