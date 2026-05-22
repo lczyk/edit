@@ -401,6 +401,39 @@ mod tests {
     }
 
     #[test]
+    fn advance_scroll_initial_step_lerps_toward_target() {
+        // Assumes the global no_animations() defaults to false.
+        let mut visual = (0.0_f32, 0.0_f32);
+        let target = Point { x: 100, y: 100 };
+        let out = advance_scroll(&mut visual, target, 0.016);
+        // One ~tau-sized step covers ~24% of the distance at the
+        // default 60ms tau (alpha = 1 - exp(-0.016 / 0.060) ~= 0.235).
+        assert!(visual.0 > 1.0 && visual.0 < 99.0);
+        assert!(visual.1 > 1.0 && visual.1 < 99.0);
+        // Rounded integer offset must lie between origin and target.
+        assert!(out.x > 0 && out.x < target.x);
+        assert!(out.y > 0 && out.y < target.y);
+    }
+
+    #[test]
+    fn advance_scroll_snaps_when_within_half_cell() {
+        let mut visual = (99.7_f32, 99.7_f32);
+        let target = Point { x: 100, y: 100 };
+        let out = advance_scroll(&mut visual, target, 0.016);
+        assert_eq!(visual, (100.0, 100.0));
+        assert_eq!(out, target);
+    }
+
+    #[test]
+    fn advance_cursor_first_call_snaps_to_target() {
+        let mut visual: Option<(f32, f32)> = None;
+        let target = Point { x: 42, y: 7 };
+        let out = advance_cursor(&mut visual, target, 0.016);
+        assert_eq!(out, target);
+        assert_eq!(visual, Some((42.0, 7.0)));
+    }
+
+    #[test]
     fn snap_on_buffer_edit_snaps_when_gen_changed() {
         let mut scroll = (1.2, 3.4);
         let mut cursor = Some((5.6, 7.8));
