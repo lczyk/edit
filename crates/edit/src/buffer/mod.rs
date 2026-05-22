@@ -3428,12 +3428,14 @@ impl TextBuffer {
     }
 
     /// Builds the tinted column spans for one logical line of the
-    /// line-move sweep band. Splits on runs of ASCII space / tab so
-    /// whitespace cells (leading indent, trailing whitespace, gaps
-    /// between tokens) stay untinted. Returns a single full-width span
-    /// for empty lines (so blank rows inside a multi-line move still
-    /// flash) and for whitespace-only lines. Unicode whitespace
-    /// (U+00A0 NBSP etc.) is not treated as whitespace.
+    /// line-move sweep band. One span per line, running from the first
+    /// non-whitespace column to just past the last -- leading indent
+    /// and trailing whitespace stay untinted. Mid-line whitespace
+    /// (gaps between tokens) is included; those cells have no
+    /// explicit fg so the renderer tints them with the theme's
+    /// foreground colour. Empty / whitespace-only lines collapse to a
+    /// single full-width span so blank rows still flash. Whitespace
+    /// recognised: ASCII space + tab (not unicode U+00A0 NBSP etc).
     fn compute_line_band(&self, y: CoordType) -> RowBand {
         let line_start = self.goto_line_start(self.cursor, y);
         let next_line = self.cursor_move_to_logical_internal(line_start, Point { x: 0, y: y + 1 });
@@ -3468,39 +3470,22 @@ impl TextBuffer {
             return Box::new([(0, self.text_width())]);
         }
 
-        // Find byte-offset boundaries of each non-whitespace run. Ws
-        // checks only fire on ASCII bytes (0x20 / 0x09); UTF-8
-        // continuation bytes (0x80..0xBF) compare unequal and stay in
-        // the run, so multi-byte glyphs are kept whole.
-        let mut runs: Vec<(usize, usize)> = Vec::new();
-        let mut run_start: Option<usize> = None;
-        for (i, &b) in bytes.iter().enumerate() {
-            if is_ws(b) {
-                if let Some(s) = run_start.take() {
-                    runs.push((s, i));
-                }
-            } else if run_start.is_none() {
-                run_start = Some(i);
-            }
-        }
-        if let Some(s) = run_start.take() {
-            runs.push((s, bytes.len()));
-        }
+        // First and last non-whitespace byte offsets in the line.
+        // Whitespace checks only fire on ASCII bytes (0x20 / 0x09); UTF-8
+        // continuation bytes (0x80..0xBF) are non-ws, so the bounds
+        // never land inside a multi-byte glyph.
+        let first = bytes.iter().position(|&b| !is_ws(b)).unwrap();
+        let last = bytes.iter().rposition(|&b| !is_ws(b)).unwrap();
 
-        // Convert each byte-offset run to a visual-column span. Walk
-        // the cursor forward across runs so each measurement is local.
-        let mut spans: Vec<(CoordType, CoordType)> = Vec::with_capacity(runs.len());
-        let mut cur = line_start;
-        for &(beg, end) in &runs {
-            cur = self.cursor_move_to_offset_internal(cur, line_off + beg);
-            let l = cur.visual_pos.x;
-            cur = self.cursor_move_to_offset_internal(cur, line_off + end);
-            let r = cur.visual_pos.x;
-            if r > l {
-                spans.push((l, r));
-            }
-        }
-        spans.into_boxed_slice()
+        // Convert byte offsets to visual columns. The right bound steps
+        // one grapheme past the last non-ws byte so the band covers the
+        // whole final glyph (incl. multi-byte / wide chars).
+        let at_first = self.cursor_move_to_offset_internal(line_start, line_off + first);
+        let at_last = self.cursor_move_to_offset_internal(at_first, line_off + last);
+        let past_last = self.cursor_move_delta_internal(at_last, CursorMovement::Grapheme, 1);
+        let l = at_first.visual_pos.x;
+        let r = past_last.visual_pos.x;
+        if r > l { Box::new([(l, r)]) } else { Box::new([]) }
     }
 
     /// Displaces the current, cursor or the selection, line(s) in the given direction.
