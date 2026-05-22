@@ -152,9 +152,7 @@ pub fn seed_line_move_trail(
         return;
     }
     *last_seen_gen = ev_gen;
-    if let Some(ev) = ev
-        && !crate::glyphs::no_animations()
-    {
+    if let Some(ev) = ev {
         *slot =
             Some(LineMoveAnim { to_y: ev.to_visual_y, height: ev.visual_height, started_at: now });
     }
@@ -203,9 +201,6 @@ pub fn advance_floater_open(
     scale_in: bool,
     now: Instant,
 ) -> Option<FloaterClip> {
-    if crate::glyphs::no_animations() {
-        return None;
-    }
     if !slide_down && !scale_in {
         return None;
     }
@@ -328,11 +323,6 @@ pub fn ease_out_cubic(alpha: f32) -> f32 {
 /// curve completes in ~6 tau (~360ms at the default tau), so even a
 /// 5000-line jump is over quickly.
 pub fn advance_scroll(visual: &mut (f32, f32), target: Point, dt_secs: f32) -> Point {
-    if crate::glyphs::no_animations() {
-        *visual = (target.x as f32, target.y as f32);
-        return target;
-    }
-
     let target_x = target.x as f32;
     let target_y = target.y as f32;
 
@@ -362,11 +352,6 @@ pub fn advance_scroll(visual: &mut (f32, f32), target: Point, dt_secs: f32) -> P
 /// Animates regardless of jump size for the same orientation reason
 /// as `advance_scroll`.
 pub fn advance_cursor(visual: &mut Option<(f32, f32)>, target: Point, dt_secs: f32) -> Point {
-    if crate::glyphs::no_animations() {
-        *visual = Some((target.x as f32, target.y as f32));
-        return target;
-    }
-
     let target_x = target.x as f32;
     let target_y = target.y as f32;
 
@@ -492,7 +477,8 @@ mod tests {
 
     #[test]
     fn advance_scroll_initial_step_lerps_toward_target() {
-        // Assumes the global no_animations() defaults to false.
+        // advance_scroll no longer gates on no_animations(); the caller
+        // decides whether to call it. This test verifies the pure lerp.
         let mut visual = (0.0_f32, 0.0_f32);
         let target = Point { x: 100, y: 100 };
         let out = advance_scroll(&mut visual, target, 0.016);
@@ -577,13 +563,10 @@ mod tests {
 
     #[test]
     fn seed_line_move_trail_advances_gen_when_disabled() {
-        // Even on a fresh event w/ no animation install, the
-        // last-seen gen advances so re-enabling animations later
-        // doesn't immediately re-trigger an old trail.
-        //
-        // Verifies the post-condition for the None-event branch
-        // since toggling the global no_animations() flag from a
-        // test is racy.
+        // Even with a None event (no slot install), last-seen gen
+        // advances so a fresh event arriving later is still detected.
+        // This path is exercised by the no_animations() branch in Tui
+        // which skips seed_line_move_trail but still bumps the gen.
         let mut slot: Option<LineMoveAnim> =
             Some(LineMoveAnim { to_y: 0, height: 0, started_at: Instant::now() });
         let mut last_seen = 5u32;

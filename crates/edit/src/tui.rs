@@ -939,24 +939,28 @@ impl Tui {
         // ~150ms after the node first appears. We mutate `outer_clipped` /
         // `inner_clipped` of the entire subtree in place; the tree is
         // rebuilt next frame so the mutation is harmless beyond render.
-        if let Some(clip) = anim::engine::advance_floater_open(
-            &mut self.anim.floater_opened_at,
-            node.id,
-            node.outer_clipped.top,
-            node.outer_clipped.bottom,
-            node.attributes.slide_down,
-            node.attributes.scale_in,
-            time::Instant::now(),
-        ) {
-            match clip {
-                anim::engine::FloaterClip::Band(top, bottom) => {
-                    Self::clip_subtree_band(node, top, bottom);
+        // no_animations() guard is here, not in advance_floater_open --
+        // single dispatch point at the Tui level.
+        if !crate::glyphs::no_animations() {
+            if let Some(clip) = anim::engine::advance_floater_open(
+                &mut self.anim.floater_opened_at,
+                node.id,
+                node.outer_clipped.top,
+                node.outer_clipped.bottom,
+                node.attributes.slide_down,
+                node.attributes.scale_in,
+                time::Instant::now(),
+            ) {
+                match clip {
+                    anim::engine::FloaterClip::Band(top, bottom) => {
+                        Self::clip_subtree_band(node, top, bottom);
+                    }
+                    anim::engine::FloaterClip::Bottom(bottom) => {
+                        Self::clip_subtree_bottom(node, bottom);
+                    }
                 }
-                anim::engine::FloaterClip::Bottom(bottom) => {
-                    Self::clip_subtree_bottom(node, bottom);
-                }
+                self.request_animation_frame();
             }
-            self.request_animation_frame();
         }
 
         let outer_clipped = node.outer_clipped;
@@ -1171,43 +1175,58 @@ impl Tui {
         // calls below.
         let mut anim_state = *self.anim.textareas.entry(node_id).or_default();
 
-        anim::engine::snap_on_buffer_edit(
-            &mut anim_state.scroll_visual,
-            &mut anim_state.cursor_visual,
-            &mut anim_state.last_buffer_generation,
-            tb.generation(),
-            tc.scroll_offset,
-            tb.cursor_visual_pos(),
-        );
+        // Single no_animations() dispatch: when animations are disabled,
+        // snap everything to target and skip the per-feature lerps. The
+        // inner advance_* fns no longer check the killswitch themselves.
+        let (visual_offset, cursor_override) = if crate::glyphs::no_animations() {
+            anim_state.scroll_visual =
+                (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
+            anim_state.cursor_visual = {
+                let c = tb.cursor_visual_pos();
+                Some((c.x as f32, c.y as f32))
+            };
+            anim_state.last_buffer_generation = tb.generation();
+            // Bump the line-move gen so re-enabling animations doesn't
+            // re-trigger an old trail.
+            anim_state.last_line_move_gen = tb.peek_pending_line_move().1;
+            (tc.scroll_offset, tb.cursor_visual_pos())
+        } else {
+            anim::engine::snap_on_buffer_edit(
+                &mut anim_state.scroll_visual,
+                &mut anim_state.cursor_visual,
+                &mut anim_state.last_buffer_generation,
+                tb.generation(),
+                tc.scroll_offset,
+                tb.cursor_visual_pos(),
+            );
 
-        // Peek the buffer's most-recent line-move event + generation.
-        // The seed fn compares the gen to the animator's last-seen
-        // value so re-reading an old event is a no-op, and gates the
-        // install on the no-animations() killswitch.
-        let (line_move_ev, line_move_gen) = tb.peek_pending_line_move();
-        anim::engine::seed_line_move_trail(
-            &mut anim_state.line_move,
-            &mut anim_state.last_line_move_gen,
-            line_move_ev,
-            line_move_gen,
-            time::Instant::now(),
-        );
+            let (line_move_ev, line_move_gen) = tb.peek_pending_line_move();
+            anim::engine::seed_line_move_trail(
+                &mut anim_state.line_move,
+                &mut anim_state.last_line_move_gen,
+                line_move_ev,
+                line_move_gen,
+                time::Instant::now(),
+            );
 
-        let visual_offset = anim::engine::advance_scroll(
-            &mut anim_state.scroll_visual,
-            tc.scroll_offset,
-            self.anim.dt_secs,
-        );
-        let cursor_target = tb.cursor_visual_pos();
-        let cursor_override = anim::engine::advance_cursor(
-            &mut anim_state.cursor_visual,
-            cursor_target,
-            self.anim.dt_secs,
-        );
-        let still_animating = visual_offset != tc.scroll_offset || cursor_override != cursor_target;
-        if still_animating {
-            self.request_animation_frame();
-        }
+            let visual_offset = anim::engine::advance_scroll(
+                &mut anim_state.scroll_visual,
+                tc.scroll_offset,
+                self.anim.dt_secs,
+            );
+            let cursor_target = tb.cursor_visual_pos();
+            let cursor_override = anim::engine::advance_cursor(
+                &mut anim_state.cursor_visual,
+                cursor_target,
+                self.anim.dt_secs,
+            );
+            let still_animating =
+                visual_offset != tc.scroll_offset || cursor_override != cursor_target;
+            if still_animating {
+                self.request_animation_frame();
+            }
+            (visual_offset, cursor_override)
+        };
 
         // Stage-3 wiring: orchestrate layout + paint here rather than
         // inside tb.render. tb.layout returns an owned TextareaLayout;

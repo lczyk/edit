@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 date: 2026-05-22
 description: unify scattered ad-hoc anim machinery behind a physics/animator/draw split where physics = full frame IR, animator = pure perturbation, draw = pure consumer
 ---
@@ -201,15 +201,14 @@ milestones worth committing on:
 
 ## status -- 2026-05-22
 
-partial-landed on `lczyk-remix` (57 commits past `v0.10.0`). per-stage state:
+partial-landed on `lczyk-remix` (63 commits past `v0.10.0`). per-stage state:
 
 - **stage 0** -- done. `crate::anim` module w/ `mod.rs`, `draw.rs`, `engine.rs`, `physics.rs`.
 - **stage 1** -- done. `TextBuffer::layout(&self, ...) -> Option<TextareaLayout>` extracted; `render()` is `layout + paint pass + lsh + overlays`. `Physics` IR (`TextareaPhysics`, `VisualLine`, `TextareaLayout`, `SelectionGeom`) defined in `anim::physics`. `build_textarea_physics(&tb, ...)` calls `layout()` + populates the IR.
 - **stage 2** -- done structurally. all per-row + post-paint blends live in `anim::draw` (11 paint helpers + `textarea_lines` consumer + `textarea_overlays` bundle). `TextBuffer::render` has zero direct fb mutation outside `replace_text` and the `anim::draw` calls.
-- **stage 3** -- done. `Tui::render_textarea_content` now orchestrates layout + paint directly: `tb.layout()` -> `tb.set_cursor_for_rendering()` -> `anim::draw::textarea_lines()` -> `tb.render_apply_highlights()` -> `anim::draw::textarea_overlays()`. `tb.render()` is no longer on the production path (still kept as a thin shim for buffer-level smoke tests). `animate_nil` + `animate` wrappers in `anim::engine` exist; per-feature lerps (`advance_scroll`, `advance_cursor`) still called individually at Tui level rather than through one top-level `animate()`. tightening that to a single dispatcher is mechanical follow-up.
+- **stage 3** -- done. `Tui::render_textarea_content` now orchestrates layout + paint directly: `tb.layout()` -> `tb.set_cursor_for_rendering()` -> `anim::draw::textarea_lines()` -> `tb.render_apply_highlights()` -> `anim::draw::textarea_overlays()`. `tb.render()` deleted entirely. `animate_nil` + `animate` wrappers in `anim::engine` exist; `no_animations()` dispatch collapsed to single point at Tui level; inner `advance_*` fns no longer check the killswitch.
 - **stage 4** -- done. `TextareaContent` holds zero anim state -- it all lives in `Tui::anim` (`TextareaAnimState` keyed by node id, `TuiAnimState` for the floater map + frame counter). both renderer sidechannels eliminated: `cursor_render_override` is now an explicit `render()` arg; `take_pending_line_move` is now non-draining `peek_pending_line_move` w/ a generation counter.
-- **stage 5** -- substantial. 30+ unit tests on pure `anim::engine` + `anim::physics` fns + 9 `TextBuffer::render` smoke tests + 6 `TextBuffer::layout` purity tests + 3-test triad for the `animate` wrapper.
+- **stage 5** -- done. 30+ unit tests on pure `anim::engine` + `anim::physics` fns + 6 `TextBuffer::layout` purity tests + 3-test triad for the `animate` wrapper. `TextBuffer::render` deleted (`a891db9`).
 
 remaining work:
-- collapse per-feature `no_animations()` checks in `anim::engine::advance_*` into one top-level dispatcher (`animate` vs `animate_nil`) at the Tui level.
-- convert the 9 `tb.render` smoke tests to use the orchestrated form, then delete `pub fn render` from `TextBuffer` entirely.
+- (none tracked here; doc is design reference, not task list. both items below landed.)
