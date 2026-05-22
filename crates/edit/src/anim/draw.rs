@@ -16,6 +16,83 @@ use crate::buffer::{MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RowBand};
 use crate::framebuffer::{Framebuffer, IndexedColor};
 use crate::helpers::{CoordType, Point, Rect};
 
+/// Inputs to [`textarea_overlays`] -- the post-paint overlay pass
+/// for a single textarea. Bundles the five separate paint calls
+/// (selection fg force, margin tint, gutter marks, ruler, cursor
+/// block) into one shape so the caller doesn't have to remember the
+/// order or thread shared geometry through each.
+///
+/// Forward-looking: stage-2's top-level `draw(physics)` fn will
+/// consume a `Physics` IR with this shape pre-computed; today it's
+/// populated inline by `TextBuffer::render`.
+pub struct TextareaOverlayOpts<'a> {
+    /// Full destination rect (incl. margin).
+    pub dest: Rect,
+    /// Viewport origin (scroll offset).
+    pub origin: Point,
+    /// Margin / gutter column width.
+    pub margin_width: CoordType,
+    /// Ruler column in document-visual coords; <=0 disables.
+    pub ruler_column: CoordType,
+    /// Per-line selection rects collected during the layout loop.
+    pub selection_rects: &'a [Rect],
+    /// Per-line gutter marks collected during the layout loop.
+    pub gutter_marks: &'a [(CoordType, GutterMark)],
+    /// Whether the textarea has keyboard focus -- gates the cursor
+    /// block + line highlight.
+    pub focused: bool,
+    /// Visual cursor position (animated or buffer-authoritative).
+    pub cursor_visual: Point,
+    /// Word-wrap column (`<= 0` if word-wrap is off).
+    pub word_wrap_column: CoordType,
+    /// Whether overtype mode is on (drives terminal cursor shape).
+    pub overtype: bool,
+    /// Whether the cursor row should show the line-highlight band
+    /// (caller pre-computes `line_highlight_enabled && no selection`).
+    pub line_highlight: bool,
+}
+
+/// Runs the post-paint overlay pass for one textarea: the five
+/// paints that need to run **after** the per-line body text +
+/// inline-paint loop has finished. Order matters and is encoded
+/// here:
+///
+/// 1. [`selection_force_fg`] -- overrides lsh syntax fg on
+///    selection rects with Black so tokens stay readable.
+/// 2. [`margin_tint`] -- dims the gutter column.
+/// 3. [`gutter_marks`] -- paints per-line marks; must come after
+///    `margin_tint` so marks aren't dimmed.
+/// 4. [`ruler`] -- paints the column-ruler band.
+/// 5. [`cursor_block`] -- terminal cursor + optional line
+///    highlight; only if `focused`.
+pub fn textarea_overlays(fb: &mut Framebuffer, opts: TextareaOverlayOpts) {
+    let sel_fg = fb.indexed(IndexedColor::Black);
+    selection_force_fg(fb, opts.selection_rects, sel_fg);
+    margin_tint(fb, opts.dest.left, opts.dest.top, opts.margin_width, opts.dest.bottom);
+    gutter_marks(fb, opts.dest.left, opts.margin_width, opts.gutter_marks);
+    ruler(
+        fb,
+        opts.dest.left + opts.margin_width,
+        opts.dest.top,
+        opts.dest.right,
+        opts.dest.bottom,
+        opts.origin.x,
+        opts.ruler_column,
+    );
+    if opts.focused {
+        cursor_block(
+            fb,
+            opts.dest,
+            opts.origin,
+            opts.margin_width,
+            opts.cursor_visual,
+            opts.word_wrap_column,
+            opts.overtype,
+            opts.line_highlight,
+        );
+    }
+}
+
 /// Maps a viewport scroll offset to the [top, bottom) row range on the rail.
 /// Band height is held constant across scroll positions (computed once from
 /// viewport / content ratio) so the highlight doesn't visibly shrink/grow as

@@ -2242,44 +2242,22 @@ impl TextBuffer {
         let logical_y_end = cursor.logical_pos.y + 1;
         self.render_apply_highlights(origin, destination, logical_y_beg..logical_y_end, fb);
 
-        // Force selection glyph color to black after lsh, so syntax-highlighted
-        // tokens (keywords etc.) inside the selection stay readable.
-        let sel_fg = fb.indexed(IndexedColor::Black);
-        crate::anim::draw::selection_force_fg(fb, &selection_rects, sel_fg);
-
-        // Colorize the margin that we wrote above.
-        crate::anim::draw::margin_tint(
+        crate::anim::draw::textarea_overlays(
             fb,
-            destination.left,
-            destination.top,
-            self.margin_width,
-            destination.bottom,
-        );
-
-        crate::anim::draw::gutter_marks(fb, destination.left, self.margin_width, &gutter_paint);
-
-        crate::anim::draw::ruler(
-            fb,
-            destination.left + self.margin_width,
-            destination.top,
-            destination.right,
-            destination.bottom,
-            origin.x,
-            self.ruler,
-        );
-
-        if focused {
-            crate::anim::draw::cursor_block(
-                fb,
-                destination,
+            crate::anim::draw::TextareaOverlayOpts {
+                dest: destination,
                 origin,
-                self.margin_width,
-                cursor_visual_render,
-                self.word_wrap_column,
-                self.overtype,
-                self.line_highlight_enabled && selection_beg >= selection_end,
-            );
-        }
+                margin_width: self.margin_width,
+                ruler_column: self.ruler,
+                selection_rects: &selection_rects,
+                gutter_marks: &gutter_paint,
+                focused,
+                cursor_visual: cursor_visual_render,
+                word_wrap_column: self.word_wrap_column,
+                overtype: self.overtype,
+                line_highlight: self.line_highlight_enabled && selection_beg >= selection_end,
+            },
+        );
 
         Some(RenderResult { visual_pos_x_max })
     }
