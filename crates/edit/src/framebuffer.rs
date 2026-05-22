@@ -392,6 +392,13 @@ impl Framebuffer {
     /// its own (syntax-highlighted) colour as the wash instead of a single
     /// per-line accent.
     pub fn tint_bg_with_fg(&mut self, target: Rect, alpha_num: u32, alpha_den: u32) {
+        // Default text foreground is used as the tint for cells whose
+        // fg has not been explicitly written (alpha == 0 means "fall back
+        // to the terminal default"). Without this the band over a
+        // no-syntax-highlight cell would tint toward transparent black
+        // and read as a dark smudge rather than the colour the glyph is
+        // actually drawn in.
+        let default_fg = self.indexed_colors[IndexedColor::Foreground as usize].to_le();
         let back = &mut self.buffers[self.frame_counter & 1];
         let size = back.bg_bitmap.size;
         let target = target.intersect(size.as_rect());
@@ -413,7 +420,8 @@ impl Framebuffer {
                 while end < row_right && back.fg_bitmap.data[row + end] == fg {
                     end += 1;
                 }
-                let tint = StraightRgba::from_le(alpha | (fg.to_le() & 0x00ffffff));
+                let rgb = if fg.alpha() == 0 { default_fg } else { fg.to_le() } & 0x00ffffff;
+                let tint = StraightRgba::from_le(alpha | rgb);
                 for cell in &mut back.bg_bitmap.data[row + x..row + end] {
                     *cell = cell.oklab_blend(tint);
                 }
