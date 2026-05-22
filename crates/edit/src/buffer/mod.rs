@@ -416,13 +416,16 @@ impl TextBuffer {
     }
 
     pub fn set_minimap_cells(&mut self, cells: Vec<MinimapCell>, content_rows: u32) {
-        // Sanity (E): minimap content_rows should track the logical-line count
-        // of the source buffer. Cell length is a separately-bounded render
-        // height; we only check that content_rows is plausible.
+        // Sanity (E): minimap content_rows must not exceed the logical-line
+        // count -- the minimap cannot describe rows the buffer does not have.
+        // Lower bound is loose: minimap's `split_lines` drops the empty
+        // virtual line after a trailing newline, so `content_rows ==
+        // logical_lines - 1` is normal.
         #[cfg(feature = "sanity")]
         crate::sanity_check!(
             minimap_content_rows_drift,
-            content_rows as i64 >= self.stats.logical_lines as i64,
+            content_rows as i64 <= self.stats.logical_lines as i64
+                && content_rows as i64 + 1 >= self.stats.logical_lines as i64,
             "minimap content_rows={} but logical_lines={}",
             content_rows,
             self.stats.logical_lines
