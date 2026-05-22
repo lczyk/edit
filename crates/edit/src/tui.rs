@@ -185,6 +185,10 @@ mod anim {
     /// One-shot open animation duration for scale-in modals.
     pub const SCALE_IN_DURATION_SECS: f32 = 0.150;
 
+    /// Duration of the line-move (Alt+Up/Down) slide-band animation. Brief
+    /// so the band reads as a directional cue, not a delay.
+    pub const LINE_MOVE_DURATION_SECS: f32 = 0.120;
+
     /// Wakeup interval the main loop is asked to honour while any
     /// animation is still in flight (~60 fps).
     pub const FRAME_INTERVAL: Duration = Duration::from_millis(16);
@@ -1158,6 +1162,21 @@ impl Tui {
                     tc.cursor_visual_anim = Some((cv.x as f32, cv.y as f32));
                 }
 
+                // Pick up a freshly-fired line-move and seed the sweep band.
+                // Drain unconditionally so the event doesn't pool up while
+                // animations are off; only install the anim state when we'll
+                // actually paint it.
+                if let Some(ev) = tb.take_pending_line_move()
+                    && !crate::glyphs::no_animations()
+                {
+                    tc.line_move_anim = Some(LineMoveAnim {
+                        from_y: ev.from_y,
+                        to_y: ev.to_y,
+                        height: ev.height,
+                        started_at: time::Instant::now(),
+                    });
+                }
+
                 let visual_offset = advance_scroll_animation(tc, self.frame_dt_secs);
                 let cursor_target = tb.cursor_visual_pos();
                 let cursor_override =
@@ -1174,6 +1193,29 @@ impl Tui {
                 tb.set_cursor_render_override(None);
                 if let Some(res) = render_res {
                     tc.scroll_offset_x_max = res.visual_pos_x_max;
+                }
+
+                // Half-block sweep overlay for the line-move animation. Runs
+                // after `tb.render` so it paints on top of the text. Expires
+                // once duration elapsed.
+                if let Some(anim_state) = tc.line_move_anim {
+                    let elapsed =
+                        time::Instant::now().duration_since(anim_state.started_at).as_secs_f32();
+                    if elapsed >= anim::LINE_MOVE_DURATION_SECS {
+                        tc.line_move_anim = None;
+                    } else {
+                        let t = elapsed / anim::LINE_MOVE_DURATION_SECS;
+                        draw_line_move_sweep(
+                            &mut self.framebuffer,
+                            destination,
+                            visual_offset.y,
+                            anim_state,
+                            t,
+                        );
+                        if self.read_timeout > anim::FRAME_INTERVAL {
+                            self.read_timeout = anim::FRAME_INTERVAL;
+                        }
+                    }
                 }
 
                 if minimap_w > 0 {
@@ -2362,6 +2404,7 @@ impl<'a> Context<'a, '_> {
             scroll_offset_visual: (0.0, 0.0),
             cursor_visual_anim: None,
             last_buffer_generation: 0,
+            line_move_anim: None,
             scroll_offset_y_drag_start: CoordType::MIN,
             scroll_offset_x_max: 0,
             thumb_height: 0,
@@ -2385,6 +2428,7 @@ impl<'a> Context<'a, '_> {
                 content.scroll_offset_visual = content_prev.scroll_offset_visual;
                 content.cursor_visual_anim = content_prev.cursor_visual_anim;
                 content.last_buffer_generation = content_prev.last_buffer_generation;
+                content.line_move_anim = content_prev.line_move_anim;
                 content.scroll_offset_y_drag_start = content_prev.scroll_offset_y_drag_start;
                 content.scroll_offset_x_max = content_prev.scroll_offset_x_max;
                 content.thumb_height = content_prev.thumb_height;
@@ -2611,8 +2655,8 @@ impl<'a> Context<'a, '_> {
                         // Source rows per rail row: cells_capacity / rail_used.
                         let cells_capacity = n_cells * rows_per_cell;
                         let delta_rows = (delta_y * cells_capacity / rail_used) as CoordType;
-                        tc.scroll_offset.y = (tc.scroll_offset_y_drag_start + delta_rows)
-                            .clamp(0, max_scroll);
+                        tc.scroll_offset.y =
+                            (tc.scroll_offset_y_drag_start + delta_rows).clamp(0, max_scroll);
                     }
                 }
             } else if track_rect.contains(self.tui.mouse_down_position) {
@@ -3992,6 +4036,20 @@ struct TextContent<'a> {
     overflow: Overflow,
 }
 
+/// Slide-band animation state for an alt+up/down line move. The band
+/// sweeps from `from_y` to `to_y` across [`anim::LINE_MOVE_DURATION_SECS`]
+/// using half-block compositing for sub-row vertical resolution.
+///
+/// Coordinates are logical y; in no-wrap mode these equal visual y. In
+/// word-wrap mode the band may visually drift from the actual moved block.
+#[derive(Clone, Copy)]
+struct LineMoveAnim {
+    from_y: CoordType,
+    to_y: CoordType,
+    height: CoordType,
+    started_at: time::Instant,
+}
+
 /// NOTE: Must not contain items that require drop().
 struct TextareaContent<'a> {
     buffer: &'a TextBufferCell,
@@ -4010,6 +4068,10 @@ struct TextareaContent<'a> {
     /// scroll animation to target so the cursor stays glued to the moved
     /// content rather than lerping after it.
     last_buffer_generation: u32,
+    /// Active line-move slide animation. `Some` from when
+    /// `move_selected_lines` fires until [`anim::LINE_MOVE_DURATION_SECS`]
+    /// elapses; drives the half-block sweep overlay drawn after `tb.render`.
+    line_move_anim: Option<LineMoveAnim>,
     scroll_offset_y_drag_start: CoordType,
     scroll_offset_x_max: CoordType,
     thumb_height: CoordType,
@@ -4493,9 +4555,7 @@ fn minimap_band_range(
     let cell_start = view_start / rows_per_cell;
     let cell_end = (view_end_unclipped + rows_per_cell - 1) / rows_per_cell;
 
-    let map_cell = |c: i64| -> i64 {
-        if rail_h >= n_cells { c } else { c * rail_h / n_cells }
-    };
+    let map_cell = |c: i64| -> i64 { if rail_h >= n_cells { c } else { c * rail_h / n_cells } };
     let band_top = map_cell(cell_start);
     let band_bottom = map_cell(cell_end).max(band_top + 1).min(rail_h);
     (track_top + band_top as CoordType, track_top + band_bottom as CoordType)
@@ -4578,5 +4638,96 @@ fn draw_minimap_rail(
             fb.blend_bg(band, fb.indexed(IndexedColor::BrightWhite));
             fb.blend_fg(band, fb.indexed(IndexedColor::Black));
         }
+    }
+}
+
+/// Half-block sweep overlay for the alt+up/down line-move animation. Lerps a
+/// `height`-row tinted band from `from_y` to `to_y` (logical coords) using
+/// half-row resolution so the motion reads as a slide rather than a snap.
+///
+/// At aligned positions (band edges land on cell boundaries) we just tint
+/// background with `blend_bg`, preserving text. At half-row offsets the
+/// top and bottom edge cells get a half-block glyph (U+2584 / U+2580) tinted with
+/// the band colour -- this briefly overwrites text on those edge rows
+/// for the ~120ms the animation runs.
+fn draw_line_move_sweep(
+    fb: &mut Framebuffer,
+    dest: Rect,
+    scroll_offset_y: CoordType,
+    anim: LineMoveAnim,
+    t: f32,
+) {
+    // No-colour fallback: a half-block sweep without colour is invisible.
+    // Bailing keeps the text undisturbed; users on `--no-color` lose the
+    // cue but not the move itself.
+    if crate::glyphs::no_color() {
+        return;
+    }
+    if dest.is_empty() || anim.height <= 0 {
+        return;
+    }
+
+    let distance = (anim.to_y - anim.from_y) as f32;
+    let cur_logical_top = anim.from_y as f32 + distance * t;
+    let screen_top_f = dest.top as f32 + cur_logical_top - scroll_offset_y as f32;
+
+    // Quantise to half-row grid. Even = aligned full row; odd = shifted by
+    // half a row, edges need half-block glyphs.
+    let half_rows = (screen_top_f * 2.0).round() as CoordType;
+    let aligned = half_rows.rem_euclid(2) == 0;
+    let top_row = half_rows.div_euclid(2);
+    let height = anim.height;
+
+    let bg_tint = fb.indexed_alpha(IndexedColor::BrightYellow, 1, 2);
+    let fg_tint = fb.indexed(IndexedColor::BrightYellow);
+
+    let clamp_y = |y: CoordType| y.clamp(dest.top, dest.bottom);
+
+    if aligned {
+        let y0 = clamp_y(top_row);
+        let y1 = clamp_y(top_row + height);
+        if y1 > y0 {
+            let band = Rect { left: dest.left, top: y0, right: dest.right, bottom: y1 };
+            fb.blend_bg(band, bg_tint);
+        }
+        return;
+    }
+
+    // Shifted by half a row: band runs from (top_row + 0.5) to
+    // (top_row + height + 0.5). Rows [top_row+1, top_row+height) get the
+    // full tint; top_row's lower half and (top_row+height)'s upper half
+    // get half-block glyphs.
+    let mid_top = clamp_y(top_row + 1);
+    let mid_bot = clamp_y(top_row + height);
+    if mid_bot > mid_top {
+        let band = Rect { left: dest.left, top: mid_top, right: dest.right, bottom: mid_bot };
+        fb.blend_bg(band, bg_tint);
+    }
+
+    // U+2584 lower-half block, U+2580 upper-half block. Repeat across the
+    // destination width so the half-band spans the textarea.
+    let width = (dest.right - dest.left).max(0) as usize;
+    if width == 0 {
+        return;
+    }
+    let mut lower_str = String::with_capacity(width * 3);
+    let mut upper_str = String::with_capacity(width * 3);
+    for _ in 0..width {
+        lower_str.push('\u{2584}');
+        upper_str.push('\u{2580}');
+    }
+
+    let top_edge = top_row;
+    if top_edge >= dest.top && top_edge < dest.bottom {
+        fb.replace_text(top_edge, dest.left, dest.right, &lower_str);
+        let row = Rect { left: dest.left, top: top_edge, right: dest.right, bottom: top_edge + 1 };
+        fb.blend_fg(row, fg_tint);
+    }
+
+    let bot_edge = top_row + height;
+    if bot_edge >= dest.top && bot_edge < dest.bottom {
+        fb.replace_text(bot_edge, dest.left, dest.right, &upper_str);
+        let row = Rect { left: dest.left, top: bot_edge, right: dest.right, bottom: bot_edge + 1 };
+        fb.blend_fg(row, fg_tint);
     }
 }

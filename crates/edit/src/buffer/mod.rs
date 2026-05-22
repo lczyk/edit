@@ -263,6 +263,19 @@ pub enum MoveLineDirection {
     Down,
 }
 
+/// One-shot record of the most recent `move_selected_lines` for the
+/// rendering layer to drive a slide animation. Logical y; in no-wrap mode
+/// this equals visual y. Consumed via [`TextBuffer::take_pending_line_move`].
+#[derive(Clone, Copy)]
+pub struct LineMoveEvent {
+    /// Logical y of the moved block's first line *before* the move.
+    pub from_y: CoordType,
+    /// Logical y of the moved block's first line *after* the move.
+    pub to_y: CoordType,
+    /// Number of logical lines in the moved block.
+    pub height: CoordType,
+}
+
 /// The result of a call to [`TextBuffer::render()`].
 pub struct RenderResult {
     /// The maximum visual X position we encountered during rendering.
@@ -345,6 +358,10 @@ pub struct TextBuffer {
     /// animate cursor motion without disturbing actual cursor state. The
     /// caller is responsible for resetting it once animation converges.
     cursor_render_override: Option<Point>,
+
+    /// One-shot signal from `move_selected_lines` so the renderer can drive
+    /// a slide animation. Drained by [`TextBuffer::take_pending_line_move`].
+    pending_line_move: Option<LineMoveEvent>,
 }
 
 impl TextBuffer {
@@ -404,6 +421,8 @@ impl TextBuffer {
             minimap_content_rows: 0,
 
             cursor_render_override: None,
+
+            pending_line_move: None,
         })
     }
 
@@ -627,6 +646,13 @@ impl TextBuffer {
     /// state -- only the visible representation.
     pub fn set_cursor_render_override(&mut self, pos: Option<Point>) {
         self.cursor_render_override = pos;
+    }
+
+    /// Drain the most recent line-move event, if any. Called by the
+    /// rendering layer to seed slide animation state. Returns `None` after
+    /// the first call following a `move_selected_lines`.
+    pub fn take_pending_line_move(&mut self) -> Option<LineMoveEvent> {
+        self.pending_line_move.take()
     }
 
     pub fn cursor_visual_pos(&self) -> Point {
@@ -3390,6 +3416,12 @@ impl TextBuffer {
             s.end.y += delta;
             s
         }));
+
+        // Record the move so the rendering layer can drive a slide
+        // animation. `beg` was the pre-move first line; after the shift the
+        // block sits at `beg + delta`.
+        self.pending_line_move =
+            Some(LineMoveEvent { from_y: beg, to_y: beg + delta, height: end - beg + 1 });
     }
 
     /// Deletes the line(s) the cursor or selection touches. Mirrors
