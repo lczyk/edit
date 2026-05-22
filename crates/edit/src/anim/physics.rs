@@ -14,6 +14,28 @@
 use crate::buffer::{LineMoveEvent, MinimapCell, RowBand};
 use crate::helpers::{CoordType, Point, Rect};
 
+/// Cell width the textarea reserves for the minimap rail. Authority
+/// lives in the document's pre-built minimap cells; this just reads
+/// back what was built. Returns 0 for single-line widgets (no
+/// minimap) and for buffers w/out minimap cells.
+pub fn textarea_minimap_width(single_line: bool, minimap_cells: &[MinimapCell]) -> CoordType {
+    if single_line {
+        return 0;
+    }
+    minimap_cells.first().map(|c| c.width as CoordType).unwrap_or(0)
+}
+
+/// Width of the dedicated scrollbar column. Mutually exclusive with
+/// the minimap -- when the rail is visible it absorbs the
+/// navigation role. Returns 0 for single-line widgets (no
+/// scrollbar) and when the minimap is present.
+pub fn textarea_scrollbar_width(single_line: bool, minimap_w: CoordType) -> CoordType {
+    if single_line || minimap_w > 0 {
+        return 0;
+    }
+    1
+}
+
 /// Per-textarea physics: everything a textarea paint needs, with no
 /// animation state mixed in.
 ///

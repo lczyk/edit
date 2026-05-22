@@ -1092,8 +1092,10 @@ impl Tui {
                     bottom: inner_clipped.bottom,
                 };
 
-                let minimap_w = textarea_minimap_width(&tb, tc, inner_clipped);
-                let scrollbar_w = textarea_scrollbar_width(tc, minimap_w);
+                let minimap_w =
+                    anim::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
+                let scrollbar_w =
+                    anim::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
 
                 destination.right -= scrollbar_w + minimap_w;
 
@@ -2393,8 +2395,13 @@ impl<'a> Context<'a, '_> {
                 let mut text_width = node_prev.inner.width();
                 {
                     let tb = content.buffer.borrow();
-                    let minimap_w = textarea_minimap_width(&tb, content, node_prev.inner);
-                    text_width -= textarea_scrollbar_width(content, minimap_w) + minimap_w;
+                    let minimap_w = anim::physics::textarea_minimap_width(
+                        content.single_line,
+                        tb.minimap_cells(),
+                    );
+                    text_width -=
+                        anim::physics::textarea_scrollbar_width(content.single_line, minimap_w)
+                            + minimap_w;
                 }
 
                 let mut make_cursor_visible;
@@ -2473,8 +2480,9 @@ impl<'a> Context<'a, '_> {
         {
             let mouse = self.tui.mouse_position;
             let inner = node_prev.inner;
-            let minimap_w = textarea_minimap_width(tb, tc, inner);
-            let scrollbar_w = textarea_scrollbar_width(tc, minimap_w);
+            let minimap_w =
+                anim::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
+            let scrollbar_w = anim::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
             let text_rect = Rect {
                 left: inner.left + tb.margin_width(),
                 top: inner.top,
@@ -4341,22 +4349,4 @@ impl<'a> Node<'a> {
             }
         }
     }
-}
-
-// Cell width the textarea reserves for the minimap rail. Authority lives in
-// the document's pre-built cells; this just reads back what was built.
-fn textarea_minimap_width(tb: &TextBuffer, tc: &TextareaContent, _inner: Rect) -> CoordType {
-    if tc.single_line {
-        return 0;
-    }
-    tb.minimap_cells().first().map(|c| c.width as CoordType).unwrap_or(0)
-}
-
-// Width of the dedicated scrollbar column. Mutually exclusive with the
-// minimap -- when the rail is visible it absorbs the navigation role.
-fn textarea_scrollbar_width(tc: &TextareaContent, minimap_w: CoordType) -> CoordType {
-    if tc.single_line || minimap_w > 0 {
-        return 0;
-    }
-    1
 }
