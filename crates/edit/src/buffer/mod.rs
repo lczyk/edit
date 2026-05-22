@@ -282,13 +282,11 @@ pub enum RowBand {
 }
 
 /// One-shot record of the most recent `move_selected_lines` for the
-/// rendering layer to drive a slide animation. Coordinates are *visual* y
-/// so the band slides through the correct screen rows even when word-wrap
-/// is on. Consumed via [`TextBuffer::take_pending_line_move`].
+/// rendering layer to drive a trail-flash animation. Coordinates are
+/// *visual* y so the band lands on the right screen rows even when
+/// word-wrap is on. Consumed via [`TextBuffer::take_pending_line_move`].
 #[derive(Clone, Copy)]
 pub struct LineMoveEvent {
-    /// Visual y of the moved block's top row *before* the move.
-    pub from_visual_y: CoordType,
     /// Visual y of the moved block's top row *after* the move.
     pub to_visual_y: CoordType,
     /// Number of visual rows the moved block occupies.
@@ -3574,11 +3572,8 @@ impl TextBuffer {
             MoveLineDirection::Down => visual_y_of(self, end + 2) - block_end_excl_v,
         };
         let visual_height = block_end_excl_v - block_top_v;
-        let pre_move_event = LineMoveEvent {
-            from_visual_y: block_top_v,
-            to_visual_y: block_top_v + delta * displaced_h_v,
-            visual_height,
-        };
+        let pre_move_event =
+            LineMoveEvent { to_visual_y: block_top_v + delta * displaced_h_v, visual_height };
 
         // Per-visual-row band shape for the slide animation. A logical line
         // that wraps (occupies >1 visual rows) is treated as `Full` since

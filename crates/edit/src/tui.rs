@@ -185,9 +185,10 @@ mod anim {
     /// One-shot open animation duration for scale-in modals.
     pub const SCALE_IN_DURATION_SECS: f32 = 0.150;
 
-    /// Duration of the line-move (Alt+Up/Down) slide-band animation. Brief
-    /// so the band reads as a directional cue, not a delay.
-    pub const LINE_MOVE_DURATION_SECS: f32 = 0.120;
+    /// Duration of the line-move (Alt+Up/Down) trail flash. Painted at
+    /// the new position and faded out -- no motion, just a transient
+    /// highlight that points the eye at where the line landed.
+    pub const LINE_MOVE_DURATION_SECS: f32 = 0.150;
 
     /// Wakeup interval the main loop is asked to honour while any
     /// animation is still in flight (~60 fps).
@@ -1176,7 +1177,6 @@ impl Tui {
                     && !crate::glyphs::no_animations()
                 {
                     tc.line_move_anim = Some(LineMoveAnim {
-                        from_y: ev.from_visual_y,
                         to_y: ev.to_visual_y,
                         height: ev.visual_height,
                         started_at: time::Instant::now(),
@@ -4061,16 +4061,13 @@ struct TextContent<'a> {
     overflow: Overflow,
 }
 
-/// Slide-band animation state for an alt+up/down line move. The band
-/// sweeps from `from_y` to `to_y` across [`anim::LINE_MOVE_DURATION_SECS`]
-/// using half-block compositing for sub-row vertical resolution.
+/// Trail-flash state for an alt+up/down line move. Tracks the moved
+/// block's post-move position and start time; alpha fades over
+/// [`anim::LINE_MOVE_DURATION_SECS`].
 ///
-/// Coordinates are visual y (document-space rows after word-wrap), so
-/// `to_y - from_y` is the displaced neighbour's visual height -- not
-/// necessarily 1 under wrap.
+/// Coordinates are visual y (document-space rows after word-wrap).
 #[derive(Clone, Copy)]
 struct LineMoveAnim {
-    from_y: CoordType,
     to_y: CoordType,
     height: CoordType,
     started_at: time::Instant,
@@ -4667,23 +4664,17 @@ fn draw_minimap_rail(
     }
 }
 
-/// Sliding-band overlay for the alt+up/down line-move animation. Lerps a
-/// `height`-row tinted band from `from_y` to `to_y` (visual coords) by
-/// modulating per-row `blend_bg` alpha -- never replaces text, so the
-/// moving line stays readable through the slide.
+/// Trail-flash overlay for the alt+up/down line-move animation. Paints a
+/// per-row tinted band at the moved block's *new* position and fades the
+/// alpha down to zero over the animation duration. No sliding, no glyph
+/// replacement -- the text under the band is preserved for the entire
+/// flash.
 ///
 /// `bands` carries one entry per visual row of the moved block and decides
 /// which columns each row tints: `Skip` rows are left alone, `Full` rows
 /// span the textarea width, and `Range` rows narrow to the line's
 /// non-whitespace columns so trailing indent / blank tails do not get
 /// highlighted.
-///
-/// Sub-row motion: at fractional position `frac` between two screen rows
-/// the leading (`top_row`) and trailing (`top_row + height`) rows fade in
-/// at alpha `(1 - frac) * base` and `frac * base` respectively. For
-/// 3+-row blocks the first and last band rows are also dimmed
-/// (`EDGE_ATTENUATION`), giving the band a soft gradient on its leading
-/// and trailing edges.
 fn draw_line_move_sweep(
     fb: &mut Framebuffer,
     dest: Rect,
@@ -4692,9 +4683,8 @@ fn draw_line_move_sweep(
     t: f32,
     bands: &[RowBand],
 ) {
-    // No-colour fallback: a half-block sweep without colour is invisible.
-    // Bailing keeps the text undisturbed; users on `--no-color` lose the
-    // cue but not the move itself.
+    // No-colour fallback: a bg-only blend without colour is invisible.
+    // Bail so the text is undisturbed; --no-color users lose the cue.
     if crate::glyphs::no_color() {
         return;
     }
@@ -4702,31 +4692,25 @@ fn draw_line_move_sweep(
         return;
     }
 
-    let distance = (anim.to_y - anim.from_y) as f32;
-    let cur_visual_top = anim.from_y as f32 + distance * t;
-    let screen_top_f = dest.top as f32 + cur_visual_top - scroll_offset.y as f32;
-
-    // Continuous sub-row position. `frac` is how far the band has slid
-    // below `top_row`'s top edge; partial-coverage screen rows attenuate
-    // their alpha by `(1 - frac)` (top) and `frac` (bottom) so the band
-    // appears to slide smoothly without ever replacing a glyph.
-    let top_row = screen_top_f.floor() as CoordType;
-    let frac = screen_top_f - top_row as f32;
+    let screen_top = dest.top + anim.to_y - scroll_offset.y;
     let height = anim.height.min(bands.len() as CoordType);
-    if height <= 0 {
+
+    // Linear fade from `BASE_ALPHA_NUM / BASE_ALPHA_DEN` at t=0 down to 0
+    // at t=1. Kept as integer fraction so `indexed_alpha` can constant-fold.
+    const BASE_ALPHA_NUM: u32 = 1;
+    const BASE_ALPHA_DEN: u32 = 2;
+    let fade = (1.0 - t).clamp(0.0, 1.0);
+    let alpha_num = (BASE_ALPHA_NUM as f32 * 1024.0 * fade) as u32;
+    if alpha_num == 0 {
         return;
     }
+    let alpha_den = BASE_ALPHA_DEN * 1024;
 
-    // Fallback for rows without a dominant-highlight colour (no language
-    // attached, dominant kind is `Other`, etc.). Use the default text
-    // foreground -- that's what the chars on this row are actually drawn
-    // in, so the band reads as a tint of the real glyph colour rather
-    // than an unrelated accent.
+    // Fallback when a row has no dominant-highlight colour -- use the
+    // default text foreground so the tint matches whatever the row's
+    // glyphs are drawn in.
     const DEFAULT_TINT: IndexedColor = IndexedColor::Foreground;
 
-    // Resolve a band's screen-column range and the colour index to tint
-    // with. Doesn't touch `fb` so the caller is free to take a mutable
-    // borrow inside the `if let Some(...)` branch.
     let band_screen = |band: RowBand| -> Option<(CoordType, CoordType, IndexedColor)> {
         let (l, r, color) = match band {
             RowBand::Skip => return None,
@@ -4740,46 +4724,15 @@ fn draw_line_move_sweep(
         if r <= l { None } else { Some((l, r, color.unwrap_or(DEFAULT_TINT))) }
     };
 
-    // Base alpha for a fully-covered, fully-interior row. Lower than 1/2
-    // so the gradient edge attenuation still leaves the leading / trailing
-    // rows visible without being washy.
-    const BASE_ALPHA: f32 = 0.5;
-    // Band-row edge attenuation: when the moved block is >=3 rows tall,
-    // the first and last band rows are slightly dimmer than the interior
-    // so the band reads as a soft gradient rather than a hard rectangle.
-    const EDGE_ATTENUATION: f32 = 0.7;
-
-    let last_screen_row = if frac > 0.0 { height } else { height - 1 };
-    for k in 0..=last_screen_row {
-        let screen_y = top_row + k;
+    for k in 0..height {
+        let screen_y = screen_top + k;
         if screen_y < dest.top || screen_y >= dest.bottom {
             continue;
         }
-        // The band row primarily shown in this screen row. When the band
-        // extends one extra screen row below (frac > 0), that overflow row
-        // shows the bottom half of the last band row.
-        let band_idx = k.min(height - 1) as usize;
-        let Some((l, r, idx)) = band_screen(bands[band_idx]) else { continue };
-
-        let position = if k == 0 {
-            1.0 - frac
-        } else if k == height {
-            frac
-        } else {
-            1.0
-        };
-        let edge = if height >= 3 && (band_idx == 0 || band_idx == (height - 1) as usize) {
-            EDGE_ATTENUATION
-        } else {
-            1.0
-        };
-        let alpha = BASE_ALPHA * position * edge;
-        let alpha_num = (alpha * 256.0).round().max(0.0) as u32;
-        if alpha_num == 0 {
-            continue;
+        if let Some((l, r, idx)) = band_screen(bands[k as usize]) {
+            let bg = fb.indexed_alpha(idx, alpha_num, alpha_den);
+            let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
+            fb.blend_bg(rect, bg);
         }
-        let bg = fb.indexed_alpha(idx, alpha_num, 256);
-        let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-        fb.blend_bg(rect, bg);
     }
 }
