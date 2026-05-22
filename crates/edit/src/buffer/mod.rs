@@ -1779,14 +1779,45 @@ impl TextBuffer {
     }
 
     fn set_cursor_internal(&mut self, cursor: Cursor) {
-        debug_assert!(cursor.offset <= self.text_length());
         debug_assert!(cursor.logical_pos.x >= 0);
         debug_assert!(cursor.logical_pos.y >= 0);
-        debug_assert!(cursor.logical_pos.y <= self.stats.logical_lines);
         debug_assert!(cursor.visual_pos.x >= 0);
-        debug_assert!(self.word_wrap_column <= 0 || cursor.visual_pos.x <= self.word_wrap_column);
         debug_assert!(cursor.visual_pos.y >= 0);
-        debug_assert!(cursor.visual_pos.y <= self.stats.visual_lines);
+
+        // State-consistency checks: the cursor being published must agree
+        // with the buffer's currently-stored stats. Promoted to sanity so a
+        // drift logs + notifies + (optionally) panics instead of immediately
+        // crashing -- the previous `debug_assert` form caught the
+        // visual_lines stale-stats bug only because we happened to be in a
+        // debug build.
+        crate::sanity_check!(
+            cursor_offset_in_bounds,
+            cursor.offset <= self.text_length(),
+            "cursor.offset={} text_length={}",
+            cursor.offset,
+            self.text_length()
+        );
+        crate::sanity_check!(
+            cursor_logical_y_in_bounds,
+            cursor.logical_pos.y <= self.stats.logical_lines,
+            "cursor.logical_pos.y={} stats.logical_lines={}",
+            cursor.logical_pos.y,
+            self.stats.logical_lines
+        );
+        crate::sanity_check!(
+            cursor_visual_x_in_wrap,
+            self.word_wrap_column <= 0 || cursor.visual_pos.x <= self.word_wrap_column,
+            "cursor.visual_pos.x={} word_wrap_column={}",
+            cursor.visual_pos.x,
+            self.word_wrap_column
+        );
+        crate::sanity_check!(
+            cursor_visual_y_in_bounds,
+            cursor.visual_pos.y <= self.stats.visual_lines,
+            "cursor.visual_pos.y={} stats.visual_lines={}",
+            cursor.visual_pos.y,
+            self.stats.visual_lines
+        );
 
         // Sanity (A): re-derive visual_pos from the line start and compare
         // against the stored value. Catches the screenshot-bug class where
@@ -1795,8 +1826,7 @@ impl TextBuffer {
         #[cfg(feature = "sanity")]
         {
             let from_start = self.goto_line_start(cursor, cursor.logical_pos.y);
-            let remeasured =
-                self.cursor_move_to_logical_internal(from_start, cursor.logical_pos);
+            let remeasured = self.cursor_move_to_logical_internal(from_start, cursor.logical_pos);
             crate::sanity_check!(
                 cursor_visual_pos_drift,
                 remeasured.visual_pos == cursor.visual_pos,
@@ -2024,9 +2054,9 @@ impl TextBuffer {
                 // Selection bg matches the menubar fg color (the colour `file`,
                 // `edit` etc. are drawn in), which is the contrasted of the
                 // menubar bg = Background oklab BrightBlue/2.
-                let menubar_bg = fb.indexed(IndexedColor::Background).oklab_blend(
-                    fb.indexed_alpha(IndexedColor::BrightBlue, 1, 2),
-                );
+                let menubar_bg = fb
+                    .indexed(IndexedColor::Background)
+                    .oklab_blend(fb.indexed_alpha(IndexedColor::BrightBlue, 1, 2));
                 let mut bg = fb.contrasted(menubar_bg);
                 if !focused {
                     bg = bg.oklab_blend(fb.indexed_alpha(IndexedColor::Background, 1, 2));
@@ -2098,7 +2128,12 @@ impl TextBuffer {
 
                     if cursor_next.visual_pos.x > origin.x {
                         let overlap = cursor_next.visual_pos.x - origin.x;
-                        debug_assert!((1..=7).contains(&overlap));
+                        crate::sanity_check!(
+                            tab_overlap_range,
+                            (1..=7).contains(&overlap),
+                            "overlap={} (expected 1..=7)",
+                            overlap
+                        );
                         line.push_str(&*scratch, &tab_whitespace()[..overlap as usize]);
                         cursor_beg = cursor_next;
                     }
@@ -3686,10 +3721,14 @@ impl TextBuffer {
             return;
         }
 
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "sanity")]
         {
             let entry = self.undo_stack.back_mut().unwrap().borrow_mut();
-            debug_assert!(!entry.deleted.is_empty() || !entry.added.is_empty());
+            crate::sanity_check!(
+                edit_group_non_empty,
+                !entry.deleted.is_empty() || !entry.added.is_empty(),
+                "undo entry has neither deleted nor added bytes"
+            );
         }
 
         if let Some(info) = self.active_edit_line_info.take() {
