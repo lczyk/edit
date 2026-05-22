@@ -442,6 +442,7 @@ pub fn ruler(
 /// `margin_width`. `line_highlight` is the composite "should the
 /// cursor row glow?" decision -- the caller checks
 /// `line_highlight_enabled && no selection` before calling.
+#[allow(clippy::too_many_arguments)]
 pub fn cursor_block(
     fb: &mut Framebuffer,
     dest: Rect,

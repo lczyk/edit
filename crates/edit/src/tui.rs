@@ -1169,7 +1169,7 @@ impl Tui {
         // back at the end -- avoids holding a borrow on
         // self.anim.textareas across the &mut self.framebuffer paint
         // calls below.
-        let mut anim_state = *self.anim.textareas.entry(node_id).or_insert_with(Default::default);
+        let mut anim_state = *self.anim.textareas.entry(node_id).or_default();
 
         anim::engine::snap_on_buffer_edit(
             &mut anim_state.scroll_visual,

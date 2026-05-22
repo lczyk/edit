@@ -2049,6 +2049,7 @@ impl TextBuffer {
     /// just once. Returns an empty vec when there are no matches
     /// on this row, or when the row sits outside the line that
     /// holds the active selection.
+    #[allow(clippy::too_many_arguments)]
     fn build_shadow_matches_row(
         &self,
         needle: &[u8],
