@@ -125,6 +125,37 @@ pub struct VisualLine<'a> {
     pub control_chars: &'a [Rect],
 }
 
+/// Build a [`TextareaPhysics`] from the live `TextBuffer` +
+/// surrounding context. Today this only populates the fields the
+/// existing pub API can supply -- viewport + cursor + scrollbar +
+/// minimap geometry. The fields blocked on the stage-1 layout
+/// carve (`visual_lines`, `selection_geom`, `gutter`) are still
+/// commented out on the struct; they get filled in once
+/// `TextBuffer::layout()` exists.
+///
+/// `line_move` is `None` today because the existing path drains
+/// the event into the animator's slot inline. In stage 4 the
+/// buffer keeps the event non-draining and physics reads it
+/// directly.
+pub fn build_textarea_physics<'a>(
+    tb: &'a crate::buffer::TextBuffer,
+    scroll_offset: Point,
+    dest: Rect,
+    focus: bool,
+) -> TextareaPhysics<'a> {
+    TextareaPhysics {
+        dest,
+        scroll_offset,
+        cursor_visual: tb.cursor_visual_pos(),
+        visual_line_count: tb.visual_line_count(),
+        minimap_cells: tb.minimap_cells(),
+        minimap_content_rows: tb.minimap_content_rows(),
+        line_move_bands: tb.line_move_bands(),
+        line_move: None,
+        focus,
+    }
+}
+
 /// Selection geometry covering the whole visible viewport, in
 /// document-visual coords. Produced by the eventual `layout()`.
 /// The `active_edge_x` is the visual x of the cursor-anchored end
@@ -165,5 +196,21 @@ mod tests {
     #[test]
     fn scrollbar_width_one_when_alone() {
         assert_eq!(textarea_scrollbar_width(false, 0), 1);
+    }
+
+    #[test]
+    fn build_textarea_physics_smoke() {
+        // Smoke test: a freshly-built TextBuffer w/ default state
+        // gives us a physics record whose simple fields match what
+        // the pub API exposes.
+        let tb = crate::buffer::TextBuffer::new(true).unwrap();
+        let dest = Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let phys = build_textarea_physics(&tb, Point { x: 0, y: 0 }, dest, true);
+        assert_eq!(phys.dest, dest);
+        assert_eq!(phys.scroll_offset, Point { x: 0, y: 0 });
+        assert_eq!(phys.cursor_visual, tb.cursor_visual_pos());
+        assert_eq!(phys.visual_line_count, tb.visual_line_count());
+        assert!(phys.line_move.is_none());
+        assert!(phys.focus);
     }
 }
