@@ -9,9 +9,9 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use eat::definitions::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, STRINGS};
 use eat::theme;
 use lsh::runtime::Runtime;
+use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, STRINGS};
 use stdext::arena::scratch_arena;
 use stdext::glob::glob_match;
 

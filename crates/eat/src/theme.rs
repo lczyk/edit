@@ -1,6 +1,6 @@
 use lsh::runtime::Ansi16;
 
-use crate::definitions::HighlightKind;
+use lsh_defs::HighlightKind;
 
 /// ANSI-16 colormap. maps highlight kinds to escape codes.
 /// respects user terminal palettes, works under light and dark themes.

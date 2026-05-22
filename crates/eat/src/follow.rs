@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use lsh::runtime::{Language, Runtime};
 
-use crate::definitions::{ASSEMBLY, CHARSETS, STRINGS};
+use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 use crate::write_highlighted_line;
 
 /// fixed line-number column width in follow mode. real width is unknowable
@@ -808,7 +808,7 @@ mod tests {
         // feeding the same two lines via one tick. catches any regression
         // where rotation logic accidentally resets the runtime, where the
         // partial-line buffer corrupts boundaries, etc.
-        use crate::definitions::LANGUAGES;
+        use lsh_defs::LANGUAGES;
         let rust = LANGUAGES
             .iter()
             .find(|l| l.id.eq_ignore_ascii_case("rust"))

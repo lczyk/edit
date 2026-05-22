@@ -3,7 +3,6 @@
 //! when invoked as `eat` (via symlink or standalone binary), reads files,
 //! syntax-highlights via lsh, writes to stdout, optionally pages.
 
-pub mod definitions;
 pub mod follow;
 pub mod follow_tui;
 pub mod gutter_view;
@@ -17,9 +16,11 @@ use std::process::ExitCode;
 use argh::FromArgs;
 use lsh::runtime::{Language, Runtime};
 use stdext::arena::scratch_arena;
-use stdext::glob::glob_match;
 
-use definitions::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, LANGUAGES, STRINGS};
+use lsh_defs::detect::{
+    find_language, language_from_content, language_from_shebang, process_file_associations,
+};
+use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, LANGUAGES, STRINGS};
 
 /// eat -- a bat-like syntax-highlighting cat.
 #[derive(FromArgs, PartialEq, Debug)]
@@ -280,86 +281,18 @@ fn print_short_help() -> ExitCode {
     ExitCode::from(0)
 }
 
-/// find a language by name (case-insensitive prefix match on id and display_name).
-fn find_language(name: &str) -> Option<&'static Language> {
-    let name_lower = name.to_ascii_lowercase();
-    LANGUAGES.iter().find(|lang| {
-        lang.id.to_ascii_lowercase() == name_lower || lang.name.to_ascii_lowercase() == name_lower
-    })
-}
-
-/// detect language from a file path: path glob matching.
-fn detect_language_by_path(path: &Path) -> Option<&'static Language> {
-    let bytes = path.as_os_str().as_encoded_bytes();
-    for (pattern, lang) in FILE_ASSOCIATIONS {
-        if glob_match(pattern.as_bytes(), bytes) {
-            return Some(lang);
-        }
+/// Join the first 64 lines of a `Vec<String>` (BufRead::lines() strips `\n`)
+/// back into a contiguous byte buffer suitable for the shared `lsh_defs::detect`
+/// fns, which take `head: &[u8]`. Allocates -- only called once per file on the
+/// detection path.
+fn head_bytes(lines: &[String]) -> Vec<u8> {
+    let take = lines.iter().take(64);
+    let mut out = Vec::with_capacity(take.clone().map(|l| l.len() + 1).sum());
+    for l in take {
+        out.extend_from_slice(l.as_bytes());
+        out.push(b'\n');
     }
-    None
-}
-
-/// extract the interpreter token from a shebang line.
-/// handles `#!/usr/bin/python` and `#!/usr/bin/env python`.
-fn extract_shebang_token(line: &str) -> Option<&str> {
-    let line = line.strip_prefix("#!")?;
-    let line = line.trim();
-    if line.is_empty() {
-        return None;
-    }
-
-    // split by whitespace -- first token is the interpreter path
-    let first_word = line.split_ascii_whitespace().next()?;
-
-    // if the first word's basename is "env", look at the second word
-    if Path::new(first_word).file_name().is_some_and(|n| n == "env") {
-        let second_word = line.split_ascii_whitespace().nth(1)?;
-        return Some(second_word);
-    }
-
-    // otherwise, take the basename
-    Path::new(first_word).file_name().and_then(|n| n.to_str())
-}
-
-/// detect language by content sniffing the first few lines. last-resort
-/// fallback when path glob + shebang both miss -- mainly for stdin pipes
-/// (e.g. `git diff | eat`) and extensionless patch files.
-///
-/// currently only recognises unified/git diff output. signatures, any of:
-///   - line starts with `diff --git `
-///   - line starts with `Index: ` (svn/cvs style)
-///   - line starts with `--- ` immediately followed by a `+++ ` line
-///   - line starts with `@@ -` (hunk header)
-fn detect_language_by_content(lines: &[String]) -> Option<&'static Language> {
-    let scan = lines.iter().take(16);
-    let mut prev_minus = false;
-    for line in scan {
-        if line.starts_with("diff --git ") || line.starts_with("Index: ") {
-            return find_language("diff");
-        }
-        if line.starts_with("@@ -") {
-            return find_language("diff");
-        }
-        if prev_minus && line.starts_with("+++ ") {
-            return find_language("diff");
-        }
-        prev_minus = line.starts_with("--- ");
-    }
-    None
-}
-
-/// detect language from a shebang line by prefix-matching against entrypoint shebangs.
-fn detect_language_by_shebang(first_line: &str) -> Option<&'static Language> {
-    let token = extract_shebang_token(first_line)?;
-    let token_lower = token.to_ascii_lowercase();
-    for lang in LANGUAGES {
-        for shebang in lang.shebangs {
-            if token_lower.starts_with(shebang) {
-                return Some(lang);
-            }
-        }
-    }
-    None
+    out
 }
 
 /// resolve the pager binary path.
@@ -462,102 +395,56 @@ pub(crate) fn write_highlighted_line(
     Ok(())
 }
 
-/// print highlighted lines from a reader to stdout or a pager.
+/// write one file's highlighted lines (plus optional header) to a writer.
+/// caller owns sink + pager lifecycle so a multi-file run shares one pager.
 #[allow(clippy::too_many_arguments)]
 fn print_highlighted(
+    writer: &mut dyn Write,
     runtime: &mut Runtime,
     lines: &[String],
     color_map: &[&str],
     show_numbers: bool,
     header: Option<&str>,
-    color_mode: ColorMode,
-    paging_mode: PagingMode,
+    use_color: bool,
     gutter: Option<&gutter_view::Gutter>,
 ) -> io::Result<()> {
-    let stdout = io::stdout();
-    let is_tty = stdout.is_terminal();
-
-    let should_page = match paging_mode {
-        PagingMode::Always => true,
-        PagingMode::Never => false,
-        PagingMode::Auto => is_tty,
-    };
-
-    // resolve color: --color never wins outright; otherwise paging upgrades
-    // Auto to "yes" (since stdout-is-tty returns false through the pager pipe);
-    // env vars (NO_COLOR / FORCE_COLOR) are consulted otherwise.
-    let use_color = match color_mode {
-        ColorMode::Never => false,
-        _ => should_page || resolve_use_color(color_mode, is_tty),
-    };
-
-    let pager = if should_page { resolve_pager() } else { None };
-
-    let mut write_output = move |writer: &mut dyn Write| -> io::Result<()> {
-        if let Some(hdr) = header {
-            if use_color {
-                writeln!(writer, "\x1b[1m--- {hdr} ---\x1b[m")?;
-            } else {
-                writeln!(writer, "--- {hdr} ---")?;
-            }
-        }
-
-        for (i, line) in lines.iter().enumerate() {
-            let g = if show_numbers { gutter.map(|g| (g, i + 1)) } else { None };
-            write_highlighted_line(writer, Some(runtime), color_map, line, g, use_color)?;
-        }
-
-        Ok(())
-    };
-
-    match pager {
-        Some(pager_path) => {
-            let mut args: Vec<&str> = Vec::new();
-            let pager_name =
-                Path::new(&pager_path).file_name().and_then(|n| n.to_str()).unwrap_or("");
-
-            // -R: pass ansi colour escapes through raw. -F: exit if content fits one screen.
-            // we deliberately do NOT pass -X (--no-init): without alt-screen, terminals
-            // can't forward mouse-wheel events to less via xterm alternate-scroll, so the
-            // page won't scroll under the cursor. less >=530 fixed the old -F-clears-screen
-            // bug that motivated -X; older less is rare enough not to chase.
-            if pager_name == "less" {
-                args.extend_from_slice(&["-R", "-F"]);
-            }
-
-            let mut child = std::process::Command::new(&pager_path)
-                .args(&args)
-                .stdin(std::process::Stdio::piped())
-                .spawn()?;
-
-            if let Some(stdin) = child.stdin.as_mut() {
-                let result = write_output(stdin);
-                // close stdin so the pager sees EOF
-                drop(child.stdin.take());
-                match result {
-                    Ok(_) => {}
-                    Err(e) if e.kind() == io::ErrorKind::BrokenPipe => {
-                        // user quit pager early -- ok
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-
-            let _ = child.wait();
-        }
-        None => {
-            let result = write_output(&mut io::stdout());
-            match result {
-                Ok(_) => {}
-                Err(e) if e.kind() == io::ErrorKind::BrokenPipe => {
-                    // output was piped and consumer quit -- ok
-                }
-                Err(e) => return Err(e),
-            }
+    if let Some(hdr) = header {
+        if use_color {
+            writeln!(writer, "\x1b[1m--- {hdr} ---\x1b[m")?;
+        } else {
+            writeln!(writer, "--- {hdr} ---")?;
         }
     }
 
+    for (i, line) in lines.iter().enumerate() {
+        let g = if show_numbers { gutter.map(|g| (g, i + 1)) } else { None };
+        write_highlighted_line(writer, Some(runtime), color_map, line, g, use_color)?;
+    }
+
     Ok(())
+}
+
+/// spawn the pager (if any) and return its stdin + child handle.
+/// caller must drop the writer to signal EOF, then wait on the child.
+fn open_pager_sink(pager_path: &str) -> io::Result<(Box<dyn Write>, std::process::Child)> {
+    let mut args: Vec<&str> = Vec::new();
+    let pager_name = Path::new(pager_path).file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+    // -R: pass ansi colour escapes through raw. -F: exit if content fits one screen.
+    // we deliberately do NOT pass -X (--no-init): without alt-screen, terminals
+    // can't forward mouse-wheel events to less via xterm alternate-scroll, so the
+    // page won't scroll under the cursor. less >=530 fixed the old -F-clears-screen
+    // bug that motivated -X; older less is rare enough not to chase.
+    if pager_name == "less" {
+        args.extend_from_slice(&["-R", "-F"]);
+    }
+
+    let mut child = std::process::Command::new(pager_path)
+        .args(&args)
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    let stdin = child.stdin.take().expect("piped");
+    Ok((Box::new(stdin), child))
 }
 
 /// read a file into a Vec of lines.
@@ -622,7 +509,42 @@ fn run(
     // filter to actual files (not stdin) for multi-file header logic
     let file_count = inputs.iter().filter(|i| matches!(i, EatInput::File(_))).count();
 
+    // decide paging + colour once for the whole run so a multi-file invocation
+    // shares one pager rather than spawning one per file.
+    let stdout_is_tty = io::stdout().is_terminal();
+    let want_page = match paging_mode {
+        PagingMode::Always => true,
+        PagingMode::Never => false,
+        PagingMode::Auto => stdout_is_tty,
+    };
+    let pager_path = if want_page { resolve_pager() } else { None };
+    let use_color = match color_mode {
+        ColorMode::Never => false,
+        // through the pager pipe, stdout-is-tty would read false; treat paging
+        // as a tty for colour purposes. otherwise consult env + tty.
+        _ => pager_path.is_some() || resolve_use_color(color_mode, stdout_is_tty),
+    };
+
+    let mut pager_child: Option<std::process::Child> = None;
+    let mut sink: Box<dyn Write> = match pager_path.as_deref() {
+        Some(path) => match open_pager_sink(path) {
+            Ok((w, c)) => {
+                pager_child = Some(c);
+                w
+            }
+            Err(_) => Box::new(io::stdout()),
+        },
+        None => Box::new(io::stdout()),
+    };
+
+    // tracks whether the pager (or downstream consumer) has hung up; once it
+    // has, subsequent writes are pointless -- stop iterating.
+    let mut sink_closed = false;
+
     for input in &inputs {
+        if sink_closed {
+            break;
+        }
         let (lines, path_for_detection, header_label) = match input {
             EatInput::File(path) => match read_file(path) {
                 Ok(lines) => {
@@ -665,67 +587,33 @@ fn run(
         let lang = if let Some(l) = lang_override {
             Some(l)
         } else if let Some(p) = path_for_detection {
-            detect_language_by_path(p)
-                .or_else(|| lines.first().and_then(|l| detect_language_by_shebang(l)))
-                .or_else(|| detect_language_by_content(&lines))
+            process_file_associations(FILE_ASSOCIATIONS, p)
+                .or_else(|| language_from_shebang(&head_bytes(&lines)))
+                .or_else(|| language_from_content(&head_bytes(&lines)))
         } else {
             // stdin with no path: shebang sniff, then content sniff
-            lines
-                .first()
-                .and_then(|l| detect_language_by_shebang(l))
-                .or_else(|| detect_language_by_content(&lines))
+            let head = head_bytes(&lines);
+            language_from_shebang(&head).or_else(|| language_from_content(&head))
         };
 
         if plain {
-            // plain mode: just cat the lines
-            let stdout = io::stdout();
-            let is_tty = stdout.is_terminal();
-
-            let should_page = match paging_mode {
-                PagingMode::Always => true,
-                PagingMode::Never => false,
-                PagingMode::Auto => is_tty && resolve_pager().is_some(),
-            };
-
-            if should_page {
-                if let Some(pager_path) = resolve_pager() {
-                    let spawn_result = std::process::Command::new(&pager_path)
-                        .args(if Path::new(&pager_path).file_name().is_some_and(|n| n == "less") {
-                            vec!["-R", "-F"]
-                        } else {
-                            vec![]
-                        })
-                        .stdin(std::process::Stdio::piped())
-                        .spawn();
-                    match spawn_result {
-                        Ok(mut c) => {
-                            if let Some(stdin) = c.stdin.as_mut() {
-                                for line in &lines {
-                                    let _ = writeln!(stdin, "{line}");
-                                }
-                            }
-                            let _ = c.wait();
-                        }
-                        Err(_) => {
-                            for line in &lines {
-                                println!("{line}");
-                            }
-                        }
+            // plain mode: cat to shared sink. no header, no decorations.
+            for line in &lines {
+                if let Err(e) = writeln!(sink, "{line}") {
+                    if e.kind() == io::ErrorKind::BrokenPipe {
+                        sink_closed = true;
+                        break;
                     }
-                } else {
-                    for line in &lines {
-                        println!("{line}");
-                    }
-                }
-            } else {
-                for line in &lines {
-                    println!("{line}");
+                    eprintln!("{}: {e}", prog_name());
+                    has_error = true;
+                    sink_closed = true;
+                    break;
                 }
             }
             continue;
         }
 
-        let header = if io::stdout().is_terminal() && inputs.len() > 1 {
+        let header = if stdout_is_tty && inputs.len() > 1 {
             header_label.as_deref()
         } else {
             None
@@ -748,25 +636,54 @@ fn run(
 
         if let Some(lang) = lang {
             let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lang.entrypoint);
-            if let Err(e) = print_highlighted(
+            match print_highlighted(
+                sink.as_mut(),
                 &mut runtime,
                 &lines,
                 &color_map,
                 show_numbers,
                 header,
-                color_mode,
-                paging_mode,
+                use_color,
                 gutter.as_ref(),
             ) {
-                eprintln!("{}: {e}", prog_name());
-                has_error = true;
+                Ok(()) => {}
+                Err(e) if e.kind() == io::ErrorKind::BrokenPipe => {
+                    sink_closed = true;
+                }
+                Err(e) => {
+                    eprintln!("{}: {e}", prog_name());
+                    has_error = true;
+                }
             }
         } else {
-            // no language detected -- plain output
+            // no language detected -- plain output, but still through shared sink
+            // so we share the pager with siblings.
+            if let Some(hdr) = header {
+                let _ = if use_color {
+                    writeln!(sink, "\x1b[1m--- {hdr} ---\x1b[m")
+                } else {
+                    writeln!(sink, "--- {hdr} ---")
+                };
+            }
             for line in &lines {
-                println!("{line}");
+                if let Err(e) = writeln!(sink, "{line}") {
+                    if e.kind() == io::ErrorKind::BrokenPipe {
+                        sink_closed = true;
+                        break;
+                    }
+                    eprintln!("{}: {e}", prog_name());
+                    has_error = true;
+                    sink_closed = true;
+                    break;
+                }
             }
         }
+    }
+
+    // close sink (drops pager stdin so it sees EOF), then wait on pager.
+    drop(sink);
+    if let Some(mut c) = pager_child {
+        let _ = c.wait();
     }
 
     if has_error { ExitCode::from(1) } else { ExitCode::from(0) }
@@ -781,86 +698,9 @@ enum EatInput {
 mod tests {
     use super::*;
 
-    // --- shebang token extraction ---
-
-    #[test]
-    fn shebang_simple_interpreter() {
-        assert_eq!(extract_shebang_token("#!/usr/bin/python"), Some("python"));
-        assert_eq!(extract_shebang_token("#!/bin/bash"), Some("bash"));
-        assert_eq!(extract_shebang_token("#!/usr/bin/ruby"), Some("ruby"));
-    }
-
-    #[test]
-    fn shebang_env_style() {
-        assert_eq!(extract_shebang_token("#!/usr/bin/env python"), Some("python"));
-        assert_eq!(extract_shebang_token("#!/usr/bin/env bash"), Some("bash"));
-        assert_eq!(extract_shebang_token("#!/usr/bin/env python3"), Some("python3"));
-    }
-
-    #[test]
-    fn shebang_with_args() {
-        assert_eq!(extract_shebang_token("#!/usr/bin/python -i"), Some("python"));
-        assert_eq!(extract_shebang_token("#!/usr/bin/env python -S"), Some("python"));
-    }
-
-    #[test]
-    fn shebang_whitespace_only() {
-        assert_eq!(extract_shebang_token("#!   /usr/bin/python"), Some("python"));
-        assert_eq!(extract_shebang_token("#!  /usr/bin/env python"), Some("python"));
-    }
-
-    #[test]
-    fn shebang_no_interpreter() {
-        assert_eq!(extract_shebang_token("not a shebang"), None);
-        assert_eq!(extract_shebang_token("#!"), None);
-    }
-
-    #[test]
-    fn shebang_empty_env() {
-        assert_eq!(extract_shebang_token("#!/usr/bin/env"), None);
-    }
-
-    // --- content sniffing ---
-
-    fn s(v: &[&str]) -> Vec<String> {
-        v.iter().map(|x| x.to_string()).collect()
-    }
-
-    #[test]
-    fn content_sniff_git_diff() {
-        let lines = s(&["diff --git a/foo b/foo", "index abc..def 100644"]);
-        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
-    }
-
-    #[test]
-    fn content_sniff_unified_diff() {
-        let lines = s(&["--- a/foo\t2024-01-01", "+++ b/foo\t2024-01-02", "@@ -1 +1 @@"]);
-        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
-    }
-
-    #[test]
-    fn content_sniff_hunk_header_only() {
-        let lines = s(&["@@ -1,3 +1,4 @@", " ctx"]);
-        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
-    }
-
-    #[test]
-    fn content_sniff_svn_index() {
-        let lines = s(&["Index: foo.txt", "==================="]);
-        assert_eq!(detect_language_by_content(&lines).map(|l| l.id), Some("diff"));
-    }
-
-    #[test]
-    fn content_sniff_non_diff() {
-        let lines = s(&["fn main() {", "    println!(\"hi\");", "}"]);
-        assert!(detect_language_by_content(&lines).is_none());
-    }
-
-    #[test]
-    fn content_sniff_minus_without_plus_no_match() {
-        let lines = s(&["--- standalone line, not a header", "next"]);
-        assert!(detect_language_by_content(&lines).is_none());
-    }
+    // shebang + content-sniff tests now live in `lsh_defs::detect::tests` --
+    // the impls moved to the shared crate so both `eat` and `edit` consume the
+    // same detection logic.
 
     // --- line range parsing ---
 
@@ -1051,9 +891,9 @@ mod tests {
         let map = theme::color_map();
         assert!(!map.is_empty());
         // check a few known entries
-        assert_eq!(map[definitions::HighlightKind::Comment as usize], "\x1b[32m");
-        assert_eq!(map[definitions::HighlightKind::String as usize], "\x1b[91m");
-        assert_eq!(map[definitions::HighlightKind::Other as usize], "");
+        assert_eq!(map[lsh_defs::HighlightKind::Comment as usize], "\x1b[32m");
+        assert_eq!(map[lsh_defs::HighlightKind::String as usize], "\x1b[91m");
+        assert_eq!(map[lsh_defs::HighlightKind::Other as usize], "");
     }
 }
 
@@ -1412,12 +1252,12 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
                 return ExitCode::from(2);
             }
         },
-        None => detect_language_by_path(&path).or_else(|| {
+        None => process_file_associations(FILE_ASSOCIATIONS, &path).or_else(|| {
             let f = File::open(&path).ok()?;
             let mut br = BufReader::new(f);
             let mut first = String::new();
             let _ = std::io::BufRead::read_line(&mut br, &mut first);
-            detect_language_by_shebang(first.trim_end_matches(['\n', '\r']))
+            language_from_shebang(first.as_bytes())
         }),
     };
 
@@ -1494,12 +1334,12 @@ pub fn main() -> ExitCode {
                     return ExitCode::from(2);
                 }
             },
-            None => detect_language_by_path(&path).or_else(|| {
+            None => process_file_associations(FILE_ASSOCIATIONS, &path).or_else(|| {
                 let f = File::open(&path).ok()?;
                 let mut br = BufReader::new(f);
                 let mut first = String::new();
                 let _ = std::io::BufRead::read_line(&mut br, &mut first);
-                detect_language_by_shebang(first.trim_end_matches(['\n', '\r']))
+                language_from_shebang(first.as_bytes())
             }),
         };
         let use_color = resolve_use_color(cli.color, true);

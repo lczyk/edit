@@ -127,6 +127,7 @@ dependencies = [
  "argh",
  "gutter",
  "lsh",
+ "lsh-defs",
  "stdext",
  "tty",
  "version",
@@ -140,6 +141,7 @@ dependencies = [
  "gutter",
  "libc",
  "lsh",
+ "lsh-defs",
  "polyflag",
  "stdext",
  "toml-span",
@@ -231,6 +233,14 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "argh",
+ "lsh",
+ "stdext",
+]
+
+[[package]]
+name = "lsh-defs"
+version = "0.10.0"
+dependencies = [
  "lsh",
  "stdext",
 ]

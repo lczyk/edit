@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use lsh::runtime::{Language, Runtime};
 use stdext::arena::{Arena, scratch_arena};
 
-use crate::definitions::{ASSEMBLY, CHARSETS, STRINGS};
+use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 use crate::follow::{
     DEFAULT_MISS_BUDGET, FileSource, FollowSource, FollowState, TickOutcome, tick,
 };

@@ -4,7 +4,7 @@ use stdext::collections::BVec;
 
 use crate::document::ReadableDocument;
 use crate::helpers::*;
-use crate::lsh::definitions::*;
+use lsh_defs::*;
 use crate::{simd, unicode};
 
 const MAX_LINE_LEN: usize = 32 * KIBI;
@@ -146,7 +146,7 @@ impl<'doc> Highlighter<'doc> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lsh::definitions::{HighlightKind, LANGUAGES};
+    use lsh_defs::{HighlightKind, LANGUAGES};
     use std::cell::Cell;
     use stdext::arena::Arena;
 
