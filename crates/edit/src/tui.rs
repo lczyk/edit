@@ -1144,10 +1144,17 @@ impl Tui {
                     });
                 }
 
-                let visual_offset = advance_scroll_animation(tc, self.frame_dt_secs);
+                let visual_offset = crate::anim::engine::advance_scroll(
+                    &mut tc.scroll_offset_visual,
+                    tc.scroll_offset,
+                    self.frame_dt_secs,
+                );
                 let cursor_target = tb.cursor_visual_pos();
-                let cursor_override =
-                    advance_cursor_animation(tc, cursor_target, self.frame_dt_secs);
+                let cursor_override = crate::anim::engine::advance_cursor(
+                    &mut tc.cursor_visual_anim,
+                    cursor_target,
+                    self.frame_dt_secs,
+                );
                 let still_animating =
                     visual_offset != tc.scroll_offset || cursor_override != cursor_target;
                 if still_animating && self.read_timeout > anim::FRAME_INTERVAL {
@@ -4399,98 +4406,6 @@ impl<'a> Node<'a> {
 
 // Cell width the textarea reserves for the minimap rail. Authority lives in
 // the document's pre-built cells; this just reads back what was built.
-/// Per-frame exponential-lerp alpha for a given time constant.
-/// Saturates to 1.0 once `dt` exceeds ~6 tau (effectively done) so we don't
-/// pay the cost of `exp()` for the no-op tail.
-#[inline]
-fn lerp_alpha(dt_secs: f32, tau_secs: f32) -> f32 {
-    if dt_secs >= tau_secs * 6.0 { 1.0 } else { 1.0 - (-dt_secs / tau_secs).exp() }
-}
-
-/// Ease-out cubic curve applied on top of `lerp_alpha`. Front-loads the
-/// motion: more distance closed in the first frames, less in the tail.
-/// Visually reads as "snappy" without changing the time constant.
-/// `eased = 1 - (1 - alpha)^3`.
-#[inline]
-fn ease_out_cubic(alpha: f32) -> f32 {
-    let inv = 1.0 - alpha;
-    1.0 - inv * inv * inv
-}
-
-/// Lerps `tc.scroll_offset_visual` toward `tc.scroll_offset` (the target) using
-/// a per-axis exponential time-constant and snaps within 0.5 cells. Returns
-/// the rounded integer offset to feed the renderer for this frame.
-///
-/// Animates regardless of jump size: a PageDown / Goto-Line / search jump
-/// across a long doc still slides, which actually helps the user keep their
-/// orientation after a big move. The exponential curve completes in ~6 tau
-/// (~360ms at the default tau), so even a 5000-line jump is over quickly.
-fn advance_scroll_animation(tc: &mut TextareaContent, dt_secs: f32) -> Point {
-    if crate::glyphs::no_animations() {
-        tc.scroll_offset_visual = (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
-        return tc.scroll_offset;
-    }
-
-    let target_x = tc.scroll_offset.x as f32;
-    let target_y = tc.scroll_offset.y as f32;
-
-    let alpha = lerp_alpha(dt_secs, anim::SCROLL_TAU_SECS);
-    tc.scroll_offset_visual.0 += (target_x - tc.scroll_offset_visual.0) * alpha;
-    tc.scroll_offset_visual.1 += (target_y - tc.scroll_offset_visual.1) * alpha;
-
-    if (target_x - tc.scroll_offset_visual.0).abs() < 0.5 {
-        tc.scroll_offset_visual.0 = target_x;
-    }
-    if (target_y - tc.scroll_offset_visual.1).abs() < 0.5 {
-        tc.scroll_offset_visual.1 = target_y;
-    }
-
-    Point {
-        x: tc.scroll_offset_visual.0.round() as CoordType,
-        y: tc.scroll_offset_visual.1.round() as CoordType,
-    }
-}
-
-/// Same lerp shape as `advance_scroll_animation`, but for the visible cursor
-/// position. The buffer's logical cursor moves instantly; only the rendered
-/// glyph + line highlight follow the animated point. Returns the rounded
-/// integer position to feed back into the buffer as a render override.
-///
-/// Animates regardless of jump size for the same orientation reason as the
-/// scroll lerp.
-fn advance_cursor_animation(tc: &mut TextareaContent, target: Point, dt_secs: f32) -> Point {
-    if crate::glyphs::no_animations() {
-        tc.cursor_visual_anim = Some((target.x as f32, target.y as f32));
-        return target;
-    }
-
-    let target_x = target.x as f32;
-    let target_y = target.y as f32;
-
-    let visual = match tc.cursor_visual_anim {
-        Some(v) => v,
-        None => {
-            // First render for this textarea: snap to target so the cursor
-            // doesn't slide in from (0, 0).
-            tc.cursor_visual_anim = Some((target_x, target_y));
-            return target;
-        }
-    };
-
-    let alpha = ease_out_cubic(lerp_alpha(dt_secs, anim::CURSOR_TAU_SECS));
-    let mut next =
-        (visual.0 + (target_x - visual.0) * alpha, visual.1 + (target_y - visual.1) * alpha);
-    if (target_x - next.0).abs() < 0.5 {
-        next.0 = target_x;
-    }
-    if (target_y - next.1).abs() < 0.5 {
-        next.1 = target_y;
-    }
-    tc.cursor_visual_anim = Some(next);
-
-    Point { x: next.0.round() as CoordType, y: next.1.round() as CoordType }
-}
-
 fn textarea_minimap_width(tb: &TextBuffer, tc: &TextareaContent, _inner: Rect) -> CoordType {
     if tc.single_line {
         return 0;
