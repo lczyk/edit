@@ -1863,6 +1863,75 @@ impl TextBuffer {
         self.cursor = cursor;
     }
 
+    /// Builds the per-row margin prefix (line numbers + separator,
+    /// or wrap-marker dots) into `line` and returns the per-row
+    /// gutter classification: which gutter mark (if any) should be
+    /// painted for this row, and whether the row's margin column
+    /// needs the wrapped-continuation dim.
+    ///
+    /// `visual_line` is the document-visual y; `cursor_beg` is the
+    /// row's start cursor. Caller must have already gated on
+    /// `line_number_width != 0`.
+    fn build_gutter_margin<'arena>(
+        &self,
+        line: &mut BString<'arena>,
+        scratch: &'arena Arena,
+        line_number_width: usize,
+        visual_line: CoordType,
+        cursor_beg: &Cursor,
+    ) -> (Option<GutterMark>, bool) {
+        if visual_line >= self.stats.visual_lines {
+            // Past the end of the buffer? Place "    | " in the margin.
+            // Since we know that we won't see line numbers greater than i64::MAX (9223372036854775807)
+            // any time soon, we can use a static string as the template (`MARGIN`) and slice it,
+            // because `line_number_width` can't possibly be larger than 19.
+            let off = 19 - line_number_width;
+            let template = margin_template();
+            unsafe { std::hint::assert_unchecked(off < template.len()) };
+            line.push_str(scratch, &template[off..]);
+            (None, false)
+        } else if self.word_wrap_column <= 0 || cursor_beg.logical_pos.x == 0 {
+            // Regular line? Place "123 | " in the margin.
+            let sep = crate::glyphs::box_v();
+            arena_write_fmt!(
+                scratch,
+                line,
+                "{:1$} {2} ",
+                cursor_beg.logical_pos.y + 1,
+                line_number_width,
+                sep
+            );
+            let mark = self.gutter_mark(cursor_beg.logical_pos.y);
+            (if mark != GutterMark::None { Some(mark) } else { None }, false)
+        } else {
+            // Wrapped line? Place " ... | " in the margin.
+            let number_width = (cursor_beg.logical_pos.y + 1).ilog10() as usize + 1;
+            let sep = crate::glyphs::box_v();
+            if crate::glyphs::ascii_only() {
+                arena_write_fmt!(
+                    scratch,
+                    line,
+                    "{0:1$}{0:.<2$} {3} ",
+                    "",
+                    line_number_width - number_width,
+                    number_width,
+                    sep
+                );
+            } else {
+                arena_write_fmt!(
+                    scratch,
+                    line,
+                    "{0:1$}{0:\u{2219}<2$} {3} ",
+                    "",
+                    line_number_width - number_width,
+                    number_width,
+                    sep
+                );
+            }
+            (None, true)
+        }
+    }
+
     /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
     /// The `destination` rect is framebuffer coordinates. The extracted region within this
     /// text buffer has the given `origin` and the same size as the `destination` rect.
@@ -1957,55 +2026,17 @@ impl TextBuffer {
             }
 
             if line_number_width != 0 {
-                if visual_line >= self.stats.visual_lines {
-                    // Past the end of the buffer? Place "    | " in the margin.
-                    // Since we know that we won't see line numbers greater than i64::MAX (9223372036854775807)
-                    // any time soon, we can use a static string as the template (`MARGIN`) and slice it,
-                    // because `line_number_width` can't possibly be larger than 19.
-                    let off = 19 - line_number_width;
-                    let template = margin_template();
-                    unsafe { std::hint::assert_unchecked(off < template.len()) };
-                    line.push_str(&*scratch, &template[off..]);
-                } else if self.word_wrap_column <= 0 || cursor_beg.logical_pos.x == 0 {
-                    // Regular line? Place "123 | " in the margin.
-                    let sep = crate::glyphs::box_v();
-                    arena_write_fmt!(
-                        &*scratch,
-                        line,
-                        "{:1$} {2} ",
-                        cursor_beg.logical_pos.y + 1,
-                        line_number_width,
-                        sep
-                    );
-                    let mark = self.gutter_mark(cursor_beg.logical_pos.y);
-                    if mark != GutterMark::None {
-                        gutter_paint.push((destination.top + y, mark));
-                    }
-                } else {
-                    // Wrapped line? Place " ... | " in the margin.
-                    let number_width = (cursor_beg.logical_pos.y + 1).ilog10() as usize + 1;
-                    let sep = crate::glyphs::box_v();
-                    if crate::glyphs::ascii_only() {
-                        arena_write_fmt!(
-                            &*scratch,
-                            line,
-                            "{0:1$}{0:.<2$} {3} ",
-                            "",
-                            line_number_width - number_width,
-                            number_width,
-                            sep
-                        );
-                    } else {
-                        arena_write_fmt!(
-                            &*scratch,
-                            line,
-                            "{0:1$}{0:∙<2$} {3} ",
-                            "",
-                            line_number_width - number_width,
-                            number_width,
-                            sep
-                        );
-                    }
+                let (mark, dim) = self.build_gutter_margin(
+                    &mut line,
+                    &scratch,
+                    line_number_width,
+                    visual_line,
+                    &cursor_beg,
+                );
+                if let Some(mark) = mark {
+                    gutter_paint.push((destination.top + y, mark));
+                }
+                if dim {
                     crate::anim::draw::dim_wrapped_margin(
                         fb,
                         destination.left,
