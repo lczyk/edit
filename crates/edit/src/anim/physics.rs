@@ -90,3 +90,33 @@ pub struct TextareaPhysics<'a> {
     // pub selection_geom: Option<SelectionGeom>, // needs split
     // pub gutter: GutterDraw<'a>,               // needs split
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn minimap_width_zero_for_single_line() {
+        assert_eq!(textarea_minimap_width(true, &[]), 0);
+    }
+
+    #[test]
+    fn minimap_width_zero_when_no_cells() {
+        assert_eq!(textarea_minimap_width(false, &[]), 0);
+    }
+
+    #[test]
+    fn scrollbar_width_zero_for_single_line() {
+        assert_eq!(textarea_scrollbar_width(true, 0), 0);
+    }
+
+    #[test]
+    fn scrollbar_width_zero_when_minimap_present() {
+        assert_eq!(textarea_scrollbar_width(false, 4), 0);
+    }
+
+    #[test]
+    fn scrollbar_width_one_when_alone() {
+        assert_eq!(textarea_scrollbar_width(false, 0), 1);
+    }
+}
