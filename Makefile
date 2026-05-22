@@ -30,8 +30,8 @@ du: build  ## Show release binary size
 	du -h target/release/edit target/release/eat
 
 .PHONY: install
-install: sync-version  ## Install the edit binary into ~/.cargo/bin
-	cargo install --path crates/edit --force
+install: sync-version  ## Install the edit binary (debug build) into ~/.cargo/bin
+	cargo install --debug --path crates/edit --force
 	ln -sf edit "$${CARGO_INSTALL_ROOT:-$$HOME/.cargo}/bin/eat"
 
 .PHONY: check
