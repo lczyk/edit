@@ -149,6 +149,7 @@ fn run() -> apperr::Result<()> {
         ctrl: "Ctrl",
         alt: "Alt",
         shift: "Shift",
+        cmd: "Cmd",
     });
     tui.set_floater_default_bg(floater_bg);
     tui.set_floater_default_fg(floater_fg);

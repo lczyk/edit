@@ -196,6 +196,7 @@ pub struct ModifierTranslations {
     pub ctrl: &'static str,
     pub alt: &'static str,
     pub shift: &'static str,
+    pub cmd: &'static str,
 }
 
 /// Controls to which node the floater is anchored.
@@ -399,6 +400,7 @@ impl Tui {
                 ctrl: "Ctrl",
                 alt: "Alt",
                 shift: "Shift",
+                cmd: "Cmd",
             },
             floater_default_bg: StraightRgba::zero(),
             floater_default_fg: StraightRgba::zero(),
@@ -3732,6 +3734,10 @@ impl<'a> Context<'a, '_> {
             }
             if shortcut.modifiers_contains(kbmod::SHIFT) {
                 shortcut_text.push_str(self.arena(), self.tui.modifier_translations.shift);
+                shortcut_text.push(self.arena(), '+');
+            }
+            if shortcut.modifiers_contains(kbmod::CMD) {
+                shortcut_text.push_str(self.arena(), self.tui.modifier_translations.cmd);
                 shortcut_text.push(self.arena(), '+');
             }
             shortcut_text.push(self.arena(), shortcut_letter);
