@@ -1131,10 +1131,13 @@ impl Tui {
                     self.request_animation_frame();
                 }
 
-                tb.set_cursor_render_override(Some(cursor_override));
-                let render_res =
-                    tb.render(visual_offset, destination, tc.has_focus, &mut self.framebuffer);
-                tb.set_cursor_render_override(None);
+                let render_res = tb.render(
+                    visual_offset,
+                    destination,
+                    tc.has_focus,
+                    Some(cursor_override),
+                    &mut self.framebuffer,
+                );
                 if let Some(res) = render_res {
                     tc.scroll_offset_x_max = res.visual_pos_x_max;
                 }

@@ -653,15 +653,6 @@ impl TextBuffer {
         self.cursor.logical_pos
     }
 
-    /// Gets the visual cursor position, that is,
-    /// the position in laid out rows and columns.
-    /// Sets a one-shot override for where `render` will paint the cursor
-    /// block + line highlight. Pass `None` to clear. Does not affect cursor
-    /// state -- only the visible representation.
-    pub fn set_cursor_render_override(&mut self, pos: Option<Point>) {
-        self.cursor_render_override = pos;
-    }
-
     /// Drain the most recent line-move event, if any. Called by the
     /// rendering layer to seed slide animation state. Returns `None` after
     /// the first call following a `move_selected_lines`.
@@ -1890,11 +1881,17 @@ impl TextBuffer {
         origin: Point,
         destination: Rect,
         focused: bool,
+        cursor_override: Option<Point>,
         fb: &mut Framebuffer,
     ) -> Option<RenderResult> {
         if destination.is_empty() {
             return None;
         }
+        // Wire the caller-supplied cursor override through the same
+        // field the inner cursor-painting paths read. Cleared at the
+        // end so a render w/out an override doesn't see stale state
+        // from a previous frame's animated cursor.
+        self.cursor_render_override = cursor_override;
 
         let width = destination.width();
         let height = destination.height();
@@ -2406,6 +2403,7 @@ impl TextBuffer {
             }
         }
 
+        self.cursor_render_override = None;
         Some(RenderResult { visual_pos_x_max })
     }
 
