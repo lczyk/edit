@@ -640,6 +640,39 @@ mod tests {
     }
 
     #[test]
+    fn animate_snaps_lerps_on_buffer_edit() {
+        // Animator state holds a stale cursor_visual; a buffer edit
+        // (gen change) should snap the lerp to target on this frame
+        // instead of sliding through the edit. Verifies the
+        // snap_on_buffer_edit step inside animate.
+        let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
+        tb.set_width(80);
+        let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
+        let mut target = crate::anim::physics::build_textarea_physics(
+            &tb,
+            Point { x: 0, y: 0 },
+            dest,
+            None,
+            true,
+        );
+        target.cursor_visual = Point { x: 50, y: 50 };
+        let mut state = TextareaAnimState {
+            cursor_visual: Some((0.0, 0.0)),
+            scroll_visual: (0.0, 0.0),
+            last_buffer_generation: tb.generation().wrapping_sub(1),
+            ..Default::default()
+        };
+        // Buffer gen is one ahead of the animator's last-seen gen
+        // -> snap fires, cursor jumps to target, still_animating
+        // false on this frame.
+        let (displayed, still_animating) =
+            animate(&mut state, target, tb.generation(), 0.016, Instant::now());
+        assert!(!still_animating, "snap completes on the edit frame");
+        assert_eq!(displayed.cursor_visual, Point { x: 50, y: 50 });
+        assert_eq!(state.last_buffer_generation, tb.generation());
+    }
+
+    #[test]
     fn animate_reports_still_animating_when_lerping() {
         // Cursor target moves from (0, 0) to (100, 100); the lerp
         // covers part of the distance, so still_animating is true.
