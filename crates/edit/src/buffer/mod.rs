@@ -3430,10 +3430,10 @@ impl TextBuffer {
     /// Builds the tinted column spans for one logical line of the
     /// line-move sweep band. Splits on runs of ASCII space / tab so
     /// whitespace cells (leading indent, trailing whitespace, gaps
-    /// between tokens) stay untinted. Returns an empty box for empty
-    /// lines and a single full-width span for whitespace-only lines.
-    /// Unicode whitespace (U+00A0 NBSP etc.) is not treated as
-    /// whitespace.
+    /// between tokens) stay untinted. Returns a single full-width span
+    /// for empty lines (so blank rows inside a multi-line move still
+    /// flash) and for whitespace-only lines. Unicode whitespace
+    /// (U+00A0 NBSP etc.) is not treated as whitespace.
     fn compute_line_band(&self, y: CoordType) -> RowBand {
         let line_start = self.goto_line_start(self.cursor, y);
         let next_line = self.cursor_move_to_logical_internal(line_start, Point { x: 0, y: y + 1 });
@@ -3458,13 +3458,12 @@ impl TextBuffer {
             bytes.pop();
         }
 
-        if bytes.is_empty() {
-            return Box::new([]);
-        }
-
         let is_ws = |b: u8| b == b' ' || b == b'\t';
-        // Whitespace-only -> single full-width span. `text_width()`
-        // already accounts for the gutter / margin.
+        // Empty / whitespace-only line -> single full-width span. The
+        // cells have no explicit fg, so the renderer's tint falls back
+        // to `IndexedColor::Foreground` and the row flashes in the
+        // default text colour. `text_width()` already accounts for the
+        // gutter / margin.
         if bytes.iter().all(|&b| is_ws(b)) {
             return Box::new([(0, self.text_width())]);
         }
