@@ -4370,4 +4370,96 @@ mod tests {
         tb.toggle_block_comment("/*", "*/");
         assert_eq!(dump(&tb), "foo\n");
     }
+
+    // Render-path smoke tests. They can't snapshot output cells (the
+    // framebuffer doesn't expose cell reads), so they assert no-panic
+    // under each fixture -- a cheap regression catch for the
+    // upcoming layout/paint split.
+
+    fn fb_at(w: CoordType, h: CoordType) -> Framebuffer {
+        let mut fb = Framebuffer::new();
+        fb.flip(Size { width: w, height: h });
+        fb
+    }
+
+    fn rect(w: CoordType, h: CoordType) -> Rect {
+        Rect { left: 0, top: 0, right: w, bottom: h }
+    }
+
+    #[test]
+    fn render_empty_buffer_smoke() {
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.set_width(80);
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_one_line_smoke() {
+        let mut tb = buf_with("hello world\n");
+        tb.set_width(80);
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_many_lines_smoke() {
+        let mut tb = buf_with("a\nb\nc\nd\ne\nf\n");
+        tb.set_width(80);
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_with_selection_smoke() {
+        let mut tb = buf_with("hello world\nsecond line\n");
+        tb.set_width(80);
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 5, y: 1 });
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_unfocused_with_selection_smoke() {
+        let mut tb = buf_with("hello world\n");
+        tb.set_width(80);
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 5, y: 0 });
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), false, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_with_cursor_override_smoke() {
+        // Animator-style override -- the visible cursor lerps to a
+        // position offset from the authoritative logical cursor.
+        let mut tb = buf_with("hello world\n");
+        tb.set_width(80);
+        tb.cursor_move_to_logical(Point { x: 11, y: 0 });
+        tb.render(
+            Point { x: 0, y: 0 },
+            rect(80, 24),
+            true,
+            Some(Point { x: 5, y: 0 }),
+            &mut fb_at(80, 24),
+        );
+    }
+
+    #[test]
+    fn render_with_tabs_smoke() {
+        let mut tb = buf_with("\thello\n\t\tworld\n");
+        tb.set_width(80);
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_with_control_chars_smoke() {
+        // Buffer w/ a literal byte 0x07 (BEL) -- exercises the
+        // control-char visualiser path.
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw(b"hi\x07there\n");
+        tb.set_width(80);
+        tb.render(Point { x: 0, y: 0 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
+
+    #[test]
+    fn render_scrolled_smoke() {
+        let mut tb = buf_with("a\nb\nc\nd\ne\nf\ng\nh\n");
+        tb.set_width(80);
+        tb.render(Point { x: 0, y: 3 }, rect(80, 24), true, None, &mut fb_at(80, 24));
+    }
 }
