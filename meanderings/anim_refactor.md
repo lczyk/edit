@@ -1,5 +1,5 @@
 ---
-status: proposal
+status: in-progress
 date: 2026-05-22
 description: unify scattered ad-hoc anim machinery behind a physics/animator/draw split where physics = full frame IR, animator = pure perturbation, draw = pure consumer
 ---
@@ -198,3 +198,16 @@ milestones worth committing on:
 - end of stage 3 -- nil animator live, all `if no_animations()` deleted.
 - end of stage 4 -- sidechannels deleted.
 - end of stage 5 -- tests in.
+
+## status -- 2026-05-22
+
+partial-landed on `lczyk-remix` (57 commits past `v0.10.0`). per-stage state:
+
+- **stage 0** -- done. `crate::anim` module w/ `mod.rs`, `draw.rs`, `engine.rs`, `physics.rs`.
+- **stage 1** -- done. `TextBuffer::layout(&self, ...) -> Option<TextareaLayout>` extracted; `render()` is `layout + paint pass + lsh + overlays`. `Physics` IR (`TextareaPhysics`, `VisualLine`, `TextareaLayout`, `SelectionGeom`) defined in `anim::physics`. `build_textarea_physics(&tb, ...)` calls `layout()` + populates the IR.
+- **stage 2** -- done structurally. all per-row + post-paint blends live in `anim::draw` (11 paint helpers + `textarea_lines` consumer + `textarea_overlays` bundle). `TextBuffer::render` has zero direct fb mutation outside `replace_text` and the `anim::draw` calls.
+- **stage 3** -- partial. `animate_nil` identity fn + `animate(state, target, ...)` real wrapper exist in `anim::engine`. **not yet wired**: `Tui::render_textarea_content` still calls `tb.render(...)` (which internally does the right thing) + invokes the per-feature lerps individually. wiring `build_textarea_physics + animate + draw` end-to-end at the Tui level requires private-getter exposure on `TextBuffer` (margin_width, word_wrap_column, ruler, line_highlight_enabled, overtype -- some are already pub) and careful borrow choreography around `render_apply_highlights`'s `&mut tb` need.
+- **stage 4** -- done. `TextareaContent` holds zero anim state -- it all lives in `Tui::anim` (`TextareaAnimState` keyed by node id, `TuiAnimState` for the floater map + frame counter). both renderer sidechannels eliminated: `cursor_render_override` is now an explicit `render()` arg; `take_pending_line_move` is now non-draining `peek_pending_line_move` w/ a generation counter.
+- **stage 5** -- substantial. 30+ unit tests on pure `anim::engine` + `anim::physics` fns + 9 `TextBuffer::render` smoke tests + 6 `TextBuffer::layout` purity tests + 3-test triad for the `animate` wrapper.
+
+remaining work: wire stage 3 in `Tui::render_textarea_content` to use `build_textarea_physics + animate + draw_via_anim`. mostly mechanical once the borrow choreography is set up. blocking on a focused session that can hold the multi-commit move in a single context window.
