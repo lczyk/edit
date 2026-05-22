@@ -44,9 +44,9 @@ use crate::helpers::*;
 use crate::lsh::cache::HighlighterCache;
 use crate::lsh::{HighlightKind, Highlighter, Language};
 use lsh::runtime::Highlight;
-use crate::simd::memchr2;
+use crate::icu;
 use crate::unicode::{self, Cursor, MeasurementConfig};
-use crate::{icu, simd};
+use stdext::simd::{self, memchr2};
 
 /// The margin template is used for line numbers.
 /// The max. line number we should ever expect is probably 64-bit,

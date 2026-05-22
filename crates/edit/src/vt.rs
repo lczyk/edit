@@ -2,9 +2,8 @@
 
 use std::time;
 
+use stdext::simd::memchr2;
 use stdext::unicode::Utf8Chars;
-
-use crate::simd::memchr2;
 
 /// The parser produces these tokens.
 pub enum Token<'parser, 'input> {

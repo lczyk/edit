@@ -1,4 +1,9 @@
 //! Abstractions over reading/writing arbitrary text containers.
+//!
+//! [`ReadableDocument`] lives in `lsh-defs` (shared with the `Highlighter`);
+//! re-exported here so edit's internal callers keep their existing import
+//! paths. [`WriteableDocument`] is edit-only -- the buffer is the only thing
+//! that mutates docs through this trait.
 
 use std::ffi::OsString;
 use std::mem;
@@ -7,32 +12,7 @@ use std::path::PathBuf;
 
 use stdext::ReplaceRange as _;
 
-/// An abstraction over reading from text containers.
-pub trait ReadableDocument {
-    /// Read some bytes starting at (including) the given absolute offset.
-    ///
-    /// # Warning
-    ///
-    /// * Be lenient on inputs:
-    ///   * The given offset may be out of bounds and you MUST clamp it.
-    ///   * You should not assume that offsets are at grapheme cluster boundaries.
-    /// * Be strict on outputs:
-    ///   * You MUST NOT break grapheme clusters across chunks.
-    ///   * You MUST NOT return an empty slice unless the offset is at or beyond the end.
-    fn read_forward(&self, off: usize) -> &[u8];
-
-    /// Read some bytes before (but not including) the given absolute offset.
-    ///
-    /// # Warning
-    ///
-    /// * Be lenient on inputs:
-    ///   * The given offset may be out of bounds and you MUST clamp it.
-    ///   * You should not assume that offsets are at grapheme cluster boundaries.
-    /// * Be strict on outputs:
-    ///   * You MUST NOT break grapheme clusters across chunks.
-    ///   * You MUST NOT return an empty slice unless the offset is zero.
-    fn read_backward(&self, off: usize) -> &[u8];
-}
+pub use lsh_defs::ReadableDocument;
 
 /// An abstraction over writing to text containers.
 pub trait WriteableDocument: ReadableDocument {
@@ -45,48 +25,12 @@ pub trait WriteableDocument: ReadableDocument {
     fn replace(&mut self, range: Range<usize>, replacement: &[u8]);
 }
 
-impl ReadableDocument for &[u8] {
-    fn read_forward(&self, off: usize) -> &[u8] {
-        let s = *self;
-        &s[off.min(s.len())..]
-    }
-
-    fn read_backward(&self, off: usize) -> &[u8] {
-        let s = *self;
-        &s[..off.min(s.len())]
-    }
-}
-
-impl ReadableDocument for String {
-    fn read_forward(&self, off: usize) -> &[u8] {
-        let s = self.as_bytes();
-        &s[off.min(s.len())..]
-    }
-
-    fn read_backward(&self, off: usize) -> &[u8] {
-        let s = self.as_bytes();
-        &s[..off.min(s.len())]
-    }
-}
-
 impl WriteableDocument for String {
     fn replace(&mut self, range: Range<usize>, replacement: &[u8]) {
         // `replacement` is not guaranteed to be valid UTF-8, so we need to sanitize it.
         let utf8 = String::from_utf8_lossy(replacement);
         // SAFETY: `range` is guaranteed to be on codepoint boundaries.
         unsafe { self.as_mut_vec() }.replace_range(range, utf8.as_bytes());
-    }
-}
-
-impl ReadableDocument for PathBuf {
-    fn read_forward(&self, off: usize) -> &[u8] {
-        let s = self.as_os_str().as_encoded_bytes();
-        &s[off.min(s.len())..]
-    }
-
-    fn read_backward(&self, off: usize) -> &[u8] {
-        let s = self.as_os_str().as_encoded_bytes();
-        &s[..off.min(s.len())]
     }
 }
 

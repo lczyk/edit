@@ -159,7 +159,8 @@ use crate::hash::*;
 use crate::helpers::*;
 use crate::input::{InputKeyMod, kbmod, vk};
 use crate::oklab::StraightRgba;
-use crate::{anim, input, simd, unicode};
+use crate::{anim, input, unicode};
+use stdext::simd;
 
 const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
 const SHIFT_TAB: InputKey = vk::TAB.with_modifiers(kbmod::SHIFT);

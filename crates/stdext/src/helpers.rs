@@ -9,6 +9,12 @@ pub const KILO: usize = 1000;
 pub const MEGA: usize = 1000 * 1000;
 pub const GIGA: usize = 1000 * 1000 * 1000;
 
+/// Signed coordinate type for line / column indices. Re-exported by
+/// `stdext::simd` (lines_fwd / lines_bwd) and by `lsh-defs`'s `Highlighter`.
+/// `isize` so that consumers (e.g. `edit`'s own `CoordType`) align without
+/// casts. If you need a tighter type for storage, cast at the boundary.
+pub type CoordType = isize;
+
 pub const KIBI: usize = 1024;
 pub const MEBI: usize = 1024 * 1024;
 pub const GIBI: usize = 1024 * 1024 * 1024;

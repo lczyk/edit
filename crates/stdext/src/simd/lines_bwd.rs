@@ -1,6 +1,6 @@
 use std::ptr;
 
-use crate::helpers::CoordType;
+use crate::CoordType;
 
 /// Starting from the `offset` in `haystack` with a current line index of
 /// `line`, this seeks backwards to the `line_stop`-nth line and returns the
@@ -394,7 +394,7 @@ unsafe fn lines_bwd_neon(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::helpers::CoordType;
+    use crate::CoordType;
     use crate::simd::test::*;
 
     #[test]

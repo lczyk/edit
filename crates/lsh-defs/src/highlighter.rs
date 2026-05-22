@@ -1,11 +1,19 @@
+//! Stateful line-by-line highlighter wrapper over [`lsh::runtime::Runtime`].
+//!
+//! Holds the current parse offset + the runtime's internal state machine;
+//! `parse_next_line` advances one logical line and returns the spans for
+//! that line. Snapshot/restore lets callers (e.g. edit's incremental
+//! `HighlighterCache`) jump backwards across previously-seen lines without
+//! re-parsing from the top.
+
 use lsh::runtime::*;
 use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::BVec;
+use stdext::simd;
+use stdext::{CoordType, KIBI};
 
-use crate::document::ReadableDocument;
-use crate::helpers::*;
-use lsh_defs::*;
-use crate::{simd, unicode};
+use crate::ReadableDocument;
+use crate::{ASSEMBLY, CHARSETS, HighlightKind, STRINGS};
 
 const MAX_LINE_LEN: usize = 32 * KIBI;
 
@@ -67,7 +75,7 @@ impl<'doc> Highlighter<'doc> {
             return BVec::empty();
         }
 
-        let line = unicode::strip_newline(line);
+        let line = strip_newline(line);
         let mut res = self.runtime.parse_next_line(arena, line);
 
         // Adjust the range to account for the line offset.
@@ -143,12 +151,26 @@ impl<'doc> Highlighter<'doc> {
     }
 }
 
+/// Strip a trailing `\n` or `\r\n` from a byte slice. Inlined here so
+/// `lsh-defs` doesn't have to depend on `edit::unicode`.
+fn strip_newline(mut text: &[u8]) -> &[u8] {
+    if text.last() == Some(&b'\n') {
+        text = &text[..text.len() - 1];
+    }
+    if text.last() == Some(&b'\r') {
+        text = &text[..text.len() - 1];
+    }
+    text
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use lsh_defs::{HighlightKind, LANGUAGES};
     use std::cell::Cell;
+
     use stdext::arena::Arena;
+
+    use super::*;
+    use crate::{HighlightKind, LANGUAGES};
 
     fn lang(id: &str) -> &'static lsh::runtime::Language {
         LANGUAGES.iter().find(|l| l.id == id).unwrap()

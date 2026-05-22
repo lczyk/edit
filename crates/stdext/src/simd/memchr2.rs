@@ -222,7 +222,7 @@ unsafe fn memchr2_neon(needle1: u8, needle2: u8, mut beg: *const u8, end: *const
 mod tests {
     use std::slice;
 
-    use stdext::sys::{virtual_commit, virtual_reserve};
+    use crate::sys::{virtual_commit, virtual_reserve};
 
     use super::*;
 

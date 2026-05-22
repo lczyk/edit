@@ -22,7 +22,6 @@ pub mod notify;
 pub mod oklab;
 pub mod path;
 pub mod sanity;
-pub mod simd;
 pub mod sys;
 pub mod tui;
 pub mod unicode;
