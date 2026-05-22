@@ -416,6 +416,17 @@ impl TextBuffer {
     }
 
     pub fn set_minimap_cells(&mut self, cells: Vec<MinimapCell>, content_rows: u32) {
+        // Sanity (E): minimap content_rows should track the logical-line count
+        // of the source buffer. Cell length is a separately-bounded render
+        // height; we only check that content_rows is plausible.
+        #[cfg(feature = "sanity")]
+        crate::sanity_check!(
+            minimap_content_rows_drift,
+            content_rows as i64 >= self.stats.logical_lines as i64,
+            "minimap content_rows={} but logical_lines={}",
+            content_rows,
+            self.stats.logical_lines
+        );
         self.minimap_cells = cells;
         self.minimap_content_rows = content_rows;
     }
@@ -1747,6 +1758,26 @@ impl TextBuffer {
         debug_assert!(self.word_wrap_column <= 0 || cursor.visual_pos.x <= self.word_wrap_column);
         debug_assert!(cursor.visual_pos.y >= 0);
         debug_assert!(cursor.visual_pos.y <= self.stats.visual_lines);
+
+        // Sanity (A): re-derive visual_pos from the line start and compare
+        // against the stored value. Catches the screenshot-bug class where
+        // visual_pos.y drifts away from the row a fresh measurement says
+        // the cursor lives on.
+        #[cfg(feature = "sanity")]
+        {
+            let from_start = self.goto_line_start(cursor, cursor.logical_pos.y);
+            let remeasured =
+                self.cursor_move_to_logical_internal(from_start, cursor.logical_pos);
+            crate::sanity_check!(
+                cursor_visual_pos_drift,
+                remeasured.visual_pos == cursor.visual_pos,
+                "stored vp={:?} remeasured vp={:?} logical={:?}",
+                cursor.visual_pos,
+                remeasured.visual_pos,
+                cursor.logical_pos
+            );
+        }
+
         self.cursor = cursor;
     }
 
@@ -2222,6 +2253,20 @@ impl TextBuffer {
             if self.word_wrap_column > 0 && x >= self.word_wrap_column {
                 // The line the cursor is on wraps exactly on the word wrap column which
                 // means the cursor is invisible. We need to move it to the next line.
+                //
+                // Sanity (C): hitting this branch means cursor.visual_pos.x landed
+                // exactly on the wrap column -- the bug class from the screenshot
+                // thread. Selection paint and line highlight still read the
+                // un-bumped visual_pos.y, so the caret appears on a row offset
+                // from where text is being inserted.
+                #[cfg(feature = "sanity")]
+                crate::sanity_check!(
+                    render_cursor_on_wrap_boundary,
+                    false,
+                    "vp={:?} wrap_col={} -- caret bumped to next row, may desync from text",
+                    cursor_visual,
+                    self.word_wrap_column
+                );
                 x = 0;
                 y += 1;
             }
@@ -3643,11 +3688,59 @@ impl TextBuffer {
         }
 
         self.recalc_after_content_changed();
+
+        // Sanity (B): incremental stats updates inside edit_end can drift
+        // from a full walk. Recompute by seeking to the document end and
+        // compare visual line count.
+        #[cfg(feature = "sanity")]
+        {
+            let end = self.cursor_move_to_logical_internal(
+                Cursor::default(),
+                Point { x: 0, y: CoordType::MAX },
+            );
+            let expected = if self.word_wrap_column > 0 {
+                end.visual_pos.y + 1
+            } else {
+                self.stats.logical_lines
+            };
+            crate::sanity_check!(
+                stats_visual_lines_drift,
+                self.stats.visual_lines == expected,
+                "stored visual_lines={} recomputed={}",
+                self.stats.visual_lines,
+                expected
+            );
+        }
     }
 
     /// Undo the last edit operation.
     pub fn undo(&mut self) {
+        // Sanity (F): undo+redo should be a no-op. Snapshot the byte content
+        // before, run undo then redo, compare. Expensive: full buffer extract.
+        // Only runs with `sanity` feature; skipped when undo stack is empty.
+        #[cfg(feature = "sanity")]
+        let snapshot = {
+            let mut buf = Vec::new();
+            self.buffer.extract_raw(0..self.text_length(), &mut buf, 0);
+            buf
+        };
         self.undo_redo(true);
+        #[cfg(feature = "sanity")]
+        {
+            // Re-do the undo we just did, then compare to the snapshot.
+            self.undo_redo(false);
+            let mut after = Vec::new();
+            self.buffer.extract_raw(0..self.text_length(), &mut after, 0);
+            crate::sanity_check!(
+                undo_redo_round_trip,
+                after == snapshot,
+                "buffer differs after undo+redo: before_len={} after_len={}",
+                snapshot.len(),
+                after.len()
+            );
+            // Now actually perform the user-visible undo by undoing again.
+            self.undo_redo(true);
+        }
     }
 
     /// Redo the last undo operation.

@@ -19,6 +19,7 @@ pub mod input;
 pub mod lsh;
 pub mod notify;
 pub mod oklab;
+pub mod sanity;
 pub mod path;
 pub mod simd;
 pub mod sys;

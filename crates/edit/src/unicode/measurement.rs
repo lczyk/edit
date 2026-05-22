@@ -456,6 +456,28 @@ impl<'doc> MeasurementConfig<'doc> {
             }
         }
 
+        // Sanity (D): measure_forward is forward-only; result must be >= input
+        // along every axis. Catches arithmetic bugs in the wrap-handling paths
+        // where a fixup could send pos_y backwards (the right-arrow symptom
+        // from the screenshot thread).
+        #[cfg(feature = "sanity")]
+        {
+            let input = self.cursor;
+            crate::sanity_check!(
+                measure_forward_monotonic,
+                offset >= input.offset
+                    && visual_pos_y >= input.visual_pos.y
+                    && logical_pos_y >= input.logical_pos.y,
+                "input=(off={} log={:?} vis={:?}) out=(off={} log={:?} vis={:?})",
+                input.offset,
+                input.logical_pos,
+                input.visual_pos,
+                offset,
+                Point { x: logical_pos_x, y: logical_pos_y },
+                Point { x: visual_pos_x, y: visual_pos_y }
+            );
+        }
+
         self.cursor.offset = offset;
         self.cursor.logical_pos = Point { x: logical_pos_x, y: logical_pos_y };
         self.cursor.visual_pos = Point { x: visual_pos_x, y: visual_pos_y };

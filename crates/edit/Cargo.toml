@@ -8,6 +8,14 @@ rust-version.workspace = true
 
 build = "build/main.rs"
 
+[features]
+# Debug-only invariant checks scattered through the buffer / measurement /
+# render layers. Tripped checks write to $TMPDIR/edit/log/sanity-YYYYMMDD.log
+# and surface via the statusbar warning flash. See crates/edit/src/sanity.rs.
+sanity = [
+    #
+]
+
 [dependencies]
 eat.workspace = true
 gutter.workspace = true
