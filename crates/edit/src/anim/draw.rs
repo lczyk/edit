@@ -12,9 +12,54 @@
 
 use gutter::GutterMark;
 
+use crate::anim::physics::TextareaLayout;
 use crate::buffer::{MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RowBand};
 use crate::framebuffer::{Framebuffer, IndexedColor};
 use crate::helpers::{CoordType, Point, Rect};
+
+/// Pass-2 paint for a single textarea's [`TextareaLayout`]:
+/// for each row, commit the text via `replace_text` and apply the
+/// per-row blends (dim margin, selection rect, shadow matches,
+/// whitespace visualisers, control chars).
+///
+/// Returns the accumulated selection-rects vec so the caller can
+/// feed it into [`textarea_overlays`] for the post-lsh fg force
+/// pass.
+///
+/// `replace_text` writes only glyphs (no fg/bg), so per-row blends
+/// after `replace_text` are equivalent to running them before --
+/// per-row paints are independent across rows.
+pub fn textarea_lines(
+    fb: &mut Framebuffer,
+    layout: &TextareaLayout,
+    dest_left: CoordType,
+    dest_right: CoordType,
+    margin_width: CoordType,
+    focused: bool,
+) -> Vec<Rect> {
+    let mut selection_rects: Vec<Rect> = Vec::new();
+    let shadow_bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
+    let line_number_width = (margin_width.max(3) - 3) as CoordType;
+    for line in &layout.lines {
+        fb.replace_text(line.fb_y, dest_left, dest_right, &line.text);
+        if line.dim_wrapped_margin {
+            dim_wrapped_margin(fb, dest_left, line.fb_y, line_number_width);
+        }
+        if let Some(rect) = line.selection_rect {
+            selection_rect(fb, rect, focused, &mut selection_rects);
+        }
+        for &rect in &line.shadow_match_rects {
+            shadow_match_rect(fb, rect, shadow_bg, &mut selection_rects);
+        }
+        for &rect in &line.whitespace_visualizers {
+            whitespace_visualizer(fb, rect);
+        }
+        for &rect in &line.control_chars {
+            control_char_highlight(fb, rect);
+        }
+    }
+    selection_rects
+}
 
 /// Inputs to [`textarea_overlays`] -- the post-paint overlay pass
 /// for a single textarea. Bundles the five separate paint calls

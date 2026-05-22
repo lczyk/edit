@@ -2427,40 +2427,16 @@ impl TextBuffer {
         fb: &mut Framebuffer,
     ) -> Option<RenderResult> {
         let layout = self.layout(origin, destination, cursor_override)?;
-        let line_number_width = self.margin_width.max(3) as usize - 3;
-        // Collected per-line selection rects; replayed after lsh highlight
-        // pass to force selection fg over any syntax-highlighted glyph color.
-        let mut selection_rects: Vec<Rect> = Vec::new();
 
-        // Pass 2: write each row's body text + apply blends. Order
-        // within a row matches the original inline sequence;
-        // `replace_text` writes only glyphs (not fg/bg), so running
-        // blends after replace_text is equivalent to running them
-        // before. Per-row paints are independent across rows.
-        let shadow_bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
-        for line in &layout.lines {
-            fb.replace_text(line.fb_y, destination.left, destination.right, &line.text);
-            if line.dim_wrapped_margin {
-                crate::anim::draw::dim_wrapped_margin(
-                    fb,
-                    destination.left,
-                    line.fb_y,
-                    line_number_width as CoordType,
-                );
-            }
-            if let Some(rect) = line.selection_rect {
-                crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
-            }
-            for &rect in &line.shadow_match_rects {
-                crate::anim::draw::shadow_match_rect(fb, rect, shadow_bg, &mut selection_rects);
-            }
-            for &rect in &line.whitespace_visualizers {
-                crate::anim::draw::whitespace_visualizer(fb, rect);
-            }
-            for &rect in &line.control_chars {
-                crate::anim::draw::control_char_highlight(fb, rect);
-            }
-        }
+        // Pass 2: per-row text commit + per-row blends.
+        let selection_rects = crate::anim::draw::textarea_lines(
+            fb,
+            &layout,
+            destination.left,
+            destination.right,
+            self.margin_width,
+            focused,
+        );
 
         self.render_apply_highlights(origin, destination, layout.highlight_logical_y_range, fb);
 
