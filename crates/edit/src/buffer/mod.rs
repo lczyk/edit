@@ -297,6 +297,29 @@ pub struct BodyTextRects {
     pub control_chars: Vec<Rect>,
 }
 
+/// Per-row decoration set collected during the per-line layout pass
+/// of [`TextBuffer::render`] and consumed by a second paint pass
+/// after `fb.replace_text` has committed each row's body text. All
+/// fields are pure data -- no fb references, no buffer borrows.
+struct LineDecor {
+    /// Framebuffer y for this row's paints.
+    fb_y: CoordType,
+    /// Whether the row's margin column should be dimmed (wrapped
+    /// continuation indicator).
+    dim_margin: bool,
+    /// Selection rect on this row, if the active selection covers
+    /// part of it.
+    sel_rect: Option<Rect>,
+    /// Shadow-match rects on this row (literal occurrences of the
+    /// selected text). Empty when there's no shadow match.
+    shadow_matches: Vec<Rect>,
+    /// Per-cell whitespace-visualiser rects for spaces / tabs inside
+    /// the selection.
+    whitespace_visualizers: Vec<Rect>,
+    /// Per-cell control-character highlight rects.
+    control_chars: Vec<Rect>,
+}
+
 /// A [`TextBuffer`] with inner mutability.
 pub type TextBufferCell = SemiRefCell<TextBuffer>;
 
@@ -2304,10 +2327,19 @@ impl TextBuffer {
             Some((needle, b.offset, e.offset))
         });
 
+        let mut decors: Vec<LineDecor> = Vec::with_capacity(height.max(0) as usize);
         for y in 0..height {
             let scratch = scratch_arena(None);
             let mut line = BString::empty();
             line.reserve(&*scratch, width as usize * 2);
+            let mut decor = LineDecor {
+                fb_y: destination.top + y,
+                dim_margin: false,
+                sel_rect: None,
+                shadow_matches: Vec::new(),
+                whitespace_visualizers: Vec::new(),
+                control_chars: Vec::new(),
+            };
 
             let visual_line = origin.y + y;
             let cursor_beg =
@@ -2333,14 +2365,7 @@ impl TextBuffer {
                 if let Some(mark) = mark {
                     gutter_paint.push((destination.top + y, mark));
                 }
-                if dim {
-                    crate::anim::draw::dim_wrapped_margin(
-                        fb,
-                        destination.left,
-                        destination.top + y,
-                        line_number_width as CoordType,
-                    );
-                }
+                decor.dim_margin = dim;
             }
 
             let (selection_off, sel_rect) = self.build_selection_row(
@@ -2357,13 +2382,11 @@ impl TextBuffer {
                 text_width,
                 y,
             );
-            if let Some(rect) = sel_rect {
-                crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
-            }
+            decor.sel_rect = sel_rect;
 
             // Shadow-highlight matches of the current selection on this visual line.
             if let Some((needle, sel_beg, sel_end)) = &shadow_match {
-                let matches = self.build_shadow_matches_row(
+                decor.shadow_matches = self.build_shadow_matches_row(
                     needle,
                     *sel_beg,
                     *sel_end,
@@ -2374,12 +2397,6 @@ impl TextBuffer {
                     origin,
                     y,
                 );
-                if !matches.is_empty() {
-                    let bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
-                    for rect in matches {
-                        crate::anim::draw::shadow_match_rect(fb, rect, bg, &mut selection_rects);
-                    }
-                }
             }
 
             // Nothing to do if the entire line is empty.
@@ -2393,18 +2410,44 @@ impl TextBuffer {
                     destination,
                     origin,
                 );
-                for rect in body_rects.whitespace_visualizers {
-                    crate::anim::draw::whitespace_visualizer(fb, rect);
-                }
-                for rect in body_rects.control_chars {
-                    crate::anim::draw::control_char_highlight(fb, rect);
-                }
+                decor.whitespace_visualizers = body_rects.whitespace_visualizers;
+                decor.control_chars = body_rects.control_chars;
                 visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
             }
 
             fb.replace_text(destination.top + y, destination.left, destination.right, &line);
+            decors.push(decor);
 
             cursor = cursor_end;
+        }
+
+        // Pass 2: paint per-row decorations now that all line text is
+        // committed. Order within a row matches the original inline
+        // sequence; `replace_text` writes only glyphs (not fg/bg), so
+        // running blends after replace_text is equivalent to running
+        // them before. Per-row paints are independent across rows.
+        let shadow_bg = fb.indexed_alpha(IndexedColor::Foreground, 1, 2);
+        for decor in &decors {
+            if decor.dim_margin {
+                crate::anim::draw::dim_wrapped_margin(
+                    fb,
+                    destination.left,
+                    decor.fb_y,
+                    line_number_width as CoordType,
+                );
+            }
+            if let Some(rect) = decor.sel_rect {
+                crate::anim::draw::selection_rect(fb, rect, focused, &mut selection_rects);
+            }
+            for &rect in &decor.shadow_matches {
+                crate::anim::draw::shadow_match_rect(fb, rect, shadow_bg, &mut selection_rects);
+            }
+            for &rect in &decor.whitespace_visualizers {
+                crate::anim::draw::whitespace_visualizer(fb, rect);
+            }
+            for &rect in &decor.control_chars {
+                crate::anim::draw::control_char_highlight(fb, rect);
+            }
         }
 
         let logical_y_beg = self.cursor_for_rendering.unwrap().logical_pos.y;
