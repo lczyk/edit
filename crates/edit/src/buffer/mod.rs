@@ -358,13 +358,6 @@ pub struct TextBuffer {
     minimap_cells: Vec<MinimapCell>,
     minimap_content_rows: u32,
 
-    /// Optional override for the cursor's *visible* (document-visual) position.
-    /// When set, `render` paints the cursor block and line-highlight band at
-    /// this position instead of `self.cursor.visual_pos`. Used by the TUI to
-    /// animate cursor motion without disturbing actual cursor state. The
-    /// caller is responsible for resetting it once animation converges.
-    cursor_render_override: Option<Point>,
-
     /// One-shot signal from `move_selected_lines` so the renderer can drive
     /// a slide animation. Drained by [`TextBuffer::take_pending_line_move`].
     pending_line_move: Option<LineMoveEvent>,
@@ -432,8 +425,6 @@ impl TextBuffer {
             gutter_marks: Vec::new(),
             minimap_cells: Vec::new(),
             minimap_content_rows: 0,
-
-            cursor_render_override: None,
 
             pending_line_move: None,
             line_move_bands: Vec::new(),
@@ -1887,11 +1878,6 @@ impl TextBuffer {
         if destination.is_empty() {
             return None;
         }
-        // Wire the caller-supplied cursor override through the same
-        // field the inner cursor-painting paths read. Cleared at the
-        // end so a render w/out an override doesn't see stale state
-        // from a previous frame's animated cursor.
-        self.cursor_render_override = cursor_override;
 
         let width = destination.width();
         let height = destination.height();
@@ -1926,8 +1912,8 @@ impl TextBuffer {
         // by Copy/Cut/Delete and friends) is unchanged -- only the visible
         // bounds shift.
         let selection_active_is_end = self.selection.map(|s| s.end >= s.beg).unwrap_or(false);
-        let cursor_visual_render = self.cursor_render_override.unwrap_or(self.cursor.visual_pos);
-        if self.cursor_render_override.is_some() && self.selection.is_some() {
+        let cursor_visual_render = cursor_override.unwrap_or(self.cursor.visual_pos);
+        if cursor_override.is_some() && self.selection.is_some() {
             let anim_cursor =
                 self.cursor_move_to_visual_internal(self.cursor, cursor_visual_render);
             let anim_logical = anim_cursor.logical_pos;
@@ -2073,7 +2059,7 @@ impl TextBuffer {
                 // anim cursor's exact visual x. Without this, selection ends
                 // at the line's last logical column when anim x is past it,
                 // which lags the visible cursor on short lines.
-                if self.cursor_render_override.is_some() && cursor_visual_render.y == visual_line {
+                if cursor_override.is_some() && cursor_visual_render.y == visual_line {
                     if selection_active_is_end {
                         selection_pos_end = cursor_visual_render.x;
                     } else {
@@ -2349,7 +2335,7 @@ impl TextBuffer {
         }
 
         if focused {
-            let cursor_visual = self.cursor_render_override.unwrap_or(self.cursor.visual_pos);
+            let cursor_visual = cursor_override.unwrap_or(self.cursor.visual_pos);
             let mut x = cursor_visual.x;
             let mut y = cursor_visual.y;
 
@@ -2403,7 +2389,6 @@ impl TextBuffer {
             }
         }
 
-        self.cursor_render_override = None;
         Some(RenderResult { visual_pos_x_max })
     }
 
