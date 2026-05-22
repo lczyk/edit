@@ -2274,7 +2274,7 @@ impl TextBuffer {
                 destination,
                 origin,
                 self.margin_width,
-                cursor_override.unwrap_or(self.cursor.visual_pos),
+                cursor_visual_render,
                 self.word_wrap_column,
                 self.overtype,
                 self.line_highlight_enabled && selection_beg >= selection_end,
