@@ -287,6 +287,16 @@ pub struct RenderResult {
     pub visual_pos_x_max: CoordType,
 }
 
+/// Per-row collection of visualiser rects returned by
+/// [`TextBuffer::build_body_text`]. Each vec is empty for rows
+/// without visualisers. Caller paints whitespace visualisers via
+/// [`anim::draw::whitespace_visualizer`] and control-char
+/// highlights via [`anim::draw::control_char_highlight`].
+pub struct BodyTextRects {
+    pub whitespace_visualizers: Vec<Rect>,
+    pub control_chars: Vec<Rect>,
+}
+
 /// A [`TextBuffer`] with inner mutability.
 pub type TextBufferCell = SemiRefCell<TextBuffer>;
 
@@ -2100,8 +2110,9 @@ impl TextBuffer {
         selection_off: Range<usize>,
         destination: Rect,
         origin: Point,
-        fb: &mut Framebuffer,
-    ) {
+    ) -> BodyTextRects {
+        let mut whitespace_visualizers: Vec<Rect> = Vec::new();
+        let mut control_chars: Vec<Rect> = Vec::new();
         let mut cursor_beg = cursor_beg_in;
         // If we couldn't reach the left edge, we may have stopped short due to a wide glyph.
         // In that case we'll try to find the next character and then compute by how many
@@ -2172,7 +2183,7 @@ impl TextBuffer {
                             let top = destination.top + cursor_line.visual_pos.y - origin.y;
                             Rect { left, top, right: left + 1, bottom: top + 1 }
                         };
-                        crate::anim::draw::whitespace_visualizer(fb, visualizer_rect);
+                        whitespace_visualizers.push(visualizer_rect);
                     }
 
                     line.push_str(scratch, &whitespace[..prefix_add + tab_size as usize]);
@@ -2197,7 +2208,7 @@ impl TextBuffer {
                         let top = destination.top + cursor_line.visual_pos.y - origin.y;
                         Rect { left, top, right: left + 1, bottom: top + 1 }
                     };
-                    crate::anim::draw::control_char_highlight(fb, visualizer_rect);
+                    control_chars.push(visualizer_rect);
                 } else {
                     line.push(scratch, ch);
                 }
@@ -2205,6 +2216,8 @@ impl TextBuffer {
 
             global_off += chunk.len();
         }
+
+        BodyTextRects { whitespace_visualizers, control_chars }
     }
 
     /// Extracts a rectangular region of the text buffer and writes it to the framebuffer.
@@ -2361,7 +2374,7 @@ impl TextBuffer {
 
             // Nothing to do if the entire line is empty.
             if cursor_beg.offset != cursor_end.offset {
-                self.build_body_text(
+                let body_rects = self.build_body_text(
                     &mut line,
                     &scratch,
                     cursor_beg,
@@ -2369,8 +2382,13 @@ impl TextBuffer {
                     selection_off,
                     destination,
                     origin,
-                    fb,
                 );
+                for rect in body_rects.whitespace_visualizers {
+                    crate::anim::draw::whitespace_visualizer(fb, rect);
+                }
+                for rect in body_rects.control_chars {
+                    crate::anim::draw::control_char_highlight(fb, rect);
+                }
                 visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
             }
 
