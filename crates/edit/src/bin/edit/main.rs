@@ -133,6 +133,8 @@ fn run() -> apperr::Result<()> {
 
     let _restore = setup_terminal(&mut tui, &mut state, &mut vt_parser);
 
+    edit::notify::set_handler(state::push_warning);
+
     state.menubar_color_bg = tui.indexed(IndexedColor::Background).oklab_blend(tui.indexed_alpha(
         IndexedColor::BrightBlue,
         1,

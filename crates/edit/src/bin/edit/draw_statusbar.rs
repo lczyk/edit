@@ -8,6 +8,23 @@ use stdext::arena_format;
 use crate::state::*;
 
 pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
+    // Warning flash override: drop the normal metadata row entirely while a
+    // warning is live so the message is unambiguous. Reverts on next render
+    // past the deadline (see state::current_warning).
+    if let Some(msg) = current_warning() {
+        ctx.table_begin("statusbar-warning");
+        ctx.attr_focus_well();
+        ctx.attr_background_rgba(ctx.indexed(IndexedColor::BrightYellow));
+        ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::Black));
+        ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
+        ctx.attr_padding(Rect::two(0, 1));
+        ctx.table_next_row();
+        ctx.label("warning", &msg);
+        ctx.attr_overflow(Overflow::TruncateTail);
+        ctx.table_end();
+        return;
+    }
+
     ctx.table_begin("statusbar");
     ctx.attr_focus_well();
     ctx.attr_background_rgba(state.menubar_color_bg);

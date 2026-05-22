@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use edit::framebuffer::IndexedColor;
@@ -14,6 +15,38 @@ use crate::documents::Document;
 /// driven by input/animation, an idle user will see it linger until they
 /// next interact -- intentional, reads as confirmation rather than noise.
 const SAVED_FLASH_DURATION: Duration = Duration::from_millis(1500);
+
+/// How long the warning flash overrides the statusbar. Idle-linger semantics
+/// match [`SAVED_FLASH_DURATION`].
+pub const WARNING_FLASH_DURATION: Duration = Duration::from_secs(3);
+
+/// Process-wide latest-warning slot. Written by [`crate::notify_handler`]
+/// (which is the function pointer installed into `edit::notify` at startup);
+/// read + cleared opportunistically by `draw_statusbar`. Latest-wins on
+/// concurrent writes -- the rapid-fire case is acceptable per design.
+static WARNING_SLOT: Mutex<Option<(String, Instant)>> = Mutex::new(None);
+
+/// Hook installed into `edit::notify::set_handler`. Library code calls
+/// `edit::notify::warn(msg)`; this stores the message in [`WARNING_SLOT`]
+/// with the current instant.
+pub fn push_warning(msg: &str) {
+    if let Ok(mut slot) = WARNING_SLOT.lock() {
+        *slot = Some((msg.to_string(), Instant::now()));
+    }
+}
+
+/// Returns the current warning if it has not yet expired. Expired entries
+/// are cleared eagerly so the next call cheaply returns `None`.
+pub fn current_warning() -> Option<String> {
+    let mut slot = WARNING_SLOT.lock().ok()?;
+    let (msg, ts) = slot.as_ref()?;
+    if ts.elapsed() < WARNING_FLASH_DURATION {
+        Some(msg.clone())
+    } else {
+        *slot = None;
+        None
+    }
+}
 
 #[repr(transparent)]
 pub struct FormatApperr(apperr::Error);
