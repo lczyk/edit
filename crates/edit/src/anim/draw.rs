@@ -178,6 +178,19 @@ pub fn selection_rect(fb: &mut Framebuffer, rect: Rect, focused: bool, out: &mut
     out.push(rect);
 }
 
+/// Paints a shadow-match rect (a literal-match of the current
+/// selection, elsewhere on the visible line) with the given bg.
+/// Appends to `out` so the post-lsh fg force pass picks it up too.
+pub fn shadow_match_rect(
+    fb: &mut Framebuffer,
+    rect: Rect,
+    bg: crate::oklab::StraightRgba,
+    out: &mut Vec<Rect>,
+) {
+    fb.blend_bg(rect, bg);
+    out.push(rect);
+}
+
 /// Forces a uniform foreground colour over a collected list of
 /// selection rects. Called after the lsh highlight pass so syntax
 /// tokens inside the selection don't show through with their syntax

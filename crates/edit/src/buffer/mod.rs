@@ -2115,8 +2115,7 @@ impl TextBuffer {
                         right: left + me.visual_pos.x,
                         bottom: top + 1,
                     };
-                    fb.blend_bg(rect, bg);
-                    selection_rects.push(rect);
+                    crate::anim::draw::shadow_match_rect(fb, rect, bg, &mut selection_rects);
                 }
             }
 
