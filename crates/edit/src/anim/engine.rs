@@ -27,6 +27,13 @@ pub struct TuiAnimState {
     /// `MAX_DT_SECS` so a long stall (debugger, suspended tab)
     /// doesn't cause a giant lerp jump.
     pub dt_secs: f32,
+    /// Monotonic frame counter, bumped at the top of every
+    /// `Tui::render` call. The stage-4 unified animator reads this to
+    /// tell "first sighting" of a `Physics` node from "subsequent
+    /// frame" -- e.g. so dropdown open animations don't replay if the
+    /// caller forces a re-render before the node closes. `u64` so it
+    /// can't realistically wrap.
+    pub frame: u64,
     /// Per-node-id first-seen timestamps for the slide-down /
     /// scale-in floater open animations. Entry exists from the first
     /// frame the node appears until the node disappears (closed).

@@ -891,6 +891,7 @@ impl Tui {
         let now = time::Instant::now();
         self.anim.dt_secs = anim::engine::frame_dt_secs(self.anim.last_frame_time, now);
         self.anim.last_frame_time = Some(now);
+        self.anim.frame = self.anim.frame.wrapping_add(1);
 
         // Drop slide-animation entries for nodes that no longer exist in the
         // current tree (dropdown closed, modal dismissed). Lookup uses the
