@@ -1,16 +1,17 @@
-//! Debug-only sanity checks. Enabled with the `sanity` cargo feature; the
-//! macros expand to nothing without it, so release builds carry zero cost.
-//!
-//! Two macros, both at crate root since `#[macro_export]` ignores module
-//! nesting:
+//! Debug-only sanity checks. Two macros, both at crate root since
+//! `#[macro_export]` ignores module nesting:
 //!
 //! - [`crate::sanity_check!`] -- soft check. on failure, log a line to
 //!   `$TMPDIR/edit/log/sanity-YYYYMMDD.log` and call [`crate::notify::warn`]
 //!   with a short summary. execution continues. per call-site dedup with a
-//!   1s window so hot-loop checks do not flood.
+//!   1s window so hot-loop checks do not flood. without the `sanity` cargo
+//!   feature this expands to nothing -- release builds carry zero cost.
 //!
-//! - [`crate::sanity_assert!`] -- hard check. same logging + notify then
-//!   panics. for invariants where continuing would corrupt state.
+//! - [`crate::sanity_assert!`] -- hard check. with the feature on: same
+//!   logging + notify, then panics with the logfile path embedded so the
+//!   terminal output points the user at the trail. without the feature it
+//!   degrades to a plain `debug_assert!` -- debug builds keep coverage,
+//!   release builds carry zero cost.
 //!
 //! env var `EDIT_SANITY_PANIC=1` promotes every `sanity_check!` trip to a
 //! panic on the first non-suppressed firing. useful when bisecting.
@@ -41,7 +42,9 @@ pub fn record(file: &'static str, line: u32, name: &'static str, msg: &str, hard
     let summary = format!("sanity: {name}: {msg}");
     crate::notify::warn(&summary);
     if hard || std::env::var_os("EDIT_SANITY_PANIC").is_some() {
-        panic!("sanity::{name} at {file}:{line}: {msg}");
+        let path_hint =
+            log_path().map(|p| p.display().to_string()).unwrap_or_else(|| "<unavailable>".into());
+        panic!("sanity::{name} at {file}:{line}: {msg}\n  log: {path_hint}");
     }
 }
 
@@ -131,21 +134,39 @@ macro_rules! sanity_check {
     }};
 }
 
-/// Hard check. On failure logs + notifies, then panics. Use for invariants
-/// where continuing would corrupt state. Not suppressed by dedup.
+/// Hard check. On failure: with the `sanity` feature on, logs + notifies
+/// then panics with the logfile path embedded in the message so the
+/// dying terminal points the user at the trail. Without the feature it
+/// degrades to a plain `debug_assert!` so debug builds still catch the
+/// invariant -- just without the logfile breadcrumb. Not suppressed by
+/// dedup.
 ///
-/// `sanity::assert!(check_name, cond, "fmt {args...}", args...)`
+/// `sanity_assert!(check_name, cond, "fmt {args...}", args...)`
 #[macro_export]
 macro_rules! sanity_assert {
     ($name:ident, $cond:expr $(,)?) => {{
-        if !$cond {
-            $crate::sanity::record(file!(), line!(), stringify!($name), "", true);
+        #[cfg(feature = "sanity")]
+        {
+            if !$cond {
+                $crate::sanity::record(file!(), line!(), stringify!($name), "", true);
+            }
+        }
+        #[cfg(not(feature = "sanity"))]
+        {
+            debug_assert!($cond, concat!("sanity::", stringify!($name)));
         }
     }};
     ($name:ident, $cond:expr, $($arg:tt)+) => {{
-        if !$cond {
-            let msg = format!($($arg)+);
-            $crate::sanity::record(file!(), line!(), stringify!($name), &msg, true);
+        #[cfg(feature = "sanity")]
+        {
+            if !$cond {
+                let msg = format!($($arg)+);
+                $crate::sanity::record(file!(), line!(), stringify!($name), &msg, true);
+            }
+        }
+        #[cfg(not(feature = "sanity"))]
+        {
+            debug_assert!($cond, $($arg)+);
         }
     }};
 }
