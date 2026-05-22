@@ -846,6 +846,10 @@ impl TextBuffer {
         self.line_highlight_enabled
     }
 
+    pub fn set_cursor_for_rendering(&mut self, cursor: Option<Cursor>) {
+        self.cursor_for_rendering = cursor;
+    }
+
     pub fn word_wrap_column(&self) -> CoordType {
         self.word_wrap_column
     }
@@ -2525,7 +2529,7 @@ impl TextBuffer {
         out
     }
 
-    fn render_apply_highlights(
+    pub fn render_apply_highlights(
         &mut self,
         origin: Point,
         destination: Rect,
