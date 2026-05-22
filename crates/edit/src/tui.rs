@@ -789,7 +789,8 @@ impl Tui {
     fn report_context_completion<'a>(&'a mut self, ctx: &mut Context<'a, '_>) {
         // If this hits, you forgot to block_end() somewhere. The best way to figure
         // out where is to do a binary search of commenting out code in main.rs.
-        debug_assert!(
+        crate::sanity_assert!(
+            dangling_parent,
             ctx.tree.current_node.borrow().stack_parent.is_none(),
             "Dangling parent! Did you miss a block_end?"
         );
@@ -915,7 +916,12 @@ impl Tui {
         // If the focus has changed, the new node may need to be re-rendered.
         // Same, every time we encounter a previously unknown node via `get_prev_node`,
         // because that means it likely failed to get crucial information such as the layout size.
-        debug_assert!(self.settling_have <= 15);
+        crate::sanity_assert!(
+            settling_have_bound,
+            self.settling_have <= 15,
+            "settling_have={}",
+            self.settling_have
+        );
         self.settling_want = (self.settling_have + 1).min(20);
     }
 
@@ -1676,7 +1682,12 @@ impl<'a> Context<'a, '_> {
     /// Tell the UI framework that your state changed and you need another layout pass.
     pub fn needs_rerender(&mut self) {
         // If this hits, the call stack is responsible is trying to deadlock you.
-        debug_assert!(self.tui.settling_have < 15);
+        crate::sanity_assert!(
+            rerender_settling_bound,
+            self.tui.settling_have < 15,
+            "settling_have={}",
+            self.tui.settling_have
+        );
         self.needs_settling = true;
     }
 
@@ -1982,7 +1993,11 @@ impl<'a> Context<'a, '_> {
 
     #[inline]
     pub fn set_input_consumed(&mut self) {
-        debug_assert!(!self.input_consumed);
+        crate::sanity_assert!(
+            input_not_already_consumed,
+            !self.input_consumed,
+            "set_input_consumed called twice"
+        );
         self.set_input_consumed_unchecked();
     }
 
@@ -2079,7 +2094,7 @@ impl<'a> Context<'a, '_> {
             spec.columns.clear();
             spec.columns.extend_from_slice(self.arena(), columns);
         } else {
-            debug_assert!(false);
+            crate::sanity_assert!(table_set_columns_outside_table, false);
         }
     }
 
@@ -2089,7 +2104,7 @@ impl<'a> Context<'a, '_> {
         if let NodeContent::Table(spec) = &mut last_node.content {
             spec.cell_gap = cell_gap;
         } else {
-            debug_assert!(false);
+            crate::sanity_assert!(table_set_cell_gap_outside_table, false);
         }
     }
 
@@ -2108,7 +2123,11 @@ impl<'a> Context<'a, '_> {
                 let parent = parent.borrow();
                 // Neither the current nor its parent nodes are a table?
                 // You definitely called this outside of a table block.
-                debug_assert!(matches!(parent.content, NodeContent::Table(_)));
+                crate::sanity_assert!(
+                    table_next_row_outside_table,
+                    matches!(parent.content, NodeContent::Table(_)),
+                    "table_next_row called outside a table block"
+                );
 
                 self.block_end();
                 self.table_end_row();
@@ -2457,7 +2476,7 @@ impl<'a> Context<'a, '_> {
                     self.textarea_make_cursor_visible(content, &node_prev);
                 }
             } else {
-                debug_assert!(false);
+                crate::sanity_assert!(textarea_prev_node_kind, false, "prev node not a textarea");
             }
         }
 
@@ -3152,7 +3171,7 @@ impl<'a> Context<'a, '_> {
         if let NodeContent::Scrollarea(sc) = &mut container.content {
             sc.scroll_offset = pos;
         } else {
-            debug_assert!(false);
+            crate::sanity_assert!(scrollarea_scroll_to_outside_scrollarea, false);
         }
     }
 

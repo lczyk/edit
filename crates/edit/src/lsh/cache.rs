@@ -44,7 +44,12 @@ impl HighlighterCache {
                 // and this class handles random seeking for you. As such, there should
                 // never be a case where we don't have a checkpoint for line 0,
                 // but you have a highlighter for line >0.
-                debug_assert!(highlighter.logical_pos_y() == 0);
+                crate::sanity_assert!(
+                    highlighter_at_line_zero,
+                    highlighter.logical_pos_y() == 0,
+                    "highlighter.logical_pos_y={} (expected 0 when no checkpoint)",
+                    highlighter.logical_pos_y()
+                );
             }
 
             // ...and then seek in front of the requested line.

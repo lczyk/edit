@@ -1779,10 +1779,30 @@ impl TextBuffer {
     }
 
     fn set_cursor_internal(&mut self, cursor: Cursor) {
-        debug_assert!(cursor.logical_pos.x >= 0);
-        debug_assert!(cursor.logical_pos.y >= 0);
-        debug_assert!(cursor.visual_pos.x >= 0);
-        debug_assert!(cursor.visual_pos.y >= 0);
+        crate::sanity_assert!(
+            cursor_logical_x_nonneg,
+            cursor.logical_pos.x >= 0,
+            "cursor.logical_pos.x={}",
+            cursor.logical_pos.x
+        );
+        crate::sanity_assert!(
+            cursor_logical_y_nonneg,
+            cursor.logical_pos.y >= 0,
+            "cursor.logical_pos.y={}",
+            cursor.logical_pos.y
+        );
+        crate::sanity_assert!(
+            cursor_visual_x_nonneg,
+            cursor.visual_pos.x >= 0,
+            "cursor.visual_pos.x={}",
+            cursor.visual_pos.x
+        );
+        crate::sanity_assert!(
+            cursor_visual_y_nonneg,
+            cursor.visual_pos.y >= 0,
+            "cursor.visual_pos.y={}",
+            cursor.visual_pos.y
+        );
 
         // State-consistency checks: the cursor being published must agree
         // with the buffer's currently-stored stats. Promoted to sanity so a
@@ -3686,7 +3706,13 @@ impl TextBuffer {
     /// Deletes the text between the current cursor position and `to`.
     /// It records the change in the undo stack.
     fn edit_delete(&mut self, to: Cursor) {
-        debug_assert!(to.offset >= self.active_edit_off);
+        crate::sanity_assert!(
+            edit_delete_offset_order,
+            to.offset >= self.active_edit_off,
+            "to.offset={} active_edit_off={}",
+            to.offset,
+            self.active_edit_off
+        );
 
         let logical_y_before = self.cursor.logical_pos.y;
         let off = self.active_edit_off;
@@ -3716,7 +3742,12 @@ impl TextBuffer {
     /// and recalculates the line statistics.
     fn edit_end(&mut self) {
         self.active_edit_depth -= 1;
-        debug_assert!(self.active_edit_depth >= 0);
+        crate::sanity_assert!(
+            edit_depth_nonneg,
+            self.active_edit_depth >= 0,
+            "active_edit_depth={}",
+            self.active_edit_depth
+        );
         if self.active_edit_depth > 0 {
             return;
         }
