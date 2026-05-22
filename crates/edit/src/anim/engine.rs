@@ -1,11 +1,19 @@
 //! Animator: pure perturbation over time.
 //!
-//! See `meanderings/anim_refactor.md` for the target shape -- the real
-//! `animate(prev, target, t, dt)` lands in stage 4 once `Physics`
-//! exists and per-feature anim state has been displaced off
-//! `TextareaContent` / `Tui`. Today this module holds the per-feature
-//! advance fns (cursor, scroll) plus the shared interpolation
-//! primitives they sit on top of.
+//! See `meanderings/anim_refactor.md` for the design. All 5 stages
+//! have landed. This module provides:
+//!
+//! - Interpolation primitives (`lerp_alpha`, `ease_out_cubic`)
+//! - Per-feature advance fns (`advance_scroll`, `advance_cursor`,
+//!   `advance_floater_open`, `advance_line_move_trail`,
+//!   `seed_line_move_trail`)
+//! - State types (`TuiAnimState`, `TextareaAnimState`, `LineMoveAnim`)
+//! - Composition wrappers (`animate` for the full pipeline,
+//!   `animate_nil` for identity)
+//! - Edit-detection snap (`snap_on_buffer_edit`, `frame_dt_secs`)
+//!
+//! `no_animations()` is checked once at the Tui level; inner fns
+//! are pure and don't gate on the killswitch.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -138,9 +146,10 @@ pub fn frame_dt_secs(prev: Option<Instant>, now: Instant) -> f32 {
 ///
 /// Updates `*last_seen_gen` to match the buffer's generation on
 /// every call -- subsequent calls with the same `ev_gen` are
-/// no-ops. When animations are disabled the gen is still bumped so
-/// re-enabling animations doesn't immediately re-trigger an old
-/// trail.
+/// no-ops. Does not gate on `no_animations()`; the caller is
+/// responsible for skipping this fn when animations are disabled
+/// (and must still bump the gen at the call site so re-enabling
+/// doesn't re-trigger stale trails).
 pub fn seed_line_move_trail(
     slot: &mut Option<LineMoveAnim>,
     last_seen_gen: &mut u32,
@@ -186,8 +195,9 @@ pub enum FloaterClip {
 /// Advance the open-animation for a single floater node. Stores the
 /// node's first-seen `Instant` in `opened_at_map` keyed by its id, and
 /// returns the clip rect to apply this frame. `None` means the
-/// animation has finished (or animations are disabled wholesale) and
-/// the floater should render at full size.
+/// animation has finished and the floater should render at full size.
+/// Does not gate on `no_animations()`; the caller skips this fn when
+/// animations are disabled.
 ///
 /// `slide_down` and `scale_in` are mutually exclusive node attributes;
 /// when both are false this returns `None` immediately. `outer_top` /
