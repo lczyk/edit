@@ -1209,15 +1209,43 @@ impl Tui {
             self.request_animation_frame();
         }
 
-        let render_res = tb.render(
-            visual_offset,
-            destination,
-            tc.has_focus,
-            Some(cursor_override),
-            &mut self.framebuffer,
-        );
-        if let Some(res) = render_res {
-            tc.scroll_offset_x_max = res.visual_pos_x_max;
+        // Stage-3 wiring: orchestrate layout + paint here rather than
+        // inside tb.render. tb.layout returns an owned TextareaLayout;
+        // paint runs in two passes (text rows + lsh + overlays) with
+        // tb borrowed mutably only where it must be (cursor seed, lsh).
+        if let Some(layout) = tb.layout(visual_offset, destination, Some(cursor_override)) {
+            tb.set_cursor_for_rendering(layout.start_cursor);
+            let selection_rects = anim::draw::textarea_lines(
+                &mut self.framebuffer,
+                &layout,
+                destination.left,
+                destination.right,
+                tb.margin_width(),
+                tc.has_focus,
+            );
+            tb.render_apply_highlights(
+                visual_offset,
+                destination,
+                layout.highlight_logical_y_range.clone(),
+                &mut self.framebuffer,
+            );
+            anim::draw::textarea_overlays(
+                &mut self.framebuffer,
+                anim::draw::TextareaOverlayOpts {
+                    dest: destination,
+                    origin: visual_offset,
+                    margin_width: tb.margin_width(),
+                    ruler_column: tb.ruler(),
+                    selection_rects: &selection_rects,
+                    gutter_marks: &layout.gutter_marks,
+                    focused: tc.has_focus,
+                    cursor_visual: layout.cursor_visual_render,
+                    word_wrap_column: tb.word_wrap_column(),
+                    overtype: tb.is_overtype(),
+                    line_highlight: tb.is_line_highlight_enabled() && layout.selection_empty,
+                },
+            );
+            tc.scroll_offset_x_max = layout.visual_pos_x_max;
         }
 
         // Trail-flash overlay for the line-move animation. Runs
