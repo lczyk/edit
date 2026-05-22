@@ -1,15 +1,18 @@
-//! Physics: post-layout, anim-free, full frame IR.
+//! Physics: post-layout, anim-free per-textarea IR.
 //!
-//! See `meanderings/anim_refactor.md` for the target shape. Today
-//! this module only defines the **per-textarea** slice of physics --
-//! a flat record of every quantity the painter needs to draw the
-//! textarea at its current target state (no interpolation, no
-//! sidechannels). The animator perturbs fields on this record over
-//! time; nil animator returns it untouched.
+//! See `meanderings/anim_refactor.md` for the design. This module
+//! defines the **per-textarea** slice of physics -- a flat record of
+//! every quantity the painter needs to draw the textarea at its
+//! current target state (no interpolation, no sidechannels). The
+//! animator perturbs fields on this record over time; nil animator
+//! returns it untouched.
 //!
-//! The frame-wide `Physics` containing all `NodeDraw` variants lands
-//! in stage 1 once `TextBuffer::render` has been split into pure
-//! `layout` + `paint`.
+//! The frame-wide `Physics` with `NodeDraw` variants (Box, Text,
+//! Floater, etc.) from the original target shape was descoped -- the
+//! `render_node` tree walk in `Tui` still dispatches to per-node
+//! paint paths directly. The per-textarea slice was the most
+//! valuable cut: it pulled sidechannels out of `TextBuffer` and
+//! made paint pure.
 
 use crate::buffer::{LineMoveEvent, MinimapCell, RowBand};
 use crate::helpers::{CoordType, Point, Rect};

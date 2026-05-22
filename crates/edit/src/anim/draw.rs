@@ -1,11 +1,10 @@
 //! Draw: pure consumers that paint into a framebuffer.
 //!
-//! See `meanderings/anim_refactor.md` for the target shape. Today this
-//! module holds the leaf draw helpers that already took a clean
-//! `(inputs, &mut Framebuffer)` shape -- they belong here regardless
-//! of how much of the pipeline has been carved into a `Physics` IR
-//! yet. As more of the paint stage moves out of `TextBuffer::render`
-//! and `Tui::render_node`, it lands here.
+//! See `meanderings/anim_refactor.md` for the design. All textarea
+//! paint has moved out of `TextBuffer::render` (which is now deleted)
+//! and lives here: `textarea_lines` (pass-1 text blit), `textarea_overlays`
+//! (cursor block, line highlight, selection, gutter, scrollbar,
+//! minimap), and `line_move_trail`.
 //!
 //! Functions in this module must not read time, `Tui`, `TextBuffer`,
 //! or any animator state. Their inputs are everything they need.

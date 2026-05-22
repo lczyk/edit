@@ -1,20 +1,20 @@
 //! Animation infrastructure.
 //!
-//! Target architecture (see `meanderings/anim_refactor.md`): split the
-//! editor's rendering pipeline into three pure stages.
+//! Architecture (see `meanderings/anim_refactor.md`): split the
+//! editor's rendering pipeline into three concerns.
 //!
-//! 1. **physics** -- post-layout, anim-free, full frame IR. Everything
-//!    needed to draw a frame; if the animator is nil, drawing physics
-//!    directly produces a valid frame. No sidechannels.
-//! 2. **animator** -- pure perturbation over time. Consumes target
-//!    physics + previous anim state; emits displayed physics + next
-//!    anim state. Only wiggles fields physics already carries.
-//! 3. **draw** -- pure consumer. `(physics, &mut framebuffer) -> ()`.
-//!    No reads from `Tui` / `TextBuffer` / time.
+//! 1. **physics** -- post-layout, anim-free per-textarea IR. Everything
+//!    the painter needs to draw a textarea at its target state. If the
+//!    animator is nil, drawing physics directly produces a valid frame.
+//!    No sidechannels.
+//! 2. **engine** -- pure perturbation over time. Per-feature advance
+//!    fns + state types + `animate` / `animate_nil` wrappers.
+//!    `no_animations()` dispatch lives at the Tui level.
+//! 3. **draw** -- pure consumer. `textarea_lines`, `textarea_overlays`,
+//!    `line_move_trail`, and helpers. No reads from `Tui` /
+//!    `TextBuffer` / time.
 //!
-//! Today this module only exposes timing knobs. Submodules
-//! [`physics`], [`engine`], and [`draw`] are stubs that get filled in
-//! as the refactor progresses.
+//! Timing constants live here; submodules house the rest.
 
 pub mod draw;
 pub mod engine;
