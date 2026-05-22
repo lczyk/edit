@@ -4710,31 +4710,35 @@ fn draw_line_move_sweep(
     let top_row = half_rows.div_euclid(2);
     let height = anim.height.min(bands.len() as CoordType);
 
-    let bg_tint = fb.indexed_alpha(IndexedColor::BrightYellow, 1, 2);
-    let fg_tint = fb.indexed(IndexedColor::BrightYellow);
+    // Fallback accent for rows without a dominant-highlight colour (no
+    // language attached / colour disabled). Matches the previous
+    // BrightYellow look so the no-language case still flashes visibly.
+    const DEFAULT_TINT: IndexedColor = IndexedColor::BrightYellow;
 
-    // Visual column -> screen column. `dest` already excludes the gutter /
-    // scrollbar, so the left edge maps to visual column `scroll_offset.x`.
-    let band_screen_range = |band: RowBand| -> Option<(CoordType, CoordType)> {
-        let (l, r) = match band {
+    // Resolve a band's screen-column range and the colour index to tint
+    // with. Doesn't touch `fb` so the caller is free to take a mutable
+    // borrow inside the `if let Some(...)` branch.
+    let band_screen = |band: RowBand| -> Option<(CoordType, CoordType, IndexedColor)> {
+        let (l, r, color) = match band {
             RowBand::Skip => return None,
-            RowBand::Full => (dest.left, dest.right),
-            RowBand::Range(left_col, right_col) => {
+            RowBand::Full(c) => (dest.left, dest.right, c),
+            RowBand::Range(left_col, right_col, c) => {
                 let l = dest.left + left_col - scroll_offset.x;
                 let r = dest.left + right_col - scroll_offset.x;
-                (l.max(dest.left), r.min(dest.right))
+                (l.max(dest.left), r.min(dest.right), c)
             }
         };
-        if r > l { Some((l, r)) } else { None }
+        if r <= l { None } else { Some((l, r, color.unwrap_or(DEFAULT_TINT))) }
     };
 
     let paint_row = |fb: &mut Framebuffer, screen_y: CoordType, band: RowBand| {
         if screen_y < dest.top || screen_y >= dest.bottom {
             return;
         }
-        if let Some((l, r)) = band_screen_range(band) {
+        if let Some((l, r, idx)) = band_screen(band) {
+            let bg = fb.indexed_alpha(idx, 1, 2);
             let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-            fb.blend_bg(rect, bg_tint);
+            fb.blend_bg(rect, bg);
         }
     };
 
@@ -4742,7 +4746,7 @@ fn draw_line_move_sweep(
         if screen_y < dest.top || screen_y >= dest.bottom {
             return;
         }
-        let Some((l, r)) = band_screen_range(band) else { return };
+        let Some((l, r, idx)) = band_screen(band) else { return };
         let width = (r - l) as usize;
         if width == 0 {
             return;
@@ -4752,8 +4756,9 @@ fn draw_line_move_sweep(
             s.push(glyph);
         }
         fb.replace_text(screen_y, l, r, &s);
+        let fg = fb.indexed(idx);
         let rect = Rect { left: l, top: screen_y, right: r, bottom: screen_y + 1 };
-        fb.blend_fg(rect, fg_tint);
+        fb.blend_fg(rect, fg);
     };
 
     if aligned {

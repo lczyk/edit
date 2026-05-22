@@ -265,15 +265,20 @@ pub enum MoveLineDirection {
 
 /// Per-visual-row paint shape for the line-move sweep band. See
 /// [`TextBuffer::line_move_bands`].
-#[derive(Clone, Copy, Debug)]
+///
+/// The optional `IndexedColor` carries the line's dominant-highlight
+/// colour so the sweep band picks up the syntax tint of the line that is
+/// moving. `None` means "no language / no colour" -- the renderer falls
+/// back to a default accent.
+#[derive(Clone, Copy)]
 pub enum RowBand {
     /// Skip this row -- empty source line, nothing to highlight.
     Skip,
     /// Paint the full row width. Used for whitespace-only lines and for
     /// wrapped logical lines (which by definition span the whole text width).
-    Full,
+    Full(Option<IndexedColor>),
     /// Paint visual columns `[left, right)` of this row.
-    Range(CoordType, CoordType),
+    Range(CoordType, CoordType, Option<IndexedColor>),
 }
 
 /// One-shot record of the most recent `move_selected_lines` for the
@@ -3435,16 +3440,48 @@ impl TextBuffer {
         (chars, columns)
     }
 
+    /// Dominant syntax-highlight colour for a logical line, used to tint
+    /// the line-move sweep band. Mirrors the per-line tally used in
+    /// [`Self::dominant_color_per_line`] but only walks the requested
+    /// line via the highlighter cache's checkpoints.
+    fn dominant_color_for_logical_line(&mut self, y: CoordType) -> Option<IndexedColor> {
+        if crate::glyphs::no_color() {
+            return None;
+        }
+        let language = self.language?;
+        let mut highlighter = Highlighter::new(&self.buffer, language);
+        let scratch = scratch_arena(None);
+        let highlights = self.highlighter_cache.parse_line(&scratch, &mut highlighter, y);
+
+        let mut tally: Vec<(HighlightKind, usize)> = Vec::new();
+        for w in highlights.windows(2) {
+            let kind = w[0].kind;
+            if matches!(kind, HighlightKind::Other) {
+                continue;
+            }
+            let len = w[1].start.saturating_sub(w[0].start);
+            if let Some(s) = tally.iter_mut().find(|(k, _)| *k == kind) {
+                s.1 += len;
+            } else {
+                tally.push((kind, len));
+            }
+        }
+        tally.into_iter().max_by_key(|(_, len)| *len).and_then(|(k, _)| highlight_kind_color(k))
+    }
+
     /// Classifies a logical line for the line-move slide animation. Reads
     /// the raw bytes between the line start and the next line start,
     /// strips the trailing CR/LF, then:
     /// - empty -> `Skip`
-    /// - only ASCII space / tab -> `Full`
-    /// - otherwise -> `Range(first_visual_col, last_visual_col_exclusive)`
+    /// - only ASCII space / tab -> `Full(color)`
+    /// - otherwise -> `Range(first_visual_col, last_visual_col_exclusive, color)`
     ///   where the bounds are the visual columns of the first and last
     ///   non-whitespace bytes (space / tab being the only treated
     ///   whitespace; unicode whitespace such as U+00A0 NBSP is not).
-    fn compute_line_band(&self, y: CoordType) -> RowBand {
+    ///
+    /// `color` is the line's dominant syntax-highlight colour or `None`
+    /// when there is no language / colour available.
+    fn compute_line_band(&self, y: CoordType, color: Option<IndexedColor>) -> RowBand {
         let line_start = self.goto_line_start(self.cursor, y);
         let next_line = self.cursor_move_to_logical_internal(line_start, Point { x: 0, y: y + 1 });
         let line_off = line_start.offset;
@@ -3476,7 +3513,7 @@ impl TextBuffer {
         let first = bytes.iter().position(|&b| !is_ws(b));
         let last = bytes.iter().rposition(|&b| !is_ws(b));
         let (Some(first), Some(last)) = (first, last) else {
-            return RowBand::Full;
+            return RowBand::Full(color);
         };
 
         // Visual column of the first non-ws byte: measure from line start
@@ -3492,7 +3529,7 @@ impl TextBuffer {
         let past_last = self.cursor_move_delta_internal(at_last, CursorMovement::Grapheme, 1);
         let last_col_excl = past_last.visual_pos.x;
 
-        RowBand::Range(first_col, last_col_excl)
+        RowBand::Range(first_col, last_col_excl, color)
     }
 
     /// Displaces the current, cursor or the selection, line(s) in the given direction.
@@ -3547,14 +3584,17 @@ impl TextBuffer {
         // that wraps (occupies >1 visual rows) is treated as `Full` since
         // wrapped content spans the entire text width by definition. Empty
         // lines are skipped; whitespace-only lines are highlighted whole.
+        // The dominant-highlight colour for each line is mixed in so the
+        // band picks up the syntax tint of the moving content.
         let mut bands: Vec<RowBand> = Vec::with_capacity(visual_height.max(0) as usize);
         for y in beg..=end {
             let line_top_v = visual_y_of(self, y);
             let line_bot_v = visual_y_of(self, y + 1);
             let line_visual_h = line_bot_v - line_top_v;
-            let raw = self.compute_line_band(y);
+            let color = self.dominant_color_for_logical_line(y);
+            let raw = self.compute_line_band(y, color);
             let band = if line_visual_h > 1 && matches!(raw, RowBand::Range(..)) {
-                RowBand::Full
+                RowBand::Full(color)
             } else {
                 raw
             };
