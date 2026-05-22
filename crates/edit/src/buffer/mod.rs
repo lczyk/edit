@@ -842,6 +842,18 @@ impl TextBuffer {
         self.line_highlight_enabled = enabled;
     }
 
+    pub fn is_line_highlight_enabled(&self) -> bool {
+        self.line_highlight_enabled
+    }
+
+    pub fn word_wrap_column(&self) -> CoordType {
+        self.word_wrap_column
+    }
+
+    pub fn ruler(&self) -> CoordType {
+        self.ruler
+    }
+
     pub fn language(&self) -> Option<&'static Language> {
         self.language
     }
