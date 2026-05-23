@@ -235,8 +235,16 @@ pub fn markdown() {
                 until /$/ { if /``/ { break; } }
                 yield string;
             } else if /`/ {
-                until /$/ { if /`/ { break; } }
-                yield string;
+                loop {
+                    if /[^`]+/ {
+                    }
+                    if /`/ {
+                        yield string;
+                        break;
+                    }
+                    yield string;
+                    await input;
+                }
             } else if /\\./ {
                 // Gobble escape char
             }

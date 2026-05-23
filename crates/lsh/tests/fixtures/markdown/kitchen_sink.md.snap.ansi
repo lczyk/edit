@@ -20,6 +20,8 @@ regular
 [1m__*bold italic*__[m
 [9m~~strikethrough~~[m
 [91m`inline code`[m
+[91m`multi[m
+[91mline`[m
 [91m`` `literal` ``[m
 \*not\* \_italic\_ # not a heading
 

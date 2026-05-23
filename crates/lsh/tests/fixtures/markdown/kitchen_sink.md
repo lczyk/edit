@@ -20,6 +20,8 @@ __bold__
 __*bold italic*__
 ~~strikethrough~~
 `inline code`
+`multi
+line`
 `` `literal` ``
 \*not\* \_italic\_ # not a heading
 
