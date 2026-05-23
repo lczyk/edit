@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/lsh_definitions.rs"));
 pub mod detect;
 pub mod document;
 pub mod highlighter;
+pub mod theme;
 
 pub use document::ReadableDocument;
 pub use highlighter::{Highlighter, HighlighterState};

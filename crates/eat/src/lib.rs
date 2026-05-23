@@ -884,17 +884,9 @@ mod tests {
         assert!(FollowDuration::parse("0ms").is_err());
     }
 
-    // --- theme ---
-
-    #[test]
-    fn theme_color_map_non_empty() {
-        let map = theme::color_map();
-        assert!(!map.is_empty());
-        // check a few known entries
-        assert_eq!(map[lsh_defs::HighlightKind::Comment as usize], "\x1b[32m");
-        assert_eq!(map[lsh_defs::HighlightKind::String as usize], "\x1b[91m");
-        assert_eq!(map[lsh_defs::HighlightKind::Other as usize], "");
-    }
+    // theme tests live in `lsh_defs::theme::tests` -- the colourmap impl
+    // moved to the shared crate alongside the canonical
+    // `HighlightKind::default_color` table.
 }
 
 /// gather all languages with their file associations and shebangs, sorted by name.
