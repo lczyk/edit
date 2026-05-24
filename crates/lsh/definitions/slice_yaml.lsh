@@ -1,9 +1,10 @@
 // Chisel slice definition files (sdfs) -- canonical/chisel-releases dialect of
 // YAML. Adds dialect highlighting for the structural top-level keys
-// (package/essential/slices/contents/mutate). Otherwise behaves like generic
-// yaml: every other key/value is parsed identically. Path glob is intentionally
-// narrow until content-based detection lands; once detect() is wired up the
-// glob will broaden to **/*.yaml and disambiguation will be content-driven.
+// (package/essential/slices/contents/mutate) and for slice names (the keys
+// nested directly under `slices:`), which get the same highlight as function
+// names in other languages. Path glob is intentionally narrow until
+// content-based detection lands; once detect() is wired up the glob will
+// broaden to **/*.yaml and disambiguation will be content-driven.
 
 // Content sniffer paired with `slice_yaml` by name convention
 // (`<entry>_detect`). The resolver runs this against the head of the buffer
@@ -34,57 +35,9 @@ fn slice_yaml_detect() {
     }
 }
 
-#[display_name = "Chisel Slice"]
-#[line_comment = "#"]
-#[path = "**/*.yaml"]
-pub fn slice_yaml() {
-    if /\s+/ {
-        // Leading whitespace
-    }
-
-    var indentation = off;
-
-    loop {
-        if /-\s+/ {
-            // List item
-        }
-
-        // Flush leading indent / list-dash as plain `other` before we attempt
-        // to match a structural key. Without this, the dialect highlight would
-        // swallow the indentation into the keyword span.
-        yield other;
-
-        // Structural slice-yaml keywords. Consumed together with the trailing
-        // `:` plus whitespace/EOL as a single all-or-nothing match so the whole
-        // token highlights as a structural key.
-        if /(?:package|essential|slices|contents|mutate):(?:\s+|$)/ {
-            yield keyword.other;
-        } else if /[\w.\/-]+:(?:\s+|$)/ {
-            // Generic Key: (Value follows)
-        }
-
-        if /[|>][-+]?.*/ {
-            // Multiline string inducer -- gobble continuation lines until
-            // indentation drops back to the inducer's level.
-            loop {
-                await input;
-
-                if /\s+/ {
-                }
-
-                if off <= indentation {
-                    break;
-                }
-
-                if /.*/ {
-                    yield string;
-                }
-            }
-        } else {
-            break;
-        }
-    }
-
+// Trailing value handler shared by every key-bearing line: optional scalar
+// (string / numeric / boolean / null), optional trailing comment.
+fn slice_yaml_value() {
     yield other;
 
     if /---/ {
@@ -112,4 +65,62 @@ pub fn slice_yaml() {
     if /#.*/ {
         yield comment;
     }
+}
+
+// Body of one indented line inside a `slices:` block. Indent-2 keys are slice
+// names; deeper nested keys are normal yaml, with `essential` / `contents` /
+// `mutate` treated as structural keywords.
+fn slice_yaml_in_slices_line() {
+    if /\s*$/ {
+        // Blank line.
+    } else if /\s*#.*/ {
+        yield comment;
+    } else if /  ([\w.+*\/-]+):/ {
+        // Exactly two-space indent + key = slice name.
+        yield $1 as method;
+        slice_yaml_value();
+    } else if /\s+/ {
+        yield other;
+        if /-\s+/ {
+            // List item
+        }
+        if /(?:essential|contents|mutate|hint):(?:\s+|$)/ {
+            yield keyword.other;
+        } else if /[\w.+*\/-]+:(?:\s+|$)/ {
+            // Generic Key:
+        }
+        slice_yaml_value();
+    }
+}
+
+#[display_name = "Chisel Slice"]
+#[line_comment = "#"]
+#[path = "**/*.yaml"]
+pub fn slice_yaml() {
+    // Per-line entry. Once `slices:` is matched we enter an inner loop that
+    // owns every remaining line: in chisel slice files `slices:` is always the
+    // last top-level section, so dialect-specific handling never needs to fall
+    // back out.
+
+    if /\s+/ {
+        yield other;
+    }
+
+    if /slices:(?:\s+|$)/ {
+        yield keyword.other;
+        slice_yaml_value();
+
+        loop {
+            await input;
+            slice_yaml_in_slices_line();
+        }
+    } else if /(?:package|essential|contents|mutate|hint):(?:\s+|$)/ {
+        yield keyword.other;
+    } else if /-\s+/ {
+        // List item at top level
+    } else if /[\w.+*\/-]+:(?:\s+|$)/ {
+        // Generic Key:
+    }
+
+    slice_yaml_value();
 }

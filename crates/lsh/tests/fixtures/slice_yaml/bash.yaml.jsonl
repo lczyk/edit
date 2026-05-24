@@ -3,14 +3,18 @@
 {"line":3,"kind":"keyword.other","text":"essential:"}
 {"line":4,"kind":"other","text":"  bash_copyright:"}
 {"line":6,"kind":"keyword.other","text":"slices:"}
-{"line":7,"kind":"other","text":"  config:"}
+{"line":7,"kind":"other","text":"  "}
+{"line":7,"kind":"method","text":"config"}
+{"line":7,"kind":"other","text":":"}
 {"line":8,"kind":"other","text":"    "}
 {"line":8,"kind":"keyword.other","text":"contents:"}
 {"line":9,"kind":"other","text":"      /etc/bash.bashrc:"}
 {"line":10,"kind":"other","text":"      /etc/skel/.bash_logout:"}
 {"line":11,"kind":"other","text":"      /etc/skel/.bashrc:"}
 {"line":12,"kind":"other","text":"      /etc/skel/.profile:"}
-{"line":14,"kind":"other","text":"  bins:"}
+{"line":14,"kind":"other","text":"  "}
+{"line":14,"kind":"method","text":"bins"}
+{"line":14,"kind":"other","text":":"}
 {"line":15,"kind":"other","text":"    "}
 {"line":15,"kind":"keyword.other","text":"essential:"}
 {"line":16,"kind":"other","text":"      bash_config:"}
@@ -18,24 +22,23 @@
 {"line":18,"kind":"other","text":"      libtinfo6_libs:"}
 {"line":19,"kind":"other","text":"    "}
 {"line":19,"kind":"keyword.other","text":"contents:"}
-{"line":20,"kind":"other","text":"      "}
-{"line":20,"kind":"comment","text":"# user should manually link /bin/sh to /bin/bash"}
+{"line":20,"kind":"comment","text":"      # user should manually link /bin/sh to /bin/bash"}
 {"line":21,"kind":"other","text":"      /usr/bin/bash:"}
 {"line":22,"kind":"other","text":"      /usr/bin/clear_console:"}
 {"line":23,"kind":"other","text":"      /usr/bin/rbash:"}
-{"line":25,"kind":"other","text":"  scripts:"}
+{"line":25,"kind":"other","text":"  "}
+{"line":25,"kind":"method","text":"scripts"}
+{"line":25,"kind":"other","text":":"}
 {"line":26,"kind":"other","text":"    "}
 {"line":26,"kind":"keyword.other","text":"essential:"}
 {"line":27,"kind":"other","text":"      bash_bashbug:"}
-{"line":29,"kind":"other","text":"  "}
-{"line":29,"kind":"comment","text":"# bashbug is a script to send bug reports to the bash maintainers."}
-{"line":30,"kind":"other","text":"  "}
-{"line":30,"kind":"comment","text":"# in addition to stated essentials, it required $EDITOR to be set,"}
-{"line":31,"kind":"other","text":"  "}
-{"line":31,"kind":"comment","text":"# and a working mail system. The script searches for the email client at,"}
-{"line":32,"kind":"other","text":"  "}
-{"line":32,"kind":"comment","text":"# in order: /usr/lib/sendmail, /usr/sbin/sendmail, or rmail"}
-{"line":33,"kind":"other","text":"  bashbug:"}
+{"line":29,"kind":"comment","text":"  # bashbug is a script to send bug reports to the bash maintainers."}
+{"line":30,"kind":"comment","text":"  # in addition to stated essentials, it required $EDITOR to be set,"}
+{"line":31,"kind":"comment","text":"  # and a working mail system. The script searches for the email client at,"}
+{"line":32,"kind":"comment","text":"  # in order: /usr/lib/sendmail, /usr/sbin/sendmail, or rmail"}
+{"line":33,"kind":"other","text":"  "}
+{"line":33,"kind":"method","text":"bashbug"}
+{"line":33,"kind":"other","text":":"}
 {"line":34,"kind":"other","text":"    "}
 {"line":34,"kind":"keyword.other","text":"essential:"}
 {"line":35,"kind":"other","text":"      base-files_bin:"}
@@ -53,7 +56,9 @@
 {"line":47,"kind":"other","text":"    "}
 {"line":47,"kind":"keyword.other","text":"contents:"}
 {"line":48,"kind":"other","text":"      /usr/bin/bashbug:"}
-{"line":50,"kind":"other","text":"  copyright:"}
+{"line":50,"kind":"other","text":"  "}
+{"line":50,"kind":"method","text":"copyright"}
+{"line":50,"kind":"other","text":":"}
 {"line":51,"kind":"other","text":"    "}
 {"line":51,"kind":"keyword.other","text":"contents:"}
 {"line":52,"kind":"other","text":"      /usr/share/doc/bash/copyright:"}
