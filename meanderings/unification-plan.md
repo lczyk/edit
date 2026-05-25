@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 date: 2026-05-23
 description: bring eat's follow_tui under edit's tui machinery so the workspace has one TUI; keep two output pipelines (framebuffer vs ansi-stream) since they serve different targets
 ---
@@ -163,6 +163,36 @@ useful as a second caller on the mount path: it exercises the same
 code as `eat -f` (under EAT_FOLLOW_USE_MOUNT=1) but without eat's
 non-tty / bespoke-driver branches. shrinks the surface still riding
 on the bespoke driver as we prepare to flip default routing.
+
+### phase C.5 -- delete bespoke follow-tui driver, landed
+
+Following the routing flip + edit --follow shaking out the mount path
+from a second caller, the legacy follow_tui::run driver is gone. Net
+delete is ~2050 lines:
+
+- `follow_tui.rs` shrinks from ~1700 to ~520 LOC. dropped: the run /
+  run_loop / redraw / redraw_header_only loop, `View` + animation +
+  ring + apply_key, `LineBuf` + `push_truncated*` + `render_frame` +
+  `lerp_alpha`, the `Key`/`KeyOutcome` enums, the entire vt parser
+  (`parse_keys` / `parse_escape` / `parse_csi` / `classify_csi` /
+  `arrow_key` / `parse_sgr_mouse`), the ansi-string consts
+  (ALT_SCREEN_* / CURSOR_* / CLEAR_SCREEN / RESET / DIM / WRAP_* /
+  cursor_to / clear_eol), the SCROLL_TAU_SECS / SCROLL_SNAP_EPSILON
+  / ANIM_FRAME_MS / LINE_CAP / LINE_CAP_DROP constants, and the
+  in-module 47-test bespoke-key suite.
+- `tests/follow_loop.rs` (440 LOC) -- entirely targeted the bespoke
+  surface; the mount path has no equivalent unit tests yet (gap to
+  fill: `tests/follow_mount.rs` against the drain logic).
+- `eat::mod::run_follow_cli` lost the EAT_FOLLOW_USE_BESPOKE escape
+  hatch; there is no bespoke path left to opt into.
+
+Kept (still load-bearing): `format_clock` (used by both snapshot and
+follow headers), `stat_fingerprint` + `SnapshotStat` (used by both
+snapshot disk-change poll and the follow drain).
+
+Phase C complete. The unification plan's "one tui codebase" goal is
+satisfied for both alt-screen modes; the ansi-stream path (non-tty
+eat) stays separate by design, as intended.
 
 ### phase C -- follow tui, in progress
 
