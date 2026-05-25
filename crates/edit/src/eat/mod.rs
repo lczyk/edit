@@ -1261,19 +1261,19 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     // by parse_cli's bare-`-f` rewrite, which also honours EAT_FOLLOW_INTERVAL_MS).
     let poll = cli.follow.map(|fd| fd.0).unwrap_or(FollowDuration::DEFAULT);
 
-    // tty -> live alt-screen pager; non-tty (piped) -> stream lines as before.
+    // tty -> live alt-screen pager (mount-based, phase C.1/C.2/C.4);
+    // non-tty (piped) -> stream lines as before.
     // EAT_FOLLOW_NO_TUI=1 forces streaming even on a tty (debug / scripting).
-    // EAT_FOLLOW_USE_MOUNT=1 routes the tty pager through the phase-C.1
-    // mount-based follow (crude periodic re-read into a TextBuffer) instead
-    // of the bespoke alt-screen driver. opt-in until the mount path covers
-    // the full feature set + perf.
+    // EAT_FOLLOW_USE_BESPOKE=1 opts back into the legacy `follow_tui::run`
+    // driver. Kept as an escape hatch until C.5 deletes that path; default
+    // routing is now the mount path.
     let force_no_tui = std::env::var("EAT_FOLLOW_NO_TUI").is_ok_and(|v| !v.is_empty());
-    let use_mount = std::env::var("EAT_FOLLOW_USE_MOUNT").is_ok_and(|v| !v.is_empty());
+    let use_bespoke = std::env::var("EAT_FOLLOW_USE_BESPOKE").is_ok_and(|v| !v.is_empty());
     let result = if io::stdout().is_terminal() && !force_no_tui {
-        if use_mount {
-            follow_tui::run_follow_mount(path, lang, cli.number, use_color, poll)
-        } else {
+        if use_bespoke {
             follow_tui::run(path, lang, cli.number, use_color, poll)
+        } else {
+            follow_tui::run_follow_mount(path, lang, cli.number, use_color, poll)
         }
     } else {
         follow::run(path, lang, cli.number, use_color, poll)
