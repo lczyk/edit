@@ -6,22 +6,89 @@ description: bring eat's follow_tui under edit's tui machinery so the workspace 
 
 # unification plan: one tui for eat + edit
 
-## update 2026-05-25
+## update 2026-05-25 (session log)
 
-phase A landed:
-- `edit::term` (hoisted terminal setup + probe, restore guard)
-- `edit::mount` (thin external mount api: `mount(opts, draw_fn)`)
-- `buffer::IoError: Debug` (ergonomic fix for external callers)
+### phase A -- landed
 
-dep-direction question resolved by **absorbing eat into edit**: the
-`crates/eat/` workspace crate is gone, its code lives at
-`crates/edit/src/eat/` as `edit::eat` module. The `eat` binary is now
-just a `make install`-time symlink to `edit`; argv0 dispatch in
-`bin/edit/main.rs` routes `eat` -> `edit::eat::main()`. No cycle, no
-inversion, no extra crate.
+- `edit::term::setup` + `RestoreModes` (hoisted alt-screen mode switch,
+  OSC 4/10/11 palette probe, ambiguous-width probe, kitty kbd proto
+  push). out of `bin/edit/main.rs::setup_terminal`.
+- `edit::mount::mount(opts, draw_fn) -> io::Result<()>` -- thin external
+  mount api. owns `Tui::new` + `term::setup` + input/render loop +
+  alt-screen restore. callback-driven exit via `ControlFlow::Break`.
+  caller pre-inits arena + sys.
+- `MountOpts::tick_interval: Option<Duration>` -- caps the read_stdin
+  timeout so the draw callback fires at least that often even with no
+  user input. lets callers do periodic refresh (clock, disk poll).
+  added in phase B.3.
+- `buffer::IoError: Debug` -- ergonomic fix; external callers can
+  `.expect()` / `?` cleanly.
+- compile-only `tests/mount_api.rs` pins the public surface.
 
-phases B/C/D below now describe intra-crate refactors, much easier than
-the original cross-crate plan.
+### dep direction -- resolved by absorption
+
+`crates/eat/` workspace crate gone; sources moved to
+`crates/edit/src/eat/` as `edit::eat` module. the standalone `eat`
+binary inside the edit crate also went away. `make install` already
+created the `eat -> edit` symlink; argv0 dispatch in `bin/edit/main.rs`
+routes `eat` -> `edit::eat::main()`. no cycle, no inversion, no extra
+crate. phases B/C/D below are now intra-crate refactors.
+
+### phase B -- snapshot view, landed
+
+`eat <file>` (tty + single file) renders through `edit::mount::mount`
++ a read-only `TextBuffer`. textarea handles cursor / scroll /
+selection / mouse-wheel natively. deleted ~340 lines of bespoke
+snapshot driver (`render_snapshot_header`, `run_snapshot_loop`,
+`redraw_snapshot`, `YELLOW`, the old `View`-based redraw path).
+
+features wired:
+- `-n` line numbers via `TextBuffer::set_margin_enabled`.
+- `r` reload (re-reads file, refreshes captured-at, clears delta flag).
+- `q` exit (consumed before textarea sees Q).
+- disk-change `[modified on disk]` flag via 2s `tick_interval` poll.
+
+still dropped (TODO(lczyk) in `run_snapshot` doc):
+- `--color=never` plain-mode toggle. edit's tui has no plain-mode
+  switch yet; defer until needed.
+
+### phase C -- follow tui, not yet started
+
+`crates/edit/src/eat/follow_tui.rs` still holds ~1500 LOC of bespoke
+follow-mode driver: `Key` enum + `parse_keys` / `parse_escape` /
+`parse_csi`, `View` (scroll + buffered lines), `render_frame`,
+`run` / `run_loop` / `redraw` / `redraw_header_only`, `LineBuf`.
+also `format_clock`, `push_truncated*` helpers that snapshot used to
+share. these all stay alive until phase C migrates `run` to mount.
+
+recc breakdown:
+- **C.1** -- minimal mount-based follow: crude periodic re-read of
+  the file into a `TextBuffer`. sanity-check the architecture.
+- **C.2** -- incremental append via `follow.rs::FollowSource::tick`
+  feeding bytes into the existing buffer. invalidate the highlighter
+  cache from the modified line.
+- **C.3** -- tail-pin cursor: pinned to last line until user scrolls
+  up, breaks free on user move. edit's existing scroll/cursor anim
+  carries it smoothly.
+- **C.4** -- edit gains `--follow` flag. plumbed through edit's
+  hand-rolled arg parser; mounts the same pattern as eat -f.
+- **C.5** -- delete dead code from `follow_tui.rs`: `View`, `LineBuf`,
+  `parse_keys`, `run_loop`, `redraw`, `redraw_header_only`, mouse/key
+  CSI helpers. follow tests adjust to the new surface.
+
+### open / next session
+
+- tty-verify the snapshot view by hand (`cargo run --release -- --eat
+  <file>`). spike notes said cursor + selection worked; the q-handler
+  + mouse-mode wiring should now mean q exits and scroll responds.
+- gate phase C on whether `TextBuffer` append performance keeps up
+  with a fast-growing log. rope-shaped buffer was designed for
+  interactive edits; benchmark before committing to C.2 incremental
+  appends. fallback path: crude re-read of the file every poll cycle
+  via tick_interval (already proven by snapshot's disk poll).
+- decide whether `edit --follow` should share the same `run_snapshot`
+  body w/ a "follow-mode" flag, or stay a separate fn. shared seems
+  cleaner once C.3 tail-pin is in.
 
 ## thesis
 
