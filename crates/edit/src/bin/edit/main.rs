@@ -134,6 +134,11 @@ fn run() -> apperr::Result<()> {
         let cm = colormap::borrow();
         let fallback = cm.palette;
         let force = cm.use_colormap;
+        // Releases the colormap borrow before term::setup. cell::Ref has no
+        // Drop impl (it wraps a plain reference), but moving cm into drop()
+        // ends the binding's borrow scope so the later colormap::borrow()
+        // call on line 145 can't re-enter against an already-held borrow.
+        #[allow(clippy::drop_non_drop)]
         drop(cm);
         let (probe, restore) = edit::term::setup(&mut vt_parser, fallback);
         if probe.ambiguous_width == 2 {

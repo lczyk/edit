@@ -45,7 +45,12 @@ mod release {
     pub struct Ref<'b, T>(&'b T);
 
     impl<'b, T> Ref<'b, T> {
+        // Mirrors `std::cell::Ref::clone`: associated function, not method,
+        // so callers always write `Ref::clone(&r)` rather than `r.clone()`.
+        // Avoids the implicit-clone ambiguity that an inherent `clone(&self)`
+        // would create when `T: Clone` (would shadow the standard trait).
         #[inline(always)]
+        #[allow(clippy::should_implement_trait)]
         pub fn clone(orig: &Self) -> Self {
             Ref(orig.0)
         }
