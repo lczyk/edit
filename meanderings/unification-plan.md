@@ -148,6 +148,16 @@ still gated behind `EAT_FOLLOW_USE_MOUNT=1`. ready to flip the
 default for `eat -f` once we've spent more time leaning on it
 manually + decided what to do about the C.3 / C.4 / C.5 follow-ups.
 
+### phase C.4 -- edit --follow flag, reverted
+
+Landed and then reverted in the same session. Decided that edit is
+the editor and eat is the viewer, and adding a viewer-shaped flag
+to edit muddied the boundary. eat -f stays the one entry to the
+mount-based follow view. The mount path doesn't lose a second
+caller in any meaningful sense -- it's exercised plenty via eat -f.
+
+Originally landed:
+
 ### phase C.4 -- edit --follow flag, landed
 
 `edit --follow [<dur>] <path>` short-circuits ahead of edit's normal
