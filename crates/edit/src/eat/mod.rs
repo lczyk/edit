@@ -690,7 +690,13 @@ enum EatInput {
     Stdin,
 }
 
+// pre-existing layout: `mod tests` sits in the middle of the file, with
+// more pub items following. didn't trigger clippy when this was a standalone
+// crate; after the absorption (0f0d8f7) it now lives as an inner module of
+// edit and the lint fires. moving the test block to the bottom of the file
+// would be a big mechanical churn; allow until that cleanup pass.
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
 

@@ -823,6 +823,7 @@ impl io::Write for LineBuf {
 ///
 /// v1 scope dropped (still TODO(lczyk)):
 /// - `--color=never` override. edit's tui has no plain-mode toggle yet.
+///
 /// follow-tui (`eat -f`) retains its own independent path for now;
 /// migrating it is phase-C work.
 pub fn run_snapshot(
