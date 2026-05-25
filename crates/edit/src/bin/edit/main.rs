@@ -75,6 +75,15 @@ fn main() -> process::ExitCode {
         return edit::eat::main();
     }
 
+    // --follow [<dur>] <path>: launch the mount-based follow viewer.
+    // Wins over --help so `edit --follow --help` does the right thing
+    // (consistent w/ --eat). Single-flag short-circuit; no quirks/etc.
+    if env::args_os()
+        .any(|a| a == "--follow" || a.to_str().is_some_and(|s| s.starts_with("--follow=")))
+    {
+        return run_edit_follow();
+    }
+
     // --help/-h anywhere in remaining args prints edit's help.
     if env::args_os().any(|a| a == "-h" || a == "--help") {
         print_help();
@@ -277,6 +286,70 @@ fn run() -> apperr::Result<()> {
 
 /// Returns `Some(path)` if the application should continue starting,
 /// `None` if it should exit early (help/version/usage).
+/// Parse `edit --follow [<dur>] <path>` and dispatch to
+/// `edit::eat::run_follow_for_edit`. Accepts `--follow=<dur>` and
+/// `--follow <dur>` (where dur is a token parseable by
+/// `edit::eat::FollowDuration::parse`). Default interval = 250ms.
+fn run_edit_follow() -> process::ExitCode {
+    use edit::eat::FollowDuration;
+    let mut path: Option<std::path::PathBuf> = None;
+    let mut poll = FollowDuration::DEFAULT;
+    let args: Vec<std::ffi::OsString> = env::args_os().skip(1).collect();
+    let mut i = 0;
+    while i < args.len() {
+        let s = match args[i].to_str() {
+            Some(s) => s,
+            None => {
+                if path.is_some() {
+                    sys::write_stdout("edit: --follow takes one path\n");
+                    return process::ExitCode::from(2);
+                }
+                path = Some(args[i].clone().into());
+                i += 1;
+                continue;
+            }
+        };
+        if s == "--follow" {
+            i += 1;
+            // optional next arg parsed as duration; if it parses, consume.
+            if let Some(next) = args.get(i)
+                && let Some(ns) = next.to_str()
+                && let Ok(fd) = FollowDuration::parse(ns)
+            {
+                poll = fd.0;
+                i += 1;
+            }
+            continue;
+        }
+        if let Some(val) = s.strip_prefix("--follow=") {
+            match FollowDuration::parse(val) {
+                Ok(fd) => poll = fd.0,
+                Err(e) => {
+                    sys::write_stdout(&format!("edit: --follow: {e}\n"));
+                    return process::ExitCode::from(2);
+                }
+            }
+            i += 1;
+            continue;
+        }
+        if s.starts_with('-') && s != "-" {
+            sys::write_stdout(&format!("edit: unknown option {s:?} for --follow\n"));
+            return process::ExitCode::from(2);
+        }
+        if path.is_some() {
+            sys::write_stdout("edit: --follow takes one path\n");
+            return process::ExitCode::from(2);
+        }
+        path = Some(std::path::PathBuf::from(s));
+        i += 1;
+    }
+    let Some(path) = path else {
+        sys::write_stdout("edit: --follow requires a file path\n");
+        return process::ExitCode::from(2);
+    };
+    edit::eat::run_follow_for_edit(path, poll, false)
+}
+
 fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     let mut path: Option<std::path::PathBuf> = None;
     let mut accept_flags = true;
@@ -521,6 +594,11 @@ fn print_help() {
         "    --eat            Act as eat: read stdin if piped, or files from\n",
         "                     arguments, and page through them.\n",
         "                     Equivalent to running the eat binary directly.\n",
+        "    --follow[=<dur>] FILE\n",
+        "                     Launch the mount-based follow viewer on FILE.\n",
+        "                     Tail-pins to EOF, breaks out on scroll-up.\n",
+        "                     <dur> is the file-poll interval (e.g. 250ms,\n",
+        "                     1s); default 250ms. Same shape as `eat -f`.\n",
         "    -h, --help       Print this help message\n",
         "    -v, --version    Print the version number\n",
         "    -L, --list-languages[=FORMAT]\n",

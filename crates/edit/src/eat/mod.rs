@@ -1288,6 +1288,38 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     }
 }
 
+/// Entry point used by `edit --follow <path>`. Mirrors [`run_follow_cli`]'s
+/// language detect + use_color resolve + arena init, then always routes
+/// to the mount-based follow path (`run_follow_mount`). edit's `--follow`
+/// is a viewer, not a paging tool, so the bespoke streaming and
+/// non-tty paths aren't applicable.
+pub fn run_follow_for_edit(
+    path: PathBuf,
+    poll: std::time::Duration,
+    show_numbers: bool,
+) -> ExitCode {
+    stdext::arena::init(128 * 1024 * 1024).unwrap();
+
+    let lang: Option<&'static Language> = process_file_associations(FILE_ASSOCIATIONS, &path)
+        .or_else(|| {
+            let f = File::open(&path).ok()?;
+            let mut br = BufReader::new(f);
+            let mut first = String::new();
+            let _ = std::io::BufRead::read_line(&mut br, &mut first);
+            language_from_shebang(first.as_bytes())
+        });
+
+    let use_color = resolve_use_color(ColorMode::Auto, io::stdout().is_terminal());
+
+    match follow_tui::run_follow_mount(path, lang, show_numbers, use_color, poll) {
+        Ok(()) => ExitCode::from(0),
+        Err(e) => {
+            eprintln!("edit: {e}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 /// main entry point for eat. called from edit's argv0 dispatch and from the
 /// standalone `bin/eat` binary.
 pub fn main() -> ExitCode {
