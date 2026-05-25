@@ -16,7 +16,7 @@ use lsh::runtime::{Language, Runtime};
 use stdext::arena::{Arena, scratch_arena};
 
 use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
-use crate::follow::{
+use super::follow::{
     DEFAULT_MISS_BUDGET, FileSource, FollowSource, FollowState, TickOutcome, tick,
 };
 
@@ -643,7 +643,7 @@ pub fn render_frame(
     path_label: &str,
     last_update: &str,
     interval_ms: u128,
-    gutter: Option<&crate::gutter_view::Gutter>,
+    gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
 ) -> String {
     view.settle_offset();
@@ -687,7 +687,7 @@ pub fn render_frame(
         if let Some(g) = gutter {
             let line_no = view.line_no_of(start + i);
             let mut pbuf = Vec::with_capacity(32);
-            let _ = crate::gutter_view::write_prefix(
+            let _ = super::gutter_view::write_prefix(
                 &mut pbuf,
                 line_no,
                 g.width,
@@ -842,15 +842,15 @@ pub fn run_snapshot(
     show_numbers: bool,
     use_color: bool,
 ) -> io::Result<()> {
-    let lines_str = crate::read_file(&path)?;
+    let lines_str = super::read_file(&path)?;
 
-    let color_map = crate::theme::color_map();
+    let color_map = super::theme::color_map();
     let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
 
     // highlight each line into body bytes (no gutter prefix).
     let mut sink = LineBuf::new();
     for line in &lines_str {
-        crate::write_highlighted_line(
+        super::write_highlighted_line(
             &mut sink,
             runtime.as_mut(),
             &color_map,
@@ -862,13 +862,13 @@ pub fn run_snapshot(
     let bodies = sink.take_new();
 
     // gutter
-    let gutter: Option<crate::gutter_view::Gutter> = if show_numbers {
+    let gutter: Option<super::gutter_view::Gutter> = if show_numbers {
         let mut bytes = Vec::with_capacity(lines_str.iter().map(|l| l.len() + 1).sum());
         for l in &lines_str {
             bytes.extend_from_slice(l.as_bytes());
             bytes.push(b'\n');
         }
-        Some(crate::gutter_view::Gutter::compute(&path, &bytes, 1))
+        Some(super::gutter_view::Gutter::compute(&path, &bytes, 1))
     } else {
         None
     };
@@ -936,13 +936,13 @@ fn run_snapshot_loop(
     lang: Option<&'static Language>,
     show_numbers: bool,
     bodies: Vec<Vec<u8>>,
-    gutter: Option<crate::gutter_view::Gutter>,
+    gutter: Option<super::gutter_view::Gutter>,
     captured_at: String,
     initial_stat: Option<SnapshotStat>,
     use_color: bool,
 ) -> io::Result<()> {
     let path_label = path.display().to_string();
-    let color_map = crate::theme::color_map();
+    let color_map = super::theme::color_map();
     let mut view = View::new(80, 24);
     view.extend_lines(&bodies);
     // start at top, not tail mode
@@ -1055,12 +1055,12 @@ fn run_snapshot_loop(
                     last_anim_step = Instant::now();
                 }
                 if want_reload {
-                    if let Ok(lines_str) = crate::read_file(path) {
+                    if let Ok(lines_str) = super::read_file(path) {
                         let mut runtime =
                             lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
                         let mut sink = LineBuf::new();
                         for line in &lines_str {
-                            let _ = crate::write_highlighted_line(
+                            let _ = super::write_highlighted_line(
                                 &mut sink,
                                 runtime.as_mut(),
                                 &color_map,
@@ -1077,7 +1077,7 @@ fn run_snapshot_loop(
                                 bytes.extend_from_slice(l.as_bytes());
                                 bytes.push(b'\n');
                             }
-                            Some(crate::gutter_view::Gutter::compute(path, &bytes, 1))
+                            Some(super::gutter_view::Gutter::compute(path, &bytes, 1))
                         } else {
                             None
                         };
@@ -1128,7 +1128,7 @@ fn redraw_snapshot(
     path_label: &str,
     captured_at: &str,
     file_changed: bool,
-    gutter: Option<&crate::gutter_view::Gutter>,
+    gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
 ) {
     view.settle_offset();
@@ -1154,7 +1154,7 @@ fn redraw_snapshot(
         if let Some(g) = gutter {
             let line_no = view.line_no_of(start + i);
             let mut pbuf = Vec::with_capacity(32);
-            let _ = crate::gutter_view::write_prefix(
+            let _ = super::gutter_view::write_prefix(
                 &mut pbuf,
                 line_no,
                 g.width,
@@ -1216,7 +1216,7 @@ fn run_loop(
     use_color: bool,
     poll_interval: Duration,
 ) -> io::Result<()> {
-    let color_map = crate::theme::color_map();
+    let color_map = super::theme::color_map();
     let entrypoint = lang.map(|l| l.entrypoint).unwrap_or(0);
     let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
 
@@ -1228,9 +1228,9 @@ fn run_loop(
     // gutter: re-read the file on each content-change tick so newly-arrived
     // lines pick up correct marks; cheap (file already in disk cache, capped
     // at MAX_DIFF_BYTES). only when -n is set.
-    let mut gutter: Option<crate::gutter_view::Gutter> = if show_numbers {
+    let mut gutter: Option<super::gutter_view::Gutter> = if show_numbers {
         std::fs::read(path).ok().map(|bytes| {
-            crate::gutter_view::Gutter::compute(path, &bytes, crate::follow::FOLLOW_NUM_WIDTH)
+            super::gutter_view::Gutter::compute(path, &bytes, super::follow::FOLLOW_NUM_WIDTH)
         })
     } else {
         None
@@ -1265,10 +1265,10 @@ fn run_loop(
                     view.extend_lines(&sink.take_new());
                     if show_numbers {
                         gutter = std::fs::read(path).ok().map(|bytes| {
-                            crate::gutter_view::Gutter::compute(
+                            super::gutter_view::Gutter::compute(
                                 path,
                                 &bytes,
-                                crate::follow::FOLLOW_NUM_WIDTH,
+                                super::follow::FOLLOW_NUM_WIDTH,
                             )
                         });
                     }
@@ -1282,10 +1282,10 @@ fn run_loop(
                     if n > 0 {
                         if show_numbers {
                             gutter = std::fs::read(path).ok().map(|bytes| {
-                                crate::gutter_view::Gutter::compute(
+                                super::gutter_view::Gutter::compute(
                                     path,
                                     &bytes,
-                                    crate::follow::FOLLOW_NUM_WIDTH,
+                                    super::follow::FOLLOW_NUM_WIDTH,
                                 )
                             });
                         }
@@ -1380,7 +1380,7 @@ fn redraw(
     view: &mut View,
     path_label: &str,
     poll_interval: Duration,
-    gutter: Option<&crate::gutter_view::Gutter>,
+    gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
 ) {
     let now_str = format_clock(Instant::now());
@@ -1763,7 +1763,7 @@ mod tests {
         // the bug fix: same body bytes, two different Gutter snapshots ->
         // the rendered frames should differ in the gutter region. proves we
         // compose at draw time rather than baking the prefix in.
-        use crate::gutter_view::Gutter;
+        use crate::eat::gutter_view::Gutter;
         use gutter::GutterMark;
 
         let mut v = View::new(80, 4); // body_rows = 3
@@ -1793,7 +1793,7 @@ mod tests {
     fn render_frame_uses_correct_line_numbers_after_drop() {
         // when oldest lines are evicted, surviving bodies should still get
         // their original (file-level) line numbers in the gutter.
-        use crate::gutter_view::Gutter;
+        use crate::eat::gutter_view::Gutter;
         use gutter::GutterMark;
 
         let mut v = View::new(80, 6); // body_rows = 5
@@ -1946,7 +1946,7 @@ mod tests {
         // wrap onto the next row (terminal auto-wrap), painting over the next
         // body line. now the body is hard-truncated by us so total visible
         // chars per line stay <= view.width.
-        use crate::gutter_view::Gutter;
+        use crate::eat::gutter_view::Gutter;
         use gutter::GutterMark;
 
         let mut v = View::new(20, 4); // body_rows = 3, terminal cols = 20

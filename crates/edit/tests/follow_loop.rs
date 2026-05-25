@@ -13,10 +13,10 @@ use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use eat::follow::{FOLLOW_NUM_WIDTH, FileSource, FollowState, TickOutcome, tick};
-use eat::follow_tui::{LineBuf, View, render_frame};
-use eat::gutter_view::Gutter;
-use eat::theme;
+use edit::eat::follow::{FOLLOW_NUM_WIDTH, FileSource, FollowState, TickOutcome, tick};
+use edit::eat::follow_tui::{LineBuf, View, render_frame};
+use edit::eat::gutter_view::Gutter;
+use edit::eat::theme;
 
 // --- tempfile helpers -----------------------------------------------------
 

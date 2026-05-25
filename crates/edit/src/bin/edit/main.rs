@@ -67,12 +67,12 @@ fn main() -> process::ExitCode {
     // --eat wins over --help so `edit --eat --help` prints eat's help.
     // Symlink (name == "eat") also takes priority.
     if name == "eat" {
-        return eat::main();
+        return edit::eat::main();
     }
     if env::args_os().any(|a| a == "--eat") {
         // SAFETY: single-threaded at this point in main.
         unsafe { std::env::set_var("EDIT_EAT_VIA_FLAG", "1") };
-        return eat::main();
+        return edit::eat::main();
     }
 
     // --help/-h anywhere in remaining args prints edit's help.
@@ -324,16 +324,16 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 return Ok(None);
             }
             if arg == "-L" || arg == "--list-languages" {
-                eat::list_languages(eat::ListFormat::Pretty);
+                edit::eat::list_languages(edit::eat::ListFormat::Pretty);
                 return Ok(None);
             }
             if let Some(value) = arg
                 .to_str()
                 .and_then(|s| s.strip_prefix("--list-languages=").or_else(|| s.strip_prefix("-L=")))
             {
-                match eat::ListFormat::parse(value) {
+                match edit::eat::ListFormat::parse(value) {
                     Ok(fmt) => {
-                        eat::list_languages(fmt);
+                        edit::eat::list_languages(fmt);
                         return Ok(None);
                     }
                     Err(e) => {
@@ -405,7 +405,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     // (per https://no-color.org) is honoured the same way as
     // `--quirks=-color` -- either turns colour off across the editor.
     edit::glyphs::set_ascii_only(!quirks.contains("unicode"));
-    edit::glyphs::set_no_color(!quirks.contains("color") || eat::env_disables_color());
+    edit::glyphs::set_no_color(!quirks.contains("color") || edit::eat::env_disables_color());
     edit::glyphs::set_no_animations(!quirks.contains("animations"));
     documents::set_allow_create(quirks.contains("create"));
 

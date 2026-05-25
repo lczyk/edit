@@ -9,7 +9,7 @@ help:
 sync-version:  ## Sync crate Cargo.toml versions from VERSION (source of truth)
 	@v=$$(awk '/^[[:space:]]*#/ {next} /^[[:space:]]*$$/ {next} {gsub(/[[:space:]]/,""); print; exit}' VERSION); \
 	if [ -z "$$v" ]; then echo "VERSION has no version line" >&2; exit 1; fi; \
-	for crate in edit eat; do \
+	for crate in edit; do \
 	awk -v v="$$v" ' \
 	  /^version = ".*"[[:space:]]*#[[:space:]]*source:[[:space:]]*\/VERSION/ { \
 	    print "version = \"" v "\"  # source: /VERSION (synced by `make sync-version`; do not edit by hand)"; next \
@@ -22,12 +22,11 @@ build: sync-version  ## Release build (stable toolchain, larger binary)
 	cargo build --release
 	@if command -v upx >/dev/null 2>&1; then \
 		upx target/release/edit || echo "upx failed, skipping compression"; \
-		upx target/release/eat || echo "upx failed, skipping compression"; \
 	fi
 
 .PHONY: du
 du: build  ## Show release binary size
-	du -h target/release/edit target/release/eat
+	du -h target/release/edit
 
 .PHONY: install
 install: sync-version  ## Install the edit binary (debug build, sanity feature on) into ~/.cargo/bin

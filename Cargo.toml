@@ -22,7 +22,6 @@ strip = "symbols"           # See split-debuginfo - allows us to drop the size b
 incremental = true          # Improves re-compile times
 
 [workspace.dependencies]
-eat = { path = "./crates/eat" }
 edit = { path = "./crates/edit" }
 gutter = { path = "./crates/gutter" }
 lsh = { path = "./crates/lsh" }

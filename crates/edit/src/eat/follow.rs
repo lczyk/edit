@@ -21,7 +21,7 @@ use std::time::Duration;
 use lsh::runtime::{Language, Runtime};
 
 use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
-use crate::write_highlighted_line;
+use super::write_highlighted_line;
 
 /// fixed line-number column width in follow mode. real width is unknowable
 /// (file is unbounded); 6 fits up to 999_999 lines without wrapping, and the
@@ -199,7 +199,7 @@ pub fn tick<S: FollowSource>(
     runtime: Option<&mut Runtime<'static, 'static, 'static>>,
     runtime_entrypoint: u32,
     color_map: &[&str],
-    gutter: Option<&crate::gutter_view::Gutter>,
+    gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
     writer: &mut dyn Write,
 ) -> io::Result<TickOutcome> {
@@ -310,7 +310,7 @@ fn finish_tick<S: FollowSource>(
     runtime: Option<&mut Runtime<'static, 'static, 'static>>,
     runtime_entrypoint: u32,
     color_map: &[&str],
-    gutter: Option<&crate::gutter_view::Gutter>,
+    gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
     writer: &mut dyn Write,
     rotated: bool,
@@ -377,7 +377,7 @@ fn emit_lines(
     all: &[u8],
     mut runtime: Option<&mut Runtime<'static, 'static, 'static>>,
     color_map: &[&str],
-    gutter: Option<&crate::gutter_view::Gutter>,
+    gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
     writer: &mut dyn Write,
     line_no: &mut usize,
@@ -421,7 +421,7 @@ pub fn run(
     // eager stat: surface "no such file" / permission errors immediately
     // rather than burning the miss budget.
     src.stat()?;
-    let color_map = crate::theme::color_map();
+    let color_map = super::theme::color_map();
     let entrypoint = lang.map(|l| l.entrypoint).unwrap_or(0);
     let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
 
@@ -432,7 +432,7 @@ pub fn run(
     let gutter = if show_numbers {
         std::fs::read(&path)
             .ok()
-            .map(|bytes| crate::gutter_view::Gutter::compute(&path, &bytes, FOLLOW_NUM_WIDTH))
+            .map(|bytes| super::gutter_view::Gutter::compute(&path, &bytes, FOLLOW_NUM_WIDTH))
     } else {
         None
     };
@@ -813,7 +813,7 @@ mod tests {
             .iter()
             .find(|l| l.id.eq_ignore_ascii_case("rust"))
             .expect("rust language present");
-        let color_map = crate::theme::color_map();
+        let color_map = crate::eat::theme::color_map();
 
         let lines = b"let x = 1;\nfn foo() {}\n";
 
@@ -936,7 +936,7 @@ mod tests {
 
     #[test]
     fn line_numbers_when_gutter_supplied() {
-        use crate::gutter_view::Gutter;
+        use crate::eat::gutter_view::Gutter;
         use gutter::GutterMark;
         let g = Gutter { width: FOLLOW_NUM_WIDTH, marks: vec![GutterMark::None; 100] };
         let mut src = MemSource::new();

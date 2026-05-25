@@ -10,6 +10,7 @@ pub mod base64;
 pub mod buffer;
 pub mod cell;
 pub mod clipboard;
+pub mod eat;
 pub mod document;
 pub mod framebuffer;
 pub mod glyphs;

@@ -98,13 +98,13 @@ impl argh::FromArgValue for ColorMode {
 /// kept as a free function so the various entry points (bulk render, follow,
 /// list-languages) can all share it. testable via the `_with_env` variant
 /// that takes the env values as parameters.
-pub(crate) fn resolve_use_color(mode: ColorMode, output_is_tty: bool) -> bool {
+fn resolve_use_color(mode: ColorMode, output_is_tty: bool) -> bool {
     let force = std::env::var_os("FORCE_COLOR");
     let no = std::env::var_os("NO_COLOR");
     resolve_use_color_with_env(mode, output_is_tty, force.as_deref(), no.as_deref())
 }
 
-pub(crate) fn resolve_use_color_with_env(
+fn resolve_use_color_with_env(
     mode: ColorMode,
     output_is_tty: bool,
     force_color: Option<&std::ffi::OsStr>,

@@ -6,6 +6,23 @@ description: bring eat's follow_tui under edit's tui machinery so the workspace 
 
 # unification plan: one tui for eat + edit
 
+## update 2026-05-25
+
+phase A landed:
+- `edit::term` (hoisted terminal setup + probe, restore guard)
+- `edit::mount` (thin external mount api: `mount(opts, draw_fn)`)
+- `buffer::IoError: Debug` (ergonomic fix for external callers)
+
+dep-direction question resolved by **absorbing eat into edit**: the
+`crates/eat/` workspace crate is gone, its code lives at
+`crates/edit/src/eat/` as `edit::eat` module. The `eat` binary is now
+just a `make install`-time symlink to `edit`; argv0 dispatch in
+`bin/edit/main.rs` routes `eat` -> `edit::eat::main()`. No cycle, no
+inversion, no extra crate.
+
+phases B/C/D below now describe intra-crate refactors, much easier than
+the original cross-crate plan.
+
 ## thesis
 
 eat and edit are already aligned at the syntactic-data layer -- shared
