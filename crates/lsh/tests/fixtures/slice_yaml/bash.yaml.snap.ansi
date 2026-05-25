@@ -4,33 +4,33 @@
   bash_copyright:
 
 [94mslices:[m
-  config:
+  [93mconfig[m:
     [94mcontents:[m
       /etc/bash.bashrc:
       /etc/skel/.bash_logout:
       /etc/skel/.bashrc:
       /etc/skel/.profile:
 
-  bins:
+  [93mbins[m:
     [94messential:[m
       bash_config:
       libc6_libs:
       libtinfo6_libs:
     [94mcontents:[m
-      [32m# user should manually link /bin/sh to /bin/bash[m
+[32m      # user should manually link /bin/sh to /bin/bash[m
       /usr/bin/bash:
       /usr/bin/clear_console:
       /usr/bin/rbash:
 
-  scripts:
+  [93mscripts[m:
     [94messential:[m
       bash_bashbug:
 
-  [32m# bashbug is a script to send bug reports to the bash maintainers.[m
-  [32m# in addition to stated essentials, it required $EDITOR to be set,[m
-  [32m# and a working mail system. The script searches for the email client at,[m
-  [32m# in order: /usr/lib/sendmail, /usr/sbin/sendmail, or rmail[m
-  bashbug:
+[32m  # bashbug is a script to send bug reports to the bash maintainers.[m
+[32m  # in addition to stated essentials, it required $EDITOR to be set,[m
+[32m  # and a working mail system. The script searches for the email client at,[m
+[32m  # in order: /usr/lib/sendmail, /usr/sbin/sendmail, or rmail[m
+  [93mbashbug[m:
     [94messential:[m
       base-files_bin:
       base-files_tmp:
@@ -47,7 +47,7 @@
     [94mcontents:[m
       /usr/bin/bashbug:
 
-  copyright:
+  [93mcopyright[m:
     [94mcontents:[m
       /usr/share/doc/bash/copyright:
 
