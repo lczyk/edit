@@ -160,7 +160,6 @@ pub fn run_follow_mount(
     _use_color: bool,
     poll_interval: Duration,
 ) -> io::Result<()> {
-    use std::io::{Read as _, Seek as _};
     use std::ops::ControlFlow;
 
     use crate::buffer::TextBuffer;
@@ -186,7 +185,7 @@ pub fn run_follow_mount(
     // detection runs once.
     let buf =
         TextBuffer::new_rc(false).map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
-    let (mut last_size, mut last_inode) = {
+    let (last_size, last_inode) = {
         let mut b = buf.borrow_mut();
         let mut f = std::fs::File::open(&path)?;
         b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
@@ -222,6 +221,8 @@ pub fn run_follow_mount(
     crate::glyphs::set_no_animations(true);
     let _restore_anim = scopeguard_no_anim(prev_no_anim);
 
+    let mut drain_state = DrainState { last_size, last_inode };
+
     // tick at ~30fps regardless of the user's poll_interval. stat is
     // cheap; reload still gated on stat change. Decoupling the wake
     // rate from the reload rate is what makes a fast-growing log read
@@ -238,9 +239,9 @@ pub fn run_follow_mount(
         // state in lockstep. `delta` is the same value passed to the
         // textarea: positive = scroll down (toward bottom).
         let mut apply_scroll = |delta: CoordType| {
-            // pause_offset moves inversely to scroll_offset.y.
-            pause_offset = (pause_offset - delta).clamp(0, max_offset);
-            following = pause_offset == 0;
+            let (new_off, foll) = apply_scroll_pure(pause_offset, delta, max_offset);
+            pause_offset = new_off;
+            following = foll;
         };
 
         // wheel-input is applied by the textarea on its own, but we
@@ -313,46 +314,8 @@ pub fn run_follow_mount(
         // `drain` minus the per-line emit (we feed the buffer in one
         // chunk; the textarea handles wrapping/highlighting at paint
         // time).
-        let mut grew = false;
-        if let Ok(meta) = std::fs::metadata(&path) {
-            let cur_size = meta.len();
-            let cur_inode = inode_of(&meta);
-            let rotated = cur_inode != last_inode || cur_size < last_size;
-            if rotated {
-                // full reload on rotation: clears the buffer, resets
-                // the highlighter cache, then re-snaps to whatever the
-                // file currently has.
-                if let Ok(mut f) = std::fs::File::open(&path) {
-                    let mut b = buf.borrow_mut();
-                    b.set_read_only(false);
-                    let _ = b.read_file(&mut f);
-                    b.set_margin_enabled(show_numbers);
-                    b.set_read_only(true);
-                }
-                last_size = cur_size;
-                last_inode = cur_inode;
-                grew = true;
-            } else if cur_size > last_size {
-                // grew: read [last_size..cur_size] and append.
-                let mut chunk = Vec::with_capacity((cur_size - last_size) as usize);
-                if let Ok(mut f) = std::fs::File::open(&path)
-                    && f.seek(std::io::SeekFrom::Start(last_size)).is_ok()
-                    && f.read_to_end(&mut chunk).is_ok()
-                {
-                    let mut b = buf.borrow_mut();
-                    b.set_read_only(false);
-                    // cursor at end so write_raw appends. invalidates
-                    // the highlighter cache from this line down --
-                    // cheap when appending near EOF.
-                    b.cursor_move_to_logical(Point::MAX);
-                    b.write_raw(&chunk);
-                    b.set_read_only(true);
-                    last_size = cur_size;
-                    grew = true;
-                }
-            }
-        }
-        if grew {
+        let outcome = drain_into_buffer(&path, &buf, &mut drain_state, show_numbers);
+        if !matches!(outcome, DrainOutcome::Idle) {
             if following {
                 snap_to_tail(&mut buf.borrow_mut());
             }
@@ -516,4 +479,332 @@ fn format_clock(_now: Instant) -> String {
     let m = (secs / 60) % 60;
     let h = (secs / 3600) % 24;
     format!("{h:02}:{m:02}:{s:02}")
+}
+
+// --- testable extractions ------------------------------------------------
+
+/// Tracks the last-observed `(size, inode)` so the drain loop can decide
+/// idle vs growth vs rotation without re-reading the buffer.
+pub(crate) struct DrainState {
+    pub last_size: u64,
+    pub last_inode: u64,
+}
+
+/// What [`drain_into_buffer`] decided this tick.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum DrainOutcome {
+    /// stat failed or file unchanged.
+    Idle,
+    /// file grew; new bytes appended to the buffer.
+    Grew,
+    /// inode changed or size shrunk; buffer reloaded from scratch.
+    Rotated,
+}
+
+/// Drain one tick: stat the file, branch on idle / grown / rotated.
+/// Mirrors funnel's drain shape, minus the per-line emit (we write the
+/// new bytes into the [`TextBuffer`] in one chunk).
+pub(crate) fn drain_into_buffer(
+    path: &Path,
+    buf: &crate::buffer::RcTextBuffer,
+    state: &mut DrainState,
+    show_numbers: bool,
+) -> DrainOutcome {
+    use std::io::{Read as _, Seek as _};
+
+    let Ok(meta) = std::fs::metadata(path) else {
+        return DrainOutcome::Idle;
+    };
+    let cur_size = meta.len();
+    let cur_inode = inode_of(&meta);
+    let rotated = cur_inode != state.last_inode || cur_size < state.last_size;
+    if rotated {
+        if let Ok(mut f) = std::fs::File::open(path) {
+            let mut b = buf.borrow_mut();
+            b.set_read_only(false);
+            let _ = b.read_file(&mut f);
+            b.set_margin_enabled(show_numbers);
+            b.set_read_only(true);
+        }
+        state.last_size = cur_size;
+        state.last_inode = cur_inode;
+        return DrainOutcome::Rotated;
+    }
+    if cur_size > state.last_size {
+        let mut chunk = Vec::with_capacity((cur_size - state.last_size) as usize);
+        if let Ok(mut f) = std::fs::File::open(path)
+            && f.seek(std::io::SeekFrom::Start(state.last_size)).is_ok()
+            && f.read_to_end(&mut chunk).is_ok()
+        {
+            let mut b = buf.borrow_mut();
+            b.set_read_only(false);
+            b.cursor_move_to_logical(crate::helpers::Point::MAX);
+            b.write_raw(&chunk);
+            b.set_read_only(true);
+            state.last_size = cur_size;
+            return DrainOutcome::Grew;
+        }
+    }
+    DrainOutcome::Idle
+}
+
+/// Funnel-style scroll-delta application. `delta` is the value passed to
+/// the textarea (positive = scroll down toward the bottom). Returns the
+/// new `pause_offset` and the new `following` flag.
+pub(crate) fn apply_scroll_pure(
+    pause_offset: crate::helpers::CoordType,
+    delta: crate::helpers::CoordType,
+    max_offset: crate::helpers::CoordType,
+) -> (crate::helpers::CoordType, bool) {
+    let new_off = (pause_offset - delta).clamp(0, max_offset);
+    (new_off, new_off == 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write as _;
+
+    use super::*;
+    use crate::buffer::TextBuffer;
+    use crate::helpers::CoordType;
+
+    // --- apply_scroll_pure ---
+
+    #[test]
+    fn scroll_up_from_follow_enters_pause() {
+        let (off, foll) = apply_scroll_pure(0, -1, 100);
+        assert_eq!(off, 1);
+        assert!(!foll);
+    }
+
+    #[test]
+    fn scroll_down_to_zero_resumes_follow() {
+        let (off, foll) = apply_scroll_pure(1, 1, 100);
+        assert_eq!(off, 0);
+        assert!(foll);
+    }
+
+    #[test]
+    fn scroll_clamps_at_max() {
+        // user wheel-up past content top -- offset pegs at max_offset.
+        let (off, foll) = apply_scroll_pure(50, -1000, 50);
+        assert_eq!(off, 50);
+        assert!(!foll);
+    }
+
+    #[test]
+    fn scroll_clamps_at_zero() {
+        // user wheel-down past tail -- offset pegs at 0, follow re-enters.
+        let (off, foll) = apply_scroll_pure(3, 100, 100);
+        assert_eq!(off, 0);
+        assert!(foll);
+    }
+
+    #[test]
+    fn scroll_zero_delta_is_noop() {
+        let (off, foll) = apply_scroll_pure(7, 0, 100);
+        assert_eq!(off, 7);
+        assert!(!foll);
+    }
+
+    // --- drain_into_buffer ---
+
+    fn tmp_path(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir();
+        dir.join(format!("edit-follow-mount-{}-{}", std::process::id(), name))
+    }
+
+    fn write_file(path: &std::path::Path, content: &[u8]) {
+        let mut f = std::fs::File::create(path).unwrap();
+        f.write_all(content).unwrap();
+        f.sync_all().unwrap();
+    }
+
+    fn append_file(path: &std::path::Path, more: &[u8]) {
+        let mut f = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+        f.write_all(more).unwrap();
+        f.sync_all().unwrap();
+    }
+
+    fn fresh_buf_with_file(path: &std::path::Path) -> (crate::buffer::RcTextBuffer, DrainState) {
+        let buf = TextBuffer::new_rc(false).unwrap();
+        {
+            let mut b = buf.borrow_mut();
+            let mut f = std::fs::File::open(path).unwrap();
+            b.read_file(&mut f).unwrap();
+            b.set_read_only(true);
+        }
+        let meta = std::fs::metadata(path).unwrap();
+        let state = DrainState { last_size: meta.len(), last_inode: inode_of(&meta) };
+        (buf, state)
+    }
+
+    #[test]
+    fn drain_idle_when_file_unchanged() {
+        let path = tmp_path("idle");
+        write_file(&path, b"a\nb\nc\n");
+        let (buf, mut state) = fresh_buf_with_file(&path);
+        let lines_before = buf.borrow().visual_line_count();
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Idle);
+        assert_eq!(buf.borrow().visual_line_count(), lines_before);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn drain_grew_appends_new_bytes() {
+        let path = tmp_path("grew");
+        write_file(&path, b"a\nb\nc\n");
+        let (buf, mut state) = fresh_buf_with_file(&path);
+        let lines_before = buf.borrow().visual_line_count();
+        append_file(&path, b"d\ne\n");
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Grew);
+        let lines_after = buf.borrow().visual_line_count();
+        assert!(
+            lines_after - lines_before >= 2,
+            "expected 2+ new lines, got {lines_before} -> {lines_after}",
+        );
+        // state has caught up.
+        let meta = std::fs::metadata(&path).unwrap();
+        assert_eq!(state.last_size, meta.len());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn drain_rotated_on_shrink() {
+        let path = tmp_path("rot-shrink");
+        write_file(&path, b"old1\nold2\nold3\n");
+        let (buf, mut state) = fresh_buf_with_file(&path);
+        // truncate + write smaller content: inode usually preserved, size
+        // shrinks. drain should reload.
+        write_file(&path, b"new\n");
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Rotated);
+        assert_eq!(state.last_size, 4);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn drain_rotated_on_inode_change() {
+        let path = tmp_path("rot-inode");
+        write_file(&path, b"old1\nold2\n");
+        let (buf, mut state) = fresh_buf_with_file(&path);
+        // unlink + recreate: new inode even if same / similar size.
+        std::fs::remove_file(&path).unwrap();
+        write_file(&path, b"old1\nold2\n");
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Rotated);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn drain_idle_when_file_missing() {
+        let path = tmp_path("missing");
+        let _ = std::fs::remove_file(&path);
+        // bootstrap state w/ fake values; drain should not panic.
+        let buf = TextBuffer::new_rc(false).unwrap();
+        let mut state = DrainState { last_size: 0, last_inode: 0 };
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Idle);
+    }
+
+    // --- WheelAccel ---
+
+    #[test]
+    fn wheel_accel_slow_returns_one() {
+        let mut w = WheelAccel::default();
+        let now = Instant::now();
+        // single tick after long quiet: streak stays 0, return 1.
+        assert_eq!(w.lines(now, ScrollDir::Up), 1);
+    }
+
+    #[test]
+    fn wheel_accel_fast_streak_ramps_to_two() {
+        let mut w = WheelAccel::default();
+        let mut t = Instant::now();
+        // first call seeds last_tick; subsequent fast ticks accrue streak.
+        w.lines(t, ScrollDir::Up);
+        for _ in 0..5 {
+            t += Duration::from_millis(30); // < WHEEL_FAST_THRESHOLD_MS=60
+            w.lines(t, ScrollDir::Up);
+        }
+        t += Duration::from_millis(30);
+        assert_eq!(w.lines(t, ScrollDir::Up), 2);
+    }
+
+    #[test]
+    fn wheel_accel_dir_flip_resets() {
+        let mut w = WheelAccel::default();
+        let mut t = Instant::now();
+        w.lines(t, ScrollDir::Up);
+        for _ in 0..10 {
+            t += Duration::from_millis(20);
+            w.lines(t, ScrollDir::Up);
+        }
+        // mid-spin direction flip -> streak resets, back to 1.
+        t += Duration::from_millis(20);
+        assert_eq!(w.lines(t, ScrollDir::Down), 1);
+    }
+
+    #[test]
+    fn wheel_accel_quiet_gap_resets() {
+        let mut w = WheelAccel::default();
+        let mut t = Instant::now();
+        w.lines(t, ScrollDir::Up);
+        for _ in 0..10 {
+            t += Duration::from_millis(20);
+            w.lines(t, ScrollDir::Up);
+        }
+        // long quiet (> WHEEL_RESET_MS=250) -> streak resets.
+        t += Duration::from_millis(500);
+        assert_eq!(w.lines(t, ScrollDir::Up), 1);
+    }
+
+    // --- follow_mount_header ---
+
+    #[test]
+    fn header_following_omits_counts() {
+        let h = follow_mount_header(
+            "/tmp/foo.log",
+            Instant::now(),
+            true,
+            Duration::from_millis(250),
+            HeaderCounts { pause_offset: 0, body_h: 24, total: 100 },
+        );
+        assert!(h.contains("[following]"), "got: {h}");
+        assert!(h.contains("250ms"));
+        assert!(!h.contains("below"));
+    }
+
+    #[test]
+    fn header_paused_shows_counts() {
+        let h = follow_mount_header(
+            "/tmp/foo.log",
+            Instant::now(),
+            false,
+            Duration::from_millis(100),
+            HeaderCounts { pause_offset: 5, body_h: 24, total: 100 },
+        );
+        assert!(h.contains("[paused"));
+        assert!(h.contains("5 below"));
+        // above = total - body_h - pause_offset = 100 - 24 - 5 = 71
+        assert!(h.contains("71 above"), "got: {h}");
+    }
+
+    #[test]
+    fn header_above_clamps_to_zero() {
+        // tiny buffer: body_h > total - pause_offset, "above" goes negative
+        // pre-clamp. Clamp via .max(0) keeps it sane.
+        let _ = CoordType::default(); // silence unused-import warning if any
+        let h = follow_mount_header(
+            "/tmp/foo.log",
+            Instant::now(),
+            false,
+            Duration::from_millis(250),
+            HeaderCounts { pause_offset: 0, body_h: 100, total: 5 },
+        );
+        assert!(h.contains("0 above"), "got: {h}");
+    }
 }
