@@ -804,376 +804,73 @@ impl io::Write for LineBuf {
     }
 }
 
-// --- snapshot header -----------------------------------------------------
-
-const YELLOW: &str = "\x1b[33m";
-
-/// render the snapshot header: "path @ HH:MM:SS" with optional yellow delta.
-fn render_snapshot_header(
-    path_label: &str,
-    captured_at: &str,
-    file_changed: bool,
-    width: u16,
-) -> String {
-    let mut header = format!("{path_label} @ {captured_at}");
-    if file_changed {
-        header.push_str("  ");
-        header.push_str(YELLOW);
-        header.push('\u{0394}');
-        header.push_str(RESET);
-        header.push_str(DIM);
-    }
-    header.push_str("  (j/k g/G PgUp/PgDn scroll, r reload, q exit)");
-    let mut buf = String::with_capacity(header.len() + 32);
-    buf.push_str(DIM);
-    push_truncated_ansi(&mut buf, &header, width as usize);
-    buf.push_str(RESET);
-    clear_eol(&mut buf);
-    buf
-}
-
 // --- snapshot driver -----------------------------------------------------
 
-/// run the snapshot tui pager. reads file once, shows it in the alt-screen
-/// TUI with frozen content. polls disk every 2s for the delta indicator.
+/// run the snapshot tui pager. reads the file into a [`TextBuffer`] (marked
+/// read-only) and mounts edit's tui via [`crate::mount::mount`]. textarea
+/// handles cursor, scroll, selection natively. `q` exits.
+///
+/// v1 scope: textarea + header + q-to-quit. dropped vs the old bespoke
+/// alt-screen driver:
+/// - `r` to reload (TODO(lczyk): requires re-reading file + swapping buffer contents)
+/// - disk-change delta indicator in the header (TODO(lczyk): poll loop alongside mount)
+/// - line numbers via [`super::gutter_view`] (TODO(lczyk): wire edit's textarea gutter)
+/// - `--color=never` override (TODO(lczyk): edit's tui has no plain-mode toggle yet)
+/// these were all snapshot-only features; follow-tui retains its own
+/// independent path for now and is phase-C work.
 pub fn run_snapshot(
     path: PathBuf,
     lang: Option<&'static Language>,
-    show_numbers: bool,
-    use_color: bool,
+    _show_numbers: bool,
+    _use_color: bool,
 ) -> io::Result<()> {
-    let lines_str = super::read_file(&path)?;
+    use std::ops::ControlFlow;
 
-    let color_map = super::theme::color_map();
-    let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
+    use crate::buffer::TextBuffer;
+    use crate::helpers::{CoordType, Size};
+    use crate::input::vk;
+    use crate::mount::{self, MountOpts};
 
-    // highlight each line into body bytes (no gutter prefix).
-    let mut sink = LineBuf::new();
-    for line in &lines_str {
-        super::write_highlighted_line(
-            &mut sink,
-            runtime.as_mut(),
-            &color_map,
-            line,
-            None,
-            use_color,
-        )?;
+    let buf = TextBuffer::new_rc(false)
+        .map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
+    {
+        let mut b = buf.borrow_mut();
+        let mut f = std::fs::File::open(&path)?;
+        b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
+        b.set_language(lang);
+        b.set_read_only(true);
     }
-    let bodies = sink.take_new();
 
-    // gutter
-    let gutter: Option<super::gutter_view::Gutter> = if show_numbers {
-        let mut bytes = Vec::with_capacity(lines_str.iter().map(|l| l.len() + 1).sum());
-        for l in &lines_str {
-            bytes.extend_from_slice(l.as_bytes());
-            bytes.push(b'\n');
-        }
-        Some(super::gutter_view::Gutter::compute(&path, &bytes, 1))
-    } else {
-        None
-    };
-
-    // capture the timestamp and initial fingerprint
+    let path_label = path.display().to_string();
     let captured_at = format_clock(Instant::now());
-    let initial_stat = stat_fingerprint(&path);
+    let header =
+        format!("{path_label} @ {captured_at}  (q exit, arrows / PgUp / PgDn scroll)");
 
-    // bring up terminal
     let _deinit = tty::init();
     tty::switch_modes()?;
-    tty::inject_window_size_into_stdin();
-    tty::write_stdout(&format!("{ALT_SCREEN_ENTER}{CURSOR_HIDE}{CLEAR_SCREEN}{WRAP_OFF}"));
-    let cleanup_screen = || {
-        tty::write_stdout(&format!("{WRAP_ON}{CURSOR_SHOW}{ALT_SCREEN_LEAVE}"));
-    };
 
-    let result = run_snapshot_loop(
-        &path,
-        lang,
-        show_numbers,
-        bodies,
-        gutter,
-        captured_at,
-        initial_stat,
-        use_color,
-    );
-    cleanup_screen();
-    result
-}
-
-/// snapshot fingerprint for disk-change detection.
-struct SnapshotStat {
-    size: u64,
-    ino: u64,
-    mtime_ns: i128,
-}
-
-impl PartialEq for SnapshotStat {
-    fn eq(&self, other: &Self) -> bool {
-        self.size == other.size && self.ino == other.ino && self.mtime_ns == other.mtime_ns
-    }
-}
-
-fn stat_fingerprint(path: &Path) -> Option<SnapshotStat> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt as _;
-        let meta = std::fs::metadata(path).ok()?;
-        Some(SnapshotStat {
-            size: meta.size(),
-            ino: meta.ino(),
-            mtime_ns: meta.mtime() as i128 * 1_000_000_000 + meta.mtime_nsec() as i128,
-        })
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-        None
-    }
-}
-
-fn run_snapshot_loop(
-    path: &Path,
-    lang: Option<&'static Language>,
-    show_numbers: bool,
-    bodies: Vec<Vec<u8>>,
-    gutter: Option<super::gutter_view::Gutter>,
-    captured_at: String,
-    initial_stat: Option<SnapshotStat>,
-    use_color: bool,
-) -> io::Result<()> {
-    let path_label = path.display().to_string();
-    let color_map = super::theme::color_map();
-    let mut view = View::new(80, 24);
-    view.extend_lines(&bodies);
-    // start at top, not tail mode
-    view.tail_mode = false;
-    view.scroll_offset = 0;
-    view.scroll_offset_visual = 0.0;
-
-    let arena_main = stdext::arena::Arena::new(64 * 1024)?;
-    let mut file_changed = false;
-    let mut last_disk_check = Instant::now();
-    let mut current_stat = initial_stat;
-    let mut current_gutter = gutter;
-    let mut current_captured_at = captured_at;
-    let disk_check_interval = Duration::from_secs(2);
-    let anim_frame = Duration::from_millis(ANIM_FRAME_MS);
-    let mut last_anim_step = Instant::now();
-    // Initial paint up-front so the loop's redraw branch never has to "first-
-    // paint snap" the visual to the target -- that would clobber the lerp
-    // when the user's first keypress triggers the first redraw.
-    view.scroll_offset_visual = view.scroll_offset as f32;
-    redraw_snapshot(
-        &mut view,
-        &path_label,
-        &current_captured_at,
-        file_changed,
-        current_gutter.as_ref(),
-        use_color,
-    );
-
-    loop {
-        let mut want_redraw = false;
-
-        // disk change detection
-        if current_stat.is_some()
-            && Instant::now().duration_since(last_disk_check) >= disk_check_interval
+    mount::mount(MountOpts::default(), |ctx| -> ControlFlow<()> {
+        // global shortcut: q -> exit. checked before the textarea sees the
+        // event so it doesn't swallow Q as a literal letter.
+        if let Some(k) = ctx.keyboard_input()
+            && k == vk::Q
         {
-            last_disk_check = Instant::now();
-            let now_stat = stat_fingerprint(path);
-            let changed = match (&current_stat, &now_stat) {
-                (Some(a), Some(b)) => a != b,
-                (Some(_), None) => true,
-                _ => false,
-            };
-            if changed != file_changed {
-                file_changed = changed;
-                want_redraw = true;
-            }
+            ctx.set_input_consumed();
+            return ControlFlow::Break(());
         }
 
-        // animation
-        let now2 = Instant::now();
-        if !view.animation_settled() {
-            let dt = now2.duration_since(last_anim_step).as_secs_f32();
-            view.advance_animation(dt);
-            want_redraw = true;
-        }
-        last_anim_step = now2;
+        let size = ctx.size();
+        ctx.label("snapshot-header", &header);
 
-        if want_redraw {
-            redraw_snapshot(
-                &mut view,
-                &path_label,
-                &current_captured_at,
-                file_changed,
-                current_gutter.as_ref(),
-                use_color,
-            );
-        }
+        ctx.textarea("snapshot-body", buf.clone());
+        ctx.inherit_focus();
+        let body_h = (size.height - 1).max(1) as CoordType;
+        ctx.attr_intrinsic_size(Size { width: 0, height: body_h });
 
-        // wait for input (disk check or animation frame, no heartbeat)
-        let next_disk_in =
-            disk_check_interval.saturating_sub(Instant::now().duration_since(last_disk_check));
-        let mut wait = next_disk_in.max(Duration::from_millis(1));
-        if !view.animation_settled() {
-            wait = wait.min(anim_frame);
-        }
-        let scratch = scratch_arena(Some(&arena_main));
-        let chunk = tty::read_stdin(&scratch, wait);
-        match chunk {
-            None => return Ok(()),
-            Some(s) if s.is_empty() => {}
-            Some(s) => {
-                let was_settled = view.animation_settled();
-                let mut should_redraw = false;
-                let mut quit = false;
-                let mut want_reload = false;
-                for k in parse_keys(s.as_bytes()) {
-                    if matches!(k, Key::Reload) {
-                        want_reload = true;
-                        continue;
-                    }
-                    match view.apply_key(k) {
-                        KeyOutcome::Quit => {
-                            quit = true;
-                            break;
-                        }
-                        KeyOutcome::Changed => should_redraw = true,
-                        KeyOutcome::Noop => {}
-                    }
-                }
-                if quit {
-                    return Ok(());
-                }
-                // If a key just kicked off a new animation from a settled
-                // state, reset `last_anim_step` so the first dt is one
-                // anim_frame instead of however long `read_stdin` blocked.
-                // Otherwise `lerp_alpha` saturates at >=6tau and snaps the
-                // visual to target on the first step, defeating the lerp.
-                if was_settled && !view.animation_settled() {
-                    last_anim_step = Instant::now();
-                }
-                if want_reload {
-                    if let Ok(lines_str) = super::read_file(path) {
-                        let mut runtime =
-                            lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
-                        let mut sink = LineBuf::new();
-                        for line in &lines_str {
-                            let _ = super::write_highlighted_line(
-                                &mut sink,
-                                runtime.as_mut(),
-                                &color_map,
-                                line,
-                                None,
-                                use_color,
-                            );
-                        }
-                        let new_bodies = sink.take_new();
-                        current_gutter = if show_numbers {
-                            let mut bytes =
-                                Vec::with_capacity(lines_str.iter().map(|l| l.len() + 1).sum());
-                            for l in &lines_str {
-                                bytes.extend_from_slice(l.as_bytes());
-                                bytes.push(b'\n');
-                            }
-                            Some(super::gutter_view::Gutter::compute(path, &bytes, 1))
-                        } else {
-                            None
-                        };
-                        current_captured_at = format_clock(Instant::now());
-                        current_stat = stat_fingerprint(path);
-                        file_changed = false;
-                        last_disk_check = Instant::now();
-                        let prev_offset = view.scroll_offset;
-                        let prev_tail = view.tail_mode;
-                        view.reset_lines();
-                        view.extend_lines(&new_bodies);
-                        if !prev_tail {
-                            view.tail_mode = false;
-                            view.scroll_offset = prev_offset.min(view.max_offset());
-                            view.scroll_offset_visual = view.scroll_offset as f32;
-                        }
-                        should_redraw = true;
-                    }
-                }
-                if should_redraw {
-                    redraw_snapshot(
-                        &mut view,
-                        &path_label,
-                        &current_captured_at,
-                        file_changed,
-                        current_gutter.as_ref(),
-                        use_color,
-                    );
-                    // if the key un-settled a previously-settled animation,
-                    // reset last_anim_step so the next advance uses a fresh
-                    // dt instead of the full idle wait -- otherwise dt = idle
-                    // time -> alpha ~= 1 -> snap (looks like instant jump).
-                    // for continuous scroll where animation was already in
-                    // flight, leave last_anim_step alone to preserve dt.
-                    // checked AFTER redraw b/c `settle_offset` (inside redraw)
-                    // is what flips tail-mode End from settled to unsettled.
-                    if !view.animation_settled() && was_settled {
-                        last_anim_step = Instant::now();
-                    }
-                }
-            }
-        }
-    }
+        ControlFlow::Continue(())
+    })
 }
 
-fn redraw_snapshot(
-    view: &mut View,
-    path_label: &str,
-    captured_at: &str,
-    file_changed: bool,
-    gutter: Option<&super::gutter_view::Gutter>,
-    use_color: bool,
-) {
-    view.settle_offset();
-    let mut buf = String::with_capacity(8 * 1024);
-    cursor_to(&mut buf, 1, 1);
-
-    // header
-    let header = render_snapshot_header(path_label, captured_at, file_changed, view.width);
-    buf.push_str(&header);
-
-    // body
-    let body_rows = view.body_rows();
-    let render_off = view.render_offset();
-    let start = render_off;
-    let end = (start + body_rows).min(view.lines.len());
-    let prefix_width = gutter.map(|g| g.width + 3).unwrap_or(0);
-    let body_width = (view.width as usize).saturating_sub(prefix_width);
-    for (i, line) in view.lines[start..end].iter().enumerate() {
-        cursor_to(&mut buf, 2 + i as u16, 1);
-        // erase row before painting -- `\t` in body bytes skips cells w/out
-        // painting, so a post-content clear leaves stale pixels behind.
-        clear_eol(&mut buf);
-        if let Some(g) = gutter {
-            let line_no = view.line_no_of(start + i);
-            let mut pbuf = Vec::with_capacity(32);
-            let _ = super::gutter_view::write_prefix(
-                &mut pbuf,
-                line_no,
-                g.width,
-                g.mark(line_no),
-                use_color,
-            );
-            buf.push_str(&String::from_utf8_lossy(&pbuf));
-        }
-        match std::str::from_utf8(line) {
-            Ok(s) => push_truncated_ansi(&mut buf, s, body_width),
-            Err(_) => buf.push_str(&String::from_utf8_lossy(line)),
-        }
-    }
-    for i in (end - start)..body_rows {
-        cursor_to(&mut buf, 2 + i as u16, 1);
-        clear_eol(&mut buf);
-    }
-    tty::write_stdout(&buf);
-}
 
 // --- driver --------------------------------------------------------------
 
