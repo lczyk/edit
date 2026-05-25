@@ -87,6 +87,7 @@ pub fn highlight_kind_color(kind: HighlightKind) -> Option<IndexedColor> {
     kind.default_color().map(|c| unsafe { std::mem::transmute::<u8, IndexedColor>(c as u8) })
 }
 
+#[derive(Debug)]
 pub enum IoError {
     Io(io::Error),
     Icu(icu::Error),
