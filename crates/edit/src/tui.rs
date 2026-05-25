@@ -2019,6 +2019,16 @@ impl<'a> Context<'a, '_> {
         if self.input_consumed { None } else { self.input_keyboard }
     }
 
+    /// Mouse-wheel delta since the last frame. Reported in cells; `y > 0`
+    /// is wheel-down (content scrolls up), `y < 0` is wheel-up. Always
+    /// observable -- the field is read by the textarea path
+    /// unconditionally but it isn't "consumed" in the same sense as
+    /// keyboard input, so external callers can react to it
+    /// (follow/pause toggles, etc.) regardless of consumption order.
+    pub fn scroll_delta(&self) -> Point {
+        self.input_scroll_delta
+    }
+
     #[inline]
     pub fn set_input_consumed(&mut self) {
         crate::sanity_assert!(

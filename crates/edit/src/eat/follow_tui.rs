@@ -929,6 +929,232 @@ fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String 
     )
 }
 
+/// phase C.1 of the unification plan: minimal mount-based follow view.
+/// crude periodic re-read of the entire file into a [`TextBuffer`] every
+/// `poll_interval`; viewport pinned to the bottom via
+/// `request_scroll_delta_y(MAX)` so the tail stays in view. no
+/// incremental append, no tail-pin break-on-scroll yet -- this exists
+/// to sanity-check the architecture before C.2 wires
+/// [`FollowSource::tick`] in as the buffer feed.
+///
+/// the textarea is mounted **without** focus. unfocused textareas:
+/// - do not paint the terminal cursor (eat is a viewer, not an editor),
+/// - still accept mouse-wheel scroll (handled before the focus check),
+/// - ignore keyboard input -- PgUp/PgDn/arrows are translated to
+///   `request_scroll_delta_y` calls in this callback instead.
+///
+/// gated behind `EAT_FOLLOW_USE_MOUNT=1` for now; the default routing
+/// still goes through [`run`] (the bespoke alt-screen driver).
+pub fn run_follow_mount(
+    path: PathBuf,
+    lang: Option<&'static Language>,
+    show_numbers: bool,
+    _use_color: bool,
+    poll_interval: Duration,
+) -> io::Result<()> {
+    use std::ops::ControlFlow;
+
+    use crate::buffer::TextBuffer;
+    use crate::helpers::{CoordType, Point, Size};
+    use crate::input::{kbmod, vk};
+    use crate::mount::{self, MountOpts};
+
+    // tail-snap helper. `request_scroll_delta_y(visual_line_count)`
+    // lands at `visual_line_count - 1` after `textarea_adjust_scroll_offset`'s
+    // clamp -- last line at the **top** of the viewport, not the
+    // bottom. `cursor_move + make_cursor_visible` instead pipes through
+    // `textarea_make_cursor_visible`, which sets
+    // `scroll_y = cursor_y - viewport_height + 1` -- last line at the
+    // bottom edge, which is what a tail view wants.
+    fn snap_to_tail(b: &mut TextBuffer) {
+        b.cursor_move_to_logical(Point::MAX);
+        let x = b.cursor_visual_pos().x;
+        b.set_preferred_column(x);
+        b.make_cursor_visible();
+    }
+
+    let buf =
+        TextBuffer::new_rc(false).map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
+    {
+        let mut b = buf.borrow_mut();
+        let mut f = std::fs::File::open(&path)?;
+        b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
+        b.set_language(lang);
+        b.set_margin_enabled(show_numbers);
+        b.set_read_only(true);
+        snap_to_tail(&mut b);
+    }
+
+    let path_label = path.display().to_string();
+    let mut last_stat = stat_fingerprint(&path);
+    // funnel-style follow/paused state. `pause_offset` is funnel's
+    // `display_offset`: lines above the live bottom. 0 = follow.
+    // Whenever it transitions through 0 (scroll-down all the way back
+    // to the tail), we re-enter follow mode. Mirrors textarea's own
+    // scroll_offset.y by tracking the same delta values we either send
+    // (key handlers via `request_scroll_delta_y`) or observe
+    // (`ctx.scroll_delta()` for the mouse wheel, which the textarea
+    // applies on its own).
+    //
+    // body_h is recomputed each frame; pause_offset is clamped against
+    // `visual_line_count - body_h` so wheel-up past the top doesn't
+    // accumulate phantom offset that the textarea won't honour.
+    let mut following = true;
+    let mut pause_offset: CoordType = 0;
+
+    let _deinit = tty::init();
+    tty::switch_modes()?;
+
+    // disable scroll/cursor animation. with a 250ms (or even 100ms)
+    // poll the textarea's ~60ms scroll lerp lands between ticks --
+    // viewport sits still then snaps, reading as "jerky". Snapping
+    // instantly per tick gives the smooth funnel-style cadence.
+    // Restored on scope exit so the editor's animations are unaffected.
+    let prev_no_anim = crate::glyphs::no_animations();
+    crate::glyphs::set_no_animations(true);
+    let _restore_anim = scopeguard_no_anim(prev_no_anim);
+
+    // tick at ~30fps regardless of the user's poll_interval. stat is
+    // cheap; reload still gated on stat change. Decoupling the wake
+    // rate from the reload rate is what makes a fast-growing log read
+    // as smooth scrolling rather than 4Hz chunk-jumps. honour the
+    // user's `-f <interval>` only as a floor (don't wake faster than
+    // requested if they explicitly want less frequent polling).
+    let tick = poll_interval.min(Duration::from_millis(33));
+    let opts = MountOpts { tick_interval: Some(tick), ..Default::default() };
+    mount::mount(opts, |ctx| -> ControlFlow<()> {
+        let body_h = (ctx.size().height - 1).max(1) as CoordType;
+        let max_offset = (buf.borrow().visual_line_count() - body_h).max(0);
+
+        // helper: apply a scroll delta and update pause_offset / follow
+        // state in lockstep. `delta` is the same value passed to the
+        // textarea: positive = scroll down (toward bottom).
+        let mut apply_scroll = |delta: CoordType| {
+            // pause_offset moves inversely to scroll_offset.y.
+            pause_offset = (pause_offset - delta).clamp(0, max_offset);
+            following = pause_offset == 0;
+        };
+
+        // wheel-input is applied by the textarea on its own, but we
+        // still need to mirror its effect on pause_offset so the
+        // follow/paused state stays in sync.
+        let wheel_y = ctx.scroll_delta().y;
+        if wheel_y != 0 {
+            apply_scroll(wheel_y);
+        }
+
+        if let Some(k) = ctx.keyboard_input() {
+            // strip modifiers for the plain-key matches; SHIFT+g is
+            // handled separately so it can map to End-equivalent.
+            let bare = k.key();
+            let shifted = k.modifiers_contains(kbmod::SHIFT);
+
+            // q / esc exit. textarea is unfocused so it won't handle
+            // anything itself; translate the rest into scroll-delta
+            // requests on the buffer and mirror the effect on
+            // pause_offset. j/k aliased to Down/Up, g to Home, G
+            // (shift+g) to End -- matches the legacy follow-tui keys.
+            if bare == vk::Q || bare == vk::ESCAPE {
+                ctx.set_input_consumed();
+                return ControlFlow::Break(());
+            } else if bare == vk::UP || (bare == vk::K && !shifted) {
+                buf.borrow_mut().request_scroll_delta_y(-1);
+                apply_scroll(-1);
+                ctx.set_input_consumed();
+            } else if bare == vk::DOWN || (bare == vk::J && !shifted) {
+                buf.borrow_mut().request_scroll_delta_y(1);
+                apply_scroll(1);
+                ctx.set_input_consumed();
+            } else if bare == vk::PRIOR {
+                let d = (body_h - 1).max(1);
+                buf.borrow_mut().request_scroll_delta_y(-d);
+                apply_scroll(-d);
+                ctx.set_input_consumed();
+            } else if bare == vk::NEXT {
+                let d = (body_h - 1).max(1);
+                buf.borrow_mut().request_scroll_delta_y(d);
+                apply_scroll(d);
+                ctx.set_input_consumed();
+            } else if bare == vk::HOME || (bare == vk::G && !shifted) {
+                let n = buf.borrow().visual_line_count();
+                buf.borrow_mut().request_scroll_delta_y(-n);
+                apply_scroll(-n);
+                ctx.set_input_consumed();
+            } else if bare == vk::END || (bare == vk::G && shifted) {
+                snap_to_tail(&mut buf.borrow_mut());
+                pause_offset = 0;
+                following = true;
+                ctx.set_input_consumed();
+            }
+        }
+
+        // re-read on stat change. crude: drops the buffer + reloads the
+        // whole file, so the rope is rebuilt every tick where the log
+        // grew. C.2 swaps this for an incremental append via
+        // FollowSource::tick.
+        let now_stat = stat_fingerprint(&path);
+        let changed = match (&last_stat, &now_stat) {
+            (Some(a), Some(b)) => a != b,
+            (Some(_), None) => true,
+            (None, Some(_)) => true,
+            _ => false,
+        };
+        if changed {
+            last_stat = now_stat;
+            if let Ok(mut f) = std::fs::File::open(&path) {
+                let mut b = buf.borrow_mut();
+                b.set_read_only(false);
+                let _ = b.read_file(&mut f);
+                b.set_margin_enabled(show_numbers);
+                b.set_read_only(true);
+                if following {
+                    snap_to_tail(&mut b);
+                }
+                // paused branch is a no-op: scroll_offset.y is a top-line
+                // index that stays put as the buffer grows, so already-
+                // visible content stays anchored.
+            }
+            ctx.needs_rerender();
+        }
+
+        let header = follow_mount_header(&path_label, Instant::now(), following, poll_interval);
+
+        let size = ctx.size();
+        ctx.label("follow-header", &header);
+
+        // NB: no `inherit_focus()` -- unfocused textarea suppresses the
+        // terminal cursor. mouse-wheel scroll still works (handled
+        // pre-focus-check in textarea_handle_input).
+        ctx.textarea("follow-body", buf.clone());
+        let body_h = (size.height - 1).max(1) as CoordType;
+        ctx.attr_intrinsic_size(Size { width: 0, height: body_h });
+
+        ControlFlow::Continue(())
+    })
+}
+
+/// RAII guard restoring the global `no_animations` flag on drop. Used
+/// by `run_follow_mount` so animations are disabled only for the
+/// lifetime of the follow view.
+struct NoAnimRestore(bool);
+impl Drop for NoAnimRestore {
+    fn drop(&mut self) {
+        crate::glyphs::set_no_animations(self.0);
+    }
+}
+fn scopeguard_no_anim(prev: bool) -> NoAnimRestore {
+    NoAnimRestore(prev)
+}
+
+fn follow_mount_header(path_label: &str, at: Instant, following: bool, poll: Duration) -> String {
+    let mode = if following { "following" } else { "paused" };
+    let poll_ms = poll.as_millis();
+    format!(
+        "{path_label} [{mode}] @ {}  ({poll_ms}ms Up/Dn g/G PgUp/PgDn scroll, q)",
+        format_clock(at),
+    )
+}
+
 /// Snapshot of file metadata used to detect on-disk changes between polls.
 /// `None` on platforms without unix metadata or when the file is gone.
 struct SnapshotStat {
