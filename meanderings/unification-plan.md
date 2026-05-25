@@ -52,7 +52,75 @@ still dropped (TODO(lczyk) in `run_snapshot` doc):
 - `--color=never` plain-mode toggle. edit's tui has no plain-mode
   switch yet; defer until needed.
 
-### phase C -- follow tui, not yet started
+### phase C.1 -- mount-based follow spike, landed
+
+`follow_tui::run_follow_mount` mounts the textarea via `edit::mount` and
+re-reads the file into a `TextBuffer` whenever `stat_fingerprint` shows
+the file changed. routing: `EAT_FOLLOW_USE_MOUNT=1` opts the tty pager
+into the mount path; default still goes through bespoke `follow_tui::run`
+so the old + new can run side-by-side until C.2/C.3 close the gap.
+
+what landed (beyond the original recc):
+- **funnel-style follow / paused model.** mirror funnel's `display_offset`
+  as `pause_offset: CoordType` (lines above tail; 0 == follow). every
+  key + mouse-wheel delta we either send or observe is shadowed onto
+  `pause_offset`, clamped to `[0, visual_line_count - body_h]` so it
+  stays in lockstep with the textarea's own clamping. transitions
+  through 0 re-enter follow automatically. matches funnel's "scroll up
+  to pause, scroll back down to resume" UX.
+- **keybindings + bar match the bespoke driver.** Up/Dn, j/k, g/G, Home,
+  End, PgUp, PgDn, q/esc. header is
+  `<path> [following|paused] @ <clock>  (<poll>ms Up/Dn g/G PgUp/PgDn scroll, q)`.
+- **mouse wheel works.** new `Context::scroll_delta() -> Point` exposes
+  the per-frame wheel delta to mount callers; we read it before the
+  textarea consumes it (textarea applies scroll to its own offset, our
+  pause_offset shadow updates in parallel).
+- **no cursor.** textarea is mounted **without** `inherit_focus()` so
+  the focused-only `cursor_block` path stays inert -- eat is a viewer,
+  not an editor. mouse-wheel scroll still flows through (handled
+  pre-focus-check in `textarea_handle_input`).
+- **tail-snap via `cursor_move_to_logical(Point::MAX) + make_cursor_visible`.**
+  The naive `request_scroll_delta_y(visual_line_count)` route only
+  reaches `visual_line_count - 1` after the clamp in
+  `textarea_adjust_scroll_offset` (last line at the **top** of the
+  viewport). going via the cursor pulls in
+  `textarea_make_cursor_visible`'s `scroll_y = cursor_y - viewport_h + 1`
+  which is the correct "last line pinned to the bottom edge".
+- **`glyphs::set_no_animations(true)` for the follow lifetime** via a
+  small RAII guard. with a 250ms poll the textarea's ~60ms scroll lerp
+  lands between ticks and reads as jerky "snap, settle, snap, settle";
+  snapping instantly per tick gives the smooth funnel cadence. restored
+  on exit so the editor's own animations are unaffected.
+- **tick decoupled from poll.** `tick_interval = min(poll_interval, 33ms)`.
+  stat is cheap, reload is still gated on change; decoupling the wake
+  rate from the reload rate is what stops a fast-growing log from
+  reading as discrete chunk-jumps at 4Hz.
+
+bugs found + fixed during the spike (worth keeping for context next
+session):
+- `request_scroll_delta_y(CoordType::MAX)` wraps `scroll_offset.y += MAX`
+  to a negative value before the clamp lands, producing a "snap to top,
+  then snap to bottom" flicker. use `visual_line_count()` as the
+  saturating-safe upper bound instead.
+- the cursor-based tail snap is the **only** route that produces "last
+  line at the viewport bottom" -- direct scroll_offset manipulation
+  pins to the top. recorded in a comment in `snap_to_tail`.
+
+known gaps vs the bespoke driver (still C.2+ work):
+- **rope rebuild + highlighter cache wipe per stat-change.** for a
+  fast-growing log (~100 lines/sec, 10k+ lines buffered) the reload
+  itself outpaces the 30Hz wake cadence -- viewport trails real EOF by
+  a visible margin. C.2 (incremental append via `FollowSource::tick` +
+  cache invalidation from the modified line) is the fix.
+- pause_offset shadow can drift from the textarea's actual scroll
+  offset if the two clamps diverge (e.g. animation interactions,
+  visual_line_count changes during a frame). C.3 may want a proper
+  read-back, e.g. exposing scroll_offset.y on the buffer side or via a
+  Context accessor keyed off prev_node_map.
+- no header `[modified on disk]` / miss-budget bookkeeping. fine for a
+  spike.
+
+### phase C -- follow tui, in progress
 
 `crates/edit/src/eat/follow_tui.rs` still holds ~1500 LOC of bespoke
 follow-mode driver: `Key` enum + `parse_keys` / `parse_escape` /
