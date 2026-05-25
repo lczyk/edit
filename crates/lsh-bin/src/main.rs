@@ -137,8 +137,7 @@ fn run_detect(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Resul
         let head = &src[..src.len().min(4096)];
         let charsets: Vec<SerializedCharset> =
             assembly.charsets.iter().map(|cs| cs.serialize()).collect();
-        let mut runtime =
-            Runtime::new(&assembly.instructions, &assembly.strings, &charsets, 0);
+        let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, 0);
         let mut base = None;
         let mut decided = None;
         for cand in &candidates {

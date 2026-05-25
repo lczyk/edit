@@ -9,10 +9,10 @@ pub mod cache;
 
 pub use lsh::runtime::Language;
 pub use lsh_defs::detect::{
-    disambiguate_language, language_from_content, language_from_shebang,
-    match_file_associations, process_file_associations,
+    disambiguate_language, language_from_content, language_from_shebang, match_file_associations,
+    process_file_associations,
 };
 pub use lsh_defs::{
-    ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, HighlightKind, Highlighter, HighlighterState,
-    LANGUAGES, STRINGS,
+    ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, HighlightKind, Highlighter, HighlighterState, LANGUAGES,
+    STRINGS,
 };

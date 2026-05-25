@@ -1180,8 +1180,7 @@ impl Tui {
         // snap everything to target and skip the per-feature lerps. The
         // inner advance_* fns no longer check the killswitch themselves.
         let (visual_offset, cursor_override) = if crate::glyphs::no_animations() {
-            anim_state.scroll_visual =
-                (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
+            anim_state.scroll_visual = (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
             anim_state.cursor_visual = {
                 let c = tb.cursor_visual_pos();
                 Some((c.x as f32, c.y as f32))

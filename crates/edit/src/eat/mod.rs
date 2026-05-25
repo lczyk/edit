@@ -613,11 +613,7 @@ fn run(
             continue;
         }
 
-        let header = if stdout_is_tty && inputs.len() > 1 {
-            header_label.as_deref()
-        } else {
-            None
-        };
+        let header = if stdout_is_tty && inputs.len() > 1 { header_label.as_deref() } else { None };
 
         // build the gutter once per file when -n is on and we have a path to
         // resolve a baseline against. for stdin or with -n off, no gutter.

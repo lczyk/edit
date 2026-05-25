@@ -55,11 +55,7 @@ pub struct MountOpts {
 
 impl Default for MountOpts {
     fn default() -> Self {
-        Self {
-            fallback_palette: DEFAULT_THEME,
-            emit_indexed_codes: true,
-            tick_interval: None,
-        }
+        Self { fallback_palette: DEFAULT_THEME, emit_indexed_codes: true, tick_interval: None }
     }
 }
 

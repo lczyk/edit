@@ -428,7 +428,8 @@ fn tab_stale_cells_absent_after_scroll() {
     // clear_eol must precede tab on rows 2 and 3
     for row in [2u16, 3u16] {
         let cur = format!("\x1b[{row};1H");
-        let pos = frame2.find(&cur).unwrap_or_else(|| panic!("cursor escape for row {row} missing"));
+        let pos =
+            frame2.find(&cur).unwrap_or_else(|| panic!("cursor escape for row {row} missing"));
         let after = &frame2[pos + cur.len()..];
         assert!(
             after.starts_with("\x1b[K"),

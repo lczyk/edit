@@ -20,8 +20,8 @@ use std::time::Duration;
 
 use lsh::runtime::{Language, Runtime};
 
-use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 use super::write_highlighted_line;
+use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 
 /// fixed line-number column width in follow mode. real width is unknowable
 /// (file is unbounded); 6 fits up to 999_999 lines without wrapping, and the

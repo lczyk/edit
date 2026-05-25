@@ -41,11 +41,11 @@ use crate::clipboard::Clipboard;
 use crate::document::{ReadableDocument, WriteableDocument};
 use crate::framebuffer::{Attributes, IndexedColor};
 use crate::helpers::*;
+use crate::icu;
 use crate::lsh::cache::HighlighterCache;
 use crate::lsh::{HighlightKind, Highlighter, Language};
-use lsh::runtime::Highlight;
-use crate::icu;
 use crate::unicode::{self, Cursor, MeasurementConfig};
+use lsh::runtime::Highlight;
 use stdext::simd::{self, memchr2};
 
 /// The margin template is used for line numbers.
@@ -2409,8 +2409,7 @@ impl TextBuffer {
         // suppressed (no-color mode) or no language is set; in those cases
         // markup rects stay empty and the draw step paints nothing extra.
         let lsh_enabled = !crate::glyphs::no_color() && self.language.is_some();
-        let mut highlighter_opt =
-            self.language.map(|lang| Highlighter::new(&self.buffer, lang));
+        let mut highlighter_opt = self.language.map(|lang| Highlighter::new(&self.buffer, lang));
         let mut hl_logical_y: Option<CoordType> = None;
         let mut hl_buf: Vec<Highlight<HighlightKind>> = Vec::new();
 
@@ -2515,11 +2514,8 @@ impl TextBuffer {
                 if hl_logical_y != Some(logical_y) {
                     if let Some(ref mut highlighter) = highlighter_opt {
                         let scratch_hl = scratch_arena(None);
-                        let parsed = self.highlighter_cache.parse_line(
-                            &scratch_hl,
-                            highlighter,
-                            logical_y,
-                        );
+                        let parsed =
+                            self.highlighter_cache.parse_line(&scratch_hl, highlighter, logical_y);
                         hl_buf.clear();
                         hl_buf.extend(parsed.iter().cloned());
                         hl_logical_y = Some(logical_y);

@@ -591,8 +591,7 @@ impl<'a, 'c> CodeGen<'a, 'c> {
                 // We iterate in reverse because of continuation-passing style,
                 // as explained in the module doc.
                 for alt in alts.iter().rev() {
-                    let restore =
-                        self.compiler.alloc_iri(IRI::Mov { dst: off_reg, src: save_reg });
+                    let restore = self.compiler.alloc_iri(IRI::Mov { dst: off_reg, src: save_reg });
                     restore.borrow_mut().next = Some(current_fail);
                     current_fail = self.emit(alt, on_match, restore)?;
                 }

@@ -792,7 +792,6 @@ fn write_osc_clipboard<'a>(
     state.osc_clipboard_sync = false;
 }
 
-
 /// Strips all C0 control characters from the string and replaces them with "_".
 ///
 /// Jury is still out on whether this should also strip C1 control characters.
