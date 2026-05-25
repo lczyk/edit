@@ -10,6 +10,7 @@ pub mod base64;
 pub mod buffer;
 pub mod cell;
 pub mod clipboard;
+pub mod colormap;
 pub mod document;
 pub mod eat;
 pub mod framebuffer;

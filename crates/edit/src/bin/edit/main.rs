@@ -1,5 +1,4 @@
 mod apperr;
-mod colormap;
 #[cfg(debug_assertions)]
 mod devlog;
 mod documents;
@@ -115,8 +114,8 @@ fn run() -> apperr::Result<()> {
     if let Err(err) = keybindings::load_or_create() {
         state.add_error(err);
     }
-    if let Err(err) = colormap::load_or_create() {
-        state.add_error(err);
+    if let Err(err) = edit::colormap::load_or_create() {
+        state.add_error(err.into());
     }
 
     // This will reopen stdin if it's redirected (which may fail) and switch
@@ -131,7 +130,7 @@ fn run() -> apperr::Result<()> {
     let mut tui = Tui::new()?;
 
     let _restore = {
-        let cm = colormap::borrow();
+        let cm = edit::colormap::borrow();
         let fallback = cm.palette;
         let force = cm.use_colormap;
         // Releases the colormap borrow before term::setup. cell::Ref has no
@@ -147,7 +146,7 @@ fn run() -> apperr::Result<()> {
         }
         if force {
             // colormap.toml wins -- ignore terminal responses.
-            tui.setup_indexed_colors(colormap::borrow().palette);
+            tui.setup_indexed_colors(edit::colormap::borrow().palette);
         } else {
             // Patch terminal-reported responses over the toml fallback,
             // and opt into ANSI-16 emission so terminals which drop OSC 4
@@ -376,7 +375,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                     sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
                     return Ok(None);
                 }
-                if let Err(e) = colormap::force_reset() {
+                if let Err(e) = edit::colormap::force_reset() {
                     sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
                     return Ok(None);
                 }

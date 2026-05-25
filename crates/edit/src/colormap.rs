@@ -1,18 +1,19 @@
-//! Colormap config loader.
+//! Colormap config loader, shared by `bin/edit` and `eat`'s mount-based
+//! alt-screen modes.
 //!
-//! TOML file at `<config_dir>/colormap.toml`. Created on first run from the
-//! embedded default. Missing keys fall back to the default palette.
+//! TOML file at `<config_dir>/colormap.toml`. Created on first run from
+//! the embedded default. Missing keys fall back to the default palette.
+//! `config_dir` follows `$XDG_CONFIG_HOME` then `$HOME/.config`, both
+//! suffixed with `edit/`.
 
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use edit::cell::{Ref, SemiRefCell};
-use edit::framebuffer::{INDEXED_COLORS_COUNT, IndexedColor};
-use edit::oklab::StraightRgba;
-
-use crate::apperr;
-use crate::settings;
+use crate::cell::{Ref, SemiRefCell};
+use crate::framebuffer::{INDEXED_COLORS_COUNT, IndexedColor};
+use crate::oklab::StraightRgba;
 
 pub const DEFAULT_TOML: &str = include_str!("colormap.toml");
 
@@ -49,9 +50,8 @@ impl Colormap {
         Self { palette, use_colormap }
     }
 
-    fn merge_file(&mut self, text: &str) -> apperr::Result<()> {
-        let (palette, use_colormap) =
-            parse_toml(text).map_err(|_| apperr::Error::SettingsInvalid("colormap.toml"))?;
+    fn merge_file(&mut self, text: &str) -> Result<(), String> {
+        let (palette, use_colormap) = parse_toml(text)?;
         self.palette = palette;
         self.use_colormap = use_colormap;
         Ok(())
@@ -59,6 +59,9 @@ impl Colormap {
 }
 
 struct ColormapCell(SemiRefCell<Colormap>);
+// SAFETY: SemiRefCell single-threaded, but the process is single-threaded
+// at the relevant load sites (lib + bin both serialise on a single ui
+// thread); the static is gated by LazyLock so init runs once.
 unsafe impl Sync for ColormapCell {}
 static COLORMAP: LazyLock<ColormapCell> =
     LazyLock::new(|| ColormapCell(SemiRefCell::new(Colormap::from_defaults())));
@@ -67,45 +70,67 @@ pub fn borrow() -> Ref<'static, Colormap> {
     COLORMAP.0.borrow()
 }
 
-pub fn path() -> Option<PathBuf> {
-    let mut p = settings::config_dir()?;
+/// Resolves `<XDG_CONFIG_HOME or HOME/.config>/edit`. `None` if neither
+/// env var is set.
+pub fn config_dir() -> Option<PathBuf> {
+    fn var_path(key: &str) -> Option<PathBuf> {
+        std::env::var_os(key).map(PathBuf::from)
+    }
+    fn push(mut path: PathBuf, suffix: &str) -> PathBuf {
+        path.push(suffix);
+        path
+    }
+    var_path("XDG_CONFIG_HOME")
+        .or_else(|| var_path("HOME").map(|p| push(p, ".config")))
+        .map(|p| push(p, "edit"))
+}
+
+pub fn config_path() -> Option<PathBuf> {
+    let mut p = config_dir()?;
     p.push("colormap.toml");
     Some(p)
 }
 
-/// Wipe and rewrite `colormap.toml` from [`DEFAULT_TOML`]. Called by
-/// `--force-reset-config`.
-#[cfg(debug_assertions)]
-pub fn force_reset() -> apperr::Result<()> {
-    let Some(dir) = settings::config_dir() else { return Ok(()) };
-    let p = dir.join("colormap.toml");
-    if let Err(e) = fs::remove_file(&p)
-        && e.kind() != std::io::ErrorKind::NotFound
-    {
-        return Err(e.into());
-    }
-    fs::create_dir_all(&dir)?;
-    fs::write(&p, DEFAULT_TOML)?;
-    Ok(())
-}
-
-/// Load the colormap file, auto-creating it from [`DEFAULT_TOML`] if missing.
-pub fn load_or_create() -> apperr::Result<()> {
-    let Some(path) = path() else { return Ok(()) };
+/// Load the colormap file, auto-creating it from [`DEFAULT_TOML`] if
+/// missing. Idempotent: safe to call from both the editor's main and
+/// eat's mount entry. Invalid TOML returns InvalidData (caller decides
+/// whether to log + fall back or hard-fail).
+pub fn load_or_create() -> io::Result<()> {
+    let Some(path) = config_path() else { return Ok(()) };
 
     let text = match fs::read_to_string(&path) {
         Ok(s) => s,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
             if let Some(parent) = path.parent() {
                 let _ = fs::create_dir_all(parent);
             }
             fs::write(&path, DEFAULT_TOML)?;
             DEFAULT_TOML.to_string()
         }
-        Err(e) => return Err(e.into()),
+        Err(e) => return Err(e),
     };
 
-    COLORMAP.0.borrow_mut().merge_file(&text)
+    COLORMAP
+        .0
+        .borrow_mut()
+        .merge_file(&text)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("colormap.toml: {e}")))
+}
+
+/// Wipe and rewrite `colormap.toml` from [`DEFAULT_TOML`]. Called by
+/// the editor's `--force-reset-config` (debug only).
+#[cfg(debug_assertions)]
+pub fn force_reset() -> io::Result<()> {
+    let Some(dir) = config_dir() else { return Ok(()) };
+    let p = dir.join("colormap.toml");
+    if let Err(e) = fs::remove_file(&p)
+        && e.kind() != io::ErrorKind::NotFound
+    {
+        return Err(e);
+    }
+    fs::create_dir_all(&dir)?;
+    fs::write(&p, DEFAULT_TOML)?;
+    Ok(())
 }
 
 // ---- parsing ----
@@ -119,7 +144,7 @@ fn parse_toml(text: &str) -> Result<([StraightRgba; INDEXED_COLORS_COUNT], bool)
         use_colormap = v.as_bool().ok_or_else(|| "use_colormap: not a bool".to_string())?;
     }
 
-    let mut palette = edit::framebuffer::DEFAULT_THEME;
+    let mut palette = crate::framebuffer::DEFAULT_THEME;
 
     if let Some((_, colors)) = table.iter().find(|(k, _)| k.name == "colors") {
         let colors = colors.as_table().ok_or_else(|| "[colors] not a table".to_string())?;
@@ -136,7 +161,8 @@ fn parse_toml(text: &str) -> Result<([StraightRgba; INDEXED_COLORS_COUNT], bool)
     Ok((palette, use_colormap))
 }
 
-/// Parse `"#rrggbb"` / `"rrggbb"` / `"#rrggbbaa"` / `"rrggbbaa"` → [`StraightRgba`].
+/// Parse `"#rrggbb"` / `"rrggbb"` / `"#rrggbbaa"` / `"rrggbbaa"` ->
+/// [`StraightRgba`].
 fn parse_hex(s: &str) -> Option<StraightRgba> {
     let s = s.strip_prefix('#').unwrap_or(s);
     let (rgb, alpha) = match s.len() {
