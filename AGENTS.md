@@ -32,7 +32,7 @@ ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades grace
 
 ## Cmd modifier and terminal interop
 
-`kbmod::CMD` exists alongside `CTRL`/`ALT`/`SHIFT` and maps to Super in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 on startup (`CSI > 1 u` in `setup_terminal`) and pops on exit (`CSI < u`). Textarea standard chords (Cut/Copy/Paste/Undo/Redo/SelectAll) pick the platform primary modifier via `KBMOD_PRIMARY` (Cmd on macOS, Ctrl elsewhere); word-nav-on-backspace/delete uses `KBMOD_FOR_WORD_NAV` (Alt on macOS, Ctrl elsewhere).
+`kbmod::CMD` exists alongside `CTRL`/`ALT`/`SHIFT` and maps to Super in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 on startup (`CSI > 1 u` in `edit::term::setup`) and pops on exit (`CSI < u` from `edit::term::RestoreModes`). Textarea standard chords (Cut/Copy/Paste/Undo/Redo/SelectAll) pick the platform primary modifier via `KBMOD_PRIMARY` (Cmd on macOS, Ctrl elsewhere); word-nav-on-backspace/delete uses `KBMOD_FOR_WORD_NAV` (Alt on macOS, Ctrl elsewhere).
 
 User-facing detail (terminal compat, alacritty `option_as_alt`, `Cmd+C` swallowing, etc.) lives in the knowledge base: [doc/src/terminal-keyboard.md](doc/src/terminal-keyboard.md) and [doc/src/alacritty.md](doc/src/alacritty.md). When a "this chord doesn't work" report lands, point there before changing code.
 
@@ -57,17 +57,22 @@ Record shape + field reference: [doc/src/dev-input-log.md](doc/src/dev-input-log
 - **[crates/edit/src/framebuffer.rs](crates/edit/src/framebuffer.rs)** -- video-game-style framebuffer. UI draws into a buffer; diff against the previous frame is sent to the terminal.
 - **[crates/edit/src/tui.rs](crates/edit/src/tui.rs)** -- immediate-mode UI. Read its module doc.
 - **[crates/edit/src/vt.rs](crates/edit/src/vt.rs)** -- VT parser.
-- **[crates/edit/src/sys/](crates/edit/src/sys/)** -- platform abstractions (unix only).
-- **[crates/edit/src/bin/edit/](crates/edit/src/bin/edit/)** -- the binary. ~90% UI and business logic, plus `setup_terminal` in [main.rs](crates/edit/src/bin/edit/main.rs).
+- **[crates/edit/src/sys/](crates/edit/src/sys/)** -- platform abstractions (unix only); re-exports the platform glue from the `tty` crate.
+- **[crates/edit/src/term.rs](crates/edit/src/term.rs)** -- alt-screen mode switch, OSC 4/10/11 palette probe, ambiguous-width probe, kitty kbd proto push; `RestoreModes` is the inverse-on-drop guard. Used by `bin/edit/main.rs` and by `edit::mount`.
+- **[crates/edit/src/mount.rs](crates/edit/src/mount.rs)** -- thin external mount api for the tui: `mount(opts, draw_fn)` owns `Tui::new` + `term::setup` + the input/render loop + alt-screen restore. Used by the `eat` persona's snapshot view; not used by `bin/edit/main.rs` (which has its own richer loop).
+- **[crates/edit/src/eat/](crates/edit/src/eat/)** -- the `eat` persona's cli + render glue (snapshot tui via `mount`, follow tui via its own bespoke driver pending phase C). Reachable via argv0 dispatch in `bin/edit/main.rs` (`name == "eat"` or `--eat`); the `eat` binary is a `make install`-time symlink to `edit`, not a separate cargo target.
+- **[crates/edit/src/bin/edit/](crates/edit/src/bin/edit/)** -- the binary. ~90% UI and business logic.
 
-Terminal issues: check `vt.rs`, `sys/unix.rs`, and `setup_terminal` first.
+Terminal issues: check `vt.rs`, `sys/unix.rs`, and `edit::term::setup` first.
 
 ## Crates
 
-- `edit` -- main binary and library. busybox-style multicall: when invoked as `eat` (via symlink), acts as a `bat`-like syntax-highlighting cat.
-- `eat` -- the cli + render glue for the `eat` persona. depends on `lsh` for tokens, `stdext` for arena/glob, `argh` for flag parsing.
+- `edit` -- main binary and library. Includes `edit::eat` (busybox-style multicall: when invoked as `eat` via symlink, or with `--eat`, acts as a `bat`-like syntax-highlighting cat).
 - `lsh` -- syntax-highlighting compiler and runtime. Language definitions in [crates/lsh/definitions/](crates/lsh/definitions/). See [crates/lsh/README.md](crates/lsh/README.md).
 - `lsh-bin` -- CLI for debugging LSH output.
+- `lsh-defs` -- bundled lsh language defs codegen + detection helpers + ansi-16 colourmap. Shared by `edit` and `edit::eat`.
+- `gutter` -- per-line gutter mark computation + render (git-diff overlays).
+- `tty` -- platform glue: stdin reader, write_stdout, mode switch, window-size injection. Re-exported via `edit::sys`.
 - `stdext` -- shared utilities (arena allocator, collections, SIMD helpers, sys shims).
 - `unicode-gen` -- codegen for Unicode LUTs (only needed to regenerate tables; tables are checked in).
 
@@ -81,7 +86,7 @@ Design notes, proposals, and comparisons live in [meanderings/](meanderings/) as
 - **[rustfmt.toml](rustfmt.toml):** stable rustfmt only -- `style_edition = "2024"`, `use_small_heuristics = "Max"`, `newline_style = "Unix"`, `use_field_init_shorthand = true`. Run `cargo fmt` before committing.
 - **Clippy:** `--deny warnings` is the CI bar.
 - **No comments explaining what well-named code already says.** Only comment hidden constraints, workarounds, or subtle invariants.
-- **Rust edition:** 2024, MSRV `1.93`.
+- **Rust edition:** 2024, MSRV `1.90` (see `rust-version` in [Cargo.toml](Cargo.toml)).
 
 ## Things to avoid
 

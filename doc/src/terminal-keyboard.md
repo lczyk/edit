@@ -13,7 +13,7 @@ Only chords in category 3 reach `edit`. Categories 1 and 2 are invisible to it. 
 `edit` understands two encodings on the wire:
 
 - **Legacy ASCII / VT escapes** -- single bytes (`\x7f` for Backspace), `ESC <letter>` for Alt-modified chords, `CSI ... ~` for special keys.
-- **Kitty keyboard protocol** -- a CSI-u encoding that disambiguates modifier combinations the legacy form can't express (`Cmd+letter`, `Alt+special-key`, etc.). On startup `edit` pushes flag 1 (`CSI > 1 u` in `setup_terminal`) and pops it on exit (`CSI < u`).
+- **Kitty keyboard protocol** -- a CSI-u encoding that disambiguates modifier combinations the legacy form can't express (`Cmd+letter`, `Alt+special-key`, etc.). On startup `edit` pushes flag 1 (`CSI > 1 u` in `edit::term::setup`) and pops it on exit (`CSI < u`).
 
 The kitty protocol is what makes `Cmd+anything` reachable at all -- legacy ASCII has no way to encode the Cmd / Super modifier. Terminals that don't support it (Terminal.app, iTerm2 without explicit opt-in) cap you at what legacy escapes can carry.
 

@@ -12,7 +12,7 @@ bat does more. this proposal captures the gap.
 
 ## gap
 
-eat's pager invocation lives at [crates/eat/src/lib.rs](../crates/eat/src/lib.rs) (in the pager-spawn block of `print_highlighted`, plus the duplicate plain-mode block):
+eat's pager invocation lives at [crates/edit/src/eat/mod.rs](../crates/edit/src/eat/mod.rs) (in the pager-spawn block of `print_highlighted`, plus the duplicate plain-mode block):
 
 ```rust
 if pager_name == "less" {

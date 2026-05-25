@@ -1,5 +1,5 @@
 ---
-status: open
+status: landed
 date: 2026-05-06
 description: busybox-style multicall -- when invoked as `eat`, the edit binary acts as a bat-like syntax-highlighting cat
 ---
@@ -7,6 +7,29 @@ description: busybox-style multicall -- when invoked as `eat`, the edit binary a
 <!-- cspell:ignore gitgum multicall modelines uncolored EPIPE incl driveby coreutils mdbook -->
 
 # eat
+
+## update 2026-05-25 -- superseded by [unification-plan.md](unification-plan.md)
+
+eat shipped, then got absorbed back into the edit crate during the
+unification work. the body of this proposal still describes the
+original "new crate `crates/eat/`" + standalone `bin/eat` design;
+that is historical. current architecture:
+
+- code lives at `crates/edit/src/eat/` as the `edit::eat` module
+  (was `crates/eat/src/`). intra-crate module, not a separate crate.
+- no standalone `eat` binary in the source tree; the only way to get
+  `eat` is via the `make install` `eat -> edit` symlink + the argv0
+  short-circuit in `bin/edit/main.rs`.
+- snapshot tui now drives through `edit::mount::mount`, not the
+  bespoke alt-screen driver this proposal designed. follow tui still
+  uses its own driver (phase C migration pending).
+- crate-vs-module testability tradeoff (the bin/eat justification
+  here) was resolved by absorption: integration tests live at
+  `crates/edit/tests/` and exercise `edit::eat::*` directly.
+
+read this doc for the why (multicall rationale, naming, the
+single-binary install story). read [unification-plan.md](unification-plan.md)
+for current state and phases B/C/D.
 
 a busybox-style multicall persona for `edit`. when the binary is invoked under the name `eat` (via symlink), it acts like `bat`: read files, syntax-highlight via lsh, write to stdout, optionally page. the editor's tui never spins up. a separate standalone `eat` binary also exists in the source tree for testability and for environments where symlinks aren't available, but `make install` ships only the symlink.
 

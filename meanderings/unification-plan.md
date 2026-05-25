@@ -137,7 +137,7 @@ divergent TUIs:
   and dispatches to per-node paint paths in `anim::draw`. handles input
   via `crate::input`, vt parsing via `crate::vt`. mounts arbitrary node
   trees -- menubar, statusbar, modals, textareas.
-- [crates/eat/src/follow_tui.rs](../crates/eat/src/follow_tui.rs) --
+- [crates/edit/src/eat/follow_tui.rs](../crates/edit/src/eat/follow_tui.rs) --
   ~2000 lines, ansi-string-centric. `run_snapshot` + `run` drive their
   own alt-screen loops. compose `String` buffers w/ escape sequences,
   write to stdout. own vt parser (`parse_keys`, `parse_csi`, ...) and
@@ -237,7 +237,7 @@ substeps:
 4. **delete eat's vt parser, key dispatch, scroll state, ansi
    composition for follow.** at this point `follow_tui.rs` should be
    close to empty -- only the cli-shape glue left.
-5. **stop-criterion:** existing follow tests (`crates/eat/tests/
+5. **stop-criterion:** existing follow tests (`crates/edit/tests/
    follow_loop.rs`, the 10-test alt-screen suite) still pass against
    the new pipeline. live `eat -f` on a growing log behaves the same.
 
@@ -252,7 +252,7 @@ risks:
 
 ### phase D -- one tui codebase (~1 day, cleanup)
 
-goal: `crates/eat/src/follow_tui.rs` deleted. eat is:
+goal: `crates/edit/src/eat/follow_tui.rs` deleted. eat is:
 - cli + arg parsing,
 - non-tty `write_highlighted_line` ansi-stream path,
 - thin glue around edit's tui for alt-screen modes (snapshot + follow).
@@ -265,7 +265,7 @@ actions:
    `eat` for the multicall dispatch; we may want to invert this or
    accept the cycle (cargo allows it as long as it's
    build-only vs runtime, or sliced via features). risk to monitor.
-3. **update [meanderings/eat.prop.md](eat.prop.md)** -- mark the
+3. **update [meanderings/_eat.prop.md](_eat.prop.md)** -- mark the
    snapshot/follow sections as superseded by this plan.
 4. **stop-criterion:** workspace builds w/ no `follow_tui` module; all
    tests green; `eat foo.go` and `edit --eat foo.go` behave identically;
@@ -273,7 +273,7 @@ actions:
 
 ## what stays separate
 
-- **ansi-stream rendering** for non-tty `eat`. `crates/eat/src/lib.rs::
+- **ansi-stream rendering** for non-tty `eat`. `crates/edit/src/eat/mod.rs::
   write_highlighted_line` is the right tool for `eat foo.go | less` /
   `eat foo.go > out.ansi` / `git diff | eat`. cannot share with
   framebuffer.
@@ -289,7 +289,7 @@ actions:
 - **rgb -> truecolor ansi escapes for the ansi-stream path.** would let
   eat's pipe output use the rgb theme. defer -- ansi-16 respects user
   terminal palettes, which is what users expect from a cat-shape tool.
-  see [eat.prop.md](eat.prop.md) "theme (v1)".
+  see [eat.prop.md](_eat.prop.md) "theme (v1)".
 - **edit growing a `--print` mode** (non-tty stdout-flush of a buffer).
   conceivable but not driven by current needs. would consume the same
   `write_highlighted_line` from eat. revisit if asked.

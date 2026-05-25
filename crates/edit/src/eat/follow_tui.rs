@@ -1,12 +1,23 @@
-//! `eat -f` live tui (alt-screen pager). attached when stdout is a tty;
-//! otherwise the streaming `follow::run` path is used. modelled on the same
-//! shape as `gg tree --follow`: dim header line on top, body fills the rest, default
-//! behaviour is "tail mode" (auto-pin to bottom on append). j/k g/G PgUp/PgDn
-//! navigate; G re-enters tail mode; q/esc/ctrl-c exit.
+//! Two alt-screen tuis live in this module, in different states of
+//! migration to `edit::mount`:
 //!
-//! the heavy lifting (file polling, line emission, runtime state) lives in
-//! `follow::tick` -- this module only owns terminal i/o, key parsing, the
-//! `View` (scroll state + buffered lines), and the redraw routine.
+//! - **snapshot view** (`run_snapshot`) -- `eat <file>` on a tty. Migrated
+//!   to `edit::mount::mount` in unification-plan phase B: file goes into a
+//!   read-only `TextBuffer`, edit's textarea handles cursor / scroll /
+//!   selection / mouse-wheel natively. A 2s `tick_interval` poll drives
+//!   the `[modified on disk]` flag; `r` reloads, `q` exits.
+//! - **follow view** (`run`) -- `eat -f <file>`. Still on the bespoke
+//!   alt-screen driver: own vt parser (`parse_keys`/`parse_csi`/...), own
+//!   scroll/viewport state (`View`), own header redraw. Migrated to
+//!   `edit::mount` in phase C (not yet started); for now it shares helpers
+//!   (`format_clock`, `push_truncated*`, `LineBuf`) with the surrounding
+//!   code that the snapshot path also used to share.
+//!
+//! For the follow path: modelled on `gg tree --follow`. Dim header on top,
+//! body fills the rest, default behaviour is "tail mode" (auto-pin to
+//! bottom on append). `j/k g/G PgUp/PgDn` navigate, `G` re-enters tail
+//! mode, `q/esc/ctrl-c` exit. The heavy lifting (file polling, line
+//! emission, runtime state) lives in `follow::tick`.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -15,10 +26,10 @@ use std::time::{Duration, Instant};
 use lsh::runtime::{Language, Runtime};
 use stdext::arena::{Arena, scratch_arena};
 
-use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 use super::follow::{
     DEFAULT_MISS_BUDGET, FileSource, FollowSource, FollowState, TickOutcome, tick,
 };
+use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 
 // --- ansi -----------------------------------------------------------------
 
@@ -636,7 +647,7 @@ fn lerp_alpha(dt_secs: f32, tau_secs: f32) -> f32 {
 /// this is what makes mark updates visible on already-stored body lines
 /// without re-rendering them.
 ///
-/// `pub` so the integration tests in `crates/eat/tests/` can drive the
+/// `pub` so the integration tests in `crates/edit/tests/` can drive the
 /// loop body directly w/out spinning up a real terminal.
 pub fn render_frame(
     view: &mut View,
@@ -827,8 +838,8 @@ pub fn run_snapshot(
     use crate::input::vk;
     use crate::mount::{self, MountOpts};
 
-    let buf = TextBuffer::new_rc(false)
-        .map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
+    let buf =
+        TextBuffer::new_rc(false).map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
     {
         let mut b = buf.borrow_mut();
         let mut f = std::fs::File::open(&path)?;
@@ -947,7 +958,6 @@ fn stat_fingerprint(path: &Path) -> Option<SnapshotStat> {
         None
     }
 }
-
 
 // --- driver --------------------------------------------------------------
 
