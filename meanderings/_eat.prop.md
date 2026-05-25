@@ -4,8 +4,6 @@ date: 2026-05-06
 description: busybox-style multicall -- when invoked as `eat`, the edit binary acts as a bat-like syntax-highlighting cat
 ---
 
-<!-- cspell:ignore gitgum multicall modelines uncolored EPIPE incl driveby coreutils mdbook -->
-
 # eat
 
 ## update 2026-05-25 -- superseded by [unification-plan.md](unification-plan.md)
@@ -307,7 +305,7 @@ three layers, all of them:
 7. **tests.** unit (eat lib), golden (with shared lsh fixtures), pty (`test_eat_symlink.py`, `test_eat_standalone.py`).
 8. **make install.** add the `ln -sf` line.
 9. **docs.** README section, AGENTS.md bullet.
-10. **verify.** `make verify` (fmt-check + clippy + test + spellcheck). install locally, test the symlink dispatch end-to-end.
+10. **verify.** `make verify` (fmt-check + clippy + test). install locally, test the symlink dispatch end-to-end.
 
 post-eat (separate prs):
 

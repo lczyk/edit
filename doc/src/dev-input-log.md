@@ -1,5 +1,3 @@
-<!-- cspell:ignore keybinding -->
-
 # Dev Input Log (`--logfile`)
 
 Debug-build feature for the "I pressed X, expected Y" feedback loop. Not for crash debugging -- there's no panic capture, just an event stream.

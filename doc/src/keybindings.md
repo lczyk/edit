@@ -1,5 +1,3 @@
-<!-- cspell:ignore bindable -->
-
 # Keybindings
 
 User-editable config file controls a subset of `edit`'s shortcuts. The rest (dialog-internal keys: Return / Escape / Arrows / Backspace) are hardcoded.

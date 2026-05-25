@@ -1,4 +1,3 @@
-<!-- cspell:ignore bindable keybinding multicall -->
 
 # AGENTS.md
 
@@ -23,9 +22,9 @@ Private fork of Microsoft's `edit` terminal editor, trimmed down for personal us
 Use the [Makefile](Makefile) -- do not invoke `cargo` directly in routine work. Run `make help` to list targets. Common ones:
 
 - `make build` -- release build.
-- `make check` / `make clippy` / `make test` / `make spellcheck` -- individual checks.
+- `make check` / `make clippy` / `make test` -- individual checks.
 - `make fmt` / `make fmt-check` -- formatting.
-- `make verify` -- full pre-commit gate (fmt-check + clippy + test + spellcheck). Run this before reporting a task as done.
+- `make verify` -- full pre-commit gate (fmt-check + clippy + test). Run this before reporting a task as done.
 - `make docs-serve` / `make docs-build` -- knowledge base under [`doc/`](doc/) (mdBook).
 
 ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.

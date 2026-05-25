@@ -1,5 +1,3 @@
-<!-- cspell:ignore bindable mdbook -->
-
 # Overview
 
 Knowledge base for the `edit` terminal editor (private fork of Microsoft's `edit`).

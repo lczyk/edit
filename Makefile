@@ -1,4 +1,3 @@
-# cspell:ignore gsub mdbook rustup
 .SUFFIXES:
 
 help:
@@ -68,10 +67,6 @@ cover:  ## Coverage profile + HTML file (cover.out, cover.html)
 cover-open: cover  ## Run coverage and open the HTML report in a browser
 	cargo llvm-cov --all-features --html --open
 
-.PHONY: spellcheck
-spellcheck:  ## Spellcheck sources and docs with cspell (via npx)
-	npx --yes cspell --no-progress --gitignore "**/*.rs" "**/*.md" "Makefile"
-
 .PHONY: clean
 clean:  ## Remove the target/ directory
 	cargo clean
@@ -99,5 +94,5 @@ docs-clean:  ## Remove the built mdBook output
 	rm -rf doc/book
 
 .PHONY: verify
-verify: fmt-check clippy test spellcheck  ## Run the full pre-commit gate (fmt, clippy, test, spellcheck)
+verify: fmt-check clippy test  ## Run the full pre-commit gate (fmt, clippy, test)
 	@echo "All checks passed."
