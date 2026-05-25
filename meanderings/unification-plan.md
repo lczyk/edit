@@ -120,6 +120,34 @@ known gaps vs the bespoke driver (still C.2+ work):
 - no header `[modified on disk]` / miss-budget bookkeeping. fine for a
   spike.
 
+### phase C.2 -- incremental append, landed
+
+`run_follow_mount`'s drain rewritten to mirror funnel's stat-first
+shape: stat the file each tick (cheap), branch on
+(rotated | idle | grown), and on growth read only the new bytes from
+`last_size..cur_size` and append via `TextBuffer::write_raw` at
+`cursor = Point::MAX`. the rope grows in place; the highlighter cache
+only invalidates from the appended line down (cheap when appending
+near EOF). on rotation (inode change or size shrink) we fall back to
+the existing `read_file` path -- clean reset of buffer + cache +
+encoding detection.
+
+eliminated the C.1 perf cliff: ~10k-line buffers w/ a fast-growing
+writer (writer at ~100 lines/s) now track real EOF in step instead
+of trailing visibly behind it.
+
+driveby:
+- ported funnel's `WheelAccel` (1->2 line ramp on sustained fast
+  spin). currently shadowed -- the textarea applies raw wheel deltas
+  from outside our control and the ramp factor isn't propagated
+  through. left in place so C.3 can plumb a scroll-boost path.
+- header now shows `[paused: N below | M above]` when paused, derived
+  from `pause_offset` + `body_h` + `visual_line_count`.
+
+still gated behind `EAT_FOLLOW_USE_MOUNT=1`. ready to flip the
+default for `eat -f` once we've spent more time leaning on it
+manually + decided what to do about the C.3 / C.4 / C.5 follow-ups.
+
 ### phase C -- follow tui, in progress
 
 `crates/edit/src/eat/follow_tui.rs` still holds ~1500 LOC of bespoke
