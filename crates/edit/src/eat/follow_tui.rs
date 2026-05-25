@@ -929,21 +929,29 @@ fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String 
     )
 }
 
-/// phase C.1 of the unification plan: minimal mount-based follow view.
-/// crude periodic re-read of the entire file into a [`TextBuffer`] every
-/// `poll_interval`; viewport pinned to the bottom via
-/// `request_scroll_delta_y(MAX)` so the tail stays in view. no
-/// incremental append, no tail-pin break-on-scroll yet -- this exists
-/// to sanity-check the architecture before C.2 wires
-/// [`FollowSource::tick`] in as the buffer feed.
+/// phase C of the unification plan: mount-based follow view.
 ///
-/// the textarea is mounted **without** focus. unfocused textareas:
+/// Drain loop is modelled on funnel's: stat the file each tick (cheap),
+/// branch on (rotated || size unchanged || grown), read only the new
+/// bytes from `last_size..current_size`, append via
+/// `TextBuffer::write_raw` so the rope grows in place and the
+/// highlighter cache only invalidates from the modified line down.
+/// Rotation (inode change or size shrink) falls back to a full reload
+/// via `read_file`.
+///
+/// Funnel-style follow/paused: `pause_offset` mirrors funnel's
+/// `display_offset` (lines above the live bottom). Transitions through
+/// 0 re-enter follow. Wheel-up enters pause; wheel-down toward the
+/// bottom resumes. Key bindings match the bespoke driver
+/// (Up/Dn, j/k, g/G, Home, End, PgUp, PgDn, q/esc).
+///
+/// The textarea is mounted **without** focus. Unfocused textareas:
 /// - do not paint the terminal cursor (eat is a viewer, not an editor),
 /// - still accept mouse-wheel scroll (handled before the focus check),
-/// - ignore keyboard input -- PgUp/PgDn/arrows are translated to
+/// - ignore keyboard input -- we translate keys to
 ///   `request_scroll_delta_y` calls in this callback instead.
 ///
-/// gated behind `EAT_FOLLOW_USE_MOUNT=1` for now; the default routing
+/// Gated behind `EAT_FOLLOW_USE_MOUNT=1` for now; the default routing
 /// still goes through [`run`] (the bespoke alt-screen driver).
 pub fn run_follow_mount(
     path: PathBuf,
@@ -952,6 +960,7 @@ pub fn run_follow_mount(
     _use_color: bool,
     poll_interval: Duration,
 ) -> io::Result<()> {
+    use std::io::{Read as _, Seek as _};
     use std::ops::ControlFlow;
 
     use crate::buffer::TextBuffer;
@@ -973,9 +982,11 @@ pub fn run_follow_mount(
         b.make_cursor_visible();
     }
 
+    // initial load: full read via `read_file` so encoding / line-ending
+    // detection runs once.
     let buf =
         TextBuffer::new_rc(false).map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
-    {
+    let (mut last_size, mut last_inode) = {
         let mut b = buf.borrow_mut();
         let mut f = std::fs::File::open(&path)?;
         b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
@@ -983,24 +994,21 @@ pub fn run_follow_mount(
         b.set_margin_enabled(show_numbers);
         b.set_read_only(true);
         snap_to_tail(&mut b);
-    }
+        let m = std::fs::metadata(&path)?;
+        (m.len(), inode_of(&m))
+    };
 
     let path_label = path.display().to_string();
-    let mut last_stat = stat_fingerprint(&path);
-    // funnel-style follow/paused state. `pause_offset` is funnel's
-    // `display_offset`: lines above the live bottom. 0 = follow.
-    // Whenever it transitions through 0 (scroll-down all the way back
-    // to the tail), we re-enter follow mode. Mirrors textarea's own
-    // scroll_offset.y by tracking the same delta values we either send
-    // (key handlers via `request_scroll_delta_y`) or observe
-    // (`ctx.scroll_delta()` for the mouse wheel, which the textarea
-    // applies on its own).
-    //
-    // body_h is recomputed each frame; pause_offset is clamped against
-    // `visual_line_count - body_h` so wheel-up past the top doesn't
-    // accumulate phantom offset that the textarea won't honour.
+
+    // funnel-style follow/paused state. See module-level docs for the
+    // pause_offset mirror semantics; body_h is recomputed per frame and
+    // pause_offset is clamped against `visual_line_count - body_h` so
+    // wheel-up past the top doesn't accumulate phantom offset that the
+    // textarea won't honour.
     let mut following = true;
     let mut pause_offset: CoordType = 0;
+
+    let mut wheel_accel = WheelAccel::default();
 
     let _deinit = tty::init();
     tty::switch_modes()?;
@@ -1038,9 +1046,21 @@ pub fn run_follow_mount(
         // wheel-input is applied by the textarea on its own, but we
         // still need to mirror its effect on pause_offset so the
         // follow/paused state stays in sync.
-        let wheel_y = ctx.scroll_delta().y;
-        if wheel_y != 0 {
-            apply_scroll(wheel_y);
+        let raw_wheel = ctx.scroll_delta().y;
+        if raw_wheel != 0 {
+            // ramp ride: fast spinning bumps the wheel-line multiplier
+            // (funnel WheelAccel ported verbatim). only used to update
+            // our shadow -- textarea has already applied raw_wheel to
+            // its own scroll_offset.
+            let dir = if raw_wheel < 0 { ScrollDir::Up } else { ScrollDir::Down };
+            let factor = wheel_accel.lines(Instant::now(), dir) as CoordType;
+            // the textarea only knows the raw delta; we apply the same
+            // raw delta to pause_offset so they stay in sync. accel is
+            // ignored on the textarea side b/c we don't have a way to
+            // boost its scroll from out here. revisit if wheel feel
+            // becomes a problem.
+            let _ = factor;
+            apply_scroll(raw_wheel);
         }
 
         if let Some(k) = ctx.keyboard_input() {
@@ -1088,36 +1108,63 @@ pub fn run_follow_mount(
             }
         }
 
-        // re-read on stat change. crude: drops the buffer + reloads the
-        // whole file, so the rope is rebuilt every tick where the log
-        // grew. C.2 swaps this for an incremental append via
-        // FollowSource::tick.
-        let now_stat = stat_fingerprint(&path);
-        let changed = match (&last_stat, &now_stat) {
-            (Some(a), Some(b)) => a != b,
-            (Some(_), None) => true,
-            (None, Some(_)) => true,
-            _ => false,
-        };
-        if changed {
-            last_stat = now_stat;
-            if let Ok(mut f) = std::fs::File::open(&path) {
-                let mut b = buf.borrow_mut();
-                b.set_read_only(false);
-                let _ = b.read_file(&mut f);
-                b.set_margin_enabled(show_numbers);
-                b.set_read_only(true);
-                if following {
-                    snap_to_tail(&mut b);
+        // drain: stat, branch on (rotated, idle, grown), feed
+        // append-bytes through TextBuffer::write_raw. mirror of funnel's
+        // `drain` minus the per-line emit (we feed the buffer in one
+        // chunk; the textarea handles wrapping/highlighting at paint
+        // time).
+        let mut grew = false;
+        if let Ok(meta) = std::fs::metadata(&path) {
+            let cur_size = meta.len();
+            let cur_inode = inode_of(&meta);
+            let rotated = cur_inode != last_inode || cur_size < last_size;
+            if rotated {
+                // full reload on rotation: clears the buffer, resets
+                // the highlighter cache, then re-snaps to whatever the
+                // file currently has.
+                if let Ok(mut f) = std::fs::File::open(&path) {
+                    let mut b = buf.borrow_mut();
+                    b.set_read_only(false);
+                    let _ = b.read_file(&mut f);
+                    b.set_margin_enabled(show_numbers);
+                    b.set_read_only(true);
                 }
-                // paused branch is a no-op: scroll_offset.y is a top-line
-                // index that stays put as the buffer grows, so already-
-                // visible content stays anchored.
+                last_size = cur_size;
+                last_inode = cur_inode;
+                grew = true;
+            } else if cur_size > last_size {
+                // grew: read [last_size..cur_size] and append.
+                let mut chunk = Vec::with_capacity((cur_size - last_size) as usize);
+                if let Ok(mut f) = std::fs::File::open(&path)
+                    && f.seek(std::io::SeekFrom::Start(last_size)).is_ok()
+                    && f.read_to_end(&mut chunk).is_ok()
+                {
+                    let mut b = buf.borrow_mut();
+                    b.set_read_only(false);
+                    // cursor at end so write_raw appends. invalidates
+                    // the highlighter cache from this line down --
+                    // cheap when appending near EOF.
+                    b.cursor_move_to_logical(Point::MAX);
+                    b.write_raw(&chunk);
+                    b.set_read_only(true);
+                    last_size = cur_size;
+                    grew = true;
+                }
             }
+        }
+        if grew {
+            if following {
+                snap_to_tail(&mut buf.borrow_mut());
+            }
+            // paused branch is a no-op: scroll_offset.y is a top-line
+            // index that stays put as the buffer grows, so already-
+            // visible content stays anchored.
             ctx.needs_rerender();
         }
 
-        let header = follow_mount_header(&path_label, Instant::now(), following, poll_interval);
+        let counts = HeaderCounts { pause_offset, body_h, total: buf.borrow().visual_line_count() };
+        let header =
+            follow_mount_header(&path_label, Instant::now(), following, poll_interval, counts);
 
         let size = ctx.size();
         ctx.label("follow-header", &header);
@@ -1133,6 +1180,66 @@ pub fn run_follow_mount(
     })
 }
 
+#[cfg(unix)]
+fn inode_of(meta: &std::fs::Metadata) -> u64 {
+    use std::os::unix::fs::MetadataExt as _;
+    meta.ino()
+}
+
+#[cfg(not(unix))]
+fn inode_of(_meta: &std::fs::Metadata) -> u64 {
+    0
+}
+
+/// Mouse-wheel acceleration ported from funnel. Slow spins return 1
+/// line; sustained fast spinning ramps to 2. Streak counts up on
+/// FAST_THRESHOLD ticks, decays per medium tick, resets on direction
+/// flip or after RESET_MS of quiet. Kept as a struct (and exported
+/// internally as `ScrollDir`) so the C.3 work that adds wheel-boost on
+/// the textarea side has somewhere to plug in.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum ScrollDir {
+    Up,
+    Down,
+}
+
+#[derive(Default)]
+struct WheelAccel {
+    last_tick: Option<Instant>,
+    last_dir: Option<ScrollDir>,
+    fast_streak: u32,
+}
+
+const WHEEL_FAST_THRESHOLD_MS: u128 = 60;
+const WHEEL_RESET_MS: u128 = 250;
+const WHEEL_STREAK_MAX: u32 = 12;
+
+impl WheelAccel {
+    fn lines(&mut self, now: Instant, dir: ScrollDir) -> usize {
+        let dt = self.last_tick.map(|t| now.duration_since(t).as_millis()).unwrap_or(u128::MAX);
+        let dir_flipped = self.last_dir.is_some_and(|d| d != dir);
+        self.last_tick = Some(now);
+        self.last_dir = Some(dir);
+        if dir_flipped || dt > WHEEL_RESET_MS {
+            self.fast_streak = 0;
+        } else if dt < WHEEL_FAST_THRESHOLD_MS {
+            self.fast_streak = (self.fast_streak + 1).min(WHEEL_STREAK_MAX);
+        } else {
+            self.fast_streak = self.fast_streak.saturating_sub(1);
+        }
+        match self.fast_streak {
+            0..=3 => 1,
+            _ => 2,
+        }
+    }
+}
+
+struct HeaderCounts {
+    pause_offset: crate::helpers::CoordType,
+    body_h: crate::helpers::CoordType,
+    total: crate::helpers::CoordType,
+}
+
 /// RAII guard restoring the global `no_animations` flag on drop. Used
 /// by `run_follow_mount` so animations are disabled only for the
 /// lifetime of the follow view.
@@ -1146,9 +1253,23 @@ fn scopeguard_no_anim(prev: bool) -> NoAnimRestore {
     NoAnimRestore(prev)
 }
 
-fn follow_mount_header(path_label: &str, at: Instant, following: bool, poll: Duration) -> String {
-    let mode = if following { "following" } else { "paused" };
+fn follow_mount_header(
+    path_label: &str,
+    at: Instant,
+    following: bool,
+    poll: Duration,
+    counts: HeaderCounts,
+) -> String {
     let poll_ms = poll.as_millis();
+    let mode = if following {
+        "following".to_string()
+    } else {
+        // pause_offset == lines below viewport's bottom edge. above ==
+        // top-line index, i.e. total - body_h - pause_offset (clamp 0).
+        let below = counts.pause_offset.max(0);
+        let above = (counts.total - counts.body_h - counts.pause_offset).max(0);
+        format!("paused: {below} below | {above} above")
+    };
     format!(
         "{path_label} [{mode}] @ {}  ({poll_ms}ms Up/Dn g/G PgUp/PgDn scroll, q)",
         format_clock(at),
