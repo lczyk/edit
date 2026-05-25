@@ -23,6 +23,7 @@ pub mod oklab;
 pub mod path;
 pub mod sanity;
 pub mod sys;
+pub mod term;
 pub mod tui;
 pub mod unicode;
 pub mod vt;

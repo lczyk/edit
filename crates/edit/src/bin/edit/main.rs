@@ -39,10 +39,9 @@ use draw_statusbar::*;
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::input::{self, vk};
-use edit::oklab::StraightRgba;
 use edit::tui::*;
-use edit::vt::{self, Token};
-use edit::{base64, sys, unicode};
+use edit::vt;
+use edit::{base64, sys};
 use state::*;
 use stdext::arena::{self, Arena, scratch_arena};
 use stdext::collections::BString;
@@ -85,7 +84,7 @@ fn main() -> process::ExitCode {
     if cfg!(debug_assertions) {
         let hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
-            drop(RestoreModes);
+            drop(edit::term::RestoreModes);
             drop(sys::Deinit);
             hook(info);
         }));
@@ -131,7 +130,29 @@ fn run() -> apperr::Result<()> {
     let mut input_parser = input::Parser::new();
     let mut tui = Tui::new()?;
 
-    let _restore = setup_terminal(&mut tui, &mut state, &mut vt_parser);
+    let _restore = {
+        let cm = colormap::borrow();
+        let fallback = cm.palette;
+        let force = cm.use_colormap;
+        drop(cm);
+        let (probe, restore) = edit::term::setup(&mut vt_parser, fallback);
+        if probe.ambiguous_width == 2 {
+            edit::unicode::setup_ambiguous_width(2);
+            state.document.buffer.borrow_mut().reflow();
+        }
+        if force {
+            // colormap.toml wins -- ignore terminal responses.
+            tui.setup_indexed_colors(colormap::borrow().palette);
+        } else {
+            // Patch terminal-reported responses over the toml fallback,
+            // and opt into ANSI-16 emission so terminals which drop OSC 4
+            // (e.g. through tmux) still render syntax highlights via their
+            // own palette -- matching what `eat` emits via raw codes.
+            tui.setup_indexed_colors(probe.indexed_colors);
+            tui.setup_emit_indexed_codes(true);
+        }
+        restore
+    };
 
     edit::notify::set_handler(state::push_warning);
 
@@ -771,152 +792,6 @@ fn write_osc_clipboard<'a>(
     state.osc_clipboard_sync = false;
 }
 
-struct RestoreModes;
-
-impl Drop for RestoreModes {
-    fn drop(&mut self) {
-        // Same as in the beginning but in the reverse order.
-        // It also includes DECSCUSR 0 to reset the cursor style and DECTCEM to show the cursor.
-        // We specifically don't reset mode 1036, because most applications expect it to be set nowadays.
-        // `CSI < u` pops the kitty keyboard protocol flags we pushed in setup_terminal.
-        sys::write_stdout("\x1b[<u\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l");
-    }
-}
-
-fn setup_terminal(tui: &mut Tui, state: &mut State, vt_parser: &mut vt::Parser) -> RestoreModes {
-    sys::write_stdout(concat!(
-        // 1049: Alternative Screen Buffer
-        //   I put the ASB switch in the beginning, just in case the terminal performs
-        //   some additional state tracking beyond the modes we enable/disable.
-        // 1002: Cell Motion Mouse Tracking
-        // 1006: SGR Mouse Mode
-        // 2004: Bracketed Paste Mode
-        // 1036: Xterm: "meta sends escape" (Alt keypresses should be encoded with ESC + char)
-        "\x1b[?1049h\x1b[?1002;1006;2004h\x1b[?1036h",
-        // Kitty keyboard protocol: push flag 1 (disambiguate escape codes). This gets
-        // us distinct Super/Cmd modifiers on keys. Terminals that don't support it
-        // silently ignore the sequence and fall back to legacy encoding.
-        "\x1b[>1u",
-        // OSC 4 color table requests for indices 0 through 15 (base colors).
-        "\x1b]4;0;?;1;?;2;?;3;?;4;?;5;?;6;?;7;?\x07",
-        "\x1b]4;8;?;9;?;10;?;11;?;12;?;13;?;14;?;15;?\x07",
-        // OSC 10 and 11 queries for the current foreground and background colors.
-        "\x1b]10;?\x07\x1b]11;?\x07",
-        // Test whether ambiguous width characters are two columns wide.
-        // We use "…", because it's the most common ambiguous width character we use,
-        // and the old Windows conhost doesn't actually use wcwidth, it measures the
-        // actual display width of the character and assigns it columns accordingly.
-        // We detect it by writing the character and asking for the cursor position.
-        "\r…\x1b[6n",
-        // CSI c reports the terminal capabilities.
-        // It also helps us to detect the end of the responses, because not all
-        // terminals support the OSC queries, but all of them support CSI c.
-        "\x1b[c",
-    ));
-
-    let mut done = false;
-    let mut osc_buffer = String::new();
-    let (mut indexed_colors, force_colormap) = {
-        let cm = colormap::borrow();
-        (cm.palette, cm.use_colormap)
-    };
-    let mut ambiguous_width = 1;
-
-    while !done {
-        let scratch = scratch_arena(None);
-
-        // We explicitly set a high read timeout, because we're not
-        // waiting for user keyboard input. If we encounter a lone ESC,
-        // it's unlikely to be from a ESC keypress, but rather from a VT sequence.
-        let Some(input) = sys::read_stdin(&scratch, Duration::from_secs(3)) else {
-            break;
-        };
-
-        let mut vt_stream = vt_parser.parse(&input);
-        while let Some(token) = vt_stream.next() {
-            match token {
-                Token::Csi(csi) => match csi.final_byte {
-                    'c' => done = true,
-                    // CPR (Cursor Position Report) response.
-                    'R' => ambiguous_width = csi.params[1] as CoordType - 1,
-                    _ => {}
-                },
-                Token::Osc { mut data, partial } => {
-                    if partial {
-                        osc_buffer.push_str(data);
-                        continue;
-                    }
-                    if !osc_buffer.is_empty() {
-                        osc_buffer.push_str(data);
-                        data = &osc_buffer;
-                    }
-
-                    let mut splits = data.split_terminator(';');
-
-                    let color = match splits.next().unwrap_or("") {
-                        // The response is `4;<color>;rgb:<r>/<g>/<b>`.
-                        "4" => match splits.next().unwrap_or("").parse::<usize>() {
-                            Ok(val) if val < 16 => &mut indexed_colors[val],
-                            _ => continue,
-                        },
-                        // The response is `10;rgb:<r>/<g>/<b>`.
-                        "10" => &mut indexed_colors[IndexedColor::Foreground as usize],
-                        // The response is `11;rgb:<r>/<g>/<b>`.
-                        "11" => &mut indexed_colors[IndexedColor::Background as usize],
-                        _ => continue,
-                    };
-
-                    let color_param = splits.next().unwrap_or("");
-                    if !color_param.starts_with("rgb:") {
-                        continue;
-                    }
-
-                    let mut iter = color_param[4..].split_terminator('/');
-                    let rgb_parts = [(); 3].map(|_| iter.next().unwrap_or("0"));
-                    let mut rgb = 0;
-
-                    for part in rgb_parts {
-                        if part.len() == 2 || part.len() == 4 {
-                            let Ok(mut val) = usize::from_str_radix(part, 16) else {
-                                continue;
-                            };
-                            if part.len() == 4 {
-                                // Round from 16 bits to 8 bits.
-                                val = (val * 0xff + 0x7fff) / 0xffff;
-                            }
-                            rgb = (rgb >> 8) | ((val as u32) << 16);
-                        }
-                    }
-
-                    *color = StraightRgba::from_le(rgb | 0xff000000);
-                    osc_buffer.clear();
-                }
-                _ => {}
-            }
-        }
-    }
-
-    if ambiguous_width == 2 {
-        unicode::setup_ambiguous_width(2);
-        state.document.buffer.borrow_mut().reflow();
-    }
-
-    if force_colormap {
-        // colormap.toml wins -- ignore terminal responses. Render exact RGB.
-        tui.setup_indexed_colors(colormap::borrow().palette);
-    } else {
-        // Apply whatever the terminal reported. `indexed_colors` starts from the
-        // toml fallback palette; any OSC 4/10/11 responses get patched in above.
-        // Also opt into ANSI-16 emission for palette-matched colors so that
-        // terminals which drop some OSC 4 responses (e.g. through tmux) still
-        // render syntax highlights via their own palette -- matching what
-        // `eat` produces via raw ANSI codes.
-        tui.setup_indexed_colors(indexed_colors);
-        tui.setup_emit_indexed_codes(true);
-    }
-
-    RestoreModes
-}
 
 /// Strips all C0 control characters from the string and replaces them with "_".
 ///
