@@ -18,6 +18,7 @@ pub mod helpers;
 pub mod icu;
 pub mod input;
 pub mod lsh;
+pub mod mount;
 pub mod notify;
 pub mod oklab;
 pub mod path;
