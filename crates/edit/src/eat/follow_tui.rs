@@ -38,8 +38,8 @@ pub fn run_snapshot(
     use std::ops::ControlFlow;
 
     use crate::buffer::TextBuffer;
-    use crate::helpers::{CoordType, Size};
-    use crate::input::vk;
+    use crate::helpers::{CoordType, Point, Size};
+    use crate::input::{kbmod, vk};
     use crate::mount::{self, MountOpts};
 
     let buf =
@@ -63,32 +63,61 @@ pub fn run_snapshot(
     let _deinit = tty::init();
     tty::switch_modes()?;
 
+    // Eat is a viewer; suppress the editor's scroll/cursor animation so
+    // any reload-on-r snap is instant. Restored on exit.
+    let prev_no_anim = crate::glyphs::no_animations();
+    crate::glyphs::set_no_animations(true);
+    let _restore_anim = scopeguard_no_anim(prev_no_anim);
+
     let opts = MountOpts { tick_interval: Some(disk_check_interval), ..Default::default() };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
-        // global shortcuts: checked before the textarea sees the event so
-        // it doesn't swallow Q / R as literal letters.
+        // Keyboard dispatch matches the follow view: textarea is mounted
+        // unfocused (no cursor block painted) so we translate keys to
+        // scroll-delta requests on the buffer here. Q exits, R reloads.
         if let Some(k) = ctx.keyboard_input() {
-            match k {
-                vk::Q => {
-                    ctx.set_input_consumed();
-                    return ControlFlow::Break(());
+            let bare = k.key();
+            let shifted = k.modifiers_contains(kbmod::SHIFT);
+            let body_h = (ctx.size().height - 1).max(1) as CoordType;
+            if bare == vk::Q || bare == vk::ESCAPE {
+                ctx.set_input_consumed();
+                return ControlFlow::Break(());
+            } else if bare == vk::R {
+                ctx.set_input_consumed();
+                if let Ok(mut f) = std::fs::File::open(&path) {
+                    let mut b = buf.borrow_mut();
+                    b.set_read_only(false);
+                    let _ = b.read_file(&mut f);
+                    b.set_margin_enabled(show_numbers);
+                    b.set_read_only(true);
                 }
-                vk::R => {
-                    ctx.set_input_consumed();
-                    if let Ok(mut f) = std::fs::File::open(&path) {
-                        let mut b = buf.borrow_mut();
-                        b.set_read_only(false);
-                        let _ = b.read_file(&mut f);
-                        b.set_margin_enabled(show_numbers);
-                        b.set_read_only(true);
-                    }
-                    captured_stat = stat_fingerprint(&path);
-                    file_changed = false;
-                    last_disk_check = Instant::now();
-                    header = snapshot_header(&path_label, Instant::now(), file_changed);
-                    ctx.needs_rerender();
-                }
-                _ => {}
+                captured_stat = stat_fingerprint(&path);
+                file_changed = false;
+                last_disk_check = Instant::now();
+                header = snapshot_header(&path_label, Instant::now(), file_changed);
+                ctx.needs_rerender();
+            } else if bare == vk::UP || (bare == vk::K && !shifted) {
+                buf.borrow_mut().request_scroll_delta_y(-1);
+                ctx.set_input_consumed();
+            } else if bare == vk::DOWN || (bare == vk::J && !shifted) {
+                buf.borrow_mut().request_scroll_delta_y(1);
+                ctx.set_input_consumed();
+            } else if bare == vk::PRIOR {
+                buf.borrow_mut().request_scroll_delta_y(-(body_h - 1).max(1));
+                ctx.set_input_consumed();
+            } else if bare == vk::NEXT {
+                buf.borrow_mut().request_scroll_delta_y((body_h - 1).max(1));
+                ctx.set_input_consumed();
+            } else if bare == vk::HOME || (bare == vk::G && !shifted) {
+                let n = buf.borrow().visual_line_count();
+                buf.borrow_mut().request_scroll_delta_y(-n);
+                ctx.set_input_consumed();
+            } else if bare == vk::END || (bare == vk::G && shifted) {
+                let mut b = buf.borrow_mut();
+                b.cursor_move_to_logical(Point::MAX);
+                let x = b.cursor_visual_pos().x;
+                b.set_preferred_column(x);
+                b.make_cursor_visible();
+                ctx.set_input_consumed();
             }
         }
 
@@ -114,8 +143,10 @@ pub fn run_snapshot(
         let size = ctx.size();
         ctx.label("snapshot-header", &header);
 
+        // NB: no `inherit_focus()` -- unfocused textarea suppresses the
+        // terminal cursor. mouse-wheel scroll still works (handled
+        // pre-focus-check in textarea_handle_input).
         ctx.textarea("snapshot-body", buf.clone());
-        ctx.inherit_focus();
         let body_h = (size.height - 1).max(1) as CoordType;
         ctx.attr_intrinsic_size(Size { width: 0, height: body_h });
 
@@ -126,7 +157,7 @@ pub fn run_snapshot(
 fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String {
     let delta = if file_changed { "  [modified on disk]" } else { "" };
     format!(
-        "{path_label} @ {}{delta}  (q exit, r reload, arrows / PgUp / PgDn scroll)",
+        "{path_label} @ {}{delta}  (q exit, r reload, Up/Dn g/G PgUp/PgDn scroll)",
         format_clock(at),
     )
 }
