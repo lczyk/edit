@@ -148,6 +148,22 @@ still gated behind `EAT_FOLLOW_USE_MOUNT=1`. ready to flip the
 default for `eat -f` once we've spent more time leaning on it
 manually + decided what to do about the C.3 / C.4 / C.5 follow-ups.
 
+### phase C.4 -- edit --follow flag, landed
+
+`edit --follow [<dur>] <path>` short-circuits ahead of edit's normal
+editor flow (parallel to --eat) and dispatches to
+`edit::eat::run_follow_for_edit`, a thin wrapper that does language
+detect + use_color + arena init then calls `follow_tui::run_follow_mount`.
+
+picks up `edit::eat::FollowDuration::parse` for the same `30s`/`500ms`/
+bare-number-as-seconds shape as `eat -f`. defaults to 250ms when no
+value is given. one path required; multi-path / stdin rejected.
+
+useful as a second caller on the mount path: it exercises the same
+code as `eat -f` (under EAT_FOLLOW_USE_MOUNT=1) but without eat's
+non-tty / bespoke-driver branches. shrinks the surface still riding
+on the bespoke driver as we prepare to flip default routing.
+
 ### phase C -- follow tui, in progress
 
 `crates/edit/src/eat/follow_tui.rs` still holds ~1500 LOC of bespoke
