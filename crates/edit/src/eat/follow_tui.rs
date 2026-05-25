@@ -810,18 +810,17 @@ impl io::Write for LineBuf {
 /// read-only) and mounts edit's tui via [`crate::mount::mount`]. textarea
 /// handles cursor, scroll, selection natively. `q` exits.
 ///
-/// v1 scope: textarea + header + q-to-quit. dropped vs the old bespoke
-/// alt-screen driver:
-/// - `r` to reload (TODO(lczyk): requires re-reading file + swapping buffer contents)
-/// - disk-change delta indicator in the header (TODO(lczyk): poll loop alongside mount)
-/// - line numbers via [`super::gutter_view`] (TODO(lczyk): wire edit's textarea gutter)
-/// - `--color=never` override (TODO(lczyk): edit's tui has no plain-mode toggle yet)
-/// these were all snapshot-only features; follow-tui retains its own
-/// independent path for now and is phase-C work.
+/// v1 scope dropped (still TODO(lczyk)):
+/// - disk-change delta indicator in the header. needs a periodic wakeup
+///   in [`crate::mount::mount`] (current loop blocks on stdin only). part
+///   of phase B.3.
+/// - `--color=never` override. edit's tui has no plain-mode toggle yet.
+/// follow-tui (`eat -f`) retains its own independent path for now;
+/// migrating it is phase-C work.
 pub fn run_snapshot(
     path: PathBuf,
     lang: Option<&'static Language>,
-    _show_numbers: bool,
+    show_numbers: bool,
     _use_color: bool,
 ) -> io::Result<()> {
     use std::ops::ControlFlow;
@@ -838,25 +837,39 @@ pub fn run_snapshot(
         let mut f = std::fs::File::open(&path)?;
         b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
         b.set_language(lang);
+        b.set_margin_enabled(show_numbers);
         b.set_read_only(true);
     }
 
     let path_label = path.display().to_string();
-    let captured_at = format_clock(Instant::now());
-    let header =
-        format!("{path_label} @ {captured_at}  (q exit, arrows / PgUp / PgDn scroll)");
+    let mut header = snapshot_header(&path_label, Instant::now());
 
     let _deinit = tty::init();
     tty::switch_modes()?;
 
     mount::mount(MountOpts::default(), |ctx| -> ControlFlow<()> {
-        // global shortcut: q -> exit. checked before the textarea sees the
-        // event so it doesn't swallow Q as a literal letter.
-        if let Some(k) = ctx.keyboard_input()
-            && k == vk::Q
-        {
-            ctx.set_input_consumed();
-            return ControlFlow::Break(());
+        // global shortcuts: checked before the textarea sees the event so
+        // it doesn't swallow Q / R as literal letters.
+        if let Some(k) = ctx.keyboard_input() {
+            match k {
+                vk::Q => {
+                    ctx.set_input_consumed();
+                    return ControlFlow::Break(());
+                }
+                vk::R => {
+                    ctx.set_input_consumed();
+                    if let Ok(mut f) = std::fs::File::open(&path) {
+                        let mut b = buf.borrow_mut();
+                        b.set_read_only(false);
+                        let _ = b.read_file(&mut f);
+                        b.set_margin_enabled(show_numbers);
+                        b.set_read_only(true);
+                    }
+                    header = snapshot_header(&path_label, Instant::now());
+                    ctx.needs_rerender();
+                }
+                _ => {}
+            }
         }
 
         let size = ctx.size();
@@ -869,6 +882,13 @@ pub fn run_snapshot(
 
         ControlFlow::Continue(())
     })
+}
+
+fn snapshot_header(path_label: &str, at: Instant) -> String {
+    format!(
+        "{path_label} @ {}  (q exit, r reload, arrows / PgUp / PgDn scroll)",
+        format_clock(at),
+    )
 }
 
 
