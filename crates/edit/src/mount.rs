@@ -27,6 +27,7 @@
 
 use std::io;
 use std::ops::ControlFlow;
+use std::time::Duration;
 
 use stdext::arena::scratch_arena;
 
@@ -44,11 +45,21 @@ pub struct MountOpts {
     /// On (default) lets terminals which drop OSC 4 (e.g. tmux) still
     /// render via their own palette; off forces exact RGB everywhere.
     pub emit_indexed_codes: bool,
+    /// If set, caps the input read timeout so the draw callback fires at
+    /// least every `tick_interval` even with no user input. Use for periodic
+    /// refreshes (clock, disk-change poll) that can't be input-driven.
+    /// `None` (default) means: block on input indefinitely (or until the
+    /// vt parser / tui animation requests a shorter timeout).
+    pub tick_interval: Option<Duration>,
 }
 
 impl Default for MountOpts {
     fn default() -> Self {
-        Self { fallback_palette: DEFAULT_THEME, emit_indexed_codes: true }
+        Self {
+            fallback_palette: DEFAULT_THEME,
+            emit_indexed_codes: true,
+            tick_interval: None,
+        }
     }
 }
 
@@ -78,7 +89,10 @@ where
     while !exit {
         {
             let scratch = scratch_arena(None);
-            let timeout = vt_parser.read_timeout().min(tui.read_timeout());
+            let mut timeout = vt_parser.read_timeout().min(tui.read_timeout());
+            if let Some(tick) = opts.tick_interval {
+                timeout = timeout.min(tick);
+            }
             let Some(inp) = sys::read_stdin(&scratch, timeout) else {
                 break;
             };

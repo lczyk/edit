@@ -811,9 +811,6 @@ impl io::Write for LineBuf {
 /// handles cursor, scroll, selection natively. `q` exits.
 ///
 /// v1 scope dropped (still TODO(lczyk)):
-/// - disk-change delta indicator in the header. needs a periodic wakeup
-///   in [`crate::mount::mount`] (current loop blocks on stdin only). part
-///   of phase B.3.
 /// - `--color=never` override. edit's tui has no plain-mode toggle yet.
 /// follow-tui (`eat -f`) retains its own independent path for now;
 /// migrating it is phase-C work.
@@ -842,12 +839,17 @@ pub fn run_snapshot(
     }
 
     let path_label = path.display().to_string();
-    let mut header = snapshot_header(&path_label, Instant::now());
+    let mut captured_stat = stat_fingerprint(&path);
+    let mut file_changed = false;
+    let mut last_disk_check = Instant::now();
+    let mut header = snapshot_header(&path_label, Instant::now(), file_changed);
+    let disk_check_interval = Duration::from_secs(2);
 
     let _deinit = tty::init();
     tty::switch_modes()?;
 
-    mount::mount(MountOpts::default(), |ctx| -> ControlFlow<()> {
+    let opts = MountOpts { tick_interval: Some(disk_check_interval), ..Default::default() };
+    mount::mount(opts, |ctx| -> ControlFlow<()> {
         // global shortcuts: checked before the textarea sees the event so
         // it doesn't swallow Q / R as literal letters.
         if let Some(k) = ctx.keyboard_input() {
@@ -865,10 +867,32 @@ pub fn run_snapshot(
                         b.set_margin_enabled(show_numbers);
                         b.set_read_only(true);
                     }
-                    header = snapshot_header(&path_label, Instant::now());
+                    captured_stat = stat_fingerprint(&path);
+                    file_changed = false;
+                    last_disk_check = Instant::now();
+                    header = snapshot_header(&path_label, Instant::now(), file_changed);
                     ctx.needs_rerender();
                 }
                 _ => {}
+            }
+        }
+
+        // disk-change poll. fires at most every `disk_check_interval`;
+        // mount's tick_interval keeps the loop awake to hit this branch
+        // even with no user input.
+        let now = Instant::now();
+        if now.duration_since(last_disk_check) >= disk_check_interval {
+            last_disk_check = now;
+            let now_stat = stat_fingerprint(&path);
+            let changed = match (&captured_stat, &now_stat) {
+                (Some(a), Some(b)) => a != b,
+                (Some(_), None) => true,
+                _ => false,
+            };
+            if changed != file_changed {
+                file_changed = changed;
+                header = snapshot_header(&path_label, Instant::now(), file_changed);
+                ctx.needs_rerender();
             }
         }
 
@@ -884,11 +908,44 @@ pub fn run_snapshot(
     })
 }
 
-fn snapshot_header(path_label: &str, at: Instant) -> String {
+fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String {
+    let delta = if file_changed { "  [modified on disk]" } else { "" };
     format!(
-        "{path_label} @ {}  (q exit, r reload, arrows / PgUp / PgDn scroll)",
+        "{path_label} @ {}{delta}  (q exit, r reload, arrows / PgUp / PgDn scroll)",
         format_clock(at),
     )
+}
+
+/// Snapshot of file metadata used to detect on-disk changes between polls.
+/// `None` on platforms without unix metadata or when the file is gone.
+struct SnapshotStat {
+    size: u64,
+    ino: u64,
+    mtime_ns: i128,
+}
+
+impl PartialEq for SnapshotStat {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size && self.ino == other.ino && self.mtime_ns == other.mtime_ns
+    }
+}
+
+fn stat_fingerprint(path: &Path) -> Option<SnapshotStat> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        let meta = std::fs::metadata(path).ok()?;
+        Some(SnapshotStat {
+            size: meta.size(),
+            ino: meta.ino(),
+            mtime_ns: meta.mtime() as i128 * 1_000_000_000 + meta.mtime_nsec() as i128,
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
+    }
 }
 
 
