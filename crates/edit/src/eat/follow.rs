@@ -304,6 +304,11 @@ pub fn tick<S: FollowSource>(
 /// the read-and-emit half of `tick`, factored out so the first-tick branch
 /// can share it w/out duplicating the runtime-reset / partial-buffer dance.
 #[allow(clippy::too_many_arguments)]
+// `as_deref_mut` is the right tool here: `runtime_ref: Option<&mut Runtime>`
+// gets re-borrowed across two call sites (`emit_lines`, the post-loop
+// flush). clippy's `needless_option_as_deref` suggests dropping it, but
+// that would consume the option. let-bind work-around is uglier.
+#[allow(clippy::needless_option_as_deref)]
 fn finish_tick<S: FollowSource>(
     state: &mut FollowState,
     src: &mut S,

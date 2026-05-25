@@ -2126,6 +2126,7 @@ impl TextBuffer {
     /// rows never paint past their wrap column (the bug the old
     /// `render_apply_highlights` path had with `COORD_TYPE_SAFE_MAX`).
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::type_complexity)]
     fn build_markup_row(
         &self,
         cursor_beg: &Cursor,
@@ -2511,15 +2512,15 @@ impl TextBuffer {
             // trailing blanks past the wrap column.
             if lsh_enabled && cursor_beg.offset != cursor_end.offset {
                 let logical_y = cursor_beg.logical_pos.y;
-                if hl_logical_y != Some(logical_y) {
-                    if let Some(ref mut highlighter) = highlighter_opt {
-                        let scratch_hl = scratch_arena(None);
-                        let parsed =
-                            self.highlighter_cache.parse_line(&scratch_hl, highlighter, logical_y);
-                        hl_buf.clear();
-                        hl_buf.extend(parsed.iter().cloned());
-                        hl_logical_y = Some(logical_y);
-                    }
+                if hl_logical_y != Some(logical_y)
+                    && let Some(ref mut highlighter) = highlighter_opt
+                {
+                    let scratch_hl = scratch_arena(None);
+                    let parsed =
+                        self.highlighter_cache.parse_line(&scratch_hl, highlighter, logical_y);
+                    hl_buf.clear();
+                    hl_buf.extend(parsed.iter().cloned());
+                    hl_logical_y = Some(logical_y);
                 }
                 let (fg_rects, attr_rects) = self.build_markup_row(
                     &cursor_beg,

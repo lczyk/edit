@@ -944,8 +944,8 @@ impl Tui {
         // rebuilt next frame so the mutation is harmless beyond render.
         // no_animations() guard is here, not in advance_floater_open --
         // single dispatch point at the Tui level.
-        if !crate::glyphs::no_animations() {
-            if let Some(clip) = anim::engine::advance_floater_open(
+        if !crate::glyphs::no_animations()
+            && let Some(clip) = anim::engine::advance_floater_open(
                 &mut self.anim.floater_opened_at,
                 node.id,
                 node.outer_clipped.top,
@@ -953,17 +953,17 @@ impl Tui {
                 node.attributes.slide_down,
                 node.attributes.scale_in,
                 time::Instant::now(),
-            ) {
-                match clip {
-                    anim::engine::FloaterClip::Band(top, bottom) => {
-                        Self::clip_subtree_band(node, top, bottom);
-                    }
-                    anim::engine::FloaterClip::Bottom(bottom) => {
-                        Self::clip_subtree_bottom(node, bottom);
-                    }
+            )
+        {
+            match clip {
+                anim::engine::FloaterClip::Band(top, bottom) => {
+                    Self::clip_subtree_band(node, top, bottom);
                 }
-                self.request_animation_frame();
+                anim::engine::FloaterClip::Bottom(bottom) => {
+                    Self::clip_subtree_bottom(node, bottom);
+                }
             }
+            self.request_animation_frame();
         }
 
         let outer_clipped = node.outer_clipped;

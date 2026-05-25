@@ -365,6 +365,7 @@ fn classify_csi(params: &[u8], final_byte: u8) -> Key {
 ///     modifier is present (params = "5"); a single param >= 2 is treated
 ///     as a modifier (param "1" alone is the no-op default and falls back
 ///     to plain).
+///
 /// Plain arrows (no modifier, shift-only) return `plain`.
 fn arrow_key(params: &[u8], plain: Key, large: Key) -> Key {
     let s = match std::str::from_utf8(params) {
