@@ -114,10 +114,6 @@ fn run() -> apperr::Result<()> {
     if let Err(err) = keybindings::load_or_create() {
         state.add_error(err);
     }
-    if let Err(err) = edit::colormap::load_or_create() {
-        state.add_error(err.into());
-    }
-
     // This will reopen stdin if it's redirected (which may fail) and switch
     // the terminal to raw mode which prevents the user from pressing Ctrl+C.
     // `handle_args` may want to print a help message (must not fail),
@@ -130,31 +126,19 @@ fn run() -> apperr::Result<()> {
     let mut tui = Tui::new()?;
 
     let _restore = {
-        let cm = edit::colormap::borrow();
-        let fallback = cm.palette;
-        let force = cm.use_colormap;
-        // Releases the colormap borrow before term::setup. cell::Ref has no
-        // Drop impl (it wraps a plain reference), but moving cm into drop()
-        // ends the binding's borrow scope so the later colormap::borrow()
-        // call on line 145 can't re-enter against an already-held borrow.
-        #[allow(clippy::drop_non_drop)]
-        drop(cm);
-        let (probe, restore) = edit::term::setup(&mut vt_parser, fallback);
+        // Palette: use the terminal's reported OSC 4 / 10 / 11 colours
+        // (so themes the user picked at the terminal level apply
+        // naturally), falling back to the baked-in DEFAULT_THEME for
+        // any slot the terminal doesn't report. opt into indexed
+        // emission so terminals which drop OSC 4 (e.g. tmux) still
+        // render via their own palette.
+        let (probe, restore) = edit::term::setup(&mut vt_parser, edit::framebuffer::DEFAULT_THEME);
         if probe.ambiguous_width == 2 {
             edit::unicode::setup_ambiguous_width(2);
             state.document.buffer.borrow_mut().reflow();
         }
-        if force {
-            // colormap.toml wins -- ignore terminal responses.
-            tui.setup_indexed_colors(edit::colormap::borrow().palette);
-        } else {
-            // Patch terminal-reported responses over the toml fallback,
-            // and opt into ANSI-16 emission so terminals which drop OSC 4
-            // (e.g. through tmux) still render syntax highlights via their
-            // own palette -- matching what `eat` emits via raw codes.
-            tui.setup_indexed_colors(probe.indexed_colors);
-            tui.setup_emit_indexed_codes(true);
-        }
+        tui.setup_indexed_colors(probe.indexed_colors);
+        tui.setup_emit_indexed_codes(true);
         restore
     };
 
@@ -372,10 +356,6 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
             #[cfg(debug_assertions)]
             if arg == "--force-reset-config" {
                 if let Err(e) = keybindings::force_reset() {
-                    sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
-                    return Ok(None);
-                }
-                if let Err(e) = edit::colormap::force_reset() {
                     sys::write_stdout(&format!("failed to reset config: {e:?}\n"));
                     return Ok(None);
                 }

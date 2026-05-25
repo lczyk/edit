@@ -40,15 +40,7 @@ use crate::{input, sys, term, vt};
 pub struct MountOpts {
     /// Seeds the probe's palette. OSC 4/10/11 responses overwrite slots
     /// the terminal reports; unreported slots stay at the fallback.
-    /// If `force_palette` is set, terminal responses are ignored and
-    /// this palette is used as-is.
     pub fallback_palette: [StraightRgba; INDEXED_COLORS_COUNT],
-    /// If true, [`fallback_palette`] is the final palette: terminal
-    /// OSC 4/10/11 responses are discarded. Mirrors the editor's
-    /// behaviour when `colormap.toml` sets `use_colormap = true` --
-    /// the user's colour preferences win over whatever the terminal
-    /// reports. Default `false`.
-    pub force_palette: bool,
     /// Forwarded to [`Tui::setup_emit_indexed_codes`] after the probe.
     /// On (default) lets terminals which drop OSC 4 (e.g. tmux) still
     /// render via their own palette; off forces exact RGB everywhere.
@@ -63,12 +55,7 @@ pub struct MountOpts {
 
 impl Default for MountOpts {
     fn default() -> Self {
-        Self {
-            fallback_palette: DEFAULT_THEME,
-            force_palette: false,
-            emit_indexed_codes: true,
-            tick_interval: None,
-        }
+        Self { fallback_palette: DEFAULT_THEME, emit_indexed_codes: true, tick_interval: None }
     }
 }
 
@@ -87,8 +74,7 @@ where
     let mut input_parser = input::Parser::new();
 
     let (probe, _restore) = term::setup(&mut vt_parser, opts.fallback_palette);
-    let palette = if opts.force_palette { opts.fallback_palette } else { probe.indexed_colors };
-    tui.setup_indexed_colors(palette);
+    tui.setup_indexed_colors(probe.indexed_colors);
     if opts.emit_indexed_codes {
         tui.setup_emit_indexed_codes(true);
     }

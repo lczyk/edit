@@ -69,13 +69,7 @@ pub fn run_snapshot(
     crate::glyphs::set_no_animations(true);
     let _restore_anim = scopeguard_no_anim(prev_no_anim);
 
-    // Load the user's `colormap.toml` so eat's mount path picks up the
-    // same palette as `edit` does. Without this, eat falls back to the
-    // bundled DEFAULT_THEME and the syntax highlight colours don't
-    // match between the two binaries. Failure is silent -- colormap is
-    // cosmetic and we don't want a config typo to kill the viewer.
-    let _ = crate::colormap::load_or_create();
-    let opts = mount_opts_from_colormap(disk_check_interval);
+    let opts = mount::MountOpts { tick_interval: Some(disk_check_interval), ..Default::default() };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
         // Keyboard dispatch matches the follow view: textarea is mounted
         // unfocused (no cursor block painted) so we translate keys to
@@ -267,9 +261,7 @@ pub fn run_follow_mount(
     // user's `-f <interval>` only as a floor (don't wake faster than
     // requested if they explicitly want less frequent polling).
     let tick = poll_interval.min(Duration::from_millis(33));
-    // Honour edit's colormap (see snapshot view for rationale).
-    let _ = crate::colormap::load_or_create();
-    let opts = mount_opts_from_colormap(tick);
+    let opts = mount::MountOpts { tick_interval: Some(tick), ..Default::default() };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
         let body_h = (ctx.size().height - 1).max(1) as CoordType;
         let max_offset = (buf.borrow().visual_line_count() - body_h).max(0);
@@ -518,26 +510,6 @@ fn format_clock(_now: Instant) -> String {
     let m = (secs / 60) % 60;
     let h = (secs / 3600) % 24;
     format!("{h:02}:{m:02}:{s:02}")
-}
-
-/// Build a [`MountOpts`] seeded with the user's colormap palette.
-/// `crate::colormap::load_or_create` must have been called already.
-/// Mirrors `bin/edit/main.rs` palette setup:
-/// - if `use_colormap = true` -> force the palette (ignore terminal
-///   OSC 4 reports). guarantees parity with `edit foo` rendering.
-/// - else -> use the palette only as the probe's fallback for slots
-///   the terminal doesn't report.
-///
-/// Always emits indexed codes so terminals which drop OSC 4 (e.g.
-/// through tmux) still render via their own palette.
-fn mount_opts_from_colormap(tick: Duration) -> crate::mount::MountOpts {
-    let cm = crate::colormap::borrow();
-    crate::mount::MountOpts {
-        fallback_palette: cm.palette,
-        force_palette: cm.use_colormap,
-        emit_indexed_codes: true,
-        tick_interval: Some(tick),
-    }
 }
 
 // --- testable extractions ------------------------------------------------
