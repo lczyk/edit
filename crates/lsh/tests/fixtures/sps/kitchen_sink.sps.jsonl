@@ -1,0 +1,98 @@
+{"line":1,"kind":"comment","text":"# expect: 55"}
+{"line":2,"kind":"comment","text":"# sum 1..10 = 55. uses two locals: sum, i."}
+{"line":3,"kind":"keyword.other","text":".fn"}
+{"line":3,"kind":"other","text":" main "}
+{"line":3,"kind":"variable","text":"arity"}
+{"line":3,"kind":"other","text":"="}
+{"line":3,"kind":"constant.numeric","text":"0"}
+{"line":3,"kind":"other","text":" "}
+{"line":3,"kind":"variable","text":"locals"}
+{"line":3,"kind":"other","text":"="}
+{"line":3,"kind":"constant.numeric","text":"2"}
+{"line":4,"kind":"other","text":"  "}
+{"line":4,"kind":"comment","text":"# sum = 0"}
+{"line":5,"kind":"other","text":"  "}
+{"line":5,"kind":"support.function","text":"PUSH_INT"}
+{"line":5,"kind":"other","text":" "}
+{"line":5,"kind":"constant.numeric","text":"0"}
+{"line":6,"kind":"other","text":"  "}
+{"line":6,"kind":"support.function","text":"STORE_LOCAL"}
+{"line":6,"kind":"other","text":" "}
+{"line":6,"kind":"constant.numeric","text":"0"}
+{"line":7,"kind":"other","text":"  "}
+{"line":7,"kind":"comment","text":"# i = 1"}
+{"line":8,"kind":"other","text":"  "}
+{"line":8,"kind":"support.function","text":"PUSH_INT"}
+{"line":8,"kind":"other","text":" "}
+{"line":8,"kind":"constant.numeric","text":"1"}
+{"line":9,"kind":"other","text":"  "}
+{"line":9,"kind":"support.function","text":"STORE_LOCAL"}
+{"line":9,"kind":"other","text":" "}
+{"line":9,"kind":"constant.numeric","text":"1"}
+{"line":10,"kind":"method","text":"loop"}
+{"line":10,"kind":"other","text":":"}
+{"line":11,"kind":"other","text":"  "}
+{"line":11,"kind":"comment","text":"# if i > 10 goto end"}
+{"line":12,"kind":"other","text":"  "}
+{"line":12,"kind":"support.function","text":"LOAD_LOCAL"}
+{"line":12,"kind":"other","text":" "}
+{"line":12,"kind":"constant.numeric","text":"1"}
+{"line":13,"kind":"other","text":"  "}
+{"line":13,"kind":"support.function","text":"PUSH_INT"}
+{"line":13,"kind":"other","text":" "}
+{"line":13,"kind":"constant.numeric","text":"10"}
+{"line":14,"kind":"other","text":"  "}
+{"line":14,"kind":"support.function","text":"GT"}
+{"line":15,"kind":"other","text":"  "}
+{"line":15,"kind":"support.function","text":"JUMP_IF_FALSE"}
+{"line":15,"kind":"other","text":" body"}
+{"line":16,"kind":"other","text":"  "}
+{"line":16,"kind":"support.function","text":"JUMP"}
+{"line":16,"kind":"other","text":" end"}
+{"line":17,"kind":"method","text":"body"}
+{"line":17,"kind":"other","text":":"}
+{"line":18,"kind":"other","text":"  "}
+{"line":18,"kind":"comment","text":"# sum = sum + i"}
+{"line":19,"kind":"other","text":"  "}
+{"line":19,"kind":"support.function","text":"LOAD_LOCAL"}
+{"line":19,"kind":"other","text":" "}
+{"line":19,"kind":"constant.numeric","text":"0"}
+{"line":20,"kind":"other","text":"  "}
+{"line":20,"kind":"support.function","text":"LOAD_LOCAL"}
+{"line":20,"kind":"other","text":" "}
+{"line":20,"kind":"constant.numeric","text":"1"}
+{"line":21,"kind":"other","text":"  "}
+{"line":21,"kind":"support.function","text":"ADD_INT"}
+{"line":22,"kind":"other","text":"  "}
+{"line":22,"kind":"support.function","text":"STORE_LOCAL"}
+{"line":22,"kind":"other","text":" "}
+{"line":22,"kind":"constant.numeric","text":"0"}
+{"line":23,"kind":"other","text":"  "}
+{"line":23,"kind":"comment","text":"# i = i + 1"}
+{"line":24,"kind":"other","text":"  "}
+{"line":24,"kind":"support.function","text":"LOAD_LOCAL"}
+{"line":24,"kind":"other","text":" "}
+{"line":24,"kind":"constant.numeric","text":"1"}
+{"line":25,"kind":"other","text":"  "}
+{"line":25,"kind":"support.function","text":"PUSH_INT"}
+{"line":25,"kind":"other","text":" "}
+{"line":25,"kind":"constant.numeric","text":"1"}
+{"line":26,"kind":"other","text":"  "}
+{"line":26,"kind":"support.function","text":"ADD_INT"}
+{"line":27,"kind":"other","text":"  "}
+{"line":27,"kind":"support.function","text":"STORE_LOCAL"}
+{"line":27,"kind":"other","text":" "}
+{"line":27,"kind":"constant.numeric","text":"1"}
+{"line":28,"kind":"other","text":"  "}
+{"line":28,"kind":"support.function","text":"JUMP"}
+{"line":28,"kind":"other","text":" loop"}
+{"line":29,"kind":"method","text":"end"}
+{"line":29,"kind":"other","text":":"}
+{"line":30,"kind":"other","text":"  "}
+{"line":30,"kind":"support.function","text":"LOAD_LOCAL"}
+{"line":30,"kind":"other","text":" "}
+{"line":30,"kind":"constant.numeric","text":"0"}
+{"line":31,"kind":"other","text":"  "}
+{"line":31,"kind":"support.function","text":"RETURN"}
+{"line":33,"kind":"keyword.other","text":".entry"}
+{"line":33,"kind":"other","text":" main"}

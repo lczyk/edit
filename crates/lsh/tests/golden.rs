@@ -58,6 +58,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Sed => "sed",
         Language::Shellscript => "shellscript",
         Language::SliceYaml => "slice_yaml",
+        Language::Sps => "sps",
         Language::Toml => "toml",
         Language::Xml => "xml",
         Language::Yaml => "yaml",
