@@ -1,0 +1,55 @@
+#[display_name = "Gleam"]
+#[line_comment = "//"]
+#[path = "**/*.gleam"]
+pub fn gleam() {
+    until /$/ {
+        yield other;
+
+        if /\/\/\/\/.*/ {
+            // Module doc comment.
+            yield comment;
+        } else if /\/\/\/.*/ {
+            // Doc comment.
+            yield comment;
+        } else if /\/\/.*/ {
+            yield comment;
+        } else if /"/ {
+            until /$/ {
+                yield string;
+                if /\\(?:[fnrt"\\]|u\{[0-9A-Fa-f]+\})/ {}
+                else if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /(?:as|assert|auto|case|delegate|derive|echo|else|if|implement|panic|return|todo|use)\>/ {
+            yield keyword.control;
+        } else if /(?:const|fn|import|let|macro|opaque|pub|test|type)\>/ {
+            yield keyword.other;
+        } else if /(?:True|False|Nil|Ok|Error)\>/ {
+            yield constant.language;
+        } else if /(?:Int|Float|String|Bool|List|Result|BitArray|Dynamic|UtfCodepoint)\>/ {
+            yield storage.type;
+        } else if /(?i:-?0x[\da-f][\da-f_]*|-?0o[0-7][0-7_]*|-?0b[01][01_]*|-?\d[\d_]*\.\d[\d_]*(?:e[+-]?\d[\d_]*)?|-?\d[\d_]*)/ {
+            if /\w+/ {
+                // Invalid numeric literal
+            } else {
+                yield constant.numeric;
+            }
+        } else if /@\w+/ {
+            // Attribute, e.g. @external, @target, @deprecated.
+            yield markup.link;
+        } else if /_\w*/ {
+            // Discard name.
+            yield variable;
+        } else if /[A-Z][A-Za-z0-9_]*\>/ {
+            // UpName: type or constructor.
+            yield variable;
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+            // Gobble word chars to align the next iteration on a word boundary.
+        }
+
+        yield other;
+    }
+}
