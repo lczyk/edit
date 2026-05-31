@@ -18,7 +18,8 @@ use lsh::runtime::{Language, Runtime};
 use stdext::arena::scratch_arena;
 
 use lsh_defs::detect::{
-    find_language, language_from_content, language_from_shebang, process_file_associations,
+    disambiguate_language, find_language, language_from_content, language_from_shebang,
+    match_file_associations,
 };
 use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, LANGUAGES, STRINGS};
 
@@ -293,6 +294,34 @@ fn head_bytes(lines: &[String]) -> Vec<u8> {
         out.push(b'\n');
     }
     out
+}
+
+/// Resolve a language from a path using the same content-aware dialect
+/// disambiguation the editor uses (`documents.rs`): collect every glob
+/// candidate, then probe each dialect's `detect_entrypoint` against `head`.
+/// `disambiguate_language` only reads `head` when more than one definition
+/// shares the glob -- e.g. yaml + slice_yaml both on `**/*.yaml`. Returns
+/// `None` if no glob matched, so callers chain shebang/content fallbacks.
+fn detect_by_path(path: &Path, head: &[u8]) -> Option<&'static Language> {
+    let candidates = match_file_associations(FILE_ASSOCIATIONS, path);
+    if candidates.is_empty() {
+        return None;
+    }
+    disambiguate_language(&candidates, head)
+}
+
+/// Read up to 4 KiB from the start of `path` for content-based language
+/// detection. Best-effort: returns empty on any error.
+fn read_head(path: &Path) -> Vec<u8> {
+    use std::io::Read as _;
+    let mut buf = vec![0u8; 4096];
+    match File::open(path).and_then(|mut f| f.read(&mut buf)) {
+        Ok(n) => {
+            buf.truncate(n);
+            buf
+        }
+        Err(_) => Vec::new(),
+    }
 }
 
 /// resolve the pager binary path.
@@ -587,9 +616,10 @@ fn run(
         let lang = if let Some(l) = lang_override {
             Some(l)
         } else if let Some(p) = path_for_detection {
-            process_file_associations(FILE_ASSOCIATIONS, p)
-                .or_else(|| language_from_shebang(&head_bytes(&lines)))
-                .or_else(|| language_from_content(&head_bytes(&lines)))
+            let head = head_bytes(&lines);
+            detect_by_path(p, &head)
+                .or_else(|| language_from_shebang(&head))
+                .or_else(|| language_from_content(&head))
         } else {
             // stdin with no path: shebang sniff, then content sniff
             let head = head_bytes(&lines);
@@ -1246,13 +1276,10 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
                 return ExitCode::from(2);
             }
         },
-        None => process_file_associations(FILE_ASSOCIATIONS, &path).or_else(|| {
-            let f = File::open(&path).ok()?;
-            let mut br = BufReader::new(f);
-            let mut first = String::new();
-            let _ = std::io::BufRead::read_line(&mut br, &mut first);
-            language_from_shebang(first.as_bytes())
-        }),
+        None => {
+            let head = read_head(&path);
+            detect_by_path(&path, &head).or_else(|| language_from_shebang(&head))
+        }
     };
 
     let use_color = resolve_use_color(cli.color, io::stdout().is_terminal());
@@ -1329,13 +1356,10 @@ pub fn main() -> ExitCode {
                     return ExitCode::from(2);
                 }
             },
-            None => process_file_associations(FILE_ASSOCIATIONS, &path).or_else(|| {
-                let f = File::open(&path).ok()?;
-                let mut br = BufReader::new(f);
-                let mut first = String::new();
-                let _ = std::io::BufRead::read_line(&mut br, &mut first);
-                language_from_shebang(first.as_bytes())
-            }),
+            None => {
+                let head = read_head(&path);
+                detect_by_path(&path, &head).or_else(|| language_from_shebang(&head))
+            }
         };
         let use_color = resolve_use_color(cli.color, true);
         return match follow_tui::run_snapshot(path, lang, cli.number, use_color) {
