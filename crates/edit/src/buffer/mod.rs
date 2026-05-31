@@ -140,6 +140,25 @@ pub struct TextBufferStatistics {
     visual_lines: CoordType,
 }
 
+/// Per-frame index of the visual rows currently on screen, built as a
+/// side-product of [`TextBuffer::layout`]. Lets vertical cursor motion under
+/// word-wrap seed `measure_forward` straight from a row's start cursor instead
+/// of walking up one logical line at a time. Only meaningful when word-wrap is
+/// on; consulted via the `generation`/`word_wrap_column` tags so a stale view
+/// (edit or reflow since it was built) is silently ignored.
+struct WrappedView {
+    /// Row-start cursor per visual row, contiguous from `origin_y`. Stores the
+    /// full [`Cursor`] -- `wrap_opp` must carry so a resumed measurement makes
+    /// the same force-wrap / wrap-opportunity decisions.
+    rows: Vec<Cursor>,
+    /// Visual `y` of `rows[0]`.
+    origin_y: CoordType,
+    /// Wrap column the view was built under (tag).
+    word_wrap_column: CoordType,
+    /// Buffer generation at build time (tag).
+    generation: u32,
+}
+
 /// Stores the active text selection anchors.
 ///
 /// The two points are not sorted. Instead, `beg` refers to where the selection
@@ -328,6 +347,9 @@ pub struct TextBuffer {
     // To avoid this, we cache the cursor position for rendering.
     // Must be cleared on every edit or reflow.
     cursor_for_rendering: Option<Cursor>,
+    /// Per-frame viewport row index. Rebuilt by `layout()`, consulted by
+    /// `cursor_move_to_visual_internal` under word-wrap. See [`WrappedView`].
+    wrapped_view: Option<WrappedView>,
     selection: Option<TextBufferSelection>,
     selection_generation: u32,
     search: Option<UnsafeCell<ActiveSearch>>,
@@ -414,6 +436,7 @@ impl TextBuffer {
             stats: TextBufferStatistics { logical_lines: 1, visual_lines: 1 },
             cursor: Default::default(),
             cursor_for_rendering: None,
+            wrapped_view: None,
             selection: None,
             selection_generation: 0,
             search: None,
@@ -896,6 +919,7 @@ impl TextBuffer {
         }
 
         self.cursor_for_rendering = None;
+        self.wrapped_view = None;
 
         if force || self.word_wrap_column != word_wrap_column_before {
             // Recalculate the cursor position.
@@ -1687,19 +1711,80 @@ impl TextBuffer {
             if pos.y != cursor.visual_pos.y || pos.x < cursor.visual_pos.x {
                 cursor = self.goto_line_start(cursor, pos.y);
             }
-        } else {
-            // `goto_visual()` can only seek forward, so we need to seek backward here if needed.
-            // NOTE that this intentionally doesn't use the `Eq` trait of `Point`, because if
-            // `pos.y == cursor.visual_pos.y` we don't need to go to `cursor.logical_pos.y - 1`.
-            while pos.y < cursor.visual_pos.y {
-                cursor = self.goto_line_start(cursor, cursor.logical_pos.y - 1);
-            }
-            if pos.y == cursor.visual_pos.y && pos.x < cursor.visual_pos.x {
-                cursor = self.goto_line_start(cursor, cursor.logical_pos.y);
-            }
+            return self.measurement_config().with_cursor(cursor).goto_visual(pos);
         }
 
+        // Word-wrap on. If the per-frame viewport index covers the target row,
+        // seed the forward measurement straight from that row's start cursor
+        // instead of walking up one logical line at a time. Out of range (or a
+        // stale index) falls back to the from-scratch backward seek.
+        //
+        // NOTE: the seed only changes the landing for a target that falls
+        // mid-grapheme (e.g. a `preferred_column` that lands on the right half
+        // of a wide char on the target row), and only across a long multi-wrap
+        // forward measure. Production keeps those out of reach: in-range targets
+        // sit within a row or two of the cursor (short measure -> seed-agnostic),
+        // and long jumps (PgDn) land outside the index -> fall back. The
+        // `sanity` cross-check below guards the invariant in dev builds.
+        if let Some(seed) = self.wrapped_view_seed(pos) {
+            let result = self.measurement_config().with_cursor(seed).goto_visual(pos);
+            #[cfg(feature = "sanity")]
+            {
+                // The indexed seed must land exactly where the from-scratch
+                // walk would. Any divergence is a wrap-state bug in the index.
+                let reference = self.visual_seek_from_scratch(cursor, pos);
+                crate::sanity_check!(
+                    wrapped_view_seek_matches,
+                    result == reference,
+                    "pos={:?} fast={:?} slow={:?}",
+                    pos,
+                    result,
+                    reference
+                );
+            }
+            return result;
+        }
+
+        self.visual_seek_from_scratch(cursor, pos)
+    }
+
+    /// The from-scratch word-wrap visual seek: `goto_visual()` can only seek
+    /// forward, so walk backward to (or before) the target row by restarting at
+    /// logical line starts, then measure forward to `pos`.
+    fn visual_seek_from_scratch(&self, mut cursor: Cursor, pos: Point) -> Cursor {
+        // NOTE that this intentionally doesn't use the `Eq` trait of `Point`, because if
+        // `pos.y == cursor.visual_pos.y` we don't need to go to `cursor.logical_pos.y - 1`.
+        while pos.y < cursor.visual_pos.y {
+            cursor = self.goto_line_start(cursor, cursor.logical_pos.y - 1);
+        }
+        if pos.y == cursor.visual_pos.y && pos.x < cursor.visual_pos.x {
+            cursor = self.goto_line_start(cursor, cursor.logical_pos.y);
+        }
         self.measurement_config().with_cursor(cursor).goto_visual(pos)
+    }
+
+    /// Returns the start cursor of `pos`'s visual row from the per-frame
+    /// viewport index, iff the index is still valid (same buffer generation +
+    /// wrap column) and actually covers that row. The row start sits at column
+    /// 0 under word-wrap; the forward measurement resolves `pos.x` within the
+    /// row. `None` => caller falls back to a from-scratch seek.
+    fn wrapped_view_seed(&self, pos: Point) -> Option<Cursor> {
+        let view = self.wrapped_view.as_ref()?;
+        if view.generation != self.buffer.generation()
+            || view.word_wrap_column != self.word_wrap_column
+        {
+            return None;
+        }
+        let idx = pos.y - view.origin_y;
+        if idx < 0 || idx as usize >= view.rows.len() {
+            return None;
+        }
+        let seed = view.rows[idx as usize];
+        // Forward measurement can only resolve a target at or right of the seed.
+        if pos.x < seed.visual_pos.x {
+            return None;
+        }
+        Some(seed)
     }
 
     fn cursor_move_delta_internal(
@@ -2404,6 +2489,15 @@ impl TextBuffer {
         let mut decors: Vec<LineDecor> = Vec::with_capacity(height.max(0) as usize);
         let mut start_cursor: Option<Cursor> = None;
 
+        // Per-frame viewport row index, built only under word-wrap (it's the
+        // only case `cursor_move_to_visual_internal` consults it). See
+        // [`WrappedView`].
+        let mut view_rows: Vec<Cursor> = if self.word_wrap_column > 0 {
+            Vec::with_capacity(height.max(0) as usize)
+        } else {
+            Vec::new()
+        };
+
         // lsh markup is computed inside the layout loop, intersected per
         // visual row, so wrapped rows don't paint attrs (underline / bold /
         // ...) past their actual text extent. Skipped when colour output is
@@ -2443,6 +2537,14 @@ impl TextBuffer {
             // writes it back to `self.cursor_for_rendering`.
             if y == 0 {
                 start_cursor = Some(cursor_beg);
+            }
+
+            // Capture the row start for the viewport index. Stop once we walk
+            // past document end -- there `cursor_beg` stops advancing and its
+            // visual row no longer equals `visual_line`, so skipping keeps
+            // `rows` contiguous from `origin.y` (target row indexes directly).
+            if self.word_wrap_column > 0 && cursor_beg.visual_pos.y == visual_line {
+                view_rows.push(cursor_beg);
             }
 
             if line_number_width != 0 {
@@ -2543,6 +2645,18 @@ impl TextBuffer {
             decors.push(decor);
 
             cursor = cursor_end;
+        }
+
+        // Publish the viewport row index for the next frame's cursor motion.
+        // Under word-wrap only; otherwise the field stays as-is (unused, and a
+        // wrap toggle reflows + clears it anyway).
+        if self.word_wrap_column > 0 {
+            self.wrapped_view = Some(WrappedView {
+                rows: view_rows,
+                origin_y: origin.y,
+                word_wrap_column: self.word_wrap_column,
+                generation: self.buffer.generation(),
+            });
         }
 
         let logical_y_beg = start_cursor.map_or(0, |c| c.logical_pos.y);
@@ -4705,6 +4819,102 @@ mod tests {
         let l = tb.layout(Point { x: 0, y: 2 }, rect(80, 3), None).unwrap();
         let start = l.start_cursor.expect("non-empty viewport has a start cursor");
         assert_eq!(start.logical_pos.y, 2, "scroll origin y == start cursor logical y");
+    }
+
+    #[test]
+    fn wrapped_view_seek_matches_from_scratch() {
+        // Index-seeded vertical motion must land exactly where the
+        // from-scratch backward seek would, across the awkward cases: a
+        // plain wrapped line, tabs, wide CJK (force-wrap, no wrap opps), an
+        // empty line, and a short line.
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw(
+            concat!(
+                "the quick brown fox jumps over the lazy dog\n",
+                "\t\tindented tabby line that wraps a few times\n",
+                "零一二三四五六七八九零一二三四五\n",
+                "\n",
+                "short\n",
+            )
+            .as_bytes(),
+        );
+        tb.set_tab_size(4);
+        tb.set_word_wrap(true);
+        tb.set_width(12); // narrow -> heavy wrapping
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+
+        let rows = tb.visual_line_count();
+        let dest = rect(12, rows + 4);
+        let _ = tb.layout(Point { x: 0, y: 0 }, dest, None);
+        assert!(tb.wrapped_view.is_some(), "layout builds the index under word-wrap");
+
+        // Targets are real visual columns -- the row start (0), an interior
+        // boundary (4; on the wide-CJK row this is a grapheme edge, since the
+        // width-2 chars sit at 0/2/4/6), and the row end (MAX). A
+        // `preferred_column` always comes from a real `visual_pos.x`, so
+        // mid-grapheme columns never occur as motion targets.
+        for &vx in &[0, 4, CoordType::MAX] {
+            for vy in 0..rows {
+                let pos = Point { x: vx, y: vy };
+
+                // Fast path: index present and covering this row.
+                assert!(tb.wrapped_view_seed(pos).is_some(), "row {vy} in index range");
+                let fast = tb.cursor_move_to_visual_internal(tb.cursor, pos);
+
+                // Slow path: drop the index so the seed lookup misses.
+                let saved = tb.wrapped_view.take();
+                let slow = tb.cursor_move_to_visual_internal(tb.cursor, pos);
+                tb.wrapped_view = saved;
+
+                assert_eq!(fast, slow, "vx={vx} pos={pos:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn wrapped_view_realistic_walk_stays_legacy() {
+        // Mirror production arrow-down: carry the cursor row-to-row with an odd
+        // `preferred_column` that lands mid-wide-char on the CJK row. The index
+        // seed (row start) must match the legacy seed (carried adjacent cursor)
+        // at every step -- the seed only matters for long multi-wrap forward
+        // measures, which production keeps out of the index's in-range window.
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw("abcdefghijklmnopqrstuvwxyz\n零一二三四五六七八九零一二三四五\n".as_bytes());
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        let rows = tb.visual_line_count();
+        let _ = tb.layout(Point { x: 0, y: 0 }, rect(12, rows + 4), None);
+
+        let pref = 5; // odd -> mid-grapheme on the width-2 CJK rows
+        let mut carried = tb.cursor; // starts at {0,0}
+        for vy in 1..rows {
+            let pos = Point { x: pref, y: vy };
+            let fast = tb.cursor_move_to_visual_internal(carried, pos);
+            let saved = tb.wrapped_view.take();
+            let legacy = tb.cursor_move_to_visual_internal(carried, pos);
+            tb.wrapped_view = saved;
+            assert_eq!(fast, legacy, "vy={vy}");
+            carried = legacy;
+        }
+    }
+
+    #[test]
+    fn wrapped_view_seed_rejects_stale_index() {
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw("the quick brown fox jumps over the lazy dog\n".as_bytes());
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+
+        let rows = tb.visual_line_count();
+        let _ = tb.layout(Point { x: 0, y: 0 }, rect(12, rows + 4), None);
+        let pos = Point { x: 0, y: 1 };
+        assert!(tb.wrapped_view_seed(pos).is_some(), "fresh index hits");
+
+        // An edit bumps the buffer generation -> the tag no longer matches.
+        tb.write_raw(b"x");
+        assert!(tb.wrapped_view_seed(pos).is_none(), "stale index rejected after edit");
     }
 
     #[test]
