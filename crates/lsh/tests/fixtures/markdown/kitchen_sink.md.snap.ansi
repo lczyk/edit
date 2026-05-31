@@ -56,6 +56,7 @@ Footnote: [[91m^note[m]
 Inline: ![[91mAlt text[m]([4mhttps://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png[m [91m"GitHub Mark"[m)
 Reference: ![[91mLogo[m][[91mlogo-ref[m]
 [[91mlogo-ref[m]: https://github.githubassets.com/images/modules/logos_page/GitHub-Logo.png "GitHub Logo"
+Badge: [![[91mUbuntu[m]([4mhttps://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white[m)]([4m#[m)
 
 | Left        |   Center   | Right |
 | :---------- | :--------: | ----: |
