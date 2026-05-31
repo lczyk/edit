@@ -124,32 +124,50 @@ pub fn markdown() {
             yield other;
 
             if /\[/ {
-                // Anything inside [...] is a link text and is colored like a string.
+                // A [text](url) link, or a [![alt](img)](url) linked image.
                 yield other;
-                if /[^\]]*/ {
-                    yield string;
 
-                    // Now look for the link target in parentheses.
+                // Link text may itself be an inline image: ![alt](img). The
+                // image's own "]" would otherwise terminate the [^\]]* below
+                // early, leaving the rest of the linked image uncolored.
+                if /!\[/ {
+                    yield other;
+                    if /[^\]]*/ {
+                        yield string;
+                    }
                     if /\]\(/ {
                         yield other;
                         if /[^\s\)]+/ {
                             yield markup.link;
                         }
-
-                        if /\s+/ {
-                        }
-
-                        // The link may have a title in quotes.
-                        yield other;
-                        if /"/ {
-                            if /[^"]+/ {
-                            }
-                            if /"/ {
-                                yield string;
-                            }
+                        if /\)/ {
+                            yield other;
                         }
                     }
+                } else if /[^\]]*/ {
+                    // Anything inside [...] is link text, colored like a string.
+                    yield string;
+                }
 
+                // Now look for the link target in parentheses.
+                if /\]\(/ {
+                    yield other;
+                    if /[^\s\)]+/ {
+                        yield markup.link;
+                    }
+
+                    if /\s+/ {
+                    }
+
+                    // The link may have a title in quotes.
+                    yield other;
+                    if /"/ {
+                        if /[^"]+/ {
+                        }
+                        if /"/ {
+                            yield string;
+                        }
+                    }
                 }
             } else if /__/ {
                 if /_+/ {

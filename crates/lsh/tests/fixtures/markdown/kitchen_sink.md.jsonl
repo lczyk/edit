@@ -113,73 +113,80 @@
 {"line":58,"kind":"other","text":"["}
 {"line":58,"kind":"string","text":"logo-ref"}
 {"line":58,"kind":"other","text":"]: https://github.githubassets.com/images/modules/logos_page/GitHub-Logo.png \"GitHub Logo\""}
-{"line":60,"kind":"other","text":"| Left        |   Center   | Right |"}
-{"line":61,"kind":"other","text":"| :---------- | :--------: | ----: |"}
-{"line":62,"kind":"other","text":"| "}
-{"line":62,"kind":"markup.italic","text":"*italic*"}
-{"line":62,"kind":"other","text":"    |   "}
-{"line":62,"kind":"string","text":"`code`"}
-{"line":62,"kind":"other","text":"   |   123 |"}
+{"line":59,"kind":"other","text":"Badge: [!["}
+{"line":59,"kind":"string","text":"Ubuntu"}
+{"line":59,"kind":"other","text":"]("}
+{"line":59,"kind":"markup.link","text":"https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white"}
+{"line":59,"kind":"other","text":")]("}
+{"line":59,"kind":"markup.link","text":"#"}
+{"line":59,"kind":"other","text":")"}
+{"line":61,"kind":"other","text":"| Left        |   Center   | Right |"}
+{"line":62,"kind":"other","text":"| :---------- | :--------: | ----: |"}
 {"line":63,"kind":"other","text":"| "}
-{"line":63,"kind":"markup.bold","text":"**bold**"}
-{"line":63,"kind":"other","text":"    | "}
-{"line":63,"kind":"markup.strikethrough","text":"~~strike~~"}
-{"line":63,"kind":"other","text":" |  4.56 |"}
-{"line":64,"kind":"other","text":"| ["}
-{"line":64,"kind":"string","text":"link"}
-{"line":64,"kind":"other","text":"]["}
-{"line":64,"kind":"string","text":"ref"}
-{"line":64,"kind":"other","text":"] |   :tada:   | "}
-{"line":64,"kind":"string","text":"`end`"}
-{"line":64,"kind":"other","text":" |"}
-{"line":66,"kind":"other","text":"```bash"}
-{"line":67,"kind":"comment","text":"# Shell"}
-{"line":68,"kind":"other","text":"echo "}
-{"line":68,"kind":"string","text":"\"Hello, world\""}
-{"line":68,"kind":"other","text":" | tr a-z A-Z"}
-{"line":69,"kind":"other","text":"```"}
-{"line":71,"kind":"other","text":"```javascript"}
-{"line":72,"kind":"keyword.other","text":"export"}
-{"line":72,"kind":"other","text":" "}
-{"line":72,"kind":"keyword.other","text":"function"}
-{"line":72,"kind":"other","text":" "}
-{"line":72,"kind":"method","text":"greet"}
-{"line":72,"kind":"other","text":"(name) {"}
-{"line":73,"kind":"other","text":"  "}
-{"line":73,"kind":"keyword.control","text":"return"}
+{"line":63,"kind":"markup.italic","text":"*italic*"}
+{"line":63,"kind":"other","text":"    |   "}
+{"line":63,"kind":"string","text":"`code`"}
+{"line":63,"kind":"other","text":"   |   123 |"}
+{"line":64,"kind":"other","text":"| "}
+{"line":64,"kind":"markup.bold","text":"**bold**"}
+{"line":64,"kind":"other","text":"    | "}
+{"line":64,"kind":"markup.strikethrough","text":"~~strike~~"}
+{"line":64,"kind":"other","text":" |  4.56 |"}
+{"line":65,"kind":"other","text":"| ["}
+{"line":65,"kind":"string","text":"link"}
+{"line":65,"kind":"other","text":"]["}
+{"line":65,"kind":"string","text":"ref"}
+{"line":65,"kind":"other","text":"] |   :tada:   | "}
+{"line":65,"kind":"string","text":"`end`"}
+{"line":65,"kind":"other","text":" |"}
+{"line":67,"kind":"other","text":"```bash"}
+{"line":68,"kind":"comment","text":"# Shell"}
+{"line":69,"kind":"other","text":"echo "}
+{"line":69,"kind":"string","text":"\"Hello, world\""}
+{"line":69,"kind":"other","text":" | tr a-z A-Z"}
+{"line":70,"kind":"other","text":"```"}
+{"line":72,"kind":"other","text":"```javascript"}
+{"line":73,"kind":"keyword.other","text":"export"}
 {"line":73,"kind":"other","text":" "}
-{"line":73,"kind":"string","text":"`hello ${name}`"}
-{"line":73,"kind":"other","text":";"}
-{"line":74,"kind":"other","text":"}"}
-{"line":75,"kind":"other","text":"```"}
-{"line":77,"kind":"other","text":"```json"}
-{"line":78,"kind":"other","text":"{"}
-{"line":79,"kind":"other","text":"  "}
-{"line":79,"kind":"string","text":"\"name\""}
-{"line":79,"kind":"other","text":": "}
-{"line":79,"kind":"string","text":"\"gfm-kitchen-sink\""}
-{"line":79,"kind":"other","text":","}
+{"line":73,"kind":"keyword.other","text":"function"}
+{"line":73,"kind":"other","text":" "}
+{"line":73,"kind":"method","text":"greet"}
+{"line":73,"kind":"other","text":"(name) {"}
+{"line":74,"kind":"other","text":"  "}
+{"line":74,"kind":"keyword.control","text":"return"}
+{"line":74,"kind":"other","text":" "}
+{"line":74,"kind":"string","text":"`hello ${name}`"}
+{"line":74,"kind":"other","text":";"}
+{"line":75,"kind":"other","text":"}"}
+{"line":76,"kind":"other","text":"```"}
+{"line":78,"kind":"other","text":"```json"}
+{"line":79,"kind":"other","text":"{"}
 {"line":80,"kind":"other","text":"  "}
-{"line":80,"kind":"string","text":"\"private\""}
+{"line":80,"kind":"string","text":"\"name\""}
 {"line":80,"kind":"other","text":": "}
-{"line":80,"kind":"constant.language","text":"true"}
+{"line":80,"kind":"string","text":"\"gfm-kitchen-sink\""}
 {"line":80,"kind":"other","text":","}
 {"line":81,"kind":"other","text":"  "}
-{"line":81,"kind":"string","text":"\"scripts\""}
-{"line":81,"kind":"other","text":": { "}
-{"line":81,"kind":"string","text":"\"test\""}
+{"line":81,"kind":"string","text":"\"private\""}
 {"line":81,"kind":"other","text":": "}
-{"line":81,"kind":"string","text":"\"echo ok\""}
-{"line":81,"kind":"other","text":" }"}
-{"line":82,"kind":"other","text":"}"}
-{"line":83,"kind":"other","text":"```"}
-{"line":85,"kind":"other","text":"```python"}
-{"line":86,"kind":"keyword.other","text":"def"}
-{"line":86,"kind":"other","text":" "}
-{"line":86,"kind":"method","text":"greet"}
-{"line":86,"kind":"other","text":"(name: str) -> str:"}
-{"line":87,"kind":"other","text":"    "}
-{"line":87,"kind":"keyword.control","text":"return"}
-{"line":87,"kind":"other","text":" f"}
-{"line":87,"kind":"string","text":"\"hello {name}\""}
-{"line":88,"kind":"other","text":"```"}
+{"line":81,"kind":"constant.language","text":"true"}
+{"line":81,"kind":"other","text":","}
+{"line":82,"kind":"other","text":"  "}
+{"line":82,"kind":"string","text":"\"scripts\""}
+{"line":82,"kind":"other","text":": { "}
+{"line":82,"kind":"string","text":"\"test\""}
+{"line":82,"kind":"other","text":": "}
+{"line":82,"kind":"string","text":"\"echo ok\""}
+{"line":82,"kind":"other","text":" }"}
+{"line":83,"kind":"other","text":"}"}
+{"line":84,"kind":"other","text":"```"}
+{"line":86,"kind":"other","text":"```python"}
+{"line":87,"kind":"keyword.other","text":"def"}
+{"line":87,"kind":"other","text":" "}
+{"line":87,"kind":"method","text":"greet"}
+{"line":87,"kind":"other","text":"(name: str) -> str:"}
+{"line":88,"kind":"other","text":"    "}
+{"line":88,"kind":"keyword.control","text":"return"}
+{"line":88,"kind":"other","text":" f"}
+{"line":88,"kind":"string","text":"\"hello {name}\""}
+{"line":89,"kind":"other","text":"```"}
