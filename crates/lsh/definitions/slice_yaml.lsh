@@ -114,12 +114,20 @@ pub fn slice_yaml() {
             await input;
             slice_yaml_in_slices_line();
         }
-    } else if /(?:package|essential|contents|mutate|hint):(?:\s+|$)/ {
-        yield keyword.other;
-    } else if /-\s+/ {
-        // List item at top level
-    } else if /[\w.+*\/-]+:(?:\s+|$)/ {
-        // Generic Key:
+    } else {
+        // A list-item dash and a key are independent: `- key: value` carries
+        // both. Keeping the dash a separate `if` (not part of the key's else-if
+        // chain) is what lets the key still match after the dash is consumed --
+        // otherwise the whole `key: value` falls through to the value handler
+        // and gets coloured as a plain string.
+        if /-\s+/ {
+            // List item at top level
+        }
+        if /(?:package|essential|contents|mutate|hint):(?:\s+|$)/ {
+            yield keyword.other;
+        } else if /[\w.+*\/-]+:(?:\s+|$)/ {
+            // Generic Key:
+        }
     }
 
     slice_yaml_value();
