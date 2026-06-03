@@ -1,0 +1,121 @@
+#[display_name = "HCL"]
+#[line_comment = "#"]
+#[path = "**/*.hcl"]
+#[path = "**/*.tf"]
+#[path = "**/*.tfvars"]
+#[path = "**/*.nomad"]
+pub fn hcl() {
+    if /\s+/ {
+        // Leading whitespace
+    }
+
+    if /#.*/ {
+        yield comment;
+        return;
+    } else if /\/\/.*/ {
+        yield comment;
+        return;
+    }
+
+    // Attribute: `key = value`. Bare key, optional whitespace, single `=`
+    // (not `==`, which is a comparison and only shows up inside expressions).
+    if /([A-Za-z_][A-Za-z0-9_-]*)\s*=[^=]/ {
+        yield $1 as variable;
+        yield other;
+    } else if /([A-Za-z_][A-Za-z0-9_-]*)\>/ {
+        // Block header keyword: `resource`, `locals`, `terraform`,
+        // `dependency`, `include`, etc. Labels and the `{` are handled by the
+        // value loop below.
+        yield $1 as keyword.control;
+    }
+
+    until /$/ {
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /\/\/.*/ {
+            yield comment;
+        } else if /\/\*/ {
+            hcl_block_comment();
+        } else if /"/ {
+            hcl_double_quote_string();
+        } else if /<<-?\s*[A-Za-z_]\w*\>.*/ {
+            // Heredoc. TODO(lczyk): proper capture for arbitrary delimiters; for now
+            // the closing line is matched approximately (a bare word on its
+            // own line), like the shellscript definition.
+            yield string;
+            loop {
+                await input;
+                if /\s*[A-Za-z_]\w*\s*$/ {
+                    yield string;
+                    break;
+                }
+                if /.*/ {}
+                yield string;
+            }
+        } else if /\$\{/ {
+            // Bare interpolation outside a string is unusual but legal.
+            yield variable;
+        } else if /(?:var|local|module|data|path|terraform|each|count|self|dependency)\./ {
+            yield variable;
+        } else if /(?:for|in|if|else|endfor|endif)\>/ {
+            yield keyword.control;
+        } else if /(?:true|false|null)\>/ {
+            if /\w+/ {
+                // Not a keyword after all.
+            } else {
+                yield constant.language;
+            }
+        } else if /([A-Za-z_]\w*)\s*\(/ {
+            // Function call: file(), jsonencode(), merge(), ...
+            yield $1 as method;
+            yield other;
+        } else if /[+-]?(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/ {
+            if /\w+/ {
+                // Not a number after all.
+            } else {
+                yield constant.numeric;
+            }
+        } else if /\w+/ {
+            // Bare word, skip.
+        }
+
+        yield other;
+    }
+}
+
+fn hcl_block_comment() {
+    loop {
+        until /$/ {
+            if /\*\// {
+                yield comment;
+                return;
+            }
+        }
+        yield comment;
+        await input;
+    }
+}
+
+fn hcl_double_quote_string() {
+    until /$/ {
+        yield string;
+        if /\\./ {
+            // Escape sequence
+        } else if /\$\{/ {
+            // Interpolation: highlight `${...}` up to the closing brace.
+            until /$/ {
+                if /\}/ {
+                    yield variable;
+                    break;
+                }
+            }
+            yield string;
+        } else if /"/ {
+            yield string;
+            break;
+        }
+        await input;
+    }
+}

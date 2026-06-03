@@ -1,0 +1,90 @@
+{"line":1,"kind":"comment","text":"# terragrunt config -- exercises blocks, attrs, strings, interpolation"}
+{"line":2,"kind":"comment","text":"// alt line comment"}
+{"line":3,"kind":"comment","text":"/* block"}
+{"line":4,"kind":"comment","text":"   comment */"}
+{"line":6,"kind":"keyword.control","text":"include"}
+{"line":6,"kind":"other","text":" "}
+{"line":6,"kind":"string","text":"\"root\""}
+{"line":6,"kind":"other","text":" {"}
+{"line":7,"kind":"other","text":"  "}
+{"line":7,"kind":"variable","text":"path"}
+{"line":7,"kind":"other","text":" = "}
+{"line":7,"kind":"method","text":"find_in_parent_folders"}
+{"line":7,"kind":"other","text":"()"}
+{"line":8,"kind":"other","text":"}"}
+{"line":10,"kind":"keyword.control","text":"terraform"}
+{"line":10,"kind":"other","text":" {"}
+{"line":11,"kind":"other","text":"  "}
+{"line":11,"kind":"variable","text":"source"}
+{"line":11,"kind":"other","text":" = "}
+{"line":11,"kind":"string","text":"\"git::git@github.com:org/modules.git//curl-rock?ref=v1.2.3\""}
+{"line":12,"kind":"other","text":"}"}
+{"line":14,"kind":"keyword.control","text":"dependency"}
+{"line":14,"kind":"other","text":" "}
+{"line":14,"kind":"string","text":"\"vpc\""}
+{"line":14,"kind":"other","text":" {"}
+{"line":15,"kind":"other","text":"  "}
+{"line":15,"kind":"variable","text":"config_path"}
+{"line":15,"kind":"other","text":" = "}
+{"line":15,"kind":"string","text":"\"../vpc\""}
+{"line":16,"kind":"other","text":"}"}
+{"line":18,"kind":"keyword.control","text":"locals"}
+{"line":18,"kind":"other","text":" {"}
+{"line":19,"kind":"other","text":"  "}
+{"line":19,"kind":"variable","text":"region"}
+{"line":19,"kind":"other","text":"   = "}
+{"line":19,"kind":"string","text":"\"eu-west-2\""}
+{"line":20,"kind":"other","text":"  "}
+{"line":20,"kind":"variable","text":"replicas"}
+{"line":20,"kind":"other","text":" = "}
+{"line":20,"kind":"constant.numeric","text":"3"}
+{"line":21,"kind":"other","text":"  "}
+{"line":21,"kind":"variable","text":"enabled"}
+{"line":21,"kind":"other","text":"  = "}
+{"line":21,"kind":"constant.language","text":"true"}
+{"line":22,"kind":"other","text":"  "}
+{"line":22,"kind":"variable","text":"fallback"}
+{"line":22,"kind":"other","text":" = "}
+{"line":22,"kind":"constant.language","text":"null"}
+{"line":23,"kind":"other","text":"  "}
+{"line":23,"kind":"variable","text":"tags"}
+{"line":23,"kind":"other","text":"     = "}
+{"line":23,"kind":"method","text":"merge"}
+{"line":23,"kind":"other","text":"("}
+{"line":23,"kind":"variable","text":"local."}
+{"line":23,"kind":"other","text":"common_tags, { Name = "}
+{"line":23,"kind":"string","text":"\"curl-rock\""}
+{"line":23,"kind":"other","text":" })"}
+{"line":24,"kind":"other","text":"}"}
+{"line":26,"kind":"variable","text":"inputs"}
+{"line":26,"kind":"other","text":" = {"}
+{"line":27,"kind":"other","text":"  "}
+{"line":27,"kind":"variable","text":"name"}
+{"line":27,"kind":"other","text":"        = "}
+{"line":27,"kind":"string","text":"\"curl-"}
+{"line":27,"kind":"variable","text":"${local.region}"}
+{"line":27,"kind":"string","text":"\""}
+{"line":28,"kind":"other","text":"  "}
+{"line":28,"kind":"variable","text":"vpc_id"}
+{"line":28,"kind":"other","text":"      = "}
+{"line":28,"kind":"variable","text":"dependency."}
+{"line":28,"kind":"other","text":"vpc.outputs.vpc_id"}
+{"line":29,"kind":"other","text":"  "}
+{"line":29,"kind":"variable","text":"user_data"}
+{"line":29,"kind":"other","text":"   = "}
+{"line":29,"kind":"string","text":"<<-EOT"}
+{"line":30,"kind":"string","text":"    #!/bin/bash"}
+{"line":31,"kind":"string","text":"    echo \"hello ${local.region}\""}
+{"line":32,"kind":"string","text":"  EOT"}
+{"line":33,"kind":"other","text":"  "}
+{"line":33,"kind":"variable","text":"cidr_blocks"}
+{"line":33,"kind":"other","text":" = ["}
+{"line":33,"kind":"keyword.control","text":"for"}
+{"line":33,"kind":"other","text":" s "}
+{"line":33,"kind":"keyword.control","text":"in"}
+{"line":33,"kind":"other","text":" "}
+{"line":33,"kind":"variable","text":"var."}
+{"line":33,"kind":"other","text":"subnets : s.cidr "}
+{"line":33,"kind":"keyword.control","text":"if"}
+{"line":33,"kind":"other","text":" s.public]"}
+{"line":34,"kind":"other","text":"}"}

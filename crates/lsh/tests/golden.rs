@@ -34,6 +34,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::GitCommit => "git_commit",
         Language::GitRebase => "git_rebase",
         Language::Go => "go",
+        Language::Hcl => "hcl",
         Language::Ignore => "ignore",
         Language::Javascript => "javascript",
         Language::Jq => "jq",
