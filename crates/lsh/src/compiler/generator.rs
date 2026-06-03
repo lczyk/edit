@@ -230,8 +230,12 @@ impl TryFrom<u32> for HighlightKind {{
         output.push_str("    }\n");
         output.push_str("}\n");
 
+        // The mermaid dump is wrapped in a rust block comment. Rust block
+        // comments nest, so any `/*` or `*/` in the diagram (regex literals
+        // like the block-comment delimiters leak in as node labels) would
+        // unbalance the nesting and leave the comment unterminated.
         output.push_str("/*\n");
-        output.push_str(&self.compiler.as_mermaid());
+        output.push_str(&escape_for_block_comment(&self.compiler.as_mermaid()));
         output.push_str("*/\n");
 
         output.push_str("\n#[rustfmt::skip]\n");
@@ -398,4 +402,55 @@ fn default_ansi16(identifier: &str) -> Option<&'static str> {
         "meta.header" => "BrightBlue",
         _ => return None,
     })
+}
+
+/// Break up `/*` and `*/` so the text can be safely embedded inside a rust
+/// block comment. Rust block comments nest, so an unbalanced delimiter in the
+/// embedded text leaves the comment unterminated and breaks the whole file.
+/// Used for the mermaid diagram dump, where regex literals leak in as labels.
+fn escape_for_block_comment(s: &str) -> String {
+    s.replace("/*", "/ *").replace("*/", "* /")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A definition whose regexes carry an odd number of `/*` / `*/` (here two
+    /// opens, one close) used to leak into the mermaid block comment and leave
+    /// it unterminated -- 68 downstream compile errors. The escape keeps the
+    /// embedded text free of either delimiter.
+    #[test]
+    fn mermaid_block_comment_stays_balanced() {
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut generator = Generator::new(&arena);
+        generator
+            .compiler
+            .parse(
+                "test.lsh",
+                "#[display_name = \"T\"]\n\
+                 #[path = \"**/*.t\"]\n\
+                 pub fn t() {\n\
+                 if /\\/\\*/ {}\n\
+                 until /$/ { if /\\/\\*/ { if /\\*\\// {} } }\n\
+                 }\n",
+            )
+            .unwrap();
+        let rust = generator.generate_rust().unwrap();
+
+        // Slice out the mermaid block comment (the first `/* ... */` block) and
+        // assert it carries neither delimiter, so its nesting is balanced.
+        let start = rust.find("/*\n").expect("mermaid comment open");
+        let body = &rust[start + 3..];
+        let end = body.find("*/\n").expect("mermaid comment close");
+        let mermaid = &body[..end];
+        assert!(!mermaid.contains("/*"), "mermaid leaks a `/*`");
+        assert!(!mermaid.contains("*/"), "mermaid leaks a `*/`");
+    }
+
+    #[test]
+    fn escape_breaks_both_delimiters() {
+        assert_eq!(escape_for_block_comment("a /* b */ c"), "a / * b * / c");
+        assert_eq!(escape_for_block_comment("no delims"), "no delims");
+    }
 }
