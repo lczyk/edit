@@ -141,6 +141,7 @@
 //! ```
 
 #[cfg(debug_assertions)]
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::{io, iter, mem, ptr, time};
 
@@ -359,6 +360,14 @@ pub struct Tui {
     /// in a double/triple click series.
     first_click_target: u64,
 
+    /// Persistent per-modal drag offsets in cells, keyed by modal node id.
+    /// Added on top of the centered float position so a dragged modal stays put.
+    modal_drag_offset: HashMap<u64, Point>,
+    /// Node id of the modal currently being title-bar dragged (0 = none).
+    modal_drag_target: u64,
+    /// The modal's committed offset, snapshotted when the drag started.
+    modal_drag_start: Point,
+
     /// Path to the currently focused node.
     focused_node_path: Vec<u64>,
     /// Contains the last element in [`Tui::focused_node_path`].
@@ -419,6 +428,10 @@ impl Tui {
             mouse_down_node_path: Vec::with_capacity(16),
             first_click_position: Point::MIN,
             first_click_target: 0,
+
+            modal_drag_offset: HashMap::new(),
+            modal_drag_target: 0,
+            modal_drag_start: Point::default(),
 
             focused_node_path: Vec::with_capacity(16),
             focused_node_for_scrolling: ROOT_ID,
@@ -551,6 +564,7 @@ impl Tui {
             self.left_mouse_down_target = 0;
             self.mouse_state = InputMouseState::None;
             self.mouse_is_drag = false;
+            self.modal_drag_target = 0;
         }
 
         let now = std::time::Instant::now();
@@ -612,6 +626,7 @@ impl Tui {
 
                 let mut hovered_node = None; // Needed for `mouse_down`
                 let mut focused_node = None; // Needed for `mouse_down` and `is_click`
+                let mut hovered_modal = None; // (id, outer) of the topmost hit modal
                 if mouse_down || mouse_up {
                     // Roots (aka windows) are ordered in Z order, so we iterate
                     // them in reverse order, from topmost to bottommost.
@@ -633,6 +648,10 @@ impl Tui {
                         // This root/window contains the cursor.
                         // We don't care about any lower roots.
                         if hovered_node.is_some() {
+                            let r = root.borrow();
+                            if matches!(r.content, NodeContent::Modal(_)) {
+                                hovered_modal = Some((r.id, r.outer));
+                            }
                             break;
                         }
 
@@ -648,6 +667,16 @@ impl Tui {
                     next_state = self.mouse_state;
                 } else if is_drag {
                     self.mouse_is_drag = true;
+                    // Carry a title-bar drag into the modal's persistent offset.
+                    if self.modal_drag_target != 0 {
+                        let off = Point {
+                            x: self.modal_drag_start.x
+                                + (next_position.x - self.mouse_down_position.x),
+                            y: self.modal_drag_start.y
+                                + (next_position.y - self.mouse_down_position.y),
+                        };
+                        self.modal_drag_offset.insert(self.modal_drag_target, off);
+                    }
                 } else if mouse_down {
                     // Transition from no mouse input to some mouse input --> Record the mouse down position.
                     Self::build_node_path(hovered_node, &mut self.mouse_down_node_path);
@@ -688,6 +717,19 @@ impl Tui {
                     // Gets reset at the start of this function.
                     self.left_mouse_down_target = target;
                     self.mouse_down_position = next_position;
+
+                    // Grab the modal title bar (its top border row) to start dragging.
+                    self.modal_drag_target = 0;
+                    if next_state == InputMouseState::Left
+                        && let Some((id, rect)) = hovered_modal
+                        && next_position.y == rect.top
+                        && next_position.x >= rect.left
+                        && next_position.x < rect.right
+                    {
+                        self.modal_drag_target = id;
+                        self.modal_drag_start =
+                            self.modal_drag_offset.get(&id).copied().unwrap_or_default();
+                    }
                 } else if mouse_up {
                     // Transition from some mouse input to no mouse input --> The mouse button was released.
                     next_state = InputMouseState::Release;
@@ -832,6 +874,13 @@ impl Tui {
                 x += (float.offset_x - float.gravity_x * size.width as f32) as CoordType;
                 y += (float.offset_y - float.gravity_y * size.height as f32) as CoordType;
 
+                // A dragged modal keeps a persistent offset; clamp it so the
+                // whole window stays on-screen (rather than getting clipped).
+                if let Some(off) = self.modal_drag_offset.get(&root.id) {
+                    x = (x + off.x).clamp(0, (viewport.right - size.width).max(0));
+                    y = (y + off.y).clamp(0, (viewport.bottom - size.height).max(0));
+                }
+
                 root.outer.left = x;
                 root.outer.top = y;
                 root.outer.right = x + size.width;
@@ -903,6 +952,8 @@ impl Tui {
         // by node id, drop when the textarea unmounts.
         self.anim.floater_opened_at.retain(|id, _| self.prev_node_map.get(*id).is_some());
         self.anim.textareas.retain(|id, _| self.prev_node_map.get(*id).is_some());
+        // Drop drag offsets for dismissed modals so a reopened one re-centers.
+        self.modal_drag_offset.retain(|id, _| self.prev_node_map.get(*id).is_some());
 
         self.framebuffer.flip(self.size);
         for child in self.prev_tree.iterate_roots() {
