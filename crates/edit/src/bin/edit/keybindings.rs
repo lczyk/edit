@@ -35,6 +35,7 @@ pub enum Action {
     FocusStatusbar,
     GoToLine,
     ToggleWordWrap,
+    ToggleColumnGuides,
     OpenAbout,
     FocusMenubar,
     MoveLineUp,
@@ -55,7 +56,7 @@ pub enum Action {
     JumpDocumentEnd,
 }
 
-const ACTION_COUNT: usize = 31;
+const ACTION_COUNT: usize = 32;
 
 const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
@@ -71,6 +72,7 @@ const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::FocusStatusbar, "focus_statusbar"),
     (Action::GoToLine, "go_to_line"),
     (Action::ToggleWordWrap, "toggle_word_wrap"),
+    (Action::ToggleColumnGuides, "toggle_column_guides"),
     (Action::OpenAbout, "open_about"),
     (Action::FocusMenubar, "focus_menubar"),
     (Action::MoveLineUp, "move_line_up"),

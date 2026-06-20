@@ -607,6 +607,11 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         save_document(ctx, state);
     } else if ctx.consume_shortcut(chord(Action::GoToLine)) {
         state.wants_goto = true;
+    } else if ctx.consume_shortcut(chord(Action::ToggleColumnGuides)) {
+        let mut tb = state.document.buffer.borrow_mut();
+        let on = tb.is_column_guides_enabled();
+        tb.set_column_guides_enabled(!on);
+        ctx.needs_rerender();
     } else if search_enabled && ctx.consume_shortcut(chord(Action::Find)) {
         state.wants_search.kind = StateSearchKind::Search;
         state.wants_search.focus = true;

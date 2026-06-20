@@ -1308,6 +1308,7 @@ impl Tui {
                     word_wrap_column: tb.word_wrap_column(),
                     overtype: tb.is_overtype(),
                     line_highlight: tb.is_line_highlight_enabled() && layout.selection_empty,
+                    column_guides: tb.is_column_guides_enabled(),
                 },
             );
             tc.scroll_offset_x_max = layout.visual_pos_x_max;

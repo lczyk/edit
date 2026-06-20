@@ -387,6 +387,7 @@ fn create_buffer() -> apperr::Result<RcTextBuffer> {
         tb.set_margin_enabled(true);
         tb.set_line_highlight_enabled(true);
         tb.set_word_wrap(true);
+        tb.set_column_guides_enabled(true);
     }
     Ok(buffer)
 }

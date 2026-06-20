@@ -27,6 +27,7 @@ go_to_line       = "Cmd+L"
 jump_document_start = "Cmd+G"
 jump_document_end   = "Cmd+Shift+G"
 toggle_word_wrap = "Alt+Z"
+toggle_column_guides = "Alt+G"
 
 open_about       = ""
 focus_menubar    = "F10"

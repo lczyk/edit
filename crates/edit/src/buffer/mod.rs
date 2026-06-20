@@ -363,6 +363,7 @@ pub struct TextBuffer {
     tab_size: CoordType,
     indent_with_tabs: bool,
     line_highlight_enabled: bool,
+    column_guides_enabled: bool,
     language: Option<&'static Language>,
     ruler: CoordType,
     newlines_are_crlf: bool,
@@ -450,6 +451,7 @@ impl TextBuffer {
             tab_size: 4,
             indent_with_tabs: false,
             line_highlight_enabled: false,
+            column_guides_enabled: false,
             language: None,
             ruler: 0,
             newlines_are_crlf: false,
@@ -875,6 +877,14 @@ impl TextBuffer {
 
     pub fn ruler(&self) -> CoordType {
         self.ruler
+    }
+
+    pub fn is_column_guides_enabled(&self) -> bool {
+        self.column_guides_enabled
+    }
+
+    pub fn set_column_guides_enabled(&mut self, enabled: bool) {
+        self.column_guides_enabled = enabled;
     }
 
     pub fn language(&self) -> Option<&'static Language> {
@@ -4706,6 +4716,7 @@ mod tests {
                 word_wrap_column: tb.word_wrap_column(),
                 overtype: tb.is_overtype(),
                 line_highlight: tb.is_line_highlight_enabled() && layout.selection_empty,
+                column_guides: tb.is_column_guides_enabled(),
             },
         );
     }

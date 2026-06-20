@@ -103,6 +103,8 @@ pub struct TextareaOverlayOpts<'a> {
     /// Whether the cursor row should show the line-highlight band
     /// (caller pre-computes `line_highlight_enabled && no selection`).
     pub line_highlight: bool,
+    /// Whether to paint the fixed 80/120 column guides.
+    pub column_guides: bool,
 }
 
 /// Runs the post-paint overlay pass for one textarea: the five
@@ -132,6 +134,16 @@ pub fn textarea_overlays(fb: &mut Framebuffer, opts: TextareaOverlayOpts) {
         opts.origin.x,
         opts.ruler_column,
     );
+    if opts.column_guides {
+        column_guides(
+            fb,
+            opts.dest.left + opts.margin_width,
+            opts.dest.top,
+            opts.dest.right,
+            opts.dest.bottom,
+            opts.origin.x,
+        );
+    }
     if opts.focused {
         cursor_block(
             fb,
@@ -440,6 +452,36 @@ pub fn ruler(
     );
 }
 
+/// Fixed columns for [`column_guides`]. Hardcoded -- the common 80/120
+/// width markers. Toggle via `TextBuffer::set_column_guides_enabled`.
+const COLUMN_GUIDE_COLS: [CoordType; 2] = [80, 120];
+
+/// Paints faint 1-column vertical guides at [`COLUMN_GUIDE_COLS`].
+/// Gutter-grey (`0x7f7f7f`) at low alpha so they read as a thin hint,
+/// not a band. Each guide is clipped if scrolled off-screen-left or
+/// past the right edge.
+///
+/// `text_left` is the textarea's destination.left + margin_width.
+pub fn column_guides(
+    fb: &mut Framebuffer,
+    text_left: CoordType,
+    text_top: CoordType,
+    text_right: CoordType,
+    text_bottom: CoordType,
+    scroll_offset_x: CoordType,
+) {
+    for col in COLUMN_GUIDE_COLS {
+        let left = text_left + col - scroll_offset_x;
+        if left < text_left || left >= text_right {
+            continue;
+        }
+        fb.blend_bg(
+            Rect { left, top: text_top, right: left + 1, bottom: text_bottom },
+            crate::oklab::StraightRgba::from_le(0x307f7f7f),
+        );
+    }
+}
+
 /// Paints the focused-textarea cursor block (terminal cursor at the
 /// caret cell, optional line-highlight band across the cursor's
 /// row).
@@ -628,6 +670,14 @@ mod tests {
         // ruler_column = 200, viewport scroll = 0, text_right = 80
         // -> left would be 200, falls outside text_right -- no-op.
         ruler(&mut fb(), 0, 0, 80, 24, 0, 200);
+    }
+
+    #[test]
+    fn column_guides_clips_off_screen() {
+        // scroll 40: col 80 -> left 40 (painted), col 120 -> left 80 (>= right, skipped).
+        column_guides(&mut fb(), 0, 0, 80, 24, 40);
+        // scroll 200: both guides land left of text_left -- skipped, no panic.
+        column_guides(&mut fb(), 0, 0, 80, 24, 200);
     }
 
     #[test]

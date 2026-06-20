@@ -117,6 +117,7 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
 fn draw_menu_view(ctx: &mut Context, state: &mut State) {
     let mut tb = state.document.buffer.borrow_mut();
     let word_wrap = tb.is_word_wrap_enabled();
+    let column_guides = tb.is_column_guides_enabled();
 
     if ctx.menubar_menu_button("focus statusbar", 'S', keybindings::chord(Action::FocusStatusbar)) {
         state.wants_statusbar_focus = true;
@@ -131,6 +132,15 @@ fn draw_menu_view(ctx: &mut Context, state: &mut State) {
         word_wrap,
     ) {
         tb.set_word_wrap(!word_wrap);
+        ctx.needs_rerender();
+    }
+    if ctx.menubar_menu_checkbox(
+        "column guides",
+        'C',
+        keybindings::chord(Action::ToggleColumnGuides),
+        column_guides,
+    ) {
+        tb.set_column_guides_enabled(!column_guides);
         ctx.needs_rerender();
     }
 
