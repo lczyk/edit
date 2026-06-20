@@ -18,8 +18,12 @@ pub fn json() {
                     break;
                 }
             }
+        } else if /("[^"]*")\s*:/ {
+            // Object key: quoted string followed by a colon. Keys with an
+            // escaped quote fall through to json_string -- rare enough to skip.
+            yield $1 as variable;
         } else if /"/ {
-            double_quote_string();
+            json_string();
         } else if /true|false|null/ {
             if /\w+/ {
                 // Not a keyword after all.
@@ -37,5 +41,18 @@ pub fn json() {
         }
 
         yield other;
+    }
+}
+
+fn json_string() {
+    until /$/ {
+        yield string;
+        if /\\(?:u[0-9a-fA-F]{4}|.)/ {
+            yield constant.character.escape;
+        } else if /"/ {
+            yield string;
+            break;
+        }
+        await input;
     }
 }

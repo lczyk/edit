@@ -206,6 +206,7 @@ mod tests {
                 HighlightKind::Method => "method",
                 HighlightKind::String => "string",
                 HighlightKind::Variable => "variable",
+                HighlightKind::ConstantCharacterEscape => "constant.character.escape",
                 HighlightKind::ConstantLanguage => "constant.language",
                 HighlightKind::ConstantNumeric => "constant.numeric",
                 HighlightKind::KeywordControl => "keyword.control",

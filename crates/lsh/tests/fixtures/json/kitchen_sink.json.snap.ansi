@@ -1,27 +1,27 @@
 {
     [32m// Object with various value types[m
-    [91m"string"[m: [91m"Hello, world!"[m, [32m// string literal[m
-    [91m"numberInt"[m: [92m42[m, [32m// integer number[m
-    [91m"numberFloat"[m: [92m-3.14e+2[m, [32m// floating point with exponent[m
-    [91m"booleanTrue"[m: [94mtrue[m, [32m// boolean true[m
-    [91m"booleanFalse"[m: [94mfalse[m, [32m// boolean false[m
-    [91m"nullValue"[m: [94mnull[m, [32m// null literal[m
-    [91m"array"[m: [
+    [96m"string"[m: [91m"Hello, world!"[m, [32m// string literal[m
+    [96m"numberInt"[m: [92m42[m, [32m// integer number[m
+    [96m"numberFloat"[m: [92m-3.14e+2[m, [32m// floating point with exponent[m
+    [96m"booleanTrue"[m: [94mtrue[m, [32m// boolean true[m
+    [96m"booleanFalse"[m: [94mfalse[m, [32m// boolean false[m
+    [96m"nullValue"[m: [94mnull[m, [32m// null literal[m
+    [96m"array"[m: [
         [91m"item1"[m, [32m// string in array[m
         [92m2[m, [32m// number in array[m
         [94mfalse[m, [32m// boolean in array[m
         [94mnull[m, [32m// null in array[m
         {
-            [91m"nested"[m: [91m"object"[m
+            [96m"nested"[m: [91m"object"[m
         } [32m// object in array[m
     ],
-    [91m"emptyObject"[m: {}, [32m// empty object[m
-    [91m"emptyArray"[m: [], [32m// empty array[m
+    [96m"emptyObject"[m: {}, [32m// empty object[m
+    [96m"emptyArray"[m: [], [32m// empty array[m
     [32m/* Multi-line comment:[m
 [32m         This is a block comment[m
 [32m         inside JSONC.[m
 [32m    */[m
-    [91m"unicodeString"[m: [91m"Emoji: \uD83D\uDE03"[m, [32m// Unicode escape[m
-    [91m"escapedChars"[m: [91m"Line1\nLine2\tTabbed\\Backslash\"Quote"[m [32m// Escaped characters[m
+    [96m"unicodeString"[m: [91m"Emoji: [m[33m\uD83D[m[33m\uDE03[m[91m"[m, [32m// Unicode escape[m
+    [96m"escapedChars"[m: [91m"Line1[m[33m\n[m[91mLine2[m[33m\t[m[91mTabbed[m[33m\\[m[91mBackslash[m[33m\"[m[91mQuote"[m [32m// Escaped characters[m
 }
 

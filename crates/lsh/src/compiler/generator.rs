@@ -388,6 +388,7 @@ fn default_ansi16(identifier: &str) -> Option<&'static str> {
         "method" => "BrightYellow",
         "string" => "BrightRed",
         "variable" => "BrightCyan",
+        "constant.character.escape" => "Yellow",
         "constant.language" => "BrightBlue",
         "constant.numeric" => "BrightGreen",
         "keyword.control" => "BrightMagenta",
