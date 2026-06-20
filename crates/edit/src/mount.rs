@@ -34,7 +34,7 @@ use stdext::arena::scratch_arena;
 use crate::framebuffer::{DEFAULT_THEME, INDEXED_COLORS_COUNT};
 use crate::oklab::StraightRgba;
 use crate::tui::{Context, Tui};
-use crate::{input, sys, term, vt};
+use crate::{base64, input, sys, term, vt};
 
 /// Knobs for [`mount`]. Defaults match the editor's own setup.
 pub struct MountOpts {
@@ -111,7 +111,24 @@ where
         }
 
         let scratch = scratch_arena(None);
-        let out = tui.render(&scratch);
+        let mut out = tui.render(&scratch);
+
+        // Flush any copy made this frame to the host via OSC 52. The
+        // editor does this in its own loop; mount-based views (eat) only
+        // get clipboard->host sync through here.
+        let clipboard = tui.clipboard_mut();
+        if clipboard.wants_host_sync() {
+            let data = clipboard.read();
+            if !data.is_empty() {
+                let arena = &*scratch;
+                out.reserve_exact(arena, base64::encode_len(data.len()) + 16);
+                out.push_str(arena, "\x1b]52;c;");
+                base64::encode(arena, &mut out, data);
+                out.push_str(arena, "\x1b\\");
+            }
+            clipboard.mark_as_synchronized();
+        }
+
         sys::write_stdout(&out);
     }
 

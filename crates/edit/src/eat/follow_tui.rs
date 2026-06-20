@@ -77,10 +77,25 @@ pub fn run_snapshot(
         if let Some(k) = ctx.keyboard_input() {
             let bare = k.key();
             let shifted = k.modifiers_contains(kbmod::SHIFT);
+            // Primary chord modifier: Cmd on macOS, Ctrl elsewhere.
+            let primary = if cfg!(any(target_os = "macos", target_os = "ios")) {
+                kbmod::CMD
+            } else {
+                kbmod::CTRL
+            };
             let body_h = (ctx.size().height - 1).max(1) as CoordType;
             if bare == vk::Q || bare == vk::ESCAPE {
                 ctx.set_input_consumed();
                 return ControlFlow::Break(());
+            } else if bare == vk::C && k.modifiers_contains(primary) {
+                // copy selection -> clipboard. The textarea is mounted
+                // unfocused so its own copy chord never fires; do it here.
+                // mount flushes the clipboard to the host via OSC 52.
+                buf.borrow_mut().copy(ctx.clipboard_mut());
+                ctx.set_input_consumed();
+            } else if bare == vk::A && k.modifiers_contains(primary) {
+                buf.borrow_mut().select_all();
+                ctx.set_input_consumed();
             } else if bare == vk::R {
                 ctx.set_input_consumed();
                 if let Ok(mut f) = std::fs::File::open(&path) {
@@ -300,6 +315,12 @@ pub fn run_follow_mount(
             // handled separately so it can map to End-equivalent.
             let bare = k.key();
             let shifted = k.modifiers_contains(kbmod::SHIFT);
+            // Primary chord modifier: Cmd on macOS, Ctrl elsewhere.
+            let primary = if cfg!(any(target_os = "macos", target_os = "ios")) {
+                kbmod::CMD
+            } else {
+                kbmod::CTRL
+            };
 
             // q / esc exit. textarea is unfocused so it won't handle
             // anything itself; translate the rest into scroll-delta
@@ -309,6 +330,15 @@ pub fn run_follow_mount(
             if bare == vk::Q || bare == vk::ESCAPE {
                 ctx.set_input_consumed();
                 return ControlFlow::Break(());
+            } else if bare == vk::C && k.modifiers_contains(primary) {
+                // copy selection -> clipboard. The textarea is mounted
+                // unfocused so its own copy chord never fires; do it here.
+                // mount flushes the clipboard to the host via OSC 52.
+                buf.borrow_mut().copy(ctx.clipboard_mut());
+                ctx.set_input_consumed();
+            } else if bare == vk::A && k.modifiers_contains(primary) {
+                buf.borrow_mut().select_all();
+                ctx.set_input_consumed();
             } else if bare == vk::UP || (bare == vk::K && !shifted) {
                 buf.borrow_mut().request_scroll_delta_y(-1);
                 apply_scroll(-1);
