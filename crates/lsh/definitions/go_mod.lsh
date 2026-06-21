@@ -14,8 +14,15 @@ pub fn go_mod() {
             yield keyword.other;
         } else if /"[^"]*"/ {
             yield string;
-        } else if /v\d[\w.+-]*\>/ {
+        } else if /go\d[\w.+-]*\>/ {
+            // toolchain arg, e.g. `go1.22.3`
             yield constant.numeric;
+        } else if /v?\d[\w.+-]*\>/ {
+            // module version `vX.Y.Z`, or the bare `go` directive version `X.Y`
+            yield constant.numeric;
+        } else if /[\[\],]/ {
+            // Bracket/comma of a retract range -- consume alone so the version
+            // that follows is seen at a field boundary, not glued to a `[`.
         } else if /\S+/ {
             // Gobble the whole non-space token (e.g. a module path) so an
             // embedded `.v3` isn't mistaken for a version field.

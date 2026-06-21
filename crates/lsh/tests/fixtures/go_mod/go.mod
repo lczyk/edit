@@ -17,3 +17,8 @@ replace github.com/old/pkg => github.com/new/pkg v1.2.3
 exclude github.com/bad/pkg v0.1.0
 
 retract v1.0.1 // published by mistake
+
+retract (
+	v1.0.2
+	[v1.1.0, v1.2.0] // bad range
+)

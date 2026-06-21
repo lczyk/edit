@@ -1,9 +1,11 @@
 {"line":1,"kind":"keyword.other","text":"module"}
 {"line":1,"kind":"other","text":" github.com/example/project"}
 {"line":3,"kind":"keyword.other","text":"go"}
-{"line":3,"kind":"other","text":" 1.22"}
+{"line":3,"kind":"other","text":" "}
+{"line":3,"kind":"constant.numeric","text":"1.22"}
 {"line":5,"kind":"keyword.other","text":"toolchain"}
-{"line":5,"kind":"other","text":" go1.22.3"}
+{"line":5,"kind":"other","text":" "}
+{"line":5,"kind":"constant.numeric","text":"go1.22.3"}
 {"line":7,"kind":"keyword.other","text":"require"}
 {"line":7,"kind":"other","text":" ("}
 {"line":8,"kind":"other","text":"\tgithub.com/spf13/cobra "}
@@ -31,3 +33,14 @@
 {"line":19,"kind":"constant.numeric","text":"v1.0.1"}
 {"line":19,"kind":"other","text":" "}
 {"line":19,"kind":"comment","text":"// published by mistake"}
+{"line":21,"kind":"keyword.other","text":"retract"}
+{"line":21,"kind":"other","text":" ("}
+{"line":22,"kind":"other","text":"\t"}
+{"line":22,"kind":"constant.numeric","text":"v1.0.2"}
+{"line":23,"kind":"other","text":"\t["}
+{"line":23,"kind":"constant.numeric","text":"v1.1.0"}
+{"line":23,"kind":"other","text":", "}
+{"line":23,"kind":"constant.numeric","text":"v1.2.0"}
+{"line":23,"kind":"other","text":"] "}
+{"line":23,"kind":"comment","text":"// bad range"}
+{"line":24,"kind":"other","text":")"}
