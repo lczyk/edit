@@ -1,0 +1,16 @@
+{"line":1,"kind":"other","text":"github.com/spf13/cobra "}
+{"line":1,"kind":"constant.numeric","text":"v1.8.0"}
+{"line":1,"kind":"other","text":" "}
+{"line":1,"kind":"string","text":"h1:e94q4jv7ABS2k+Wq5kzVF40sUuw1bnLqxiEFEH6+0YA="}
+{"line":2,"kind":"other","text":"github.com/spf13/cobra "}
+{"line":2,"kind":"constant.numeric","text":"v1.8.0/go.mod"}
+{"line":2,"kind":"other","text":" "}
+{"line":2,"kind":"string","text":"h1:WXLWApfZ71AjXPya3WOlMsY9yMs7YeiHhFVlvLyhcho="}
+{"line":3,"kind":"other","text":"golang.org/x/sync "}
+{"line":3,"kind":"constant.numeric","text":"v0.7.0"}
+{"line":3,"kind":"other","text":" "}
+{"line":3,"kind":"string","text":"h1:YsImfSBoP9QPYL0xyKJPq0gcaJdG3rInoqxTWbfQu9M="}
+{"line":4,"kind":"other","text":"golang.org/x/sync "}
+{"line":4,"kind":"constant.numeric","text":"v0.7.0/go.mod"}
+{"line":4,"kind":"other","text":" "}
+{"line":4,"kind":"string","text":"h1:Czt+wKu1gCyEFDUtKMraIuC+s7NfH50PmJ87cg0="}

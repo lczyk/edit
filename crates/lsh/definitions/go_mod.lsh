@@ -1,0 +1,26 @@
+#[display_name = "Go Module"]
+#[line_comment = "//"]
+#[path = "**/go.mod"]
+#[path = "**/go.work"]
+pub fn go_mod() {
+    until /$/ {
+        yield other;
+
+        if /\/\/.*/ {
+            yield comment;
+        } else if /(?:module|go|toolchain|godebug|require|replace|exclude|retract|tool|use)\>/ {
+            yield keyword.other;
+        } else if /=>/ {
+            yield keyword.other;
+        } else if /"[^"]*"/ {
+            yield string;
+        } else if /v\d[\w.+-]*\>/ {
+            yield constant.numeric;
+        } else if /\S+/ {
+            // Gobble the whole non-space token (e.g. a module path) so an
+            // embedded `.v3` isn't mistaken for a version field.
+        }
+
+        yield other;
+    }
+}

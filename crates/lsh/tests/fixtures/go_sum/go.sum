@@ -1,0 +1,4 @@
+github.com/spf13/cobra v1.8.0 h1:e94q4jv7ABS2k+Wq5kzVF40sUuw1bnLqxiEFEH6+0YA=
+github.com/spf13/cobra v1.8.0/go.mod h1:WXLWApfZ71AjXPya3WOlMsY9yMs7YeiHhFVlvLyhcho=
+golang.org/x/sync v0.7.0 h1:YsImfSBoP9QPYL0xyKJPq0gcaJdG3rInoqxTWbfQu9M=
+golang.org/x/sync v0.7.0/go.mod h1:Czt+wKu1gCyEFDUtKMraIuC+s7NfH50PmJ87cg0=

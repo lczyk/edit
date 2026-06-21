@@ -1,0 +1,33 @@
+{"line":1,"kind":"keyword.other","text":"module"}
+{"line":1,"kind":"other","text":" github.com/example/project"}
+{"line":3,"kind":"keyword.other","text":"go"}
+{"line":3,"kind":"other","text":" 1.22"}
+{"line":5,"kind":"keyword.other","text":"toolchain"}
+{"line":5,"kind":"other","text":" go1.22.3"}
+{"line":7,"kind":"keyword.other","text":"require"}
+{"line":7,"kind":"other","text":" ("}
+{"line":8,"kind":"other","text":"\tgithub.com/spf13/cobra "}
+{"line":8,"kind":"constant.numeric","text":"v1.8.0"}
+{"line":9,"kind":"other","text":"\tgolang.org/x/sync "}
+{"line":9,"kind":"constant.numeric","text":"v0.7.0"}
+{"line":9,"kind":"other","text":" "}
+{"line":9,"kind":"comment","text":"// indirect"}
+{"line":10,"kind":"other","text":"\tgopkg.in/yaml.v3 "}
+{"line":10,"kind":"constant.numeric","text":"v3.0.1"}
+{"line":11,"kind":"other","text":")"}
+{"line":13,"kind":"keyword.other","text":"require"}
+{"line":13,"kind":"other","text":" github.com/stretchr/testify "}
+{"line":13,"kind":"constant.numeric","text":"v1.9.0"}
+{"line":15,"kind":"keyword.other","text":"replace"}
+{"line":15,"kind":"other","text":" github.com/old/pkg "}
+{"line":15,"kind":"keyword.other","text":"=>"}
+{"line":15,"kind":"other","text":" github.com/new/pkg "}
+{"line":15,"kind":"constant.numeric","text":"v1.2.3"}
+{"line":17,"kind":"keyword.other","text":"exclude"}
+{"line":17,"kind":"other","text":" github.com/bad/pkg "}
+{"line":17,"kind":"constant.numeric","text":"v0.1.0"}
+{"line":19,"kind":"keyword.other","text":"retract"}
+{"line":19,"kind":"other","text":" "}
+{"line":19,"kind":"constant.numeric","text":"v1.0.1"}
+{"line":19,"kind":"other","text":" "}
+{"line":19,"kind":"comment","text":"// published by mistake"}

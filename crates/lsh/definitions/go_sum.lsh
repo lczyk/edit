@@ -1,0 +1,18 @@
+#[display_name = "Go Checksum"]
+#[path = "**/go.sum"]
+pub fn go_sum() {
+    until /$/ {
+        yield other;
+
+        // Each line is: <module-path> <version>[/go.mod] <h1:base64hash=>
+        if /v\d[\w.+-]*(?:\/go\.mod)?\>/ {
+            yield constant.numeric;
+        } else if /h\d:[\w+\/]*=*/ {
+            yield string;
+        } else if /\S+/ {
+            // Module path -- left unhighlighted, gobble to next boundary.
+        }
+
+        yield other;
+    }
+}
