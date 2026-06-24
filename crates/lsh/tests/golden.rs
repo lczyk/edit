@@ -36,6 +36,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Go => "go",
         Language::GoMod => "go_mod",
         Language::GoSum => "go_sum",
+        Language::Glsl => "glsl",
         Language::Hcl => "hcl",
         Language::Ignore => "ignore",
         Language::Javascript => "javascript",

@@ -1,0 +1,68 @@
+#[display_name = "GLSL"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
+#[path = "**/*.glsl"]
+#[path = "**/*.vert"]
+#[path = "**/*.frag"]
+#[path = "**/*.geom"]
+#[path = "**/*.comp"]
+#[path = "**/*.tesc"]
+#[path = "**/*.tese"]
+#[path = "**/*.mesh"]
+#[path = "**/*.task"]
+#[path = "**/*.rgen"]
+#[path = "**/*.rint"]
+#[path = "**/*.rahit"]
+#[path = "**/*.rchit"]
+#[path = "**/*.rmiss"]
+#[path = "**/*.rcall"]
+#[path = "**/*.vs.glsl"]
+#[path = "**/*.fs.glsl"]
+pub fn glsl() {
+    until /$/ {
+        yield other;
+
+        if /\/\/.*/ {
+            yield comment;
+        } else if /\/\*/ {
+            loop {
+                yield comment;
+                if /\*\// { yield comment; break; }
+                await input;
+            }
+        } else if /"/ {
+            yield string;
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /#\s*(?:version|include|extension|define|undef|ifdef|ifndef|if|elif|else|endif|pragma|error|line)\>/ {
+            yield keyword.other;
+        } else if /(?:break|case|continue|default|discard|do|else|for|if|return|switch|while)\>/ {
+            yield keyword.control;
+        } else if /(?:attribute|buffer|centroid|coherent|const|flat|highp|in|inout|invariant|layout|lowp|mediump|noperspective|out|patch|precise|precision|readonly|restrict|sample|shared|smooth|struct|subroutine|uniform|varying|volatile|writeonly)\>/ {
+            yield keyword.other;
+        } else if /(?:void|bool|int|uint|float|double|atomic_uint|[biud]?vec[234]|d?mat[234](?:x[234])?|(?:i|u)?sampler(?:1D|2D|3D|Cube|2DRect|1DArray|2DArray|CubeArray|Buffer|2DMS|2DMSArray)?(?:Shadow)?|sampler(?:1DArrayShadow|CubeArrayShadow)|(?:i|u)?image(?:1D|2D|3D|Cube|2DRect|1DArray|2DArray|CubeArray|Buffer|2DMS|2DMSArray)?)\>/ {
+            yield storage.type;
+        } else if /(?:true|false)\>/ {
+            yield constant.language;
+        } else if /gl_\w+/ {
+            yield variable;
+        } else if /-?(?i:(?:0x[\da-f][\da-f_]*|\d[\d_]*\.?[\d_]*|\.\d[\d_]*)(?:e[+-]?\d[\d_]*)?(?:lf|u|f)?)\>?/ {
+            if /\w+/ {
+                // Invalid numeric literal
+            } else {
+                yield constant.numeric;
+            }
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+            // Gobble word chars to align the next iteration on a word boundary.
+        }
+
+        yield other;
+    }
+}

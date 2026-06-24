@@ -1,0 +1,56 @@
+{"line":1,"kind":"keyword.other","text":"#version"}
+{"line":1,"kind":"other","text":" "}
+{"line":1,"kind":"constant.numeric","text":"330"}
+{"line":1,"kind":"other","text":" core"}
+{"line":2,"kind":"keyword.other","text":"out"}
+{"line":2,"kind":"other","text":" "}
+{"line":2,"kind":"storage.type","text":"vec4"}
+{"line":2,"kind":"other","text":" color;"}
+{"line":3,"kind":"keyword.other","text":"uniform"}
+{"line":3,"kind":"other","text":" "}
+{"line":3,"kind":"storage.type","text":"float"}
+{"line":3,"kind":"other","text":" density_alpha;"}
+{"line":5,"kind":"storage.type","text":"void"}
+{"line":5,"kind":"other","text":" "}
+{"line":5,"kind":"method","text":"main"}
+{"line":5,"kind":"other","text":"() {"}
+{"line":6,"kind":"other","text":"    "}
+{"line":6,"kind":"comment","text":"// Discard each point outside of the circle radius"}
+{"line":7,"kind":"other","text":"    "}
+{"line":7,"kind":"comment","text":"// https://stackoverflow.com/a/27099691/2531987"}
+{"line":8,"kind":"other","text":"    "}
+{"line":8,"kind":"storage.type","text":"vec2"}
+{"line":8,"kind":"other","text":" circCoord = "}
+{"line":8,"kind":"constant.numeric","text":"2.0"}
+{"line":8,"kind":"other","text":" * "}
+{"line":8,"kind":"variable","text":"gl_PointCoord"}
+{"line":8,"kind":"other","text":" - "}
+{"line":8,"kind":"constant.numeric","text":"1.0"}
+{"line":8,"kind":"other","text":";"}
+{"line":9,"kind":"other","text":"    "}
+{"line":9,"kind":"keyword.control","text":"if"}
+{"line":9,"kind":"other","text":" ("}
+{"line":9,"kind":"method","text":"dot"}
+{"line":9,"kind":"other","text":"(circCoord, circCoord) > "}
+{"line":9,"kind":"constant.numeric","text":"1.0"}
+{"line":9,"kind":"other","text":") { "}
+{"line":9,"kind":"keyword.control","text":"discard"}
+{"line":9,"kind":"other","text":"; }"}
+{"line":11,"kind":"other","text":"    "}
+{"line":11,"kind":"comment","text":"// Additive accumulation (blended with GL_ONE,GL_ONE): each point adds density_alpha"}
+{"line":12,"kind":"other","text":"    "}
+{"line":12,"kind":"comment","text":"// to .r, so density grows UNBOUNDED instead of saturating at 1.0. Consumers tone-map"}
+{"line":13,"kind":"other","text":"    "}
+{"line":13,"kind":"comment","text":"// it on read -- the physics with 1-exp(-d) (~= the old saturating field), the screen"}
+{"line":14,"kind":"other","text":"    "}
+{"line":14,"kind":"comment","text":"// with a log map that keeps the dense cores' internal gradient (no flat clipping)."}
+{"line":15,"kind":"other","text":"    color = "}
+{"line":15,"kind":"storage.type","text":"vec4"}
+{"line":15,"kind":"other","text":"(density_alpha, "}
+{"line":15,"kind":"constant.numeric","text":"0.0f"}
+{"line":15,"kind":"other","text":", "}
+{"line":15,"kind":"constant.numeric","text":"0.0f"}
+{"line":15,"kind":"other","text":", "}
+{"line":15,"kind":"constant.numeric","text":"1.0f"}
+{"line":15,"kind":"other","text":");"}
+{"line":16,"kind":"other","text":"}"}
