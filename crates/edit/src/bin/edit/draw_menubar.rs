@@ -79,6 +79,11 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
         tb.select_all();
         ctx.needs_rerender();
     }
+    let overtype = tb.is_overtype();
+    if ctx.menubar_menu_checkbox("overtype", 'O', edit::input::vk::INSERT, overtype) {
+        tb.set_overtype(!overtype);
+        ctx.needs_rerender();
+    }
     if ctx.menubar_menu_button(
         "toggle line comment",
         'M',
