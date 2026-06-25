@@ -708,6 +708,15 @@ impl TextBuffer {
         self.cursor.visual_pos
     }
 
+    /// Resolves a visual target to where a move would actually land, without
+    /// moving the cursor. Returns `(logical, visual)` -- the visual may differ
+    /// from the request (clamped to the row / line). Used by smart
+    /// line-start/end to reason about visual-row edges under word-wrap.
+    pub fn resolve_visual_pos(&self, pos: Point) -> (Point, Point) {
+        let c = self.cursor_move_to_visual_internal(self.cursor, pos);
+        (c.logical_pos, c.visual_pos)
+    }
+
     /// Byte offset of the cursor inside the buffer.
     pub fn cursor_offset(&self) -> usize {
         self.cursor.offset
@@ -2953,6 +2962,24 @@ impl TextBuffer {
             {
                 // Nothing to delete.
                 return;
+            }
+
+            // In overtype mode, backspace only deletes at line end, delete only
+            // at line start. Elsewhere they just move the cursor (left/right).
+            if self.overtype {
+                if delta < 0 {
+                    let line_end = self.cursor_move_to_logical_internal(
+                        self.cursor,
+                        Point { x: CoordType::MAX, y: self.cursor.logical_pos.y },
+                    );
+                    if self.cursor.offset != line_end.offset {
+                        self.cursor_move_delta(granularity, -1);
+                        return;
+                    }
+                } else if self.cursor.logical_pos.x != 0 {
+                    self.cursor_move_delta(granularity, 1);
+                    return;
+                }
             }
 
             beg = self.cursor;
