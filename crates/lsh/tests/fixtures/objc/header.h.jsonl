@@ -1,0 +1,29 @@
+{"line":1,"kind":"comment","text":"// objc header -- routed to objc (not C) by content detection"}
+{"line":2,"kind":"keyword.other","text":"#import"}
+{"line":2,"kind":"other","text":" <Foundation/Foundation.h>"}
+{"line":4,"kind":"keyword.other","text":"@protocol"}
+{"line":4,"kind":"other","text":" Greeter <NSObject>"}
+{"line":5,"kind":"other","text":"- (NSString *)greeting;"}
+{"line":6,"kind":"keyword.other","text":"@end"}
+{"line":8,"kind":"keyword.other","text":"@interface"}
+{"line":8,"kind":"other","text":" Person : NSObject <Greeter>"}
+{"line":9,"kind":"keyword.other","text":"@property"}
+{"line":9,"kind":"other","text":" ("}
+{"line":9,"kind":"keyword.other","text":"nonatomic"}
+{"line":9,"kind":"other","text":", "}
+{"line":9,"kind":"keyword.other","text":"copy"}
+{"line":9,"kind":"other","text":") NSString *name;"}
+{"line":10,"kind":"keyword.other","text":"@property"}
+{"line":10,"kind":"other","text":" ("}
+{"line":10,"kind":"keyword.other","text":"nonatomic"}
+{"line":10,"kind":"other","text":", "}
+{"line":10,"kind":"keyword.other","text":"assign"}
+{"line":10,"kind":"other","text":") "}
+{"line":10,"kind":"storage.type","text":"NSInteger"}
+{"line":10,"kind":"other","text":" age;"}
+{"line":11,"kind":"other","text":"- ("}
+{"line":11,"kind":"storage.type","text":"instancetype"}
+{"line":11,"kind":"other","text":")initWithName:(NSString *)name age:("}
+{"line":11,"kind":"storage.type","text":"NSInteger"}
+{"line":11,"kind":"other","text":")age;"}
+{"line":12,"kind":"keyword.other","text":"@end"}

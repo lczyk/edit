@@ -1,0 +1,95 @@
+{"line":1,"kind":"comment","text":"// kitchen sink for objective-c highlighting"}
+{"line":2,"kind":"keyword.other","text":"#import"}
+{"line":2,"kind":"other","text":" <Foundation/Foundation.h>"}
+{"line":3,"kind":"keyword.other","text":"#define"}
+{"line":3,"kind":"other","text":" MAX_COUNT "}
+{"line":3,"kind":"constant.numeric","text":"10"}
+{"line":5,"kind":"keyword.other","text":"@interface"}
+{"line":5,"kind":"other","text":" Counter : NSObject"}
+{"line":6,"kind":"keyword.other","text":"@property"}
+{"line":6,"kind":"other","text":" ("}
+{"line":6,"kind":"keyword.other","text":"nonatomic"}
+{"line":6,"kind":"other","text":", "}
+{"line":6,"kind":"keyword.other","text":"assign"}
+{"line":6,"kind":"other","text":") "}
+{"line":6,"kind":"storage.type","text":"NSInteger"}
+{"line":6,"kind":"other","text":" value;"}
+{"line":7,"kind":"other","text":"- ("}
+{"line":7,"kind":"storage.type","text":"instancetype"}
+{"line":7,"kind":"other","text":")initWithValue:("}
+{"line":7,"kind":"storage.type","text":"NSInteger"}
+{"line":7,"kind":"other","text":")v;"}
+{"line":8,"kind":"other","text":"- ("}
+{"line":8,"kind":"storage.type","text":"void"}
+{"line":8,"kind":"other","text":")increment;"}
+{"line":9,"kind":"keyword.other","text":"@end"}
+{"line":11,"kind":"keyword.other","text":"@implementation"}
+{"line":11,"kind":"other","text":" Counter"}
+{"line":13,"kind":"other","text":"- ("}
+{"line":13,"kind":"storage.type","text":"instancetype"}
+{"line":13,"kind":"other","text":")initWithValue:("}
+{"line":13,"kind":"storage.type","text":"NSInteger"}
+{"line":13,"kind":"other","text":")v {"}
+{"line":14,"kind":"other","text":"    "}
+{"line":14,"kind":"constant.language","text":"self"}
+{"line":14,"kind":"other","text":" = ["}
+{"line":14,"kind":"constant.language","text":"super"}
+{"line":14,"kind":"other","text":" init];"}
+{"line":15,"kind":"other","text":"    "}
+{"line":15,"kind":"keyword.control","text":"if"}
+{"line":15,"kind":"other","text":" ("}
+{"line":15,"kind":"constant.language","text":"self"}
+{"line":15,"kind":"other","text":") {"}
+{"line":16,"kind":"other","text":"        _value = v;"}
+{"line":17,"kind":"other","text":"    }"}
+{"line":18,"kind":"other","text":"    "}
+{"line":18,"kind":"keyword.control","text":"return"}
+{"line":18,"kind":"other","text":" "}
+{"line":18,"kind":"constant.language","text":"self"}
+{"line":18,"kind":"other","text":";"}
+{"line":19,"kind":"other","text":"}"}
+{"line":21,"kind":"other","text":"- ("}
+{"line":21,"kind":"storage.type","text":"void"}
+{"line":21,"kind":"other","text":")increment {"}
+{"line":22,"kind":"other","text":"    "}
+{"line":22,"kind":"keyword.control","text":"for"}
+{"line":22,"kind":"other","text":" ("}
+{"line":22,"kind":"storage.type","text":"NSInteger"}
+{"line":22,"kind":"other","text":" i = "}
+{"line":22,"kind":"constant.numeric","text":"0"}
+{"line":22,"kind":"other","text":"; i < MAX_COUNT; i++) {"}
+{"line":23,"kind":"other","text":"        "}
+{"line":23,"kind":"constant.language","text":"self"}
+{"line":23,"kind":"other","text":".value += "}
+{"line":23,"kind":"constant.numeric","text":"1"}
+{"line":23,"kind":"other","text":";"}
+{"line":24,"kind":"other","text":"    }"}
+{"line":25,"kind":"other","text":"    "}
+{"line":25,"kind":"storage.type","text":"BOOL"}
+{"line":25,"kind":"other","text":" done = "}
+{"line":25,"kind":"constant.language","text":"YES"}
+{"line":25,"kind":"other","text":";"}
+{"line":26,"kind":"other","text":"    "}
+{"line":26,"kind":"storage.type","text":"id"}
+{"line":26,"kind":"other","text":" obj = "}
+{"line":26,"kind":"constant.language","text":"nil"}
+{"line":26,"kind":"other","text":";"}
+{"line":27,"kind":"other","text":"    NSString *msg = "}
+{"line":27,"kind":"string","text":"@\"counted\""}
+{"line":27,"kind":"other","text":";"}
+{"line":28,"kind":"other","text":"    "}
+{"line":28,"kind":"storage.type","text":"double"}
+{"line":28,"kind":"other","text":" ratio = "}
+{"line":28,"kind":"constant.numeric","text":"3.14e-2"}
+{"line":28,"kind":"other","text":";"}
+{"line":29,"kind":"other","text":"    "}
+{"line":29,"kind":"method","text":"NSLog"}
+{"line":29,"kind":"other","text":"("}
+{"line":29,"kind":"string","text":"@\"value=%ld done=%d %@\""}
+{"line":29,"kind":"other","text":", ("}
+{"line":29,"kind":"storage.type","text":"long"}
+{"line":29,"kind":"other","text":")"}
+{"line":29,"kind":"constant.language","text":"self"}
+{"line":29,"kind":"other","text":".value, done, msg);"}
+{"line":30,"kind":"other","text":"}"}
+{"line":32,"kind":"keyword.other","text":"@end"}

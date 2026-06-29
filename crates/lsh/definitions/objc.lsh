@@ -1,0 +1,77 @@
+// Content sniffer paired with `objc` by name convention (`<entry>_detect`).
+// The resolver runs this over the head of the buffer when a path glob is
+// claimed by more than one definition -- here `.h`, shared with C. C carries
+// no detector, so it's the base fallback: any header without an objc marker
+// stays C.
+//
+// Heuristic: scan line starts (leading ws allowed) for an objc-only token --
+// an `@`-directive (`@interface`/`@protocol`/...) or `#import`. `#import` is
+// objc/objc++ idiom; plain C uses `#include`. First marker wins; running out
+// of head without one is no_match.
+fn objc_detect() {
+    loop {
+        if /\s*@(?:interface|protocol|implementation|property|class|optional|required|end)\>/ {
+            return match;
+        } else if /\s*#\s*import\>/ {
+            return match;
+        }
+        await input;
+    }
+}
+
+#[display_name = "Objective-C"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
+#[path = "**/*.m"]
+#[path = "**/*.mm"]
+#[path = "**/*.h"]
+pub fn objc() {
+    until /$/ {
+        yield other;
+
+        if /\/\/.*/ {
+            yield comment;
+        } else if /\/\*/ {
+            loop {
+                yield comment;
+                if /\*\// { yield comment; break; }
+                await input;
+            }
+        } else if /@?(?:L|u8|u|U)?"/ {
+            yield string;
+            until /$/ {
+                yield string;
+                if /\\./ {}
+                else if /"/ { yield string; break; }
+                await input;
+            }
+        } else if /(?:L|u|U)?'(?:\\(?:[xuU][\da-fA-F]+|[0-7]+|.)|[^'\\])'/ {
+            yield string;
+        } else if /#\s*(?:include|import|define|undef|ifdef|ifndef|elifdef|elifndef|if|elif|else|endif|pragma|error|warning|line|embed)\>/ {
+            yield keyword.other;
+        } else if /@(?:interface|implementation|protocol|end|property|synthesize|dynamic|selector|encode|class|public|private|protected|package|optional|required|synchronized|autoreleasepool|try|catch|finally|throw|defs|compatibility_alias|available|import)\>/ {
+            yield keyword.other;
+        } else if /(?:break|case|continue|default|do|else|for|goto|if|in|return|switch|while)\>/ {
+            yield keyword.control;
+        } else if /(?:_Alignas|_Alignof|_Atomic|_Generic|_Noreturn|_Static_assert|_Thread_local|alignas|alignof|auto|const|constexpr|defined|enum|extern|inline|register|restrict|signed|sizeof|static|static_assert|struct|thread_local|typedef|typeof|typeof_unqual|union|unsigned|volatile|__strong|__weak|__unsafe_unretained|__autoreleasing|__block|__bridge|in|out|inout|bycopy|byref|oneway|strong|weak|copy|assign|retain|nonatomic|atomic|readonly|readwrite|nullable|nonnull|getter|setter)\>/ {
+            yield keyword.other;
+        } else if /(?:_Bool|_Complex|_Imaginary|bool|char|double|float|int|long|nullptr_t|ptrdiff_t|short|size_t|ssize_t|u?int(?:8|16|32|64|_fast8|_fast16|_fast32|_fast64|_least8|_least16|_least32|_least64|max|ptr)_t|uintptr_t|void|wchar_t|id|Class|SEL|IMP|BOOL|instancetype|NSInteger|NSUInteger|CGFloat|IBOutlet|IBAction)\>/ {
+            yield storage.type;
+        } else if /(?:NULL|true|false|nullptr|nil|Nil|YES|NO|self|super|__func__|__FILE__|__LINE__|__VA_ARGS__|__VA_OPT__)\>/ {
+            yield constant.language;
+        } else if /-?(?i:(?:0x[\da-f][\da-f_]*(?:\.[\da-f_]*)?(?:p[+-]?\d+)?|0b[01][01_]*|0[0-7][0-7_]*|\d[\d_]*\.?[\d_]*|\.\d[\d_]*)(?:e[+-]?\d[\d_]*)?[ful]*)/ {
+            if /\w+/ {
+                // Invalid numeric literal
+            } else {
+                yield constant.numeric;
+            }
+        } else if /(\w+)\s*\(/ {
+            yield $1 as method;
+        } else if /\w+/ {
+            // Gobble word chars to align the next iteration on a word boundary.
+        }
+
+        yield other;
+    }
+}

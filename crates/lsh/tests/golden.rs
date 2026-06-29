@@ -47,6 +47,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Makefile => "makefile",
         Language::Man => "man",
         Language::Markdown => "markdown",
+        Language::Objc => "objc",
         Language::Powershell => "powershell",
         Language::Properties => "properties",
         Language::Python => "python",
