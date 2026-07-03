@@ -3282,7 +3282,11 @@ impl TextBuffer {
                 continue;
             };
             any_non_blank = true;
-            if !self.range_starts_with(info.content_start, info.content_end, open_bytes)
+            // NOTE: length guard keeps the open/close matches from
+            // overlapping (e.g. "<!-->"), which would make the strip path
+            // delete past the end of the line.
+            if info.content_end - info.content_start < open_bytes.len() + close_bytes.len()
+                || !self.range_starts_with(info.content_start, info.content_end, open_bytes)
                 || !self.range_ends_with(info.content_start, info.content_end, close_bytes)
             {
                 all_wrapped = false;
@@ -3322,20 +3326,36 @@ impl TextBuffer {
                 beg_delta = -open_strip;
                 end_delta = -(open_strip + close_strip);
             } else {
-                // Append " close" at end of content.
-                self.cursor_move_to_logical(Point { x: info.content_end_chars, y });
-                let mut tail = Vec::with_capacity(close_bytes.len() + 1);
-                tail.push(b' ');
-                tail.extend_from_slice(close_bytes);
-                self.write_canon(&tail);
-                // Insert "open " at indent end.
-                self.cursor_move_to_logical(Point { x: info.indent_chars, y });
-                let mut head = Vec::with_capacity(open_bytes.len() + 1);
-                head.extend_from_slice(open_bytes);
-                head.push(b' ');
-                self.write_canon(&head);
-                beg_delta = open_chars + 1;
-                end_delta = open_chars + 1 + close_chars + 1;
+                // Skip tokens this line already has (e.g. a line straddling
+                // a pre-existing multi-line comment) so toggling never
+                // doubles them up.
+                let has_open =
+                    self.range_starts_with(info.content_start, info.content_end, open_bytes);
+                let has_close =
+                    self.range_ends_with(info.content_start, info.content_end, close_bytes);
+
+                let mut end_delta_local = 0;
+                if !has_close {
+                    // Append " close" at end of content.
+                    self.cursor_move_to_logical(Point { x: info.content_end_chars, y });
+                    let mut tail = Vec::with_capacity(close_bytes.len() + 1);
+                    tail.push(b' ');
+                    tail.extend_from_slice(close_bytes);
+                    self.write_canon(&tail);
+                    end_delta_local += close_chars + 1;
+                }
+                let mut beg_delta_local = 0;
+                if !has_open {
+                    // Insert "open " at indent end.
+                    self.cursor_move_to_logical(Point { x: info.indent_chars, y });
+                    let mut head = Vec::with_capacity(open_bytes.len() + 1);
+                    head.extend_from_slice(open_bytes);
+                    head.push(b' ');
+                    self.write_canon(&head);
+                    beg_delta_local = open_chars + 1;
+                }
+                beg_delta = beg_delta_local;
+                end_delta = beg_delta_local + end_delta_local;
             }
 
             if y == sel_beg.y {
@@ -3405,8 +3425,13 @@ impl TextBuffer {
 
         // Toggle: if the selected range is exactly `open ... close` (allowing
         // one optional space on each inner side), strip it. Otherwise wrap.
-        let wrapped = self.range_starts_with(beg_off, end_off, open_bytes)
-            && self.range_ends_with(beg_off, end_off, close_bytes);
+        // NOTE: length guard keeps the open/close matches from overlapping
+        // (e.g. "<!-->"), which would make the strip path delete past the
+        // end of the range.
+        let has_open = self.range_starts_with(beg_off, end_off, open_bytes);
+        let has_close = self.range_ends_with(beg_off, end_off, close_bytes);
+        let wrapped =
+            end_off - beg_off >= open_bytes.len() + close_bytes.len() && has_open && has_close;
 
         self.set_selection(None);
         self.edit_begin_grouping();
@@ -3435,21 +3460,27 @@ impl TextBuffer {
                 (end_pos.x - close_strip).max(0)
             };
         } else {
-            // Append close + space at end.
-            self.cursor_move_to_logical(end_pos);
-            let mut tail = Vec::with_capacity(close_bytes.len() + 1);
-            tail.push(b' ');
-            tail.extend_from_slice(close_bytes);
-            self.write_canon(&tail);
-            // Insert open + space at start.
-            self.cursor_move_to_logical(beg_pos);
-            let mut head = Vec::with_capacity(open_bytes.len() + 1);
-            head.extend_from_slice(open_bytes);
-            head.push(b' ');
-            self.write_canon(&head);
-            // Shift end if it sits on the same line as beg.
-            if beg_pos.y == end_pos.y {
-                end_pos.x += open_chars + 1;
+            // Skip tokens the range already has on one side so toggling
+            // never doubles them up.
+            if !has_close {
+                // Append close + space at end.
+                self.cursor_move_to_logical(end_pos);
+                let mut tail = Vec::with_capacity(close_bytes.len() + 1);
+                tail.push(b' ');
+                tail.extend_from_slice(close_bytes);
+                self.write_canon(&tail);
+            }
+            if !has_open {
+                // Insert open + space at start.
+                self.cursor_move_to_logical(beg_pos);
+                let mut head = Vec::with_capacity(open_bytes.len() + 1);
+                head.extend_from_slice(open_bytes);
+                head.push(b' ');
+                self.write_canon(&head);
+                // Shift end if it sits on the same line as beg.
+                if beg_pos.y == end_pos.y {
+                    end_pos.x += open_chars + 1;
+                }
             }
         }
         self.edit_end_grouping();
@@ -4645,6 +4676,43 @@ mod tests {
         select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 2 });
         tb.toggle_per_line_block_comment("<!--", "-->");
         assert_eq!(dump(&tb), "<!-- a -->\n\n<!-- b -->\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_no_double_open_when_line_missing_close() {
+        let mut tb = buf_with("<!-- only bits you think are relevant\n");
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-- only bits you think are relevant -->\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_no_double_close_when_line_missing_open() {
+        let mut tb = buf_with("only bits you think are relevant -->\n");
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-- only bits you think are relevant -->\n");
+    }
+
+    #[test]
+    fn toggle_per_line_block_comment_overlapping_tokens_no_data_loss() {
+        // COVER: "<!-->" matches both open and close via overlapping bytes;
+        // the strip path used to delete past the line end into the next line.
+        let mut tb = buf_with("<!-->\nnext line\n");
+        tb.toggle_per_line_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-->\nnext line\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_overlapping_tokens_no_data_loss() {
+        let mut tb = buf_with("<!-->\nnext line\n");
+        tb.toggle_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-->\nnext line\n");
+    }
+
+    #[test]
+    fn toggle_block_comment_no_double_open_when_line_missing_close() {
+        let mut tb = buf_with("<!-- only bits you think are relevant\n");
+        tb.toggle_block_comment("<!--", "-->");
+        assert_eq!(dump(&tb), "<!-- only bits you think are relevant -->\n");
     }
 
     #[test]
