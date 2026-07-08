@@ -1,0 +1,94 @@
+{"line":1,"kind":"other","text":"{"}
+{"line":1,"kind":"variable","text":"\"version\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"constant.numeric","text":"3"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"variable","text":"\"term\""}
+{"line":1,"kind":"other","text":":{"}
+{"line":1,"kind":"variable","text":"\"cols\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"constant.numeric","text":"98"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"variable","text":"\"rows\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"constant.numeric","text":"24"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"variable","text":"\"type\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"string","text":"\"alacritty\""}
+{"line":1,"kind":"other","text":"},"}
+{"line":1,"kind":"variable","text":"\"timestamp\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"constant.numeric","text":"1783502349"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"variable","text":"\"idle_time_limit\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"constant.numeric","text":"2.0"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"variable","text":"\"env\""}
+{"line":1,"kind":"other","text":":{"}
+{"line":1,"kind":"variable","text":"\"SHELL\""}
+{"line":1,"kind":"other","text":":"}
+{"line":1,"kind":"string","text":"\"/bin/fish\""}
+{"line":1,"kind":"other","text":"}}"}
+{"line":2,"kind":"other","text":"["}
+{"line":2,"kind":"constant.numeric","text":"0.018"}
+{"line":2,"kind":"other","text":", \""}
+{"line":2,"kind":"keyword","text":"o"}
+{"line":2,"kind":"other","text":"\", \""}
+{"line":2,"kind":"constant.character.escape","text":"\\u001b"}
+{"line":2,"kind":"string","text":"[1;32muser@host"}
+{"line":2,"kind":"constant.character.escape","text":"\\u001b"}
+{"line":2,"kind":"string","text":"[0m:~$ \""}
+{"line":2,"kind":"other","text":"]"}
+{"line":3,"kind":"other","text":"["}
+{"line":3,"kind":"constant.numeric","text":"0.950"}
+{"line":3,"kind":"other","text":", \""}
+{"line":3,"kind":"keyword","text":"i"}
+{"line":3,"kind":"other","text":"\", \""}
+{"line":3,"kind":"string","text":"e\""}
+{"line":3,"kind":"other","text":"]"}
+{"line":4,"kind":"other","text":"["}
+{"line":4,"kind":"constant.numeric","text":"1.5e-3"}
+{"line":4,"kind":"other","text":", \""}
+{"line":4,"kind":"keyword","text":"o"}
+{"line":4,"kind":"other","text":"\", \""}
+{"line":4,"kind":"string","text":"echo "}
+{"line":4,"kind":"constant.character.escape","text":"\\\""}
+{"line":4,"kind":"string","text":"hi"}
+{"line":4,"kind":"constant.character.escape","text":"\\\""}
+{"line":4,"kind":"constant.character.escape","text":"\\r"}
+{"line":4,"kind":"constant.character.escape","text":"\\n"}
+{"line":4,"kind":"string","text":"\""}
+{"line":4,"kind":"other","text":"]"}
+{"line":5,"kind":"other","text":"["}
+{"line":5,"kind":"constant.numeric","text":"2.0"}
+{"line":5,"kind":"other","text":", \""}
+{"line":5,"kind":"keyword","text":"r"}
+{"line":5,"kind":"other","text":"\", \""}
+{"line":5,"kind":"string","text":"80x24\""}
+{"line":5,"kind":"other","text":"]"}
+{"line":6,"kind":"other","text":"["}
+{"line":6,"kind":"constant.numeric","text":"2.5"}
+{"line":6,"kind":"other","text":", \""}
+{"line":6,"kind":"keyword","text":"m"}
+{"line":6,"kind":"other","text":"\", \""}
+{"line":6,"kind":"string","text":"chapter one\""}
+{"line":6,"kind":"other","text":"]"}
+{"line":7,"kind":"other","text":"["}
+{"line":7,"kind":"constant.numeric","text":"3.0"}
+{"line":7,"kind":"other","text":", \""}
+{"line":7,"kind":"keyword","text":"x"}
+{"line":7,"kind":"other","text":"\", \""}
+{"line":7,"kind":"string","text":"0\""}
+{"line":7,"kind":"other","text":"]"}
+{"line":8,"kind":"other","text":"["}
+{"line":8,"kind":"constant.numeric","text":"-1.0"}
+{"line":8,"kind":"other","text":", \""}
+{"line":8,"kind":"string","text":"z\""}
+{"line":8,"kind":"other","text":", \"unknown code falls back to json\"]"}
+{"line":9,"kind":"other","text":"{"}
+{"line":9,"kind":"variable","text":"\"not\""}
+{"line":9,"kind":"other","text":":"}
+{"line":9,"kind":"string","text":"\"an event\""}
+{"line":9,"kind":"other","text":"}"}

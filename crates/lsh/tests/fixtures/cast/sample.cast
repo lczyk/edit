@@ -1,0 +1,9 @@
+{"version":3,"term":{"cols":98,"rows":24,"type":"alacritty"},"timestamp":1783502349,"idle_time_limit":2.0,"env":{"SHELL":"/bin/fish"}}
+[0.018, "o", "\u001b[1;32muser@host\u001b[0m:~$ "]
+[0.950, "i", "e"]
+[1.5e-3, "o", "echo \"hi\"\r\n"]
+[2.0, "r", "80x24"]
+[2.5, "m", "chapter one"]
+[3.0, "x", "0"]
+[-1.0, "z", "unknown code falls back to json"]
+{"not":"an event"}

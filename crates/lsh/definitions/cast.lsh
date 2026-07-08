@@ -1,0 +1,34 @@
+// asciinema recording: a JSON header object on the first line, then one JSON
+// array per event -- `[time, code, data]`. Plain json() would paint the event
+// code as just another string; the code is the one field worth picking out.
+#[display_name = "asciinema cast"]
+#[path = "**/*.cast"]
+pub fn cast() {
+    json();
+    if /.*/ {}
+    loop {
+        await input;
+        cast_event();
+        if /.*/ {}
+    }
+}
+
+fn cast_event() {
+    yield other;
+    if /\[\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/ {
+        yield $1 as constant.numeric;
+        yield other;
+        if /\s*,\s*"([oirmx])"/ {
+            yield $1 as keyword;
+            yield other;
+        }
+        if /\s*,\s*"/ {
+            yield other;
+            json_string();
+            yield other;
+        }
+    } else {
+        // Header line, v1-style object, or anything malformed.
+        json();
+    }
+}

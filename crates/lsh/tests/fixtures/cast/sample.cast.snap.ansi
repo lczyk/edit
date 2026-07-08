@@ -1,0 +1,10 @@
+{[96m"version"[m:[92m3[m,[96m"term"[m:{[96m"cols"[m:[92m98[m,[96m"rows"[m:[92m24[m,[96m"type"[m:[91m"alacritty"[m},[96m"timestamp"[m:[92m1783502349[m,[96m"idle_time_limit"[m:[92m2.0[m,[96m"env"[m:{[96m"SHELL"[m:[91m"/bin/fish"[m}}
+[[92m0.018[m, "o", "[33m\u001b[m[91m[1;32muser@host[m[33m\u001b[m[91m[0m:~$ "[m]
+[[92m0.950[m, "i", "[91me"[m]
+[[92m1.5e-3[m, "o", "[91mecho [m[33m\"[m[91mhi[m[33m\"[m[33m\r[m[33m\n[m[91m"[m]
+[[92m2.0[m, "r", "[91m80x24"[m]
+[[92m2.5[m, "m", "[91mchapter one"[m]
+[[92m3.0[m, "x", "[91m0"[m]
+[[92m-1.0[m, "[91mz"[m, "unknown code falls back to json"]
+{[96m"not"[m:[91m"an event"[m}
+
