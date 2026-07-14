@@ -203,6 +203,7 @@ mod tests {
             match k {
                 HighlightKind::Other => "other",
                 HighlightKind::Comment => "comment",
+                HighlightKind::Keyword => "keyword",
                 HighlightKind::Method => "method",
                 HighlightKind::String => "string",
                 HighlightKind::Variable => "variable",
