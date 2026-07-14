@@ -17,13 +17,9 @@ use crate::HighlightKind;
 /// Pure-attribute kinds (bold / italic / link / strikethrough) carry no
 /// foreground colour and get a style-only escape layered on at the end.
 pub fn ansi16_color_map() -> Vec<&'static str> {
-    let max_kind = (HighlightKind::MarkupStrikethrough as u32)
-        .max(HighlightKind::MetaHeader as u32)
-        .max(HighlightKind::StorageType as u32)
-        .max(HighlightKind::SupportFunction as u32);
-    let mut map = vec![""; max_kind as usize + 1];
+    let mut map = vec![""; HighlightKind::COUNT];
 
-    for i in 0..=max_kind {
+    for i in 0..HighlightKind::COUNT as u32 {
         if let Ok(kind) = HighlightKind::try_from(i)
             && let Some(c) = kind.default_color()
         {

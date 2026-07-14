@@ -222,6 +222,12 @@ mod tests {
                 HighlightKind::MarkupList => "markup.list",
                 HighlightKind::MarkupStrikethrough => "markup.strikethrough",
                 HighlightKind::MetaHeader => "meta.header",
+                HighlightKind::Rainbow1 => "rainbow.1",
+                HighlightKind::Rainbow2 => "rainbow.2",
+                HighlightKind::Rainbow3 => "rainbow.3",
+                HighlightKind::Rainbow4 => "rainbow.4",
+                HighlightKind::Rainbow5 => "rainbow.5",
+                HighlightKind::Rainbow6 => "rainbow.6",
                 HighlightKind::StorageType => "storage.type",
                 HighlightKind::SupportFunction => "support.function",
             }
@@ -264,6 +270,56 @@ mod tests {
             let got = collect(&doc, "markdown");
             assert_eq!(got, baseline, "chunked doc (chunk={chunk}) diverged from full read");
         }
+    }
+
+    #[test]
+    fn csv_rainbow_columns_cycle() {
+        // 8 columns: the unrolled 6-colour cycle wraps, so columns 7 and 8
+        // get rainbow.1 / rainbow.2 again.
+        let src = b"a,b,c,d,e,f,g,h\n";
+        let spans = collect(&src.as_slice(), "csv");
+        for (o, k) in [
+            (0, "rainbow.1"),
+            (2, "rainbow.2"),
+            (4, "rainbow.3"),
+            (6, "rainbow.4"),
+            (8, "rainbow.5"),
+            (10, "rainbow.6"),
+            (12, "rainbow.1"),
+            (14, "rainbow.2"),
+        ] {
+            assert!(spans.contains(&(o, k)), "expected {k} at offset {o}, got {spans:?}");
+        }
+    }
+
+    #[test]
+    fn csv_quoting_keeps_fields_whole() {
+        // A comma inside quotes and a `""` escaped quote must not split
+        // their fields: rainbow.2 starts at the second field (6), rainbow.3
+        // at the third (13).
+        let src = b"\"a,b\",\"x\"\"y\",c\n";
+        let spans = collect(&src.as_slice(), "csv");
+        assert!(spans.contains(&(0, "rainbow.1")), "expected rainbow.1 at 0, got {spans:?}");
+        assert!(
+            spans.iter().all(|&(o, k)| k != "rainbow.2" || o >= 6),
+            "quoted comma split field 1, got {spans:?}"
+        );
+        assert!(spans.contains(&(6, "rainbow.2")), "expected rainbow.2 at 6, got {spans:?}");
+        assert!(
+            spans.iter().all(|&(o, k)| k != "rainbow.3" || o >= 13),
+            "escaped quote split field 2, got {spans:?}"
+        );
+        assert!(spans.contains(&(13, "rainbow.3")), "expected rainbow.3 at 13, got {spans:?}");
+    }
+
+    #[test]
+    fn csv_empty_fields_keep_column_colours() {
+        // "a,,c": the empty second field still advances the cycle, so "c"
+        // is rainbow.3. Second line restarts the cycle at rainbow.1.
+        let src = b"a,,c\nd\n";
+        let spans = collect(&src.as_slice(), "csv");
+        assert!(spans.contains(&(3, "rainbow.3")), "expected rainbow.3 at 3, got {spans:?}");
+        assert!(spans.contains(&(5, "rainbow.1")), "expected rainbow.1 at 5, got {spans:?}");
     }
 
     #[test]

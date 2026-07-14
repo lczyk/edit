@@ -209,6 +209,11 @@ impl TryFrom<u32> for HighlightKind {{
         // out-of-the-box palette regardless of which language definitions
         // are loaded. Kinds without a colour fall through to `None`.
         output.push_str("\nimpl HighlightKind {\n");
+        _ = writeln!(
+            output,
+            "    /// Number of highlight kinds; discriminants are contiguous `0..COUNT`.\n    pub const COUNT: usize = {};\n",
+            assembly.highlight_kinds.len()
+        );
         output.push_str("    /// Canonical default colour for this highlight kind.\n");
         output.push_str("    /// `None` for kinds that have no colour by default\n");
         output.push_str("    /// (e.g. `markup.bold`, `markup.italic` -- those need attribute\n");
@@ -401,6 +406,15 @@ fn default_ansi16(identifier: &str) -> Option<&'static str> {
         "markup.inserted" => "BrightGreen",
         "markup.list" => "BrightBlue",
         "meta.header" => "BrightBlue",
+        // Rainbow-csv column cycle. Ordered for adjacent-column contrast;
+        // reuse of hues already taken by semantic kinds is fine -- the two
+        // never appear in the same file.
+        "rainbow.1" => "BrightYellow",
+        "rainbow.2" => "BrightCyan",
+        "rainbow.3" => "BrightMagenta",
+        "rainbow.4" => "BrightGreen",
+        "rainbow.5" => "BrightBlue",
+        "rainbow.6" => "BrightRed",
         _ => return None,
     })
 }

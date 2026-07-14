@@ -1,0 +1,38 @@
+{"line":1,"kind":"rainbow.1","text":"name"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"rainbow.2","text":"age"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"rainbow.3","text":"city"}
+{"line":1,"kind":"other","text":","}
+{"line":1,"kind":"rainbow.4","text":"notes"}
+{"line":2,"kind":"rainbow.1","text":"alice"}
+{"line":2,"kind":"other","text":","}
+{"line":2,"kind":"rainbow.2","text":"30"}
+{"line":2,"kind":"other","text":","}
+{"line":2,"kind":"rainbow.3","text":"\"portland, or\""}
+{"line":2,"kind":"other","text":","}
+{"line":2,"kind":"rainbow.4","text":"\"said \"\"hi\"\"\""}
+{"line":2,"kind":"other","text":","}
+{"line":2,"kind":"rainbow.5","text":"extra"}
+{"line":3,"kind":"other","text":",,"}
+{"line":3,"kind":"rainbow.3","text":"empty"}
+{"line":3,"kind":"other","text":",,"}
+{"line":3,"kind":"rainbow.5","text":"trailing"}
+{"line":3,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.1","text":"one"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.2","text":"two"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.3","text":"three"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.4","text":"four"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.5","text":"five"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.6","text":"six"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.1","text":"seven"}
+{"line":4,"kind":"other","text":","}
+{"line":4,"kind":"rainbow.2","text":"eight"}
+{"line":5,"kind":"rainbow.1","text":"\"unterminated quote, rest of line"}
+{"line":6,"kind":"rainbow.1","text":"plain"}

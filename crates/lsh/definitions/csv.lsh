@@ -1,0 +1,100 @@
+#[display_name = "CSV"]
+#[path = "**/*.csv"]
+pub fn csv() {
+    // Rainbow columns: each field is coloured by its column index, cycling
+    // through rainbow.1..rainbow.6. The until-body is unrolled once per
+    // colour; when it restarts, the cycle naturally wraps back to rainbow.1.
+    // Colours restart at rainbow.1 on every line, so a given column keeps a
+    // stable colour down the file.
+    until /$/ {
+        if /"/ {
+            csv_quoted();
+            if /[^,]+/ {
+                // Junk between the closing quote and the separator.
+            }
+            yield rainbow.1;
+        } else if /[^,]+/ {
+            yield rainbow.1;
+        }
+        if /,/ {
+            yield other;
+        }
+
+        if /"/ {
+            csv_quoted();
+            if /[^,]+/ {}
+            yield rainbow.2;
+        } else if /[^,]+/ {
+            yield rainbow.2;
+        }
+        if /,/ {
+            yield other;
+        }
+
+        if /"/ {
+            csv_quoted();
+            if /[^,]+/ {}
+            yield rainbow.3;
+        } else if /[^,]+/ {
+            yield rainbow.3;
+        }
+        if /,/ {
+            yield other;
+        }
+
+        if /"/ {
+            csv_quoted();
+            if /[^,]+/ {}
+            yield rainbow.4;
+        } else if /[^,]+/ {
+            yield rainbow.4;
+        }
+        if /,/ {
+            yield other;
+        }
+
+        if /"/ {
+            csv_quoted();
+            if /[^,]+/ {}
+            yield rainbow.5;
+        } else if /[^,]+/ {
+            yield rainbow.5;
+        }
+        if /,/ {
+            yield other;
+        }
+
+        if /"/ {
+            csv_quoted();
+            if /[^,]+/ {}
+            yield rainbow.6;
+        } else if /[^,]+/ {
+            yield rainbow.6;
+        }
+        if /,/ {
+            yield other;
+        }
+    }
+}
+
+// Consume the rest of a double-quoted field after the opening quote,
+// treating `""` as an escaped quote. Emits no yields of its own -- the
+// caller's yield colours the whole consumed span, which is what lets one
+// helper serve all six column colours (functions take no arguments).
+// Fields spanning multiple lines are not supported; an unterminated quote
+// consumes the rest of the line.
+fn csv_quoted() {
+    loop {
+        if /[^"]*"/ {
+            if /"/ {
+                // "" -> escaped quote, keep scanning.
+                continue;
+            }
+            return;
+        } else {
+            // No closing quote on this line.
+            if /.*/ {}
+            return;
+        }
+    }
+}

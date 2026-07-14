@@ -199,6 +199,13 @@ fn run_render(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Resul
             "markup.strikethrough" => "\x1b[9m", // Strikethrough
             "meta.header" => "\x1b[94m",         // Bright Blue
 
+            "rainbow.1" => "\x1b[93m", // Bright Yellow
+            "rainbow.2" => "\x1b[96m", // Bright Cyan
+            "rainbow.3" => "\x1b[95m", // Bright Magenta
+            "rainbow.4" => "\x1b[92m", // Bright Green
+            "rainbow.5" => "\x1b[94m", // Bright Blue
+            "rainbow.6" => "\x1b[91m", // Bright Red
+
             _ => {
                 unknown_kinds.push(hk.identifier.to_string());
                 ""
