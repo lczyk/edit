@@ -3,6 +3,31 @@
 #[block_comment_close = "-->"]
 #[path = "**/*.md"]
 pub fn markdown() {
+    // YAML frontmatter: a "---" fence on the very first line, closed by
+    // another "---". Guarding on ln == 1 means mid-document "---" thematic
+    // breaks are never mistaken for frontmatter.
+    // NOTE: a document that genuinely opens with a "---" thematic break (no
+    // frontmatter) would still be read as frontmatter -- vanishingly rare,
+    // and not worth lookahead to disambiguate.
+    var first = 1;
+    if ln == first {
+        if /---\s*/ {
+            yield meta.header;
+            loop {
+                await input;
+                if /---\s*/ {
+                    yield meta.header;
+                    return;
+                } else {
+                    yaml();
+                    // yaml() may not consume the whole line; gobble the rest
+                    // so await input advances to the next line.
+                    if /.*/ {}
+                }
+            }
+        }
+    }
+
     // Any lines that start with a tab or 4+ spaces are code blocks,
     // unless they are an indented list-item continuation (e.g. nested bullet).
     if /(?:\t|    )/ {

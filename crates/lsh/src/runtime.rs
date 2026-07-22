@@ -356,6 +356,18 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         self.registers = state.registers;
     }
 
+    /// Set the current line number, readable from the DSL as `ln`.
+    ///
+    /// Callers that care about position-sensitive constructs (e.g. yaml
+    /// frontmatter, which only opens on line 1) set this before each
+    /// `parse_next_line`. The register holding it survives the per-line
+    /// `off`/`hs` reset but is cleared on a top-level `Return`, so it must
+    /// be set again for every line. Callers that don't set it leave `ln` at
+    /// 0, which simply never matches a 1-based line guard.
+    pub fn set_line_number(&mut self, line_number: u32) {
+        self.registers.set(Register::LINE_NUMBER, line_number);
+    }
+
     /// Parse a single line and return highlight spans.
     ///
     /// Executes bytecode until the line is fully consumed or a `Return` resets the VM.
@@ -640,7 +652,11 @@ pub enum Register {
 }
 
 impl Register {
-    pub const FIRST_USER_REG: usize = 3; // aka x3
+    // x3 is reserved as the line-number register (`ln` in the DSL), set per
+    // line by the runtime's consumers rather than allocated to vregs. User
+    // registers therefore start at x4.
+    pub const LINE_NUMBER: Register = Register::X3;
+    pub const FIRST_USER_REG: usize = 4; // aka x4
     pub const COUNT: usize = 16;
 
     #[inline(always)]

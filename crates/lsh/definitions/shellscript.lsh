@@ -2,6 +2,7 @@
 #[line_comment = "#"]
 #[path = "**/*.sh"]
 #[path = "**/*.bash"]
+#[path = "**/*.bats"]
 #[path = "**/*.bashrc"]
 #[path = "**/*.bash_profile"]
 #[path = "**/*.profile"]

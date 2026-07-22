@@ -163,10 +163,69 @@ pub fn language_from_content(head: &[u8]) -> Option<&'static Language> {
     if looks_like_diff(head) {
         return LANGUAGES.iter().find(|l| l.id == "diff");
     }
+    // Properties is checked before markdown: a `#`-comment-heavy ini file
+    // (e.g. `default-params`) scores as markdown headings otherwise. The
+    // properties sniff is strict -- any prose line fails it -- so genuine
+    // markdown still falls through.
+    if looks_like_properties(head) {
+        return LANGUAGES.iter().find(|l| l.id == "properties");
+    }
     if looks_like_markdown(head) {
         return LANGUAGES.iter().find(|l| l.id == "markdown");
     }
     None
+}
+
+/// Sniff extensionless ini / conf / properties files (e.g. a `default-params`
+/// config with no suffix). Deliberately strict to avoid stealing shell scripts
+/// or makefiles: EVERY nonempty line must be a comment, a `[section]` header,
+/// or a space-padded `key = value`. The padding requirement (` = `) is what
+/// separates ini assignments from shell `VAR=val`. Unpadded ini still relies on
+/// the `*.ini` path glob.
+fn looks_like_properties(head: &[u8]) -> bool {
+    let mut nonempty = 0u32;
+    let mut kv = 0u32;
+    let mut sections = 0u32;
+
+    for raw in head.split(|&b| b == b'\n').take(64) {
+        let line = raw.strip_suffix(b"\r").unwrap_or(raw);
+        let t = trim_left_ws(line);
+        if t.is_empty() {
+            continue;
+        }
+        nonempty += 1;
+
+        if t[0] == b'#' || t[0] == b';' {
+            continue;
+        }
+        if t[0] == b'[' && t.last() == Some(&b']') {
+            sections += 1;
+            continue;
+        }
+        if is_padded_kv(t) {
+            kv += 1;
+            continue;
+        }
+        // non-conforming line -> not a properties file.
+        return false;
+    }
+
+    nonempty >= 2 && (kv >= 2 || (sections >= 1 && kv >= 1))
+}
+
+/// `key = value`: a `[\w.-]+` key, then ` = ` (at least one space each side),
+/// then a non-empty value.
+fn is_padded_kv(line: &[u8]) -> bool {
+    let key_end = line
+        .iter()
+        .position(|&b| !(b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'-'))
+        .unwrap_or(line.len());
+    if key_end == 0 {
+        return false;
+    }
+    let rest = &line[key_end..];
+    // require ` = ` (space, equals, space) at the key boundary.
+    rest.starts_with(b" = ") && rest.len() > 3
 }
 
 fn looks_like_diff(head: &[u8]) -> bool {
@@ -421,6 +480,26 @@ mod tests {
             None
         );
         assert_eq!(content_id(b""), None);
+    }
+
+    #[test]
+    fn content_properties() {
+        // extensionless config like pixel-goo's `default-params`.
+        let s = b"# display\nwidth = 800\nheight = 600\nfps-cap = 60\n";
+        assert_eq!(content_id(s), Some("properties"));
+        // with a section header.
+        let s = b"[core]\nname = goo\n";
+        assert_eq!(content_id(s), Some("properties"));
+    }
+
+    #[test]
+    fn content_not_properties() {
+        // shell-style unpadded assignment must NOT sniff as properties.
+        assert_eq!(content_id(b"FOO=bar\nBAZ=qux\n"), None);
+        // a real script line disqualifies the whole file.
+        assert_eq!(content_id(b"width = 800\nif [ -z \"$x\" ]; then\n"), None);
+        // single kv is not enough.
+        assert_eq!(content_id(b"width = 800\n"), None);
     }
 
     #[test]

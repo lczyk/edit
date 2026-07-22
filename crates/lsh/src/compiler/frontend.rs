@@ -93,8 +93,10 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
 
     fn parse_function(&mut self) -> CompileResult<Function<'a>> {
         // Reset symbol table for new function
-        self.variables =
-            HashMap::from_iter([("off", self.compiler.get_reg(Register::InputOffset))]);
+        self.variables = HashMap::from_iter([
+            ("off", self.compiler.get_reg(Register::InputOffset)),
+            ("ln", self.compiler.get_reg(Register::LINE_NUMBER)),
+        ]);
 
         let attributes = self.parse_attributes()?;
 

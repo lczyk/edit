@@ -76,6 +76,9 @@ impl<'doc> Highlighter<'doc> {
         }
 
         let line = strip_newline(line);
+        // `logical_pos_y` was bumped to this line's 1-based index in
+        // `read_next_line`; expose it to the DSL as `ln`.
+        self.runtime.set_line_number(self.logical_pos_y as u32);
         let mut res = self.runtime.parse_next_line(arena, line);
 
         // Adjust the range to account for the line offset.
@@ -243,6 +246,32 @@ mod tests {
             }
         }
         out
+    }
+
+    #[test]
+    fn yaml_frontmatter_highlighted_only_at_line_1() {
+        // "---" on line 1 opens frontmatter; its body is highlighted as yaml
+        // (the "name" key yields keyword.*), and the fences as meta.header.
+        // A later "---" thematic break must NOT re-open frontmatter.
+        let src = b"---\nname: x\n---\n# H\n---\nplain\n";
+        let spans = collect(&src.as_slice(), "markdown");
+        // Opening fence at offset 0 is meta.header (not plain "other").
+        assert!(
+            spans.iter().any(|&(o, k)| o == 0 && k == "meta.header"),
+            "expected meta.header at offset 0, got {spans:?}"
+        );
+        // yaml() ran on the body: the value in "name: x" (offset 10) is
+        // highlighted as a yaml string, proving the delegation.
+        assert!(
+            spans.iter().any(|&(o, k)| o == 10 && k == "string"),
+            "expected yaml string at offset 10, got {spans:?}"
+        );
+        // The mid-document "---" (line 5) is a thematic break, not
+        // frontmatter: the "plain" line after it stays unhighlighted.
+        assert!(
+            spans.iter().all(|&(o, k)| o < 24 || k == "other"),
+            "content after mid-doc '---' should not be yaml-highlighted, got {spans:?}"
+        );
     }
 
     #[test]

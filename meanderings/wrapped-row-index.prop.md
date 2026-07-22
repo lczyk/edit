@@ -103,25 +103,40 @@ one internal method gains a fast path; one struct; one field; layout gains ~3 li
 
 ## phasing
 
-### phase 1 -- index as pure accelerator (correctness-neutral)
+### phase 1 -- index as pure accelerator (correctness-neutral) -- LANDED (`9259be6`)
 
 build the view in `layout()`, consult in `cursor_move_to_visual_internal`, fall back
 otherwise. behaviour identical to today, just faster + simpler in the common case. gate
 behind the `sanity` feature cross-check (below) to prove equivalence before trusting it.
 the bulk of the value lands here.
 
-### phase 2 -- incremental scroll reuse (perf)
+### phase 2 -- incremental scroll reuse (perf) -- SUBSUMED BY PHASE 1
 
-when `layout()` runs with `origin_y` near the previous view's, reuse the overlap instead
-of re-walking:
+original idea: when `layout()` runs with `origin_y` near the previous view's, reuse the
+overlap instead of re-walking -- scroll down extends the tail from the last row-end
+cursor; scroll up re-walks from `goto_line_start` of the new top row.
 
-- scroll **down** -- drop top rows, extend tail by resuming `measure_forward` from the
-  last row-end cursor (cheap; wrap state carries forward).
-- scroll **up** -- re-walk from `goto_line_start` of the new top row (can't measure
-  backward through a wrap; bounded by rows-per-logical-line, so still cheap, just not a
-  one-step append).
+outcome: not worth building -- phase 1 already delivers it. reasoning:
 
-pure perf; phase 1 already rebuilds every frame correctly.
+- **cross-frame seed is already bounded by scroll distance.** after each layout,
+  `set_cursor_for_rendering(layout.start_cursor)` caches the frame's row-0 cursor at the
+  current `origin.y` (tui.rs). the next frame seeds row 0 from the closer of `self.cursor`
+  / `cursor_for_rendering` to the new `origin.y` and walks only the scroll delta -- never
+  the document.
+- **scroll down + in-range motion is already O(1).** layout's per-row `cursor_beg` goes
+  through `cursor_move_to_visual_internal`, which consults the previous frame's
+  `wrapped_view`. a new `origin.y` inside the old view's range makes the row-0 seed an
+  index hit; rows `1..height` each seed from the prior row-end (forward ~1 row, also an
+  in-range hit). so the down/small-scroll case the proposal wanted to optimise is already
+  free.
+- **scroll up is an inherent walk phase 2 can't shorten.** new `origin.y` below the old
+  view has no anchor above it, and you can't measure backward through a wrap. the
+  proposal's "re-walk from `goto_line_start` of the new top row" is *exactly* the existing
+  backward seek -- phase 2 would reimplement the same walk for no gain. the seek is
+  already bounded by the scroll delta via `cursor_for_rendering`.
+
+the only residual is reusing the per-frame `Vec<Cursor>` allocation (~`height * size_of::
+<Cursor>`), which is trivial and not worth the added invalidation surface.
 
 ### phase 3 -- move-line band lookups (optional)
 

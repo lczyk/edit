@@ -299,11 +299,24 @@ pub fn small_jump_select(tb: &mut TextBuffer, delta: CoordType) {
 }
 
 /// Home, with the usual editor twist: go to the first non-whitespace
-/// character, and only to column 0 if already there.
+/// character, and only to column 0 if already there. On a wrapped line the
+/// visual row start comes first.
 pub fn smart_line_start(tb: &mut TextBuffer, select: bool) {
-    let cur = tb.cursor_logical_pos();
-    let indent_end = tb.indent_end_logical_pos();
-    let target = if cur.x > indent_end.x { indent_end } else { Point { x: 0, y: cur.y } };
+    let cur_vis = tb.cursor_visual_pos();
+    // logical x of the current visual row's start; >0 means we sit on a wrapped
+    // continuation row (the row doesn't begin at logical column 0).
+    let (row_start, _) = tb.resolve_visual_pos(Point { x: 0, y: cur_vis.y });
+
+    let target = if cur_vis.x > 0 && row_start.x > 0 {
+        // mid wrapped continuation row -> snap to the visual row start first.
+        row_start
+    } else {
+        // first visual row, or already at a wrapped row start -> smart-home on
+        // the logical line: indent end if past it, else column 0.
+        let cur = tb.cursor_logical_pos();
+        let indent_end = tb.indent_end_logical_pos();
+        if cur.x > indent_end.x { indent_end } else { Point { x: 0, y: cur.y } }
+    };
     if select {
         tb.selection_update_logical(target);
     } else {
@@ -313,10 +326,21 @@ pub fn smart_line_start(tb: &mut TextBuffer, select: bool) {
     tb.make_cursor_visible();
 }
 
-/// End: move to the last column of the current logical line.
+/// End: move to the last column of the current visual row, then to the end of
+/// the logical line.
 pub fn line_end(tb: &mut TextBuffer, select: bool) {
-    let y = tb.cursor_logical_pos().y;
-    let target = Point { x: CoordType::MAX, y };
+    let cur_vis = tb.cursor_visual_pos();
+    // end of the current visual row: the wrap point on a continuation row, or
+    // the logical line end on the last (or an unwrapped) row.
+    let (row_end, row_end_vis) = tb.resolve_visual_pos(Point { x: CoordType::MAX, y: cur_vis.y });
+
+    let target = if cur_vis.x < row_end_vis.x {
+        // not yet at the visual row end -> snap there first.
+        row_end
+    } else {
+        // already at the visual row end -> jump to the logical line end.
+        Point { x: CoordType::MAX, y: tb.cursor_logical_pos().y }
+    };
     if select {
         tb.selection_update_logical(target);
     } else {
