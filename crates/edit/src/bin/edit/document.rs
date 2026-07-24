@@ -52,27 +52,61 @@ pub struct Document {
     /// baseline blob (or a `disabled` flag if the file isn't in a git repo
     /// or otherwise can't be diffed).
     baseline: Option<BaselineState>,
-    /// Buffer generation at last gutter recompute. Compared each tick to
-    /// decide whether marks need refreshing.
-    last_gutter_generation: u32,
-    /// True after the buffer changed and we haven't yet recomputed marks.
-    /// Used together with [`Self::gutter_dirty_since`] for debouncing.
-    gutter_dirty: bool,
-    gutter_dirty_since: Option<std::time::Instant>,
+    /// Debounce for the git-baseline gutter marks.
+    gutter: Debounced,
 
-    /// Lazily-built minimap data. Rebuilt under the same dirty/debounce
-    /// rhythm as the gutter.
+    /// Lazily-built minimap data. Rebuilt under the same rhythm as the
+    /// gutter.
     minimap: MinimapState,
-    last_minimap_generation: u32,
-    minimap_dirty: bool,
-    minimap_dirty_since: Option<std::time::Instant>,
+    minimap_debounce: Debounced,
     minimap_target_width: u8,
 
-    /// Buffer generation at the last auto-detect language probe over
-    /// content. Drives [`Self::language_check_dirty`] so a plain-text doc
+    /// Debounce for the content-based language probe, so a plain-text doc
     /// can switch language as the user types enough to recognise it.
-    last_language_generation: u32,
-    language_dirty_since: Option<std::time::Instant>,
+    language: Debounced,
+}
+
+/// Tracks "the buffer moved on, rebuild once it settles" for the three
+/// derived artefacts that hang off a [`Document`]: gutter marks, the
+/// minimap, and language auto-detection.
+///
+/// All three want the same thing -- don't recompute on every keystroke,
+/// but do recompute shortly after typing stops -- so they share one
+/// implementation rather than three copies that drift.
+///
+/// `since` doubles as the dirty flag: `Some` means a rebuild is pending,
+/// and the instant it holds is when the buffer last changed.
+#[derive(Default)]
+struct Debounced {
+    last_generation: u32,
+    since: Option<std::time::Instant>,
+}
+
+impl Debounced {
+    /// Mark dirty if the buffer's generation has advanced since the last
+    /// rebuild. Cheap enough to call every frame.
+    fn check(&mut self, generation: u32) {
+        if generation != self.last_generation {
+            self.last_generation = generation;
+            self.touch();
+        }
+    }
+
+    /// Mark dirty unconditionally, for changes that aren't buffer edits
+    /// (a save, or a resize that changes the minimap width).
+    fn touch(&mut self) {
+        self.since = Some(std::time::Instant::now());
+    }
+
+    /// True once a pending rebuild has waited out `debounce`.
+    fn is_due(&self, debounce: std::time::Duration) -> bool {
+        self.since.is_some_and(|t| t.elapsed() >= debounce)
+    }
+
+    /// Called by the rebuild itself.
+    fn clear(&mut self) {
+        self.since = None;
+    }
 }
 
 impl Document {
@@ -116,16 +150,11 @@ impl Document {
             file_changed_on_disk: false,
             last_disk_check: None,
             baseline: None,
-            last_gutter_generation: 0,
-            gutter_dirty: true,
-            gutter_dirty_since: None,
+            gutter: Debounced::default(),
             minimap: MinimapState::new(),
-            last_minimap_generation: 0,
-            minimap_dirty: true,
-            minimap_dirty_since: None,
+            minimap_debounce: Debounced::default(),
             minimap_target_width: 2,
-            last_language_generation: 0,
-            language_dirty_since: None,
+            language: Debounced::default(),
         };
         doc.apply_path_metadata();
         // Build the minimap eagerly so the very first frame already has it.
@@ -155,24 +184,18 @@ impl Document {
 
         // Saving doesn't change HEAD, so the cached baseline is still
         // valid. Mark gutter dirty so the next tick recomputes immediately.
-        self.gutter_dirty = true;
-        self.gutter_dirty_since = Some(std::time::Instant::now());
+        self.gutter.touch();
         Ok(())
     }
 
     /// Mark gutter for recompute if the buffer generation has advanced.
     pub fn gutter_check_dirty(&mut self) {
-        let buf_gen = self.buffer.borrow().generation();
-        if buf_gen != self.last_gutter_generation {
-            self.last_gutter_generation = buf_gen;
-            self.gutter_dirty = true;
-            self.gutter_dirty_since = Some(std::time::Instant::now());
-        }
+        self.gutter.check(self.buffer.borrow().generation());
     }
 
     /// Returns true iff debounce has elapsed and we should recompute now.
     pub fn gutter_should_rebuild(&self, debounce: std::time::Duration) -> bool {
-        self.gutter_dirty && self.gutter_dirty_since.is_some_and(|t| t.elapsed() >= debounce)
+        self.gutter.is_due(debounce)
     }
 
     /// Recompute marks. Cheap when the baseline is disabled.
@@ -181,8 +204,7 @@ impl Document {
             self.baseline = Some(BaselineState::load(&self.path));
         }
         let baseline = self.baseline.as_ref().unwrap();
-        self.gutter_dirty = false;
-        self.gutter_dirty_since = None;
+        self.gutter.clear();
         let Some(bytes) = baseline.bytes.as_deref() else {
             self.buffer.borrow_mut().clear_gutter_marks();
             return;
@@ -201,12 +223,7 @@ impl Document {
     }
 
     pub fn minimap_check_dirty(&mut self) {
-        let buf_gen = self.buffer.borrow().generation();
-        if buf_gen != self.last_minimap_generation {
-            self.last_minimap_generation = buf_gen;
-            self.minimap_dirty = true;
-            self.minimap_dirty_since = Some(std::time::Instant::now());
-        }
+        self.minimap_debounce.check(self.buffer.borrow().generation());
     }
 
     /// Set the desired minimap cell width (0 disables, 1 narrow, 2 wide).
@@ -214,18 +231,16 @@ impl Document {
     pub fn set_minimap_target_width(&mut self, width: u8) {
         if self.minimap_target_width != width {
             self.minimap_target_width = width;
-            self.minimap_dirty = true;
-            self.minimap_dirty_since = Some(std::time::Instant::now());
+            self.minimap_debounce.touch();
         }
     }
 
     pub fn minimap_should_rebuild(&self, debounce: std::time::Duration) -> bool {
-        self.minimap_dirty && self.minimap_dirty_since.is_some_and(|t| t.elapsed() >= debounce)
+        self.minimap_debounce.is_due(debounce)
     }
 
     pub fn minimap_refresh(&mut self) {
-        self.minimap_dirty = false;
-        self.minimap_dirty_since = None;
+        self.minimap_debounce.clear();
         let mut tb = self.buffer.borrow_mut();
         if self.minimap_target_width == 0 {
             tb.clear_minimap_cells();
@@ -334,19 +349,15 @@ impl Document {
         if self.buffer.borrow().language().is_some() {
             return;
         }
-        let buf_gen = self.buffer.borrow().generation();
-        if buf_gen != self.last_language_generation {
-            self.last_language_generation = buf_gen;
-            self.language_dirty_since = Some(std::time::Instant::now());
-        }
+        self.language.check(self.buffer.borrow().generation());
     }
 
     pub fn language_should_redetect(&self, debounce: std::time::Duration) -> bool {
-        self.language_dirty_since.is_some_and(|t| t.elapsed() >= debounce)
+        self.language.is_due(debounce)
     }
 
     pub fn language_redetect(&mut self) {
-        self.language_dirty_since = None;
+        self.language.clear();
         self.update_language();
     }
 
@@ -498,5 +509,63 @@ mod tests {
         assert_eq!(parse("1:a"), ("1:a", None));
         assert_eq!(parse("file.txt:10"), ("file.txt", Some(Point { x: 0, y: 9 })));
         assert_eq!(parse("file.txt:10:5"), ("file.txt", Some(Point { x: 4, y: 9 })));
+    }
+
+    // --- debounce ---
+
+    const NONE: std::time::Duration = std::time::Duration::ZERO;
+    const LONG: std::time::Duration = std::time::Duration::from_secs(3600);
+
+    #[test]
+    fn debounce_starts_clean() {
+        let d = Debounced::default();
+        assert!(!d.is_due(NONE), "nothing pending, nothing to rebuild");
+    }
+
+    #[test]
+    fn debounce_fires_once_the_generation_moves() {
+        let mut d = Debounced::default();
+        d.check(7);
+        assert!(d.is_due(NONE));
+        // ...but not before the window elapses.
+        assert!(!d.is_due(LONG));
+    }
+
+    #[test]
+    fn debounce_ignores_a_repeated_generation() {
+        let mut d = Debounced::default();
+        d.check(7);
+        d.clear();
+        d.check(7);
+        assert!(!d.is_due(NONE), "same generation is not a new edit");
+    }
+
+    #[test]
+    fn debounce_rearms_after_a_rebuild() {
+        let mut d = Debounced::default();
+        d.check(1);
+        d.clear();
+        assert!(!d.is_due(NONE));
+        d.check(2);
+        assert!(d.is_due(NONE), "a later edit must schedule another rebuild");
+    }
+
+    #[test]
+    fn debounce_touch_fires_without_a_generation_change() {
+        // The save and minimap-resize paths, which aren't buffer edits.
+        let mut d = Debounced::default();
+        d.touch();
+        assert!(d.is_due(NONE));
+    }
+
+    #[test]
+    fn debounce_generation_zero_is_not_special() {
+        // A buffer whose generation wraps or starts at 0 must still be
+        // able to schedule work once it moves off it.
+        let mut d = Debounced::default();
+        d.check(0);
+        assert!(!d.is_due(NONE), "generation 0 matches the initial state");
+        d.check(1);
+        assert!(d.is_due(NONE));
     }
 }

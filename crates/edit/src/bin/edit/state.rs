@@ -8,7 +8,7 @@ use edit::tui::*;
 use edit::{buffer, icu};
 
 use crate::apperr;
-use crate::documents::Document;
+use crate::document::Document;
 
 /// How long the "Saved" flash sits in the statusbar after a save. The flash
 /// auto-clears on the next redraw past this deadline; since redraws are

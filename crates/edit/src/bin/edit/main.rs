@@ -1,7 +1,7 @@
 mod apperr;
 #[cfg(debug_assertions)]
 mod devlog;
-mod documents;
+mod document;
 mod draw_editor;
 mod draw_menubar;
 mod draw_statusbar;
@@ -105,7 +105,7 @@ fn run() -> apperr::Result<()> {
     let Some(path) = parse_args()? else {
         return Ok(());
     };
-    let document = documents::Document::open(&path)?;
+    let document = document::Document::open(&path)?;
     let mut state = State::new(document)?;
 
     if let Err(err) = Settings::reload() {
@@ -389,7 +389,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     edit::glyphs::set_ascii_only(!quirks.contains("unicode"));
     edit::glyphs::set_no_color(!quirks.contains("color") || edit::glyphs::env_disables_color());
     edit::glyphs::set_no_animations(!quirks.contains("animations"));
-    documents::set_allow_create(quirks.contains("create"));
+    document::set_allow_create(quirks.contains("create"));
 
     match path {
         Some(p) => {
@@ -397,7 +397,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
             // creation of new files with surprising names and rare-but-real
             // existing files with weird names (e.g. left behind by a buggy
             // tool). Disable with `--quirks=-safe-filenames`.
-            let (file_path, _) = documents::parse_filename_goto(&p);
+            let (file_path, _) = document::parse_filename_goto(&p);
             let name = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
             if quirks.contains("safe-filenames") && !is_safe_filename(name) {
                 sys::write_stdout(&format!(
@@ -631,7 +631,7 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         let line_tok = lang.and_then(|l| l.line_comment);
         let block_tok = lang.and_then(|l| l.block_comment);
         if let Some(tok) =
-            line_tok.or_else(|| documents::fallback_line_comment(&state.document.path))
+            line_tok.or_else(|| document::fallback_line_comment(&state.document.path))
         {
             state.document.buffer.borrow_mut().toggle_line_comment(tok);
         } else if let Some((open, close)) = block_tok {

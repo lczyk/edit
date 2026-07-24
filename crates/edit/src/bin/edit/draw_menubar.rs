@@ -2,7 +2,7 @@ use edit::helpers::*;
 use edit::tui::*;
 use stdext::arena_format;
 
-use crate::documents;
+use crate::document;
 use crate::keybindings::{self, Action};
 use crate::state::*;
 
@@ -93,7 +93,7 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
         let line_tok = lang.and_then(|l| l.line_comment);
         let block_tok = lang.and_then(|l| l.block_comment);
         if let Some(tok) =
-            line_tok.or_else(|| documents::fallback_line_comment(&state.document.path))
+            line_tok.or_else(|| document::fallback_line_comment(&state.document.path))
         {
             tb.toggle_line_comment(tok);
         } else if let Some((open, close)) = block_tok {
@@ -108,7 +108,7 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
         } else if let Some(tok) = tb
             .language()
             .and_then(|l| l.line_comment)
-            .or_else(|| documents::fallback_line_comment(&state.document.path))
+            .or_else(|| document::fallback_line_comment(&state.document.path))
         {
             // Fall back to line comments for languages with no block syntax,
             // matching vscode's blockComment behaviour.
