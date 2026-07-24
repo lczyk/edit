@@ -18,6 +18,7 @@
 //! There's no solution for the latter. However, there's a chance that the performance will still be sufficient.
 
 mod gap_buffer;
+mod layout;
 mod navigation;
 
 use std::borrow::Cow;
@@ -312,10 +313,7 @@ pub struct BodyTextRects {
     pub control_chars: Vec<Rect>,
 }
 
-// `LineDecor` is the alias inside buffer/mod.rs for the
-// physics-layer `VisualLine` -- they're the same shape. Aliasing
-// keeps the existing in-file name during the transition.
-use crate::anim::physics::{TextareaLayout, VisualLine as LineDecor};
+pub use layout::{TextareaLayout, VisualLine};
 
 /// A [`TextBuffer`] with inner mutability.
 pub type TextBufferCell = SemiRefCell<TextBuffer>;
@@ -2519,7 +2517,7 @@ impl TextBuffer {
             Some((needle, b.offset, e.offset))
         });
 
-        let mut decors: Vec<LineDecor> = Vec::with_capacity(height.max(0) as usize);
+        let mut decors: Vec<VisualLine> = Vec::with_capacity(height.max(0) as usize);
         let mut start_cursor: Option<Cursor> = None;
 
         // Per-frame viewport row index, built only under word-wrap (it's the
@@ -2545,7 +2543,7 @@ impl TextBuffer {
             let scratch = scratch_arena(None);
             let mut line = BString::empty();
             line.reserve(&*scratch, width as usize * 2);
-            let mut decor = LineDecor {
+            let mut decor = VisualLine {
                 fb_y: destination.top + y,
                 text: String::new(),
                 dim_wrapped_margin: false,

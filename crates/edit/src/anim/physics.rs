@@ -13,8 +13,13 @@
 //! paint paths directly. The per-textarea slice was the most
 //! valuable cut: it pulled sidechannels out of `TextBuffer` and
 //! made paint pure.
+//!
+//! The per-row layout IR this record embeds ([`TextareaLayout`]) is
+//! owned by `crate::buffer`, since `TextBuffer::layout` is what
+//! produces it. Everything here depends downward on `buffer`; nothing
+//! in `buffer` depends back on `anim`.
 
-use crate::buffer::{LineMoveEvent, MinimapCell, RowBand};
+use crate::buffer::{LineMoveEvent, MinimapCell, RowBand, TextareaLayout};
 use crate::helpers::{CoordType, Point, Rect};
 
 /// Cell width the textarea reserves for the minimap rail. Authority
@@ -79,46 +84,6 @@ pub struct TextareaPhysics<'a> {
     pub layout: Option<TextareaLayout>,
 }
 
-/// Per-visual-line layout output produced by
-/// [`crate::buffer::TextBuffer::layout`]. One per row of the
-/// visible viewport.
-///
-/// Owned data only: `text` is `String`, rect collections are
-/// `Vec<Rect>`. This lets pass 1's output cross arena boundaries
-/// (per-iter scratch arenas can die before pass 2 paints from this
-/// struct). Cost is ~80 bytes of text copy per visible row, a few
-/// KB per render at common viewport sizes -- not a hot path.
-pub struct VisualLine {
-    /// Framebuffer y coordinate this line writes into.
-    pub fb_y: CoordType,
-    /// Body text including the margin prefix (line numbers + box
-    /// glyph separator + space) and the visual-line content. Pushed
-    /// into the framebuffer via `replace_text`.
-    pub text: String,
-    /// Whether the line's margin column should be dimmed (wrapped
-    /// continuation row that doesn't show a real line number).
-    pub dim_wrapped_margin: bool,
-    /// Selection rect on this line, if the selection covers any of
-    /// it. `selection_force_fg` re-applies the fg colour after lsh.
-    pub selection_rect: Option<Rect>,
-    /// Shadow-match rects on this line (literal occurrences of the
-    /// selected text). Usually empty.
-    pub shadow_match_rects: Vec<Rect>,
-    /// Per-cell rects for whitespace visualisers (central-dot for
-    /// spaces, rightward-arrow for tabs).
-    pub whitespace_visualizers: Vec<Rect>,
-    /// Per-cell rects for control-character visualisers (U+2400-
-    /// range pictures inserted for unprintable bytes).
-    pub control_chars: Vec<Rect>,
-    /// Per-row markup fg rects (lsh syntax colours), clipped to this
-    /// visual row's text extent. Computed in `TextBuffer::layout` so
-    /// wrapped continuation rows don't paint past their actual end.
-    pub markup_fg_rects: Vec<(Rect, crate::framebuffer::IndexedColor)>,
-    /// Per-row markup attribute rects (bold / italic / underline /
-    /// strikethrough), clipped the same way as `markup_fg_rects`.
-    pub markup_attr_rects: Vec<(Rect, crate::framebuffer::Attributes)>,
-}
-
 /// Build a [`TextareaPhysics`] from the live `TextBuffer` +
 /// surrounding context. Runs `TextBuffer::layout()` to populate the
 /// post-layout per-row outputs as part of physics build; the
@@ -145,54 +110,6 @@ pub fn build_textarea_physics<'a>(
         focus,
         layout,
     }
-}
-
-/// Full layout output of [`crate::buffer::TextBuffer::layout`] --
-/// the first pass of the textarea render flow. Carries every piece
-/// of data the second paint pass needs: one [`VisualLine`] per visible
-/// row, the per-row gutter marks vec, the visual-x extent, and the
-/// scratch state pass 2 forwards into `render_apply_highlights` +
-/// `textarea_overlays`.
-pub struct TextareaLayout {
-    /// One per visible row.
-    pub lines: Vec<VisualLine>,
-    /// Per-row gutter marks to paint after the margin tint.
-    pub gutter_marks: Vec<(CoordType, gutter::GutterMark)>,
-    /// Max visual-x reached across all visible rows. Reported back
-    /// out so the textarea can update its horizontal scroll cap.
-    pub visual_pos_x_max: CoordType,
-    /// Visual cursor position the paint pass uses for the cursor
-    /// block + line highlight (animated or buffer-authoritative).
-    pub cursor_visual_render: Point,
-    /// Whether the selection is empty after the active-edge pin.
-    /// Drives the line-highlight gate (line highlight shows only
-    /// when there's no selection).
-    pub selection_empty: bool,
-    /// Logical y range to scan for syntax highlights, derived from
-    /// the running cursor at the top of pass 1 and the cursor at
-    /// the end of the visible region.
-    pub highlight_logical_y_range: std::ops::Range<CoordType>,
-    /// Cursor at the start of the first visible row -- used as the
-    /// seed for the next render's cursor walk, and as the start
-    /// cursor for the syntax-highlight scan in
-    /// [`crate::buffer::TextBuffer::render_apply_highlights`]. The
-    /// caller writes this back into `TextBuffer::cursor_for_rendering`
-    /// before invoking the lsh pass. `None` when the visible area
-    /// is empty.
-    pub start_cursor: Option<crate::unicode::Cursor>,
-}
-
-/// Selection geometry covering the whole visible viewport, in
-/// document-visual coords. Produced by [`TextBuffer::layout`].
-/// The `active_edge_x` is the visual x of the cursor-anchored end
-/// of the selection -- the animator displaces this to keep the
-/// trailing edge glued to the animated cursor without disturbing
-/// the static end.
-pub struct SelectionGeom {
-    pub beg: Point,
-    pub end: Point,
-    /// `true` iff the cursor sits at the `end` endpoint (vs `beg`).
-    pub active_is_end: bool,
 }
 
 #[cfg(test)]

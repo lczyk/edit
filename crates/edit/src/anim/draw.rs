@@ -11,7 +11,7 @@
 
 use gutter::GutterMark;
 
-use crate::anim::physics::TextareaLayout;
+use crate::buffer::TextareaLayout;
 use crate::buffer::{MINIMAP_SOURCE_ROWS_PER_CELL, MinimapCell, RowBand};
 use crate::framebuffer::{Framebuffer, IndexedColor};
 use crate::helpers::{CoordType, Point, Rect};
