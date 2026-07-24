@@ -1,0 +1,33 @@
+[32m// kitchen sink for objective-c highlighting[m
+[94m#import[m <Foundation/Foundation.h>
+[94m#define[m MAX_COUNT [92m10[m
+
+[94m@interface[m Counter : NSObject
+[94m@property[m ([94mnonatomic[m, [94massign[m) [36mNSInteger[m value;
+- ([36minstancetype[m)initWithValue:([36mNSInteger[m)v;
+- ([36mvoid[m)increment;
+[94m@end[m
+
+[94m@implementation[m Counter
+
+- ([36minstancetype[m)initWithValue:([36mNSInteger[m)v {
+    [94mself[m = [[94msuper[m init];
+    [95mif[m ([94mself[m) {
+        _value = v;
+    }
+    [95mreturn[m [94mself[m;
+}
+
+- ([36mvoid[m)increment {
+    [95mfor[m ([36mNSInteger[m i = [92m0[m; i < MAX_COUNT; i++) {
+        [94mself[m.value += [92m1[m;
+    }
+    [36mBOOL[m done = [94mYES[m;
+    [36mid[m obj = [94mnil[m;
+    NSString *msg = [91m@"counted"[m;
+    [36mdouble[m ratio = [92m3.14e-2[m;
+    [93mNSLog[m([91m@"value=%ld done=%d %@"[m, ([36mlong[m)[94mself[m.value, done, msg);
+}
+
+[94m@end[m
+

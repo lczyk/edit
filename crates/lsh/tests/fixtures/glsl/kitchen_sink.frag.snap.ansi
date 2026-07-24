@@ -1,0 +1,16 @@
+[94m#version[m [92m330[m core
+[94mout[m [36mvec4[m color;
+[94muniform[m [36mfloat[m density_alpha;
+
+[36mvoid[m [93mmain[m() {
+    [32m// Discard each point outside of the circle radius[m
+    [32m// https://stackoverflow.com/a/27099691/2531987[m
+    [36mvec2[m circCoord = [92m2.0[m * [96mgl_PointCoord[m - [92m1.0[m;
+    [95mif[m ([93mdot[m(circCoord, circCoord) > [92m1.0[m) { [95mdiscard[m; }
+
+    [32m// Additive accumulation (blended with GL_ONE,GL_ONE): each point adds density_alpha[m
+    [32m// to .r, so density grows UNBOUNDED instead of saturating at 1.0. Consumers tone-map[m
+    [32m// it on read -- the physics with 1-exp(-d) (~= the old saturating field), the screen[m
+    [32m// with a log map that keeps the dense cores' internal gradient (no flat clipping).[m
+    color = [36mvec4[m(density_alpha, [92m0.0f[m, [92m0.0f[m, [92m1.0f[m);
+}

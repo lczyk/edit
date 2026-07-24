@@ -1,0 +1,120 @@
+[32m//// Module doc comment: four slashes, distinct from the doc comment below.[m
+
+[94mimport[m gleam/int
+[94mimport[m gleam/list
+[94mimport[m gleam/string
+
+[32m/// Doc comment: three slashes.[m
+[32m/// Spans several lines.[m
+[32m// Plain line comment.[m
+
+[94mpub[m [94mtype[m [96mShape[m {
+  [96mCircle[m(radius: [36mFloat[m)
+  [96mRectangle[m(width: [36mFloat[m, height: [36mFloat[m)
+}
+
+[94mpub[m [94mopaque[m [94mtype[m [96mCounter[m {
+  [96mCounter[m(count: [36mInt[m)
+}
+
+[94mpub[m [94mconst[m greeting: [36mString[m = [91m"hello"[m
+
+[94mconst[m limit = [92m100[m
+
+[4m@external[m(erlang, [91m"lists"[m, [91m"reverse"[m)
+[4m@deprecated[m([91m"use list.reverse instead"[m)
+[94mpub[m [94mfn[m [93mreverse[m(items: [36mList[m(a)) -> [36mList[m(a)
+
+[4m@target[m(javascript)
+[94mpub[m [94mfn[m [93marea[m(shape: [96mShape[m) -> [36mFloat[m {
+  [95mcase[m shape {
+    [96mCircle[m(radius) -> [92m3.14159[m *. radius *. radius
+    [96mRectangle[m(width, height) -> width *. height
+  }
+}
+
+[94mpub[m [94mfn[m [93mclassify[m(n: [36mInt[m) -> [36mResult[m([36mString[m, [36mString[m) {
+  [95mcase[m n {
+    [92m0[m -> [94mOk[m([91m"zero"[m)
+    [96m_[m [95mif[m n < [92m0[m -> [94mError[m([91m"negative"[m)
+    [96m_[m -> [94mOk[m([91m"positive"[m)
+  }
+}
+
+[94mpub[m [94mfn[m [93mescapes[m() -> [36mString[m {
+  [94mlet[m quoted = [91m"a \"quoted\" word"[m
+  [94mlet[m escaped = [91m"tab:\t newline:\n return:\r formfeed:\f backslash:\\"[m
+  [94mlet[m codepoint = [91m"snowman \u{2603} and \u{1F600}"[m
+  [94mlet[m unknown = [91m"not a real escape: \q"[m
+  string.[93mconcat[m([quoted, escaped, codepoint, unknown])
+}
+
+[94mpub[m [94mfn[m [93mnumbers[m() -> [36mList[m([36mInt[m) {
+  [94mlet[m hex = [92m0xDEADbeef[m
+  [94mlet[m octal = [92m0o755[m
+  [94mlet[m binary = [92m0b1010_1010[m
+  [94mlet[m decimal = [92m1_000_000[m
+  [94mlet[m negative = [92m-42[m
+  [94mlet[m float = [92m3.14[m
+  [94mlet[m exponent = [92m6.022e23[m
+  [94mlet[m small = [92m1.6e-19[m
+  [32m// Digits immediately followed by word characters are not a valid[m
+  [32m// literal, so they must not highlight as numeric.[m
+  [94mlet[m invalid = 123abc
+  [hex, octal, binary, decimal, negative]
+}
+
+[94mpub[m [94mfn[m [93mdiscards[m() -> [94mNil[m {
+  [94mlet[m [96m_[m = [91m"wholly discarded"[m
+  [94mlet[m [96m_unused[m = [92m1[m
+  [94mlet[m assert [94mOk[m(value) = [93mclassify[m([92m1[m)
+  [95mecho[m value
+  [94mNil[m
+}
+
+[94mpub[m [94mfn[m [93mbooleans[m() -> [36mBool[m {
+  [94mlet[m yes = [94mTrue[m
+  [94mlet[m no = [94mFalse[m
+  yes && !no
+}
+
+[94mpub[m [94mfn[m [93mtypes[m() -> [94mNil[m {
+  [94mlet[m a: [36mInt[m = [92m1[m
+  [94mlet[m b: [36mFloat[m = [92m2.0[m
+  [94mlet[m c: [36mString[m = [91m"three"[m
+  [94mlet[m d: [36mBool[m = [94mTrue[m
+  [94mlet[m e: [36mList[m([36mInt[m) = [[92m1[m, [92m2[m, [92m3[m]
+  [94mlet[m f: [36mResult[m([36mInt[m, [94mNil[m) = [94mOk[m([92m1[m)
+  [94mlet[m g: [36mBitArray[m = <<[92m1[m, [92m2[m, [92m3[m>>
+  [94mlet[m h: [36mDynamic[m = dynamic.[93mfrom[m([92m1[m)
+  [94mlet[m i: [36mUtfCodepoint[m = codepoint
+  [94mNil[m
+}
+
+[94mpub[m [94mfn[m [93mcontrol[m(items: [36mList[m([36mInt[m)) -> [36mInt[m {
+  [95muse[m item <- list.[93mmap[m(items)
+  [95mcase[m item {
+    [92m0[m -> [95mpanic[m [95mas[m [91m"zero is not allowed"[m
+    [92m1[m -> [95mtodo[m [95mas[m [91m"not implemented yet"[m
+    [96m_[m -> item
+  }
+}
+
+[94mpub[m [94mtype[m [96mAnimal[m {
+  [96mDog[m
+  [96mCat[m
+}
+
+[94mpub[m [94mfn[m [93msound[m(animal: [96mAnimal[m) -> [36mString[m {
+  [95mcase[m animal {
+    [96mDog[m -> [91m"woof"[m
+    [96mCat[m -> [91m"meow"[m
+  }
+}
+
+[94mpub[m [94mfn[m [93mmain[m() {
+  [94mlet[m shapes = [[96mCircle[m([92m1.0[m), [96mRectangle[m([92m2.0[m, [92m3.0[m)]
+  list.[93mmap[m(shapes, area)
+  |> list.[93meach[m(io.debug)
+}
+

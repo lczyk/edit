@@ -1,0 +1,25 @@
+[94mmodule[m github.com/example/project
+
+[94mgo[m [92m1.22[m
+
+[94mtoolchain[m [92mgo1.22.3[m
+
+[94mrequire[m (
+	github.com/spf13/cobra [92mv1.8.0[m
+	golang.org/x/sync [92mv0.7.0[m [32m// indirect[m
+	gopkg.in/yaml.v3 [92mv3.0.1[m
+)
+
+[94mrequire[m github.com/stretchr/testify [92mv1.9.0[m
+
+[94mreplace[m github.com/old/pkg [94m=>[m github.com/new/pkg [92mv1.2.3[m
+
+[94mexclude[m github.com/bad/pkg [92mv0.1.0[m
+
+[94mretract[m [92mv1.0.1[m [32m// published by mistake[m
+
+[94mretract[m (
+	[92mv1.0.2[m
+	[[92mv1.1.0[m, [92mv1.2.0[m] [32m// bad range[m
+)
+
