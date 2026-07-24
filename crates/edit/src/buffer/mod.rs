@@ -2164,11 +2164,20 @@ mod tests {
     // ICU's lazy setup writes unsynchronised `static mut` singletons --
     // fine for the editor, which is single-threaded, but the test harness
     // runs these in parallel and would race. OnceLock serialises it.
+    //
+    // Set EDIT_TEST_REQUIRE_ICU=1 (see `make test-icu`) to turn the skip
+    // into a failure, so a run meant to cover search can't pass having
+    // covered nothing.
     fn icu_available() -> bool {
         static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *AVAILABLE.get_or_init(|| {
             let ok = crate::icu::init().is_ok();
             if !ok {
+                assert!(
+                    std::env::var_os("EDIT_TEST_REQUIRE_ICU").is_none(),
+                    "EDIT_TEST_REQUIRE_ICU is set but ICU failed to load: \
+                     check EDIT_CFG_ICUUC_SONAME / EDIT_CFG_ICUI18N_SONAME",
+                );
                 eprintln!("note: ICU unavailable -- search tests skipped");
             }
             ok

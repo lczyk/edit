@@ -44,6 +44,26 @@ clippy:  ## Clippy with warnings denied (CI bar)
 test:  ## Run the test suite with all features enabled
 	cargo test --all-features
 
+# ICU is dlopen'd, so the search tests skip when it can't be loaded. The
+# build defaults to the unversioned SONAME, which only exists if the -dev
+# package is installed; failing that, point at whatever versioned library
+# is present. EDIT_TEST_REQUIRE_ICU turns the skip into a failure so this
+# target can't quietly pass having tested nothing.
+.PHONY: test-icu
+test-icu:  ## Run the test suite with ICU wired up (search tests must run)
+	@soname=$$(ldconfig -p 2>/dev/null | sed -n 's/.*\(libicuuc\.so\.[0-9][0-9]*\).*/\1/p' | head -1); \
+	i18n=$$(ldconfig -p 2>/dev/null | sed -n 's/.*\(libicui18n\.so\.[0-9][0-9]*\).*/\1/p' | head -1); \
+	if [ -z "$$soname" ]; then \
+		echo "error: no libicuuc.so.* found via ldconfig."; \
+		echo "  install ICU (e.g. 'sudo apt install libicu-dev') and retry."; \
+		exit 1; \
+	fi; \
+	echo "using $$soname / $$i18n"; \
+	EDIT_CFG_ICUUC_SONAME=$$soname \
+	EDIT_CFG_ICUI18N_SONAME=$$i18n \
+	EDIT_TEST_REQUIRE_ICU=1 \
+	cargo test --all-features
+
 .PHONY: format
 format:  ## Format the workspace with rustfmt
 	cargo fmt --all

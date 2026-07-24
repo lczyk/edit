@@ -1115,10 +1115,19 @@ mod icu_ffi {
 mod tests {
     use super::*;
 
-    #[ignore]
+    /// ICU is dlopen'd and optional, so this can only assert when the
+    /// library is actually present. It used to be `#[ignore]`d outright,
+    /// which meant it never ran anywhere, including on machines that do
+    /// have ICU. `make test-icu` sets EDIT_TEST_REQUIRE_ICU so a run that
+    /// is supposed to have ICU fails loudly instead of skipping.
     #[test]
-    fn init() {
-        assert!(init_if_needed().is_ok());
+    fn init_loads_when_the_library_is_present() {
+        let required = std::env::var_os("EDIT_TEST_REQUIRE_ICU").is_some();
+        match init_if_needed() {
+            Ok(_) => {}
+            Err(_) if !required => eprintln!("note: ICU unavailable -- init test skipped"),
+            Err(e) => panic!("EDIT_TEST_REQUIRE_ICU is set but ICU failed to load: {e}"),
+        }
     }
 
     #[test]
