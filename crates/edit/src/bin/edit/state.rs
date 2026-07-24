@@ -114,7 +114,6 @@ pub struct State {
     pub goto_invalid: bool,
 
     pub osc_title_file_status: OscTitleFileStatus,
-    pub osc_clipboard_sync: bool,
     pub exit: bool,
 
     pub saved_flash_until: Option<Instant>,
@@ -145,7 +144,6 @@ impl State {
             goto_invalid: false,
 
             osc_title_file_status: Default::default(),
-            osc_clipboard_sync: false,
             exit: false,
 
             saved_flash_until: None,

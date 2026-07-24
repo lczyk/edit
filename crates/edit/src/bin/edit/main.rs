@@ -22,9 +22,9 @@ use draw_statusbar::*;
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::input::{self, vk};
+use edit::sys;
 use edit::tui::*;
 use edit::vt;
-use edit::{base64, sys};
 use state::*;
 use stdext::arena::{self, Arena, scratch_arena};
 use stdext::collections::BString;
@@ -249,10 +249,7 @@ fn run() -> apperr::Result<()> {
             let mut output = tui.render(&scratch);
 
             write_terminal_title(&scratch, &mut output, &mut state);
-
-            if state.osc_clipboard_sync {
-                write_osc_clipboard(&scratch, &mut output, &mut tui, &mut state);
-            }
+            edit::mount::flush_clipboard_to_host(&scratch, &mut output, &mut tui);
 
             sys::write_stdout(&output);
         }
@@ -268,10 +265,6 @@ fn draw(ctx: &mut Context, state: &mut State) {
     draw_editor(ctx, state);
     draw_statusbar(ctx, state);
 
-    if ctx.clipboard_ref().wants_host_sync() {
-        ctx.clipboard_mut().mark_as_synchronized();
-        state.osc_clipboard_sync = true;
-    }
     modals::raise_errors_if_any(state);
     modals::draw_active(ctx, state);
 
@@ -513,30 +506,6 @@ fn write_terminal_title<'a>(arena: &'a Arena, output: &mut BString<'a>, state: &
 
     state.osc_title_file_status.filename = filename.to_string();
     state.osc_title_file_status.dirty = dirty;
-}
-
-#[cold]
-fn write_osc_clipboard<'a>(
-    arena: &'a Arena,
-    output: &mut BString<'a>,
-    tui: &mut Tui,
-    state: &mut State,
-) {
-    let clipboard = tui.clipboard_mut();
-    let data = clipboard.read();
-
-    if !data.is_empty() {
-        // Rust doubles the size of a string when it needs to grow it.
-        // If `data` is *really* large, this may then double
-        // the size of the `output` from e.g. 100MB to 200MB. Not good.
-        // We can avoid that by reserving the needed size in advance.
-        output.reserve_exact(arena, base64::encode_len(data.len()) + 16);
-        output.push_str(arena, "\x1b]52;c;");
-        base64::encode(arena, output, data);
-        output.push_str(arena, "\x1b\\");
-    }
-
-    state.osc_clipboard_sync = false;
 }
 
 /// Strips all C0 control characters from the string and replaces them with "_".

@@ -30,7 +30,8 @@ use std::io;
 use std::ops::ControlFlow;
 use std::time::Duration;
 
-use stdext::arena::scratch_arena;
+use stdext::arena::{Arena, scratch_arena};
+use stdext::collections::BString;
 
 use crate::framebuffer::{DEFAULT_THEME, INDEXED_COLORS_COUNT};
 use crate::oklab::StraightRgba;
@@ -115,6 +116,33 @@ fn install_panic_hook() -> PanicHookGuard {
     PanicHookGuard(Some(prev))
 }
 
+/// Append any pending clipboard copy to `out` as an OSC 52 sequence, so
+/// the copy reaches the host terminal rather than staying inside this
+/// process.
+///
+/// Call once per frame, after [`Tui::render`] and before the write. Both
+/// the editor's loop and [`mount`]'s use this; it lives here because
+/// getting the reserve-then-encode wrong on a large copy is the kind of
+/// thing that should only be written once.
+pub fn flush_clipboard_to_host<'a>(arena: &'a Arena, out: &mut BString<'a>, tui: &mut Tui) {
+    let clipboard = tui.clipboard_mut();
+    if !clipboard.wants_host_sync() {
+        return;
+    }
+
+    let data = clipboard.read();
+    if !data.is_empty() {
+        // Reserve up front: BString doubles on growth, so a really large
+        // copy would otherwise double `out` from e.g. 100MB to 200MB.
+        out.reserve_exact(arena, base64::encode_len(data.len()) + 16);
+        out.push_str(arena, "\x1b]52;c;");
+        base64::encode(arena, out, data);
+        out.push_str(arena, "\x1b\\");
+    }
+
+    clipboard.mark_as_synchronized();
+}
+
 /// Mount edit's [`Tui`] and run the input/render loop until `draw` returns
 /// [`ControlFlow::Break`] or stdin closes.
 ///
@@ -184,23 +212,7 @@ where
 
         let scratch = scratch_arena(None);
         let mut out = tui.render(&scratch);
-
-        // Flush any copy made this frame to the host via OSC 52. The
-        // editor does this in its own loop; mount-based views (eat) only
-        // get clipboard->host sync through here.
-        let clipboard = tui.clipboard_mut();
-        if clipboard.wants_host_sync() {
-            let data = clipboard.read();
-            if !data.is_empty() {
-                let arena = &*scratch;
-                out.reserve_exact(arena, base64::encode_len(data.len()) + 16);
-                out.push_str(arena, "\x1b]52;c;");
-                base64::encode(arena, &mut out, data);
-                out.push_str(arena, "\x1b\\");
-            }
-            clipboard.mark_as_synchronized();
-        }
-
+        flush_clipboard_to_host(&scratch, &mut out, &mut tui);
         sys::write_stdout(&out);
     }
 
