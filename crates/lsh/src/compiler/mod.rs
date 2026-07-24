@@ -21,7 +21,7 @@ use stdext::collections::BString;
 
 pub use self::charset::{Charset, SerializedCharset};
 use self::frontend::*;
-pub use self::generator::Generator;
+pub use self::generator::{Generator, default_ansi16};
 use crate::runtime::Register;
 
 pub fn builtin_definitions_path() -> &'static Path {

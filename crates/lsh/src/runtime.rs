@@ -52,6 +52,34 @@ pub enum Ansi16 {
     BrightWhite = 15,
 }
 
+impl Ansi16 {
+    /// The SGR escape that selects this colour as the foreground.
+    ///
+    /// 30-37 for the first eight, 90-97 for the bright half. Provided so
+    /// every consumer that wants ansi output maps the canonical table the
+    /// same way instead of transcribing it.
+    pub fn sgr(self) -> &'static str {
+        match self {
+            Ansi16::Black => "\x1b[30m",
+            Ansi16::Red => "\x1b[31m",
+            Ansi16::Green => "\x1b[32m",
+            Ansi16::Yellow => "\x1b[33m",
+            Ansi16::Blue => "\x1b[34m",
+            Ansi16::Magenta => "\x1b[35m",
+            Ansi16::White => "\x1b[37m",
+            Ansi16::Cyan => "\x1b[36m",
+            Ansi16::BrightBlack => "\x1b[90m",
+            Ansi16::BrightRed => "\x1b[91m",
+            Ansi16::BrightGreen => "\x1b[92m",
+            Ansi16::BrightYellow => "\x1b[93m",
+            Ansi16::BrightBlue => "\x1b[94m",
+            Ansi16::BrightMagenta => "\x1b[95m",
+            Ansi16::BrightCyan => "\x1b[96m",
+            Ansi16::BrightWhite => "\x1b[97m",
+        }
+    }
+}
+
 /// A compiled language definition with its bytecode entrypoint.
 pub struct Language {
     /// Unique identifier (e.g., "rust", "markdown").

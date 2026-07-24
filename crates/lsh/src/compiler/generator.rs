@@ -225,7 +225,7 @@ impl TryFrom<u32> for HighlightKind {{
             if let Some(colour) = default_ansi16(hk.identifier) {
                 _ = writeln!(
                     output,
-                    "            HighlightKind::{} => Some(Ansi16::{colour}),",
+                    "            HighlightKind::{} => Some(Ansi16::{colour:?}),",
                     hk.fmt_camelcase()
                 );
             }
@@ -384,37 +384,40 @@ impl TryFrom<u32> for HighlightKind {{
 
 /// Canonical default ANSI-16 colour for a highlight-kind identifier
 /// (the `dotted.lower.snake` form as it appears in `.lsh` `yield` statements).
-/// Returns the variant name of [`crate::runtime::Ansi16`] so the generator can
-/// emit a `match` arm directly. `None` means "no default colour" -- the
-/// consumer may still apply text attributes (bold, italic, etc.).
-fn default_ansi16(identifier: &str) -> Option<&'static str> {
+/// `None` means "no default colour" -- the consumer may still apply text
+/// attributes (bold, italic, etc.).
+///
+/// Public so consumers outside the generator (lsh-bin, and anything else
+/// rendering highlights) read the same table rather than transcribing it.
+pub fn default_ansi16(identifier: &str) -> Option<crate::runtime::Ansi16> {
+    use crate::runtime::Ansi16;
     Some(match identifier {
-        "comment" => "Green",
-        "method" => "BrightYellow",
-        "string" => "BrightRed",
-        "variable" => "BrightCyan",
-        "constant.character.escape" => "Yellow",
-        "constant.language" => "BrightBlue",
-        "constant.numeric" => "BrightGreen",
-        "keyword.control" => "BrightMagenta",
-        "keyword.other" => "BrightBlue",
-        "storage.type" => "Cyan",
-        "support.function" => "Yellow",
-        "markup.changed" => "BrightBlue",
-        "markup.deleted" => "BrightRed",
-        "markup.heading" => "BrightBlue",
-        "markup.inserted" => "BrightGreen",
-        "markup.list" => "BrightBlue",
-        "meta.header" => "BrightBlue",
+        "comment" => Ansi16::Green,
+        "method" => Ansi16::BrightYellow,
+        "string" => Ansi16::BrightRed,
+        "variable" => Ansi16::BrightCyan,
+        "constant.character.escape" => Ansi16::Yellow,
+        "constant.language" => Ansi16::BrightBlue,
+        "constant.numeric" => Ansi16::BrightGreen,
+        "keyword.control" => Ansi16::BrightMagenta,
+        "keyword.other" => Ansi16::BrightBlue,
+        "storage.type" => Ansi16::Cyan,
+        "support.function" => Ansi16::Yellow,
+        "markup.changed" => Ansi16::BrightBlue,
+        "markup.deleted" => Ansi16::BrightRed,
+        "markup.heading" => Ansi16::BrightBlue,
+        "markup.inserted" => Ansi16::BrightGreen,
+        "markup.list" => Ansi16::BrightBlue,
+        "meta.header" => Ansi16::BrightBlue,
         // Rainbow-csv column cycle. Ordered for adjacent-column contrast;
         // reuse of hues already taken by semantic kinds is fine -- the two
         // never appear in the same file.
-        "rainbow.1" => "BrightYellow",
-        "rainbow.2" => "BrightCyan",
-        "rainbow.3" => "BrightMagenta",
-        "rainbow.4" => "BrightGreen",
-        "rainbow.5" => "BrightBlue",
-        "rainbow.6" => "BrightRed",
+        "rainbow.1" => Ansi16::BrightYellow,
+        "rainbow.2" => Ansi16::BrightCyan,
+        "rainbow.3" => Ansi16::BrightMagenta,
+        "rainbow.4" => Ansi16::BrightGreen,
+        "rainbow.5" => Ansi16::BrightBlue,
+        "rainbow.6" => Ansi16::BrightRed,
         _ => return None,
     })
 }

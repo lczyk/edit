@@ -176,40 +176,23 @@ fn run_render(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Resul
     let mut color_map = Vec::new();
     let mut unknown_kinds = Vec::new();
     for hk in &assembly.highlight_kinds {
-        let color = match hk.identifier {
-            "other" => "",
-
-            "comment" => "\x1b[32m",  // Green
-            "method" => "\x1b[93m",   // Bright Yellow
-            "string" => "\x1b[91m",   // Bright Red
-            "variable" => "\x1b[96m", // Bright Cyan
-
-            "constant.language" => "\x1b[94m",   // Bright Blue
-            "constant.numeric" => "\x1b[92m",    // Bright Green
-            "keyword.control" => "\x1b[95m",     // Bright Magenta
-            "keyword.other" => "\x1b[94m",       // Bright Blue
-            "markup.bold" => "\x1b[1m",          // Bold
-            "markup.changed" => "\x1b[94m",      // Bright Blue
-            "markup.deleted" => "\x1b[91m",      // Bright Red
-            "markup.heading" => "\x1b[94m",      // Bright Blue
-            "markup.inserted" => "\x1b[92m",     // Bright Green
-            "markup.italic" => "\x1b[3m",        // Italic
-            "markup.link" => "\x1b[4m",          // Underlined
-            "markup.list" => "\x1b[94m",         // Bright Blue
-            "markup.strikethrough" => "\x1b[9m", // Strikethrough
-            "meta.header" => "\x1b[94m",         // Bright Blue
-
-            "rainbow.1" => "\x1b[93m", // Bright Yellow
-            "rainbow.2" => "\x1b[96m", // Bright Cyan
-            "rainbow.3" => "\x1b[95m", // Bright Magenta
-            "rainbow.4" => "\x1b[92m", // Bright Green
-            "rainbow.5" => "\x1b[94m", // Bright Blue
-            "rainbow.6" => "\x1b[91m", // Bright Red
-
-            _ => {
-                unknown_kinds.push(hk.identifier.to_string());
-                ""
-            }
+        // Colours come from the canonical table in lsh so this tool can't
+        // drift from what the editor renders -- it previously had its own
+        // transcription, which had already fallen three kinds behind.
+        // Attribute-only kinds have no colour there and are handled here.
+        let color = match lsh::compiler::default_ansi16(hk.identifier) {
+            Some(colour) => colour.sgr(),
+            None => match hk.identifier {
+                "other" => "",
+                "markup.bold" => "\x1b[1m",
+                "markup.italic" => "\x1b[3m",
+                "markup.link" => "\x1b[4m",
+                "markup.strikethrough" => "\x1b[9m",
+                _ => {
+                    unknown_kinds.push(hk.identifier.to_string());
+                    ""
+                }
+            },
         };
 
         if !color.is_empty() {
