@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use lsh::runtime::{Language, Runtime};
 
-use super::write_highlighted_line;
+use super::stream::write_highlighted_line;
 use crate::watch::{self, FileDelta};
 use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 
