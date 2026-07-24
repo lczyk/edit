@@ -95,8 +95,8 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     }
 }
 
-/// main entry point for eat. called from edit's argv0 dispatch and from the
-/// standalone `bin/eat` binary.
+/// main entry point for eat. called from edit's argv0 dispatch -- either via a
+/// symlink named `eat` or via `edit --eat`. there is no separate cargo target.
 pub fn main() -> ExitCode {
     stdext::arena::init(128 * 1024 * 1024).unwrap();
 

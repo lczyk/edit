@@ -10,6 +10,9 @@ This tool processes Unicode Character Database (UCD) XML files to generate effic
 * Download [ucd.nounihan.grouped.zip](https://www.unicode.org/Public/UCD/latest/ucdxml/ucd.nounihan.grouped.zip)
 * Run some equivalent of:
   ```sh
-  grapheme-table-gen --lang=rust --extended --no-ambiguous --line-breaks path/to/ucd.nounihan.grouped.xml
+  cargo run -p unicode-gen -- --lang=rust --extended --no-ambiguous --line-breaks path/to/ucd.nounihan.grouped.xml
   ```
-* Place the result in `src/unicode/tables.rs`
+* Place the result in `crates/edit/src/unicode/tables.rs`
+
+The generated tables are checked in, so this is only needed when bumping the
+Unicode version.

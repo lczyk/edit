@@ -25,8 +25,8 @@ python3 tests/pty/framework.py --watch
 
 `--watch` mirrors child-PTY output to your real terminal, sizes the PTY to
 your current window, filters the startup probe sequences (so the terminal
-doesn't reply to them and leak `rgb:…` bytes onto your shell afterwards), and
-slows scripted `pause()` calls 3× so you can see what's happening. Tune pace
+doesn't reply to them and leak `rgb:...` bytes onto your shell afterwards), and
+slows scripted `pause()` calls 2x so you can see what's happening. Tune pace
 with `--pace 5`.
 
 Run a subset:
@@ -44,10 +44,27 @@ EDIT_BIN=target/debug/edit python3 tests/pty/framework.py
 
 ## Layout
 
-- `framework.py` — library + CLI entrypoint. Contains `Edit`, key constants,
+- `framework.py` -- library + CLI entrypoint. Contains `Edit`, key constants,
   `expect`, `pause`, `fixture`, the `@test` registry, and the discovery runner.
-- `fixtures/` — sample input files.
-- `test_*.py` — each defines `@test`-decorated functions.
+- `fixtures/` -- sample input files, reached via `fixture("name")`. The
+  highlighting tests instead pull from the lsh golden corpus at
+  `crates/lsh/tests/fixtures/` (`LSH_FIXTURES_DIR`).
+- `test_*.py` -- each defines `@test`-decorated functions.
+
+These tests are not part of `make verify` and are not run in CI. Run them by
+hand when touching rendering, input handling, or modal flow.
+
+**Known failures.** 5 of 26 fail on the current tree, deterministically and
+independently of `--pace`:
+
+- `test_undo_redo::undo_removes_insertion_and_redo_restores_it`
+- `test_toggle_comment::keybinding_toggles_line_comment_and_undo_reverts`
+- `test_toggle_comment::two_toggles_undo_individually`
+- `test_highlighting_smoke::highlighting_renders`
+- `test_nocolor_menu_focus::nocolor_menubar_focus_shows_marker`
+
+Treat those as the baseline, not as breakage you introduced. Wiring this suite
+into CI is blocked on fixing them.
 
 ## Writing a test
 
@@ -66,22 +83,22 @@ def ctrl_f_prefills_selection():
 ```
 
 `ed.send()` writes the bytes, lets `edit` settle, and drains the resulting
-output — so most tests need no explicit `pause` or `drain` calls. Override
+output -- so most tests need no explicit `pause` or `drain` calls. Override
 per call: `ed.send(data, settle=0.3, drain=False)`.
 
 Key pieces:
 
-- `Edit(argv, cols=?, rows=?)` — spawns the editor. Use as a context manager.
-- `ed.send(bytes, settle=?, drain=?)` — write + settle + drain.
-- `ed.drain(timeout=?)` / `ed.plain` — manual read + ANSI-stripped buffer.
-- `ed.last_plain_frame(anchor)` — stripped view from the last occurrence of
+- `Edit(argv, cols=?, rows=?)` -- spawns the editor. Use as a context manager.
+- `ed.send(bytes, settle=?, drain=?)` -- write + settle + drain.
+- `ed.drain(timeout=?)` / `ed.plain` -- manual read + ANSI-stripped buffer.
+- `ed.last_plain_frame(anchor)` -- stripped view from the last occurrence of
   `anchor` onward; use for assertions on the most recent frame.
-- `ed.mark()` / `ed.plain_since(mark)` — assert only on bytes received after
+- `ed.mark()` / `ed.plain_since(mark)` -- assert only on bytes received after
   a known point.
-- `expect(cond, msg)` — fail the test if `cond` is falsy.
-- `pause(s)` — `time.sleep(s * PACE)`; rarely needed.
-- `fixture("name")` — absolute path to a file in `fixtures/`.
-- Key constants: `CTRL_A…CTRL_Z`, `ESC`, `ENTER`, `BACKSPACE`, `TAB`, `F10`,
+- `expect(cond, msg)` -- fail the test if `cond` is falsy.
+- `pause(s)` -- `time.sleep(s * PACE)`; rarely needed.
+- `fixture("name")` -- absolute path to a file in `fixtures/`.
+- Key constants: `CTRL_A...CTRL_Z`, `ESC`, `ENTER`, `BACKSPACE`, `TAB`, `F10`,
   arrows (`LEFT`/`RIGHT`/`UP`/`DOWN`), `HOME`/`END`, and the `SHIFT_*` variants.
 
 ## Output

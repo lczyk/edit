@@ -1,6 +1,6 @@
 # lsh
 
-`lsh` contains the compiler and runtime for Edit's syntax-highlighting system.
+`lsh` contains the compiler and runtime for `edit`'s syntax-highlighting system.
 
 At a high level:
 * Language definitions live in `definitions/*.lsh`
@@ -22,5 +22,9 @@ cargo run -p lsh-bin -- assembly crates/lsh/definitions/git_commit.lsh crates/ls
 
 Or to render a file:
 ```sh
-cargo run -p lsh-bin -- render --input tests/pty/fixtures/highlighting/html.html crates/lsh/definitions
+cargo run -p lsh-bin -- render --input crates/lsh/tests/fixtures/xml/highlighting.html crates/lsh/definitions
 ```
+
+Golden snapshots for every definition live in [tests/fixtures/](tests/fixtures/),
+one directory per language; [tests/golden.rs](tests/golden.rs) drives them and
+[tests/detect.rs](tests/detect.rs) covers language detection.

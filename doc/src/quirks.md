@@ -61,4 +61,4 @@ SGR colour escapes. Pass `--quirks=-color` to suppress all colour while keeping 
 
 Cursor / scroll / floater motion. Pass `--quirks=-animations` to disable visible interpolation; logic stays instant.
 
-[`is_safe_filename`]: https://github.com/lczyk/edit/blob/main/crates/edit/src/bin/edit/main.rs
+[`is_safe_filename`]: https://github.com/lczyk/edit-lczyk-remix/blob/lczyk-remix/crates/edit/src/bin/edit/cli.rs

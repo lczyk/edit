@@ -1,4 +1,4 @@
-//! Microsoft Edit's adapter to LSH.
+//! Edit's adapter to LSH.
 //!
 //! Static tables, detection helpers, and the stateful `Highlighter` wrapper
 //! all live in `lsh-defs`, the workspace crate that owns the compile-time
