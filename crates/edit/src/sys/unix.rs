@@ -1,12 +1,10 @@
-//! Unix-specific platform code.
-//!
-//! Read the `windows` module for reference.
-//! TODO: This reminds me that the sys API should probably be a trait.
+//! Unix-specific platform code. Unix is the only target, so this is not
+//! behind a trait -- `sys` re-exports it directly.
 //!
 //! the terminal-i/o pieces (raw mode, sigwinch resize injection, polling
-//! stdin reader, write_stdout) live in the `tty` workspace crate so that
-//! `eat`'s live tui can share them. fs + icu helpers stay here because
-//! they're edit-only.
+//! stdin reader, write_stdout) live in the `tty` workspace crate and are
+//! re-exported below. fs + icu helpers stay here because they're
+//! edit-only.
 
 use std::ffi::{c_char, c_int, c_void};
 use std::fs::File;

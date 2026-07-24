@@ -171,8 +171,9 @@ impl fmt::Display for InputKey {
 
 /// Keyboard keys.
 ///
-/// The codes defined here match the VK_* constants on Windows.
-/// It's a convenient way to handle keyboard input, even on other platforms.
+/// The numbering follows the Win32 `VK_*` constants. Nothing here depends
+/// on Windows -- it's just a pre-existing, densely packed keycode table
+/// that the parser and keybinding config both index into.
 pub mod vk {
     use super::InputKey;
 
