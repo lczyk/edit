@@ -44,17 +44,19 @@ fn configure_icu(target_os: TargetOs) {
     let renaming_version = env_opt("EDIT_CFG_ICU_RENAMING_VERSION");
     let renaming_auto_detect = env_opt("EDIT_CFG_ICU_RENAMING_AUTO_DETECT");
 
-    // If none of the `EDIT_CFG_ICU*` environment variables are set,
-    // we default to enabling `EDIT_CFG_ICU_RENAMING_AUTO_DETECT` on UNIX.
-    // This slightly improves portability at least in the cases where the SONAMEs match our defaults.
+    // Default `EDIT_CFG_ICU_RENAMING_AUTO_DETECT` on for UNIX, where most
+    // distributions ship ICU with version-suffixed symbols.
+    //
+    // Only an explicit `EDIT_CFG_ICU_RENAMING_VERSION` suppresses it, since
+    // that answers the same question. The SONAMEs deliberately do NOT: a
+    // distro without the -dev package has no unversioned `libicuuc.so`, so
+    // pointing at `libicuuc.so.76` is the obvious fix -- and if that also
+    // turned renaming off, the result would be a library that loads but
+    // whose symbols all fail to resolve.
     let renaming_auto_detect = if !renaming_auto_detect.is_empty() {
         renaming_auto_detect.parse::<bool>().unwrap()
     } else {
-        target_os == TargetOs::Unix
-            && icuuc_soname.is_empty()
-            && icui18n_soname.is_empty()
-            && cpp_exports.is_empty()
-            && renaming_version.is_empty()
+        target_os == TargetOs::Unix && renaming_version.is_empty()
     };
     if renaming_auto_detect && !renaming_version.is_empty() {
         // It makes no sense to specify an explicit version and also ask for auto-detection.
