@@ -160,7 +160,7 @@ use crate::hash::*;
 use crate::helpers::*;
 use crate::input::{InputKeyMod, kbmod, vk};
 use crate::oklab::StraightRgba;
-use crate::{anim, input, unicode};
+use crate::{input, paint, unicode};
 use stdext::simd;
 
 const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
@@ -386,8 +386,8 @@ pub struct Tui {
     read_timeout: time::Duration,
 
     /// Tui-level anim state (frame timing + floater open-timer table).
-    /// See [`anim::engine::TuiAnimState`].
-    anim: anim::engine::TuiAnimState,
+    /// See [`paint::anim::TuiAnimState`].
+    anim: paint::anim::TuiAnimState,
 }
 
 impl Tui {
@@ -444,7 +444,7 @@ impl Tui {
             settling_want: 0,
             read_timeout: time::Duration::MAX,
 
-            anim: anim::engine::TuiAnimState::default(),
+            anim: paint::anim::TuiAnimState::default(),
         };
         Self::clean_node_path(&mut tui.mouse_down_node_path);
         Self::clean_node_path(&mut tui.focused_node_path);
@@ -499,8 +499,8 @@ impl Tui {
     /// site (floater open, scroll/cursor advance, line-move trail)
     /// without worrying about ordering vs the existing cap.
     fn request_animation_frame(&mut self) {
-        if self.read_timeout > anim::FRAME_INTERVAL {
-            self.read_timeout = anim::FRAME_INTERVAL;
+        if self.read_timeout > paint::FRAME_INTERVAL {
+            self.read_timeout = paint::FRAME_INTERVAL;
         }
     }
 
@@ -941,7 +941,7 @@ impl Tui {
     /// Renders the last frame into the framebuffer and returns the VT output.
     pub fn render<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
         let now = time::Instant::now();
-        self.anim.dt_secs = anim::engine::frame_dt_secs(self.anim.last_frame_time, now);
+        self.anim.dt_secs = paint::anim::frame_dt_secs(self.anim.last_frame_time, now);
         self.anim.last_frame_time = Some(now);
         self.anim.frame = self.anim.frame.wrapping_add(1);
 
@@ -996,7 +996,7 @@ impl Tui {
         // no_animations() guard is here, not in advance_floater_open --
         // single dispatch point at the Tui level.
         if !crate::glyphs::no_animations()
-            && let Some(clip) = anim::engine::advance_floater_open(
+            && let Some(clip) = paint::anim::advance_floater_open(
                 &mut self.anim.floater_opened_at,
                 node.id,
                 node.outer_clipped.top,
@@ -1007,10 +1007,10 @@ impl Tui {
             )
         {
             match clip {
-                anim::engine::FloaterClip::Band(top, bottom) => {
+                paint::anim::FloaterClip::Band(top, bottom) => {
                     Self::clip_subtree_band(node, top, bottom);
                 }
-                anim::engine::FloaterClip::Bottom(bottom) => {
+                paint::anim::FloaterClip::Bottom(bottom) => {
                     Self::clip_subtree_bottom(node, bottom);
                 }
             }
@@ -1195,7 +1195,7 @@ impl Tui {
     /// 2. Dispatch on `no_animations()` -- snap or advance lerps.
     /// 3. Seed line-move trail from buffer event if fresh.
     /// 4. Call `tb.layout()` + orchestrate the two-pass paint via
-    ///    `anim::draw::textarea_lines` + `textarea_overlays`.
+    ///    `paint::draw::textarea_lines` + `textarea_overlays`.
     /// 5. Paint the in-flight line-move trail overlay (if any).
     /// 6. Paint the minimap rail (if visible).
     /// 7. Paint the scrollbar (if visible, mutually exclusive w/
@@ -1215,8 +1215,8 @@ impl Tui {
             bottom: inner_clipped.bottom,
         };
 
-        let minimap_w = anim::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
-        let scrollbar_w = anim::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
+        let minimap_w = paint::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
+        let scrollbar_w = paint::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
 
         destination.right -= scrollbar_w + minimap_w;
 
@@ -1242,7 +1242,7 @@ impl Tui {
             anim_state.last_line_move_gen = tb.peek_pending_line_move().1;
             (tc.scroll_offset, tb.cursor_visual_pos())
         } else {
-            anim::engine::snap_on_buffer_edit(
+            paint::anim::snap_on_buffer_edit(
                 &mut anim_state.scroll_visual,
                 &mut anim_state.cursor_visual,
                 &mut anim_state.last_buffer_generation,
@@ -1252,7 +1252,7 @@ impl Tui {
             );
 
             let (line_move_ev, line_move_gen) = tb.peek_pending_line_move();
-            anim::engine::seed_line_move_trail(
+            paint::anim::seed_line_move_trail(
                 &mut anim_state.line_move,
                 &mut anim_state.last_line_move_gen,
                 line_move_ev,
@@ -1260,13 +1260,13 @@ impl Tui {
                 time::Instant::now(),
             );
 
-            let visual_offset = anim::engine::advance_scroll(
+            let visual_offset = paint::anim::advance_scroll(
                 &mut anim_state.scroll_visual,
                 tc.scroll_offset,
                 self.anim.dt_secs,
             );
             let cursor_target = tb.cursor_visual_pos();
-            let cursor_override = anim::engine::advance_cursor(
+            let cursor_override = paint::anim::advance_cursor(
                 &mut anim_state.cursor_visual,
                 cursor_target,
                 self.anim.dt_secs,
@@ -1286,7 +1286,7 @@ impl Tui {
         // TextBuffer::render.
         if let Some(layout) = tb.layout(visual_offset, destination, Some(cursor_override)) {
             tb.set_cursor_for_rendering(layout.start_cursor);
-            let selection_rects = anim::draw::textarea_lines(
+            let selection_rects = paint::draw::textarea_lines(
                 &mut self.framebuffer,
                 &layout,
                 destination.left,
@@ -1294,9 +1294,9 @@ impl Tui {
                 tb.margin_width(),
                 tc.has_focus,
             );
-            anim::draw::textarea_overlays(
+            paint::draw::textarea_overlays(
                 &mut self.framebuffer,
-                anim::draw::TextareaOverlayOpts {
+                paint::draw::TextareaOverlayOpts {
                     dest: destination,
                     origin: visual_offset,
                     margin_width: tb.margin_width(),
@@ -1322,11 +1322,11 @@ impl Tui {
         // `destination` to exclude the buffer's left margin (line
         // numbers / gutter marks) so the band stays in the text area.
         if let Some(t) =
-            anim::engine::advance_line_move_trail(&mut anim_state.line_move, time::Instant::now())
+            paint::anim::advance_line_move_trail(&mut anim_state.line_move, time::Instant::now())
         {
             let line_move = anim_state.line_move.expect("just advanced past None");
             let text_dest = Rect { left: destination.left + tb.margin_width(), ..destination };
-            anim::draw::line_move_trail(
+            paint::draw::line_move_trail(
                 &mut self.framebuffer,
                 text_dest,
                 visual_offset,
@@ -1345,7 +1345,7 @@ impl Tui {
                 right: inner_clipped.right - scrollbar_w,
                 bottom: inner_clipped.bottom,
             };
-            anim::draw::minimap_rail(
+            paint::draw::minimap_rail(
                 &mut self.framebuffer,
                 track,
                 tb.minimap_cells(),
@@ -2427,12 +2427,12 @@ impl<'a> Context<'a, '_> {
                 let mut text_width = node_prev.inner.width();
                 {
                     let tb = content.buffer.borrow();
-                    let minimap_w = anim::physics::textarea_minimap_width(
+                    let minimap_w = paint::physics::textarea_minimap_width(
                         content.single_line,
                         tb.minimap_cells(),
                     );
                     text_width -=
-                        anim::physics::textarea_scrollbar_width(content.single_line, minimap_w)
+                        paint::physics::textarea_scrollbar_width(content.single_line, minimap_w)
                             + minimap_w;
                 }
 
@@ -2515,8 +2515,8 @@ impl<'a> Context<'a, '_> {
             let mouse = self.tui.mouse_position;
             let inner = node_prev.inner;
             let minimap_w =
-                anim::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
-            let scrollbar_w = anim::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
+                paint::physics::textarea_minimap_width(tc.single_line, tb.minimap_cells());
+            let scrollbar_w = paint::physics::textarea_scrollbar_width(tc.single_line, minimap_w);
             let text_rect = Rect {
                 left: inner.left + tb.margin_width(),
                 top: inner.top,

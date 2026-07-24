@@ -3,7 +3,7 @@
 //! Produces the owned types in [`super::layout`] -- body text, selection
 //! and shadow-match rects, whitespace and control-character visualisers,
 //! syntax-highlight spans clipped to each row. Nothing here paints; pass 2
-//! (`crate::anim::draw`) consumes the IR and writes into the framebuffer.
+//! (`crate::paint::draw`) consumes the IR and writes into the framebuffer.
 //!
 //! Splitting it this way is what lets the IR outlive the scratch arena
 //! that built it, and lets pass 1 be tested without a framebuffer.
@@ -317,7 +317,7 @@ impl TextBuffer {
     /// left-edge wide-glyph overlap, tab expansion, whitespace
     /// visualisers for the selected region, and U+2400-range
     /// pictures for C0 / C1 control bytes. Paints the per-cell
-    /// visualiser rects directly into `fb` via `anim::draw`.
+    /// visualiser rects directly into `fb` via `paint::draw`.
     ///
     /// `selection_off` is the byte sub-range produced by
     /// `build_selection_row`; used as a mask for whitespace

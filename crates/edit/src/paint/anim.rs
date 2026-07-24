@@ -249,12 +249,12 @@ pub fn advance_floater_open(
 /// This is the switching point callers go through (vs. `animate_nil`
 /// when animations are disabled).
 pub fn animate<'a>(
-    state: &mut crate::anim::engine::TextareaAnimState,
-    mut target: crate::anim::physics::TextareaPhysics<'a>,
+    state: &mut crate::paint::anim::TextareaAnimState,
+    mut target: crate::paint::physics::TextareaPhysics<'a>,
     tb_generation: u32,
     dt_secs: f32,
     now: Instant,
-) -> (crate::anim::physics::TextareaPhysics<'a>, bool) {
+) -> (crate::paint::physics::TextareaPhysics<'a>, bool) {
     let scroll_target = target.scroll_offset;
     let cursor_target = target.cursor_visual;
 
@@ -293,8 +293,8 @@ pub fn animate<'a>(
 /// level skips the real `animate()` path; the rest of the pipeline
 /// doesn't have to know about the killswitch.
 pub fn animate_nil<'a>(
-    phys: crate::anim::physics::TextareaPhysics<'a>,
-) -> crate::anim::physics::TextareaPhysics<'a> {
+    phys: crate::paint::physics::TextareaPhysics<'a>,
+) -> crate::paint::physics::TextareaPhysics<'a> {
     phys
 }
 
@@ -586,7 +586,7 @@ mod tests {
         // Identity contract: nothing the animator touches changes.
         let mut tb = crate::buffer::TextBuffer::new(true).unwrap();
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
-        let target = crate::anim::physics::build_textarea_physics(
+        let target = crate::paint::physics::build_textarea_physics(
             &mut tb,
             Point { x: 0, y: 0 },
             dest,
@@ -611,7 +611,7 @@ mod tests {
         tb.set_width(80);
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
         let buf_gen = tb.generation();
-        let target = crate::anim::physics::build_textarea_physics(
+        let target = crate::paint::physics::build_textarea_physics(
             &mut tb,
             Point { x: 0, y: 0 },
             dest,
@@ -640,7 +640,7 @@ mod tests {
         tb.set_width(80);
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
         let buf_gen = tb.generation();
-        let mut target = crate::anim::physics::build_textarea_physics(
+        let mut target = crate::paint::physics::build_textarea_physics(
             &mut tb,
             Point { x: 0, y: 0 },
             dest,
@@ -672,7 +672,7 @@ mod tests {
         tb.set_width(80);
         let dest = crate::helpers::Rect { left: 0, top: 0, right: 80, bottom: 24 };
         let buf_gen = tb.generation();
-        let mut target = crate::anim::physics::build_textarea_physics(
+        let mut target = crate::paint::physics::build_textarea_physics(
             &mut tb,
             Point { x: 0, y: 0 },
             dest,

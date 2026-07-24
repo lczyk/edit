@@ -1,23 +1,27 @@
-//! Animation infrastructure.
+//! Render pass 2: paint into the framebuffer.
 //!
-//! Architecture (see `meanderings/anim_refactor.md`): split the
-//! editor's rendering pipeline into three concerns.
+//! Pass 1 lives in [`crate::buffer::render`] and produces the per-row IR;
+//! this half consumes it. Architecture per
+//! `meanderings/anim_refactor.md`, three concerns:
 //!
-//! 1. **physics** -- post-layout, anim-free per-textarea IR. Everything
-//!    the painter needs to draw a textarea at its target state. If the
-//!    animator is nil, drawing physics directly produces a valid frame.
-//!    No sidechannels.
-//! 2. **engine** -- pure perturbation over time. Per-feature advance
-//!    fns + state types + `animate` / `animate_nil` wrappers.
+//! 1. **physics** -- post-layout, anim-free per-textarea record.
+//!    Everything the painter needs to draw a textarea at its *target*
+//!    state. If the animator is nil, painting physics directly produces
+//!    a valid frame. No sidechannels.
+//! 2. **anim** -- pure perturbation over time. Per-feature advance fns +
+//!    state types + `animate` / `animate_nil` wrappers. The
 //!    `no_animations()` dispatch lives at the Tui level.
 //! 3. **draw** -- pure consumer. `textarea_lines`, `textarea_overlays`,
-//!    `line_move_trail`, and helpers. No reads from `Tui` /
-//!    `TextBuffer` / time.
+//!    `line_move_trail`, and helpers. Reads neither `Tui`, `TextBuffer`,
+//!    nor the clock.
 //!
-//! Timing constants live here; submodules house the rest.
+//! Only (2) is animation, which is why this module is `paint` rather
+//! than `anim`: a reader looking for where the textarea gets drawn
+//! should find it by the name. Timing constants live here; the
+//! submodules house the rest.
 
+pub mod anim;
 pub mod draw;
-pub mod engine;
 pub mod physics;
 
 use std::time::Duration;

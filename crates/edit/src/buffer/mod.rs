@@ -311,8 +311,8 @@ pub struct LineMoveEvent {
 /// Per-row collection of visualiser rects returned by
 /// [`TextBuffer::build_body_text`]. Each vec is empty for rows
 /// without visualisers. Caller paints whitespace visualisers via
-/// [`anim::draw::whitespace_visualizer`] and control-char
-/// highlights via [`anim::draw::control_char_highlight`].
+/// [`paint::draw::whitespace_visualizer`] and control-char
+/// highlights via [`paint::draw::control_char_highlight`].
 pub struct BodyTextRects {
     pub whitespace_visualizers: Vec<Rect>,
     pub control_chars: Vec<Rect>,
@@ -2726,7 +2726,7 @@ mod tests {
             return;
         };
         tb.set_cursor_for_rendering(layout.start_cursor);
-        let selection_rects = crate::anim::draw::textarea_lines(
+        let selection_rects = crate::paint::draw::textarea_lines(
             fb,
             &layout,
             destination.left,
@@ -2734,9 +2734,9 @@ mod tests {
             tb.margin_width(),
             focused,
         );
-        crate::anim::draw::textarea_overlays(
+        crate::paint::draw::textarea_overlays(
             fb,
-            crate::anim::draw::TextareaOverlayOpts {
+            crate::paint::draw::TextareaOverlayOpts {
                 dest: destination,
                 origin,
                 margin_width: tb.margin_width(),
