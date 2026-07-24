@@ -16,11 +16,12 @@
 //! - `edit::sys::init()` -- raw mode + signal wiring. Hold the returned
 //!   `Deinit` for the lifetime of the mount.
 //! - `edit::sys::switch_modes()` -- enable raw-mode keypress reads.
-//! - Optional: install a panic hook that drops [`term::RestoreModes`] and
-//!   `sys::Deinit` so an unwinding panic restores the terminal before the
-//!   stack trace prints. Required only in debug builds; release uses
-//!   `panic=abort` which skips drops anyway. See `bin/edit/main.rs` for
-//!   the canonical pattern.
+//!
+//! [`mount`] installs its own panic hook for the duration of the mount
+//! (debug builds only; release uses `panic=abort`, which skips drops
+//! anyway) so an unwinding panic restores the terminal *before* the
+//! message prints -- otherwise the alt-screen leave scrolls it away. The
+//! previous hook is restored on return.
 //!
 //! [`mount`] returns when the draw callback returns
 //! [`ControlFlow::Break`] or stdin closes.
@@ -35,6 +36,10 @@ use crate::framebuffer::{DEFAULT_THEME, INDEXED_COLORS_COUNT};
 use crate::oklab::StraightRgba;
 use crate::tui::{Context, Tui};
 use crate::{base64, input, sys, term, vt};
+
+/// One-shot callback handed the terminal probe before the first draw.
+/// See [`MountOpts::on_probe`].
+pub type ProbeCallback = Box<dyn FnOnce(&term::TerminalProbe)>;
 
 /// Knobs for [`mount`]. Defaults match the editor's own setup.
 pub struct MountOpts {
@@ -51,12 +56,63 @@ pub struct MountOpts {
     /// `None` (default) means: block on input indefinitely (or until the
     /// vt parser / tui animation requests a shorter timeout).
     pub tick_interval: Option<Duration>,
+    /// Invoked once, after [`term::setup`] has probed the terminal and
+    /// [`mount`] has applied the process-global ambiguous width, but
+    /// before the first draw.
+    ///
+    /// Callers that built a [`crate::buffer::TextBuffer`] *before*
+    /// mounting need this: an ambiguous width of 2 changes how already-
+    /// buffered text measures, so the buffer has to be reflowed. Callers
+    /// with nothing to reflow can leave it `None` (the default).
+    pub on_probe: Option<ProbeCallback>,
 }
 
 impl Default for MountOpts {
     fn default() -> Self {
-        Self { fallback_palette: DEFAULT_THEME, emit_indexed_codes: true, tick_interval: None }
+        Self {
+            fallback_palette: DEFAULT_THEME,
+            emit_indexed_codes: true,
+            tick_interval: None,
+            on_probe: None,
+        }
     }
+}
+
+#[cfg(debug_assertions)]
+type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Sync + Send + 'static>;
+
+/// Restores the previous panic hook when the mount returns. Debug-only:
+/// release builds are `panic=abort`, so no unwinding drop runs anyway.
+#[cfg(debug_assertions)]
+struct PanicHookGuard(Option<std::sync::Arc<PanicHook>>);
+
+#[cfg(debug_assertions)]
+impl Drop for PanicHookGuard {
+    fn drop(&mut self) {
+        // Drop our hook first so the Arc clone it captured is released;
+        // that leaves us as sole owner and lets the original move back out.
+        let _ = std::panic::take_hook();
+        if let Some(arc) = self.0.take()
+            && let Ok(prev) = std::sync::Arc::try_unwrap(arc)
+        {
+            std::panic::set_hook(prev);
+        }
+    }
+}
+
+/// Install a panic hook that restores the terminal before delegating to
+/// the previous hook. Without this the message prints while the alt-screen
+/// is still up, and the alt-screen leave during unwind scrolls it away.
+#[cfg(debug_assertions)]
+fn install_panic_hook() -> PanicHookGuard {
+    let prev = std::sync::Arc::new(std::panic::take_hook());
+    let prev_for_hook = std::sync::Arc::clone(&prev);
+    std::panic::set_hook(Box::new(move |info| {
+        drop(term::RestoreModes);
+        drop(sys::Deinit);
+        prev_for_hook(info);
+    }));
+    PanicHookGuard(Some(prev))
 }
 
 /// Mount edit's [`Tui`] and run the input/render loop until `draw` returns
@@ -73,10 +129,24 @@ where
     let mut vt_parser = vt::Parser::new();
     let mut input_parser = input::Parser::new();
 
+    #[cfg(debug_assertions)]
+    let _panic_hook = install_panic_hook();
+
     let (probe, _restore) = term::setup(&mut vt_parser, opts.fallback_palette);
     tui.setup_indexed_colors(probe.indexed_colors);
     if opts.emit_indexed_codes {
         tui.setup_emit_indexed_codes(true);
+    }
+
+    // Ambiguous-width is process-global and read at measure time, so it
+    // has to land before the first draw. Buffers built before the mount
+    // still carry measurements taken at the old width -- that's what
+    // `on_probe` is for.
+    if probe.ambiguous_width == 2 {
+        crate::unicode::setup_ambiguous_width(2);
+    }
+    if let Some(on_probe) = opts.on_probe {
+        on_probe(&probe);
     }
 
     sys::inject_window_size_into_stdin();
@@ -107,7 +177,9 @@ where
 
         while tui.needs_settling() {
             let mut ctx = tui.create_context(None);
-            let _ = draw(&mut ctx);
+            if draw(&mut ctx).is_break() {
+                exit = true;
+            }
         }
 
         let scratch = scratch_arena(None);

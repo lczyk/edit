@@ -82,7 +82,11 @@ pub fn run_snapshot(
     crate::glyphs::set_no_animations(true);
     let _restore_anim = scopeguard_no_anim(prev_no_anim);
 
-    let opts = mount::MountOpts { tick_interval: Some(disk_check_interval), ..Default::default() };
+    let opts = mount::MountOpts {
+        tick_interval: Some(disk_check_interval),
+        on_probe: Some(reflow_on_ambiguous_width(buf.clone())),
+        ..Default::default()
+    };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
         // Keyboard dispatch matches the follow view: textarea is mounted
         // unfocused (no cursor block painted) so we translate keys to
@@ -310,7 +314,11 @@ pub fn run_follow_mount(
     // user's `-f <interval>` only as a floor (don't wake faster than
     // requested if they explicitly want less frequent polling).
     let tick = poll_interval.min(Duration::from_millis(33));
-    let opts = mount::MountOpts { tick_interval: Some(tick), ..Default::default() };
+    let opts = mount::MountOpts {
+        tick_interval: Some(tick),
+        on_probe: Some(reflow_on_ambiguous_width(buf.clone())),
+        ..Default::default()
+    };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
         let body_h = (ctx.size().height - 1).max(1) as CoordType;
 
@@ -598,6 +606,21 @@ impl Drop for NoAnimRestore {
 }
 fn scopeguard_no_anim(prev: bool) -> NoAnimRestore {
     NoAnimRestore(prev)
+}
+
+/// `MountOpts::on_probe` callback: reflow the buffer iff the terminal
+/// reported ambiguous-width 2.
+///
+/// Both views read the file into a `TextBuffer` before mounting, so the
+/// initial measurement ran at width 1. `mount` applies the probed width
+/// globally, but already-measured content keeps its stale wrap points
+/// until something recomputes them.
+fn reflow_on_ambiguous_width(buf: crate::buffer::RcTextBuffer) -> crate::mount::ProbeCallback {
+    Box::new(move |probe| {
+        if probe.ambiguous_width == 2 {
+            buf.borrow_mut().reflow();
+        }
+    })
 }
 
 fn follow_mount_header(
