@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       # https://github.com/actions/cache/blob/main/examples.md#rust---cargo
       # Depends on `Cargo.lock` --> Has to be after checkout.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -39,5 +39,25 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-features --all-targets -- --no-deps --deny warnings
 
-# The PTY suite (tests/pty/) is deliberately not wired up here: 5 of its 26
-# tests fail on the current tree. Add a job once those are green.
+  pty:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-pty-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust
+        run: rustup toolchain install stable --no-self-update --profile minimal
+      # The suite drives target/release/edit through a pseudo-terminal.
+      - name: Build
+        run: cargo build --release
+      # Timings are plain sleeps; a loaded runner needs a slower pace.
+      - name: Run PTY tests
+        run: python3 tests/pty/framework.py --pace 2
