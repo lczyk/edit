@@ -268,6 +268,64 @@ pub fn word_select(doc: &dyn ReadableDocument, offset: usize) -> Range<usize> {
     beg..end
 }
 
+// --- cursor movement compositions -------------------------------------
+//
+// Higher-level moves built from the primitives above and TextBuffer's own
+// cursor API. They live here rather than in the editor binary because
+// nothing about them is app-specific -- any embedder driving a textarea
+// wants the same behaviour.
+
+use crate::buffer::TextBuffer;
+use crate::helpers::{CoordType, Point};
+
+/// Move the cursor `delta` visual rows, keeping the preferred column and
+/// scrolling by the same amount so the cursor holds its position on
+/// screen rather than drifting toward an edge.
+pub fn small_jump(tb: &mut TextBuffer, delta: CoordType) {
+    let x = tb.preferred_column();
+    let max_y = (tb.visual_line_count() - 1).max(0);
+    let y = (tb.cursor_visual_pos().y + delta).clamp(0, max_y);
+    tb.cursor_move_to_visual(Point { x, y });
+    tb.request_scroll_delta_y(delta);
+}
+
+/// [`small_jump`], extending the selection instead of moving the cursor.
+pub fn small_jump_select(tb: &mut TextBuffer, delta: CoordType) {
+    let x = tb.preferred_column();
+    let max_y = (tb.visual_line_count() - 1).max(0);
+    let y = (tb.cursor_visual_pos().y + delta).clamp(0, max_y);
+    tb.selection_update_visual(Point { x, y });
+    tb.request_scroll_delta_y(delta);
+}
+
+/// Home, with the usual editor twist: go to the first non-whitespace
+/// character, and only to column 0 if already there.
+pub fn smart_line_start(tb: &mut TextBuffer, select: bool) {
+    let cur = tb.cursor_logical_pos();
+    let indent_end = tb.indent_end_logical_pos();
+    let target = if cur.x > indent_end.x { indent_end } else { Point { x: 0, y: cur.y } };
+    if select {
+        tb.selection_update_logical(target);
+    } else {
+        tb.cursor_move_to_logical(target);
+    }
+    tb.set_preferred_column(tb.cursor_visual_pos().x);
+    tb.make_cursor_visible();
+}
+
+/// End: move to the last column of the current logical line.
+pub fn line_end(tb: &mut TextBuffer, select: bool) {
+    let y = tb.cursor_logical_pos().y;
+    let target = Point { x: CoordType::MAX, y };
+    if select {
+        tb.selection_update_logical(target);
+    } else {
+        tb.cursor_move_to_logical(target);
+    }
+    tb.set_preferred_column(tb.cursor_visual_pos().x);
+    tb.make_cursor_visible();
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

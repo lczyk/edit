@@ -319,6 +319,7 @@ pub struct BodyTextRects {
 }
 
 pub use layout::{TextareaLayout, VisualLine};
+pub use navigation::{line_end, small_jump, small_jump_select, smart_line_start};
 
 /// A [`TextBuffer`] with inner mutability.
 pub type TextBufferCell = SemiRefCell<TextBuffer>;
