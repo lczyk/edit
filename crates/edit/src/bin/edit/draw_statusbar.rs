@@ -1,7 +1,6 @@
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::input::vk;
-use edit::lsh::LANGUAGES;
 use edit::tui::*;
 use stdext::arena_format;
 
@@ -38,11 +37,14 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
 
     ctx.table_next_row();
 
-    state.wants_language_picker |= ctx.button(
+    let picker_clicked = ctx.button(
         "language",
         tb.language().map_or("Plain Text", |l| l.name),
         ButtonStyle::default(),
     );
+    if picker_clicked {
+        state.modal = Some(crate::modals::Modal::LanguagePicker);
+    }
     if state.wants_statusbar_focus {
         state.wants_statusbar_focus = false;
         ctx.steal_focus();
@@ -165,51 +167,4 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
     ctx.block_end();
 
     ctx.table_end();
-}
-
-pub fn draw_dialog_language_change(ctx: &mut Context, state: &mut State) {
-    let doc = &mut state.document;
-    let mut done = false;
-
-    ctx.modal_begin("language", "Select Language Mode");
-    {
-        let width = (ctx.size().width - 20).max(10);
-        let height = (ctx.size().height - 10).max(10);
-
-        ctx.scrollarea_begin("scrollarea", Size { width, height });
-        ctx.attr_background_rgba(ctx.indexed_alpha(IndexedColor::Black, 1, 4));
-        ctx.inherit_focus();
-        {
-            ctx.list_begin("languages");
-            ctx.inherit_focus();
-
-            let auto_detect = doc.language_override.is_none();
-            let selected = if auto_detect { None } else { doc.buffer.borrow().language() };
-
-            if ctx.list_item(auto_detect, "Auto Detect") == ListSelection::Activated {
-                doc.auto_detect_language();
-                done = true;
-            }
-
-            if ctx.list_item(selected.is_none(), "Plain Text") == ListSelection::Activated {
-                doc.override_language(None);
-                done = true;
-            }
-
-            for lang in LANGUAGES {
-                if ctx.list_item(Some(lang) == selected, lang.name) == ListSelection::Activated {
-                    doc.override_language(Some(lang));
-                    done = true;
-                }
-            }
-            ctx.list_end();
-        }
-        ctx.scrollarea_end();
-    }
-    done |= ctx.modal_end();
-
-    if done {
-        state.wants_language_picker = false;
-        ctx.needs_rerender();
-    }
 }

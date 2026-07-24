@@ -1,6 +1,4 @@
-use edit::helpers::*;
 use edit::tui::*;
-use stdext::arena_format;
 
 use crate::document;
 use crate::keybindings::{self, Action};
@@ -37,7 +35,7 @@ fn draw_menu_file(ctx: &mut Context, state: &mut State) {
         save_document(ctx, state);
     }
     if ctx.menubar_menu_button("exit", 'X', keybindings::chord(Action::Exit)) {
-        state.wants_exit = true;
+        state.modal = Some(crate::modals::Modal::ConfirmExit);
     }
     ctx.menubar_menu_end();
 }
@@ -128,7 +126,7 @@ fn draw_menu_view(ctx: &mut Context, state: &mut State) {
         state.wants_statusbar_focus = true;
     }
     if ctx.menubar_menu_button("go to line:column...", 'G', keybindings::chord(Action::GoToLine)) {
-        state.wants_goto = true;
+        state.modal = Some(crate::modals::Modal::GoToLine);
     }
     if ctx.menubar_menu_checkbox(
         "word wrap",
@@ -154,44 +152,7 @@ fn draw_menu_view(ctx: &mut Context, state: &mut State) {
 
 fn draw_menu_help(ctx: &mut Context, state: &mut State) {
     if ctx.menubar_menu_button("about", 'A', keybindings::chord(Action::OpenAbout)) {
-        state.wants_about = true;
+        state.modal = Some(crate::modals::Modal::About);
     }
     ctx.menubar_menu_end();
-}
-
-pub fn draw_dialog_about(ctx: &mut Context, state: &mut State) {
-    ctx.modal_begin("about", "about");
-    {
-        ctx.block_begin("content");
-        ctx.inherit_focus();
-        ctx.attr_padding(Rect::three(1, 2, 1));
-        {
-            ctx.label("description", "edit");
-            ctx.attr_overflow(Overflow::TruncateTail);
-            ctx.attr_position(Position::Center);
-
-            ctx.label(
-                "version",
-                &arena_format!(ctx.arena(), "{}{}", "version: ", env!("CARGO_PKG_VERSION")),
-            );
-            ctx.attr_overflow(Overflow::TruncateHead);
-            ctx.attr_position(Position::Center);
-
-            ctx.block_begin("choices");
-            ctx.inherit_focus();
-            ctx.attr_padding(Rect::three(1, 2, 0));
-            ctx.attr_position(Position::Center);
-            {
-                if ctx.button("ok", "ok", ButtonStyle::default()) {
-                    state.wants_about = false;
-                }
-                ctx.inherit_focus();
-            }
-            ctx.block_end();
-        }
-        ctx.block_end();
-    }
-    if ctx.modal_end() {
-        state.wants_about = false;
-    }
 }

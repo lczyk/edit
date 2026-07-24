@@ -1,8 +1,6 @@
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use edit::framebuffer::IndexedColor;
-use edit::helpers::*;
 use edit::oklab::StraightRgba;
 use edit::tui::*;
 use edit::{buffer, icu};
@@ -108,13 +106,10 @@ pub struct State {
     pub search_options: buffer::SearchOptions,
     pub search_success: bool,
 
-    pub wants_language_picker: bool,
-
     pub wants_statusbar_focus: bool,
     pub wants_indentation_picker: bool,
-    pub wants_about: bool,
-    pub wants_exit: bool,
-    pub wants_goto: bool,
+    /// The open dialog, if any. One slot, so two can never paint at once.
+    pub modal: Option<crate::modals::Modal>,
     pub goto_target: String,
     pub goto_invalid: bool,
 
@@ -143,13 +138,9 @@ impl State {
             search_options: Default::default(),
             search_success: true,
 
-            wants_language_picker: false,
-
             wants_statusbar_focus: false,
             wants_indentation_picker: false,
-            wants_about: false,
-            wants_exit: false,
-            wants_goto: false,
+            modal: None,
             goto_target: Default::default(),
             goto_invalid: false,
 
@@ -159,6 +150,15 @@ impl State {
 
             saved_flash_until: None,
         })
+    }
+
+    /// Clear the queued errors and close the log. Both dismissal paths
+    /// (the Ok button and the modal's own close) go through here so the
+    /// count and the open dialog cannot disagree -- leaving `modal` set
+    /// with nothing to show would redraw an empty log every frame.
+    pub fn dismiss_errors(&mut self) {
+        self.error_log_count = 0;
+        self.modal = None;
     }
 
     pub fn add_error(&mut self, err: apperr::Error) -> bool {
@@ -187,39 +187,5 @@ pub fn save_document(ctx: &mut Context, state: &mut State) {
 pub fn error_log_add(ctx: &mut Context, state: &mut State, err: apperr::Error) {
     if state.add_error(err) {
         ctx.needs_rerender();
-    }
-}
-
-pub fn draw_error_log(ctx: &mut Context, state: &mut State) {
-    ctx.modal_begin("error", "Error");
-    ctx.attr_background_rgba(ctx.indexed(IndexedColor::Red));
-    ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::BrightWhite));
-    {
-        ctx.block_begin("content");
-        ctx.attr_padding(Rect::three(0, 2, 1));
-        {
-            let off = state.error_log_index + state.error_log.len() - state.error_log_count;
-
-            for i in 0..state.error_log_count {
-                let idx = (off + i) % state.error_log.len();
-                let msg = &state.error_log[idx][..];
-
-                if !msg.is_empty() {
-                    ctx.next_block_id_mixin(i as u64);
-                    ctx.label("error", msg);
-                    ctx.attr_overflow(Overflow::TruncateTail);
-                }
-            }
-        }
-        ctx.block_end();
-
-        if ctx.button("ok", "Ok", ButtonStyle::default()) {
-            state.error_log_count = 0;
-        }
-        ctx.attr_position(Position::Center);
-        ctx.inherit_focus();
-    }
-    if ctx.modal_end() {
-        state.error_log_count = 0;
     }
 }

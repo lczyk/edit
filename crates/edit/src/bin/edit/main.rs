@@ -8,6 +8,7 @@ mod draw_menubar;
 mod draw_statusbar;
 mod keybindings;
 mod minimap;
+mod modals;
 mod settings;
 mod state;
 
@@ -253,25 +254,12 @@ fn draw(ctx: &mut Context, state: &mut State) {
     draw_editor(ctx, state);
     draw_statusbar(ctx, state);
 
-    if state.wants_exit {
-        draw_handle_wants_exit(ctx, state);
-    }
-    if state.wants_goto {
-        draw_goto_menu(ctx, state);
-    }
-    if state.wants_language_picker {
-        draw_dialog_language_change(ctx, state);
-    }
-    if state.wants_about {
-        draw_dialog_about(ctx, state);
-    }
     if ctx.clipboard_ref().wants_host_sync() {
         ctx.clipboard_mut().mark_as_synchronized();
         state.osc_clipboard_sync = true;
     }
-    if state.error_log_count != 0 {
-        draw_error_log(ctx, state);
-    }
+    modals::raise_errors_if_any(state);
+    modals::draw_active(ctx, state);
 
     if let Some(key) = ctx.keyboard_input()
         && key == vk::F3
@@ -292,11 +280,11 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
     let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
 
     if ctx.consume_shortcut(chord(Action::Exit)) {
-        state.wants_exit = true;
+        state.modal = Some(modals::Modal::ConfirmExit);
     } else if ctx.consume_shortcut(chord(Action::Save)) {
         save_document(ctx, state);
     } else if ctx.consume_shortcut(chord(Action::GoToLine)) {
-        state.wants_goto = true;
+        state.modal = Some(modals::Modal::GoToLine);
     } else if ctx.consume_shortcut(chord(Action::ToggleColumnGuides)) {
         let mut tb = state.document.buffer.borrow_mut();
         let on = tb.is_column_guides_enabled();
