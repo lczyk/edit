@@ -3,10 +3,10 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - lczyk-remix
   pull_request:
     branches:
-      - main
+      - lczyk-remix
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,11 +28,16 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      # Stable is enough: the only `feature(...)` gate is behind
+      # `target_arch = "loongarch64"`, which this fork does not target.
       - name: Install Rust
-        run: rustup toolchain install nightly --no-self-update --profile minimal --component rust-src,rustfmt,clippy
+        run: rustup toolchain install stable --no-self-update --profile minimal --component rustfmt,clippy
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Run tests
         run: cargo test --all-features --all-targets
       - name: Run clippy
         run: cargo clippy --all-features --all-targets -- --no-deps --deny warnings
+
+# The PTY suite (tests/pty/) is deliberately not wired up here: 5 of its 26
+# tests fail on the current tree. Add a job once those are green.
