@@ -16,6 +16,7 @@ use crate::apperr;
 #[cfg(debug_assertions)]
 use crate::devlog;
 use crate::document;
+#[cfg(debug_assertions)]
 use crate::keybindings;
 
 /// Toggleable behaviours. Parsed from `--quirks=a,b,c`.
