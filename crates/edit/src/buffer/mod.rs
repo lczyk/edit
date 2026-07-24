@@ -377,6 +377,7 @@ pub struct TextBuffer {
     preferred_column: CoordType,
 
     wants_cursor_visibility: bool,
+    wants_scroll_delta_x: CoordType,
     wants_scroll_delta_y: CoordType,
 
     /// Indexed by logical line `y`. Empty means "no marks". May be shorter
@@ -462,6 +463,7 @@ impl TextBuffer {
             preferred_column: 0,
 
             wants_cursor_visibility: false,
+            wants_scroll_delta_x: 0,
             wants_scroll_delta_y: 0,
 
             gutter_marks: Vec::new(),
@@ -783,6 +785,18 @@ impl TextBuffer {
     /// For the TUI code to retrieve a prior [`TextBuffer::request_scroll_delta_y()`] request.
     pub fn take_scroll_delta_y_request(&mut self) -> CoordType {
         mem::take(&mut self.wants_scroll_delta_y)
+    }
+
+    /// Horizontal counterpart of [`TextBuffer::request_scroll_delta_y()`], in
+    /// visual columns. Ignored while word-wrap is on, because the TUI pins the
+    /// horizontal scroll offset to 0 in that mode.
+    pub fn request_scroll_delta_x(&mut self, dx: CoordType) {
+        self.wants_scroll_delta_x = self.wants_scroll_delta_x.saturating_add(dx);
+    }
+
+    /// For the TUI code to retrieve a prior [`TextBuffer::request_scroll_delta_x()`] request.
+    pub fn take_scroll_delta_x_request(&mut self) -> CoordType {
+        mem::take(&mut self.wants_scroll_delta_x)
     }
 
     /// Is word-wrap enabled?

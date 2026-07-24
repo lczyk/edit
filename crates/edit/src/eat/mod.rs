@@ -51,6 +51,10 @@ struct Cli {
     #[argh(option, default = "PagingMode::Auto")]
     paging: PagingMode,
 
+    /// when to wrap long lines: auto, always, never (never chops instead)
+    #[argh(option, default = "WrapMode::Auto")]
+    wrap: WrapMode,
+
     /// follow file appends and emit new lines as they arrive (like `tail -F`).
     /// optional value sets the poll interval, e.g. `-f 30s`, `-f 500ms`,
     /// `-f 2` (bare number = seconds). bare `-f` defaults to 250ms.
@@ -161,6 +165,32 @@ impl argh::FromArgValue for PagingMode {
             "never" => Ok(PagingMode::Never),
             _ => Err(format!("invalid paging mode: {value}. expected auto, always, or never")),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WrapMode {
+    Auto,
+    Always,
+    Never,
+}
+
+impl argh::FromArgValue for WrapMode {
+    fn from_arg_value(value: &str) -> Result<Self, String> {
+        match value {
+            "auto" => Ok(WrapMode::Auto),
+            "always" => Ok(WrapMode::Always),
+            "never" => Ok(WrapMode::Never),
+            _ => Err(format!("invalid wrap mode: {value}. expected auto, always, or never")),
+        }
+    }
+}
+
+impl WrapMode {
+    /// Wrap state the tui views start in. `auto` wraps: the tui only ever runs
+    /// on a tty, and clipping long lines by default hides content.
+    fn resolve(self) -> bool {
+        !matches!(self, WrapMode::Never)
     }
 }
 
@@ -276,7 +306,7 @@ fn print_short_help() -> ExitCode {
     let name = prog_name();
     let eat_flag = if std::env::var("EDIT_EAT_VIA_FLAG").is_ok() { " --eat" } else { "" };
     eprintln!(
-        "usage: {name}{eat_flag} [-l <lang>] [-p] [-n] [-L] [--line-range <RANGE>] [--color <WHEN>] [--paging <WHEN>] [-f [<DUR>]] [--version] [FILES...]"
+        "usage: {name}{eat_flag} [-l <lang>] [-p] [-n] [-L] [--line-range <RANGE>] [--color <WHEN>] [--paging <WHEN>] [--wrap <WHEN>] [-f [<DUR>]] [--version] [FILES...]"
     );
     eprintln!("try `{name}{eat_flag} --help` for more details.");
     ExitCode::from(0)
@@ -455,7 +485,10 @@ fn print_highlighted(
 
 /// spawn the pager (if any) and return its stdin + child handle.
 /// caller must drop the writer to signal EOF, then wait on the child.
-fn open_pager_sink(pager_path: &str) -> io::Result<(Box<dyn Write>, std::process::Child)> {
+fn open_pager_sink(
+    pager_path: &str,
+    wrap: bool,
+) -> io::Result<(Box<dyn Write>, std::process::Child)> {
     let mut args: Vec<&str> = Vec::new();
     let pager_name = Path::new(pager_path).file_name().and_then(|n| n.to_str()).unwrap_or("");
 
@@ -466,6 +499,10 @@ fn open_pager_sink(pager_path: &str) -> io::Result<(Box<dyn Write>, std::process
     // bug that motivated -X; older less is rare enough not to chase.
     if pager_name == "less" {
         args.extend_from_slice(&["-R", "-F"]);
+        // less wraps by default, so only the chop case needs a flag.
+        if !wrap {
+            args.push("-S");
+        }
     }
 
     let mut child = std::process::Command::new(pager_path)
@@ -491,6 +528,7 @@ fn read_stdin() -> io::Result<Vec<String>> {
 }
 
 /// run the cat-like path over a list of files and optional stdin.
+#[allow(clippy::too_many_arguments)]
 fn run(
     files: &[String],
     language_override: Option<&str>,
@@ -499,6 +537,7 @@ fn run(
     line_range: Option<LineRange>,
     color_mode: ColorMode,
     paging_mode: PagingMode,
+    wrap_mode: WrapMode,
 ) -> ExitCode {
     let mut has_error = false;
 
@@ -556,7 +595,7 @@ fn run(
 
     let mut pager_child: Option<std::process::Child> = None;
     let mut sink: Box<dyn Write> = match pager_path.as_deref() {
-        Some(path) => match open_pager_sink(path) {
+        Some(path) => match open_pager_sink(path, wrap_mode.resolve()) {
             Ok((w, c)) => {
                 pager_child = Some(c);
                 w
@@ -1293,7 +1332,7 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     // EAT_FOLLOW_NO_TUI=1 forces streaming even on a tty (debug / scripting).
     let force_no_tui = std::env::var("EAT_FOLLOW_NO_TUI").is_ok_and(|v| !v.is_empty());
     let result = if io::stdout().is_terminal() && !force_no_tui {
-        follow_tui::run_follow_mount(path, lang, cli.number, use_color, poll)
+        follow_tui::run_follow_mount(path, lang, cli.number, use_color, poll, cli.wrap.resolve())
     } else {
         follow::run(path, lang, cli.number, use_color, poll)
     };
@@ -1362,7 +1401,8 @@ pub fn main() -> ExitCode {
             }
         };
         let use_color = resolve_use_color(cli.color, true);
-        return match follow_tui::run_snapshot(path, lang, cli.number, use_color) {
+        return match follow_tui::run_snapshot(path, lang, cli.number, use_color, cli.wrap.resolve())
+        {
             Ok(()) => ExitCode::from(0),
             Err(e) => {
                 eprintln!("{}: {e}", prog_name());
@@ -1379,5 +1419,6 @@ pub fn main() -> ExitCode {
         line_range,
         cli.color,
         cli.paging,
+        cli.wrap,
     )
 }

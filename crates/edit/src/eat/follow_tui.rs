@@ -14,6 +14,11 @@
 //! Both views go through `edit::mount::mount`; the bespoke alt-screen
 //! driver (own vt parser, own viewport state, own line ring) is gone
 //! as of phase C.5.
+//!
+//! Both wrap long lines by default (`--wrap`); `w` toggles, and
+//! Left/Right (or `h`/`l`) scroll horizontally while wrap is off. Line
+//! counts shown in the headers are always logical lines -- wrap is a
+//! display concern and must not move them.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -21,11 +26,16 @@ use std::time::{Duration, Instant};
 
 use lsh::runtime::Language;
 
+/// Visual columns per Left/Right press when wrap is off. Matches less's
+/// default horizontal scroll step.
+const H_SCROLL_STEP: crate::helpers::CoordType = 8;
+
 // --- snapshot driver -----------------------------------------------------
 
 /// Run the snapshot tui pager. Reads the file into a [`TextBuffer`]
 /// (marked read-only) and mounts edit's tui via [`crate::mount::mount`].
-/// Textarea handles cursor, scroll, selection natively. `q` exits.
+/// Textarea handles cursor, scroll, selection natively. `q` exits, `w`
+/// toggles wrap, Left/Right scroll horizontally while wrap is off.
 ///
 /// Scope dropped (TODO(lczyk)):
 /// - `--color=never` override. edit's tui has no plain-mode toggle yet.
@@ -34,6 +44,7 @@ pub fn run_snapshot(
     lang: Option<&'static Language>,
     show_numbers: bool,
     _use_color: bool,
+    wrap: bool,
 ) -> io::Result<()> {
     use std::ops::ControlFlow;
 
@@ -50,9 +61,11 @@ pub fn run_snapshot(
         b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
         b.set_language(lang);
         b.set_margin_enabled(show_numbers);
+        b.set_word_wrap(wrap);
         b.set_read_only(true);
     }
 
+    let mut wrap = wrap;
     let path_label = path.display().to_string();
     let mut captured_stat = stat_fingerprint(&path);
     let mut file_changed = false;
@@ -96,6 +109,11 @@ pub fn run_snapshot(
             } else if bare == vk::A && k.modifiers_contains(primary) {
                 buf.borrow_mut().select_all();
                 ctx.set_input_consumed();
+            } else if bare == vk::W {
+                wrap = !wrap;
+                buf.borrow_mut().set_word_wrap(wrap);
+                ctx.set_input_consumed();
+                ctx.needs_rerender();
             } else if bare == vk::R {
                 ctx.set_input_consumed();
                 if let Ok(mut f) = std::fs::File::open(&path) {
@@ -103,6 +121,7 @@ pub fn run_snapshot(
                     b.set_read_only(false);
                     let _ = b.read_file(&mut f);
                     b.set_margin_enabled(show_numbers);
+                    b.set_word_wrap(wrap);
                     b.set_read_only(true);
                 }
                 captured_stat = stat_fingerprint(&path);
@@ -121,6 +140,12 @@ pub fn run_snapshot(
                 ctx.set_input_consumed();
             } else if bare == vk::NEXT {
                 buf.borrow_mut().request_scroll_delta_y((body_h - 1).max(1));
+                ctx.set_input_consumed();
+            } else if bare == vk::LEFT || (bare == vk::H && !shifted) {
+                buf.borrow_mut().request_scroll_delta_x(-H_SCROLL_STEP);
+                ctx.set_input_consumed();
+            } else if bare == vk::RIGHT || (bare == vk::L && !shifted) {
+                buf.borrow_mut().request_scroll_delta_x(H_SCROLL_STEP);
                 ctx.set_input_consumed();
             } else if bare == vk::HOME || (bare == vk::G && !shifted) {
                 let n = buf.borrow().visual_line_count();
@@ -172,7 +197,7 @@ pub fn run_snapshot(
 fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String {
     let delta = if file_changed { "  [modified on disk]" } else { "" };
     format!(
-        "{path_label} @ {}{delta}  (q exit, r reload, Up/Dn g/G PgUp/PgDn scroll)",
+        "{path_label} @ {}{delta}  (q exit, r reload, w wrap, arrows/g/G/PgUp/PgDn scroll)",
         format_clock(at),
     )
 }
@@ -191,8 +216,8 @@ fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String 
 /// Funnel-style follow/paused: `pause_offset` mirrors funnel's
 /// `display_offset` (lines above the live bottom). Transitions through
 /// 0 re-enter follow. Wheel-up enters pause; wheel-down toward the
-/// bottom resumes. Key bindings: Up/Dn, j/k, g/G, Home, End, PgUp,
-/// PgDn, q/esc.
+/// bottom resumes. Key bindings: Up/Dn, j/k, Left/Right, h/l, g/G, Home,
+/// End, PgUp, PgDn, w, q/esc.
 ///
 /// The textarea is mounted **without** focus. Unfocused textareas:
 /// - do not paint the terminal cursor (eat is a viewer, not an editor),
@@ -205,6 +230,7 @@ pub fn run_follow_mount(
     show_numbers: bool,
     _use_color: bool,
     poll_interval: Duration,
+    wrap: bool,
 ) -> io::Result<()> {
     use std::ops::ControlFlow;
 
@@ -237,6 +263,7 @@ pub fn run_follow_mount(
         b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
         b.set_language(lang);
         b.set_margin_enabled(show_numbers);
+        b.set_word_wrap(wrap);
         b.set_read_only(true);
         snap_to_tail(&mut b);
         let m = std::fs::metadata(&path)?;
@@ -252,6 +279,13 @@ pub fn run_follow_mount(
     // textarea won't honour.
     let mut following = true;
     let mut pause_offset: CoordType = 0;
+
+    // `w` flips wrap, but the reflow only lands when the textarea calls
+    // `set_width` later in the same frame -- so the re-anchor is deferred to
+    // the next frame, when the new visual geometry is readable.
+    let mut wrap = wrap;
+    let mut pending_rewrap: Option<Rewrap> = None;
+    let mut top_line_cache = TopLineCache::default();
 
     let mut wheel_accel = WheelAccel::default();
 
@@ -279,6 +313,32 @@ pub fn run_follow_mount(
     let opts = mount::MountOpts { tick_interval: Some(tick), ..Default::default() };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
         let body_h = (ctx.size().height - 1).max(1) as CoordType;
+
+        // deferred re-anchor after a wrap toggle. runs before anything reads
+        // the geometry, now that last frame's textarea pass has reflowed.
+        match pending_rewrap.take() {
+            Some(Rewrap::Tail) => {
+                snap_to_tail(&mut buf.borrow_mut());
+                pause_offset = 0;
+                following = true;
+                ctx.needs_rerender();
+            }
+            Some(Rewrap::Line { top_logical, old_scroll_y }) => {
+                let mut b = buf.borrow_mut();
+                b.cursor_move_to_logical(Point { x: 0, y: top_logical - 1 });
+                let new_top = b.cursor_visual_pos().y;
+                let new_total = b.visual_line_count();
+                // the textarea kept its old `scroll_offset.y` across the
+                // reflow, clamped to the new row count; steer from there.
+                let cur_scroll_y = old_scroll_y.clamp(0, (new_total - 1).max(0));
+                b.request_scroll_delta_y(new_top - cur_scroll_y);
+                pause_offset = (new_total - body_h - new_top).max(0);
+                following = pause_offset == 0;
+                ctx.needs_rerender();
+            }
+            None => {}
+        }
+
         let max_offset = (buf.borrow().visual_line_count() - body_h).max(0);
 
         // helper: apply a scroll delta and update pause_offset / follow
@@ -347,6 +407,28 @@ pub fn run_follow_mount(
                 buf.borrow_mut().request_scroll_delta_y(1);
                 apply_scroll(1);
                 ctx.set_input_consumed();
+            } else if bare == vk::LEFT || (bare == vk::H && !shifted) {
+                buf.borrow_mut().request_scroll_delta_x(-H_SCROLL_STEP);
+                ctx.set_input_consumed();
+            } else if bare == vk::RIGHT || (bare == vk::L && !shifted) {
+                buf.borrow_mut().request_scroll_delta_x(H_SCROLL_STEP);
+                ctx.set_input_consumed();
+            } else if bare == vk::W {
+                wrap = !wrap;
+                pending_rewrap = Some(if following {
+                    Rewrap::Tail
+                } else {
+                    let b = buf.borrow();
+                    let old_scroll_y = (b.visual_line_count() - body_h - pause_offset).max(0);
+                    drop(b);
+                    Rewrap::Line {
+                        top_logical: top_line_cache.get(&buf, old_scroll_y),
+                        old_scroll_y,
+                    }
+                });
+                buf.borrow_mut().set_word_wrap(wrap);
+                ctx.set_input_consumed();
+                ctx.needs_rerender();
             } else if bare == vk::PRIOR {
                 let d = (body_h - 1).max(1);
                 buf.borrow_mut().request_scroll_delta_y(-d);
@@ -386,7 +468,17 @@ pub fn run_follow_mount(
             ctx.needs_rerender();
         }
 
-        let counts = HeaderCounts { pause_offset, body_h, total: buf.borrow().visual_line_count() };
+        // counts shown to the user are logical lines -- wrap is a display
+        // concern, so "line 40/120" must not change when `w` is pressed.
+        // the scroll bookkeeping above stays in visual rows.
+        let scroll_y = {
+            let b = buf.borrow();
+            (b.visual_line_count() - body_h - pause_offset).max(0)
+        };
+        let counts = HeaderCounts {
+            top_line: top_line_cache.get(&buf, scroll_y),
+            total_lines: buf.borrow().logical_line_count(),
+        };
         let header =
             follow_mount_header(&path_label, Instant::now(), following, poll_interval, counts);
 
@@ -459,9 +551,40 @@ impl WheelAccel {
 }
 
 struct HeaderCounts {
-    pause_offset: crate::helpers::CoordType,
-    body_h: crate::helpers::CoordType,
-    total: crate::helpers::CoordType,
+    top_line: crate::helpers::CoordType,
+    total_lines: crate::helpers::CoordType,
+}
+
+/// What a pending wrap toggle should re-anchor the viewport to once the
+/// reflow has landed. See `pending_rewrap` in `run_follow_mount`.
+enum Rewrap {
+    Tail,
+    Line { top_logical: crate::helpers::CoordType, old_scroll_y: crate::helpers::CoordType },
+}
+
+/// Memo for the header's top-visible logical line. Resolving a visual row to a
+/// logical one is a measurement walk and the header is rebuilt every tick
+/// (~30fps), so only recompute when the viewport or the content moved.
+#[derive(Default)]
+struct TopLineCache {
+    key: Option<(crate::helpers::CoordType, u32)>,
+    line: crate::helpers::CoordType,
+}
+
+impl TopLineCache {
+    fn get(
+        &mut self,
+        buf: &crate::buffer::RcTextBuffer,
+        scroll_y: crate::helpers::CoordType,
+    ) -> crate::helpers::CoordType {
+        let b = buf.borrow();
+        let key = (scroll_y, b.generation());
+        if self.key != Some(key) {
+            self.key = Some(key);
+            self.line = b.resolve_visual_pos(crate::helpers::Point { x: 0, y: scroll_y }).0.y + 1;
+        }
+        self.line
+    }
 }
 
 /// RAII guard restoring the global `no_animations` flag on drop. Used
@@ -485,17 +608,10 @@ fn follow_mount_header(
     counts: HeaderCounts,
 ) -> String {
     let poll_ms = poll.as_millis();
-    let mode = if following {
-        "following".to_string()
-    } else {
-        // pause_offset == lines below viewport's bottom edge. above ==
-        // top-line index, i.e. total - body_h - pause_offset (clamp 0).
-        let below = counts.pause_offset.max(0);
-        let above = (counts.total - counts.body_h - counts.pause_offset).max(0);
-        format!("paused: {below} below | {above} above")
-    };
+    let mode = if following { "following" } else { "paused" };
+    let HeaderCounts { top_line, total_lines } = counts;
     format!(
-        "{path_label} [{mode}] @ {}  ({poll_ms}ms Up/Dn g/G PgUp/PgDn scroll, q)",
+        "{path_label} [{mode}] line {top_line}/{total_lines} @ {}  ({poll_ms}ms arrows/g/G/PgUp/PgDn scroll, w wrap, q)",
         format_clock(at),
     )
 }
@@ -627,7 +743,6 @@ mod tests {
 
     use super::*;
     use crate::buffer::TextBuffer;
-    use crate::helpers::CoordType;
 
     // --- apply_scroll_pure ---
 
@@ -826,46 +941,89 @@ mod tests {
     // --- follow_mount_header ---
 
     #[test]
-    fn header_following_omits_counts() {
+    fn header_following_shows_logical_line() {
         let h = follow_mount_header(
             "/tmp/foo.log",
             Instant::now(),
             true,
             Duration::from_millis(250),
-            HeaderCounts { pause_offset: 0, body_h: 24, total: 100 },
+            HeaderCounts { top_line: 77, total_lines: 100 },
         );
         assert!(h.contains("[following]"), "got: {h}");
         assert!(h.contains("250ms"));
-        assert!(!h.contains("below"));
+        assert!(h.contains("line 77/100"), "got: {h}");
     }
 
     #[test]
-    fn header_paused_shows_counts() {
+    fn header_paused_shows_logical_line() {
         let h = follow_mount_header(
             "/tmp/foo.log",
             Instant::now(),
             false,
             Duration::from_millis(100),
-            HeaderCounts { pause_offset: 5, body_h: 24, total: 100 },
+            HeaderCounts { top_line: 12, total_lines: 100 },
         );
-        assert!(h.contains("[paused"));
-        assert!(h.contains("5 below"));
-        // above = total - body_h - pause_offset = 100 - 24 - 5 = 71
-        assert!(h.contains("71 above"), "got: {h}");
+        assert!(h.contains("[paused]"), "got: {h}");
+        assert!(h.contains("line 12/100"), "got: {h}");
+    }
+
+    // --- wrap plumbing ---
+
+    #[test]
+    fn top_line_cache_recomputes_on_scroll_and_content() {
+        let path = tmp_path("cache");
+        write_file(&path, b"aaa\nbbb\nccc\nddd\n");
+        let buf = TextBuffer::new_rc(false).unwrap();
+        {
+            let mut b = buf.borrow_mut();
+            let mut f = std::fs::File::open(&path).unwrap();
+            b.read_file(&mut f).unwrap();
+        }
+
+        let mut cache = TopLineCache::default();
+        assert_eq!(cache.get(&buf, 0), 1);
+        assert_eq!(cache.get(&buf, 2), 3);
+        // repeat hit: same key, same answer, no recompute path taken.
+        assert_eq!(cache.get(&buf, 2), 3);
+
+        // appending bumps the generation, so a stale entry can't survive.
+        let gen_before = buf.borrow().generation();
+        {
+            let mut b = buf.borrow_mut();
+            b.set_read_only(false);
+            b.cursor_move_to_logical(crate::helpers::Point::MAX);
+            b.write_raw(b"eee\n");
+        }
+        assert_ne!(buf.borrow().generation(), gen_before);
+        assert_eq!(cache.get(&buf, 4), 5);
+
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]
-    fn header_above_clamps_to_zero() {
-        // tiny buffer: body_h > total - pause_offset, "above" goes negative
-        // pre-clamp. Clamp via .max(0) keeps it sane.
-        let _ = CoordType::default(); // silence unused-import warning if any
-        let h = follow_mount_header(
-            "/tmp/foo.log",
-            Instant::now(),
-            false,
-            Duration::from_millis(250),
-            HeaderCounts { pause_offset: 0, body_h: 100, total: 5 },
-        );
-        assert!(h.contains("0 above"), "got: {h}");
+    fn wrap_toggle_keeps_logical_line_count() {
+        let path = tmp_path("wrapcount");
+        // one long line that wraps into several rows at a narrow width.
+        write_file(&path, format!("{}\nshort\n", "x".repeat(200)).as_bytes());
+        let buf = TextBuffer::new_rc(false).unwrap();
+        {
+            let mut b = buf.borrow_mut();
+            let mut f = std::fs::File::open(&path).unwrap();
+            b.read_file(&mut f).unwrap();
+            b.set_width(40);
+        }
+
+        let logical = buf.borrow().logical_line_count();
+        buf.borrow_mut().set_word_wrap(true);
+        buf.borrow_mut().set_width(40);
+        assert!(buf.borrow().visual_line_count() > logical, "expected the long line to wrap");
+        assert_eq!(buf.borrow().logical_line_count(), logical);
+
+        buf.borrow_mut().set_word_wrap(false);
+        buf.borrow_mut().set_width(40);
+        assert_eq!(buf.borrow().visual_line_count(), logical);
+        assert_eq!(buf.borrow().logical_line_count(), logical);
+
+        std::fs::remove_file(&path).ok();
     }
 }

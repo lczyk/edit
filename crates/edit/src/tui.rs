@@ -2547,19 +2547,21 @@ impl<'a> Context<'a, '_> {
                 }
 
                 let mut make_cursor_visible;
+                let scroll_delta_x;
                 let scroll_delta_y;
                 {
                     let mut tb = content.buffer.borrow_mut();
                     make_cursor_visible = tb.take_cursor_visibility_request();
                     make_cursor_visible |= tb.set_width(text_width);
+                    scroll_delta_x = tb.take_scroll_delta_x_request();
                     scroll_delta_y = tb.take_scroll_delta_y_request();
                 }
 
                 make_cursor_visible |= self.textarea_handle_input(content, &node_prev, single_line);
 
-                if scroll_delta_y != 0 {
-                    content.scroll_offset.y += scroll_delta_y;
-                } else if make_cursor_visible {
+                content.scroll_offset.x += scroll_delta_x;
+                content.scroll_offset.y += scroll_delta_y;
+                if scroll_delta_x == 0 && scroll_delta_y == 0 && make_cursor_visible {
                     self.textarea_make_cursor_visible(content, &node_prev);
                 }
             } else {
