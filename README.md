@@ -31,9 +31,23 @@ By default, the project will look for the following library names:
 `EDIT_CFG_ICUUC_SONAME` | `libicucore.dylib` | `libicuuc.so`
 `EDIT_CFG_ICUI18N_SONAME` | `libicucore.dylib` | `libicui18n.so`
 
-If your installation uses a different SONAME, set these at build time, e.g. `libicuuc.so.76` / `libicui18n.so.76`.
+The unversioned `libicuuc.so` is a symlink that ships in the development
+package, not the runtime one. On a machine with only `libicuuc.so.76`,
+either install that package (`sudo apt install libicu-dev`, or your
+distribution's equivalent) or point at the versioned library directly:
+
+```sh
+EDIT_CFG_ICUUC_SONAME=libicuuc.so.76 EDIT_CFG_ICUI18N_SONAME=libicui18n.so.76 make build
+```
+
+Setting the SONAME does not disable renaming auto-detection, so on Linux
+that is normally the only thing you need to set.
 
 This project assumes that ICU exports symbols without `_` prefix and without version suffix, such as `u_errorName`. If your installation uses versioned exports, set:
 * `EDIT_CFG_ICU_CPP_EXPORTS=true` — look for C++ symbols such as `_u_errorName`. Enabled by default on macOS.
 * `EDIT_CFG_ICU_RENAMING_VERSION=76` — look for symbols such as `u_errorName_76`.
-* `EDIT_CFG_ICU_RENAMING_AUTO_DETECT=true` — detect the version at runtime. Enabled by default on Linux if no other options are set.
+* `EDIT_CFG_ICU_RENAMING_AUTO_DETECT=true` -- detect the version at runtime. Enabled by default on Linux unless `EDIT_CFG_ICU_RENAMING_VERSION` is set.
+
+Search and Replace degrade gracefully when ICU can't be loaded. To check
+whether it is wired up, `make test-icu` finds an installed ICU, builds
+against it, and fails rather than skipping if the search tests can't run.
