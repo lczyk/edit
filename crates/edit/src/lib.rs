@@ -29,3 +29,4 @@ pub mod term;
 pub mod tui;
 pub mod unicode;
 pub mod vt;
+pub mod watch;

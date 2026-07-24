@@ -21,6 +21,7 @@ use std::time::Duration;
 use lsh::runtime::{Language, Runtime};
 
 use super::write_highlighted_line;
+use crate::watch::{self, FileDelta};
 use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 
 /// fixed line-number column width in follow mode. real width is unknowable
@@ -33,23 +34,9 @@ pub const FOLLOW_NUM_WIDTH: usize = 6;
 /// default 250ms poll, 20 misses = 5s. covers brief logrotate windows.
 pub(crate) const DEFAULT_MISS_BUDGET: u32 = 20;
 
-/// what a single stat call sees. `id` is the inode on unix, 0 elsewhere
-/// (rotation on non-unix is detected by size shrink alone, which is the
-/// common shape there too). `mtime_ns` is nanoseconds since unix epoch --
-/// used as the cheap "did anything change" gate before the head-fingerprint
-/// check.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FollowStat {
-    pub size: u64,
-    pub id: u64,
-    pub mtime_ns: i128,
-}
-
-/// number of bytes we sample at offset 0 to detect in-place rewrites that
-/// happen to leave the file at the same (or nearly same) size as before.
-/// 256 fits in one disk block on every filesystem we care about; the read
-/// is essentially free.
-pub const HEAD_FINGERPRINT_BYTES: usize = 256;
+/// what a single stat call sees. shared with the tui follow view via
+/// [`crate::watch`] so both agree on what counts as a rotation.
+pub use crate::watch::{FileStat as FollowStat, HEAD_FINGERPRINT_BYTES};
 
 /// abstraction over the file being followed, so tests can drive ticks
 /// against an in-memory buffer w/out touching the filesystem.
@@ -242,49 +229,28 @@ pub fn tick<S: FollowSource>(
         );
     };
 
-    // subsequent ticks. correctness traps we have to defuse:
-    //   - inode change or shrink: classic rotation. easy.
-    //   - mtime unchanged: nothing happened (cheap fast path; matches log files
-    //     that get a stat every tick but only update bursty).
-    //   - mtime changed but size + id unchanged: someone rewrote in place
-    //     w/out changing length. need a fingerprint check to confirm.
-    //   - mtime changed AND size grew: probably a true append, but could be
-    //     "truncate + write more bytes than were there" -- the new content's
-    //     leading bytes won't match the old. check the fingerprint to
-    //     disambiguate; if it changed, treat as rotation.
-    //   - mtime changed AND size shrank: rotation (covered by first branch).
-    let mtime_changed = p.mtime_ns != stat.mtime_ns;
-    let id_changed = p.id != stat.id;
-    let shrank = stat.size < p.size;
-    let grew = stat.size > p.size;
-
     // mtime is the cheap "did anything happen" gate. some filesystems update
     // mtime on touch w/out content changes; we still defer to the fingerprint
     // before reacting.
-    if !mtime_changed && !id_changed && !shrank && !grew {
+    if !stat.differs(&p) {
         return Ok(TickOutcome::Idle);
     }
 
-    // sample the current head and compare against the cached bytes over
-    // their common prefix length. an append on a tiny file widens the head
-    // window, but the bytes inside the original window are unchanged --
-    // hashing the FULL window would false-positive on rotation.
+    // sample the current head so `classify` can tell an append from an
+    // in-place rewrite. see `watch::head_changed` for why the comparison is
+    // over the common prefix rather than the full window.
     let mut curr_head = Vec::with_capacity(HEAD_FINGERPRINT_BYTES);
     if stat.size > 0 {
         src.read_head(&mut curr_head)?;
     }
-    let cmp_len = state.head_bytes.len().min(curr_head.len());
-    let head_changed = state.head_bytes[..cmp_len] != curr_head[..cmp_len];
+    let head_changed = watch::head_changed(&state.head_bytes, &curr_head);
     state.head_bytes.clear();
     state.head_bytes.extend_from_slice(&curr_head);
 
-    let (rotated, read_offset) = if id_changed || shrank || head_changed {
-        (true, 0u64)
-    } else if grew {
-        (false, p.size) // confirmed pure append
-    } else {
-        // size + head + id all stable -- mtime moved alone (touch). no emit.
-        return Ok(TickOutcome::Idle);
+    let (rotated, read_offset) = match watch::classify(&p, &stat, head_changed) {
+        FileDelta::Rotated => (true, 0u64),
+        FileDelta::Appended { from } => (false, from),
+        FileDelta::Idle => return Ok(TickOutcome::Idle),
     };
 
     finish_tick(

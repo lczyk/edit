@@ -25,7 +25,7 @@ use edit::lsh::{
     FILE_ASSOCIATIONS, Language, disambiguate_language, language_from_content,
     language_from_shebang, match_file_associations,
 };
-use edit::{path, sys};
+use edit::{path, sys, watch};
 
 use gutter::gutter_diff::{self, BaselineState};
 
@@ -43,7 +43,7 @@ pub struct Document {
 
     /// Fingerprint captured at open (or last save). Compared every 2s
     /// against a fresh stat to detect external modifications.
-    pub disk_fingerprint: Option<sys::FileFingerprint>,
+    pub disk_fingerprint: Option<watch::FileStat>,
     /// True when the file on disk differs from the fingerprint we hold.
     pub file_changed_on_disk: bool,
     last_disk_check: Option<std::time::Instant>,
@@ -89,7 +89,7 @@ impl Document {
         };
 
         let file_id = if file.is_some() { Some(sys::file_id(file.as_ref(), &path)?) } else { None };
-        let disk_fingerprint = sys::FileFingerprint::from_path(&path).ok();
+        let disk_fingerprint = watch::FileStat::from_path(&path).ok();
         let read_only = file.is_some() && !sys::is_path_writable(&path);
 
         let buffer = create_buffer()?;
@@ -150,7 +150,7 @@ impl Document {
         if let Ok(id) = sys::file_id(None, &self.path) {
             self.file_id = Some(id);
         }
-        self.disk_fingerprint = sys::FileFingerprint::from_path(&self.path).ok();
+        self.disk_fingerprint = watch::FileStat::from_path(&self.path).ok();
         self.file_changed_on_disk = false;
 
         // Saving doesn't change HEAD, so the cached baseline is still
@@ -361,7 +361,7 @@ impl Document {
         let Some(ref saved) = self.disk_fingerprint else {
             return;
         };
-        if let Ok(current) = sys::FileFingerprint::from_path(&self.path) {
+        if let Ok(current) = watch::FileStat::from_path(&self.path) {
             self.file_changed_on_disk = current != *saved;
         }
     }

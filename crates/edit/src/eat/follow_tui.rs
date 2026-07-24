@@ -26,6 +26,8 @@ use std::time::{Duration, Instant};
 
 use lsh::runtime::Language;
 
+use crate::watch::{self, FileDelta, FileStat};
+
 /// Visual columns per Left/Right press when wrap is off. Matches less's
 /// default horizontal scroll step.
 const H_SCROLL_STEP: crate::helpers::CoordType = 8;
@@ -67,7 +69,7 @@ pub fn run_snapshot(
 
     let mut wrap = wrap;
     let path_label = path.display().to_string();
-    let mut captured_stat = stat_fingerprint(&path);
+    let mut captured_stat = FileStat::from_path(&path).ok();
     let mut file_changed = false;
     let mut last_disk_check = Instant::now();
     let mut header = snapshot_header(&path_label, Instant::now(), file_changed);
@@ -128,7 +130,7 @@ pub fn run_snapshot(
                     b.set_word_wrap(wrap);
                     b.set_read_only(true);
                 }
-                captured_stat = stat_fingerprint(&path);
+                captured_stat = FileStat::from_path(&path).ok();
                 file_changed = false;
                 last_disk_check = Instant::now();
                 header = snapshot_header(&path_label, Instant::now(), file_changed);
@@ -171,7 +173,7 @@ pub fn run_snapshot(
         let now = Instant::now();
         if now.duration_since(last_disk_check) >= disk_check_interval {
             last_disk_check = now;
-            let now_stat = stat_fingerprint(&path);
+            let now_stat = FileStat::from_path(&path).ok();
             let changed = match (&captured_stat, &now_stat) {
                 (Some(a), Some(b)) => a != b,
                 (Some(_), None) => true,
@@ -261,7 +263,7 @@ pub fn run_follow_mount(
     // detection runs once.
     let buf =
         TextBuffer::new_rc(false).map_err(|e| io::Error::other(format!("text buffer: {e:?}")))?;
-    let (last_size, last_inode) = {
+    {
         let mut b = buf.borrow_mut();
         let mut f = std::fs::File::open(&path)?;
         b.read_file(&mut f).map_err(|e| io::Error::other(format!("read: {e:?}")))?;
@@ -270,9 +272,7 @@ pub fn run_follow_mount(
         b.set_word_wrap(wrap);
         b.set_read_only(true);
         snap_to_tail(&mut b);
-        let m = std::fs::metadata(&path)?;
-        (m.len(), inode_of(&m))
-    };
+    }
 
     let path_label = path.display().to_string();
 
@@ -305,7 +305,7 @@ pub fn run_follow_mount(
     crate::glyphs::set_no_animations(true);
     let _restore_anim = scopeguard_no_anim(prev_no_anim);
 
-    let mut drain_state = DrainState { last_size, last_inode };
+    let mut drain_state = DrainState::new(&path);
 
     // tick at ~30fps regardless of the user's poll_interval. stat is
     // cheap; reload still gated on stat change. Decoupling the wake
@@ -504,17 +504,6 @@ pub fn run_follow_mount(
     })
 }
 
-#[cfg(unix)]
-fn inode_of(meta: &std::fs::Metadata) -> u64 {
-    use std::os::unix::fs::MetadataExt as _;
-    meta.ino()
-}
-
-#[cfg(not(unix))]
-fn inode_of(_meta: &std::fs::Metadata) -> u64 {
-    0
-}
-
 /// Mouse-wheel acceleration ported from funnel. Slow spins return 1
 /// line; sustained fast spinning ramps to 2. Streak counts up on
 /// FAST_THRESHOLD ticks, decays per medium tick, resets on direction
@@ -639,38 +628,6 @@ fn follow_mount_header(
     )
 }
 
-/// Snapshot of file metadata used to detect on-disk changes between polls.
-/// `None` on platforms without unix metadata or when the file is gone.
-struct SnapshotStat {
-    size: u64,
-    ino: u64,
-    mtime_ns: i128,
-}
-
-impl PartialEq for SnapshotStat {
-    fn eq(&self, other: &Self) -> bool {
-        self.size == other.size && self.ino == other.ino && self.mtime_ns == other.mtime_ns
-    }
-}
-
-fn stat_fingerprint(path: &Path) -> Option<SnapshotStat> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt as _;
-        let meta = std::fs::metadata(path).ok()?;
-        Some(SnapshotStat {
-            size: meta.size(),
-            ino: meta.ino(),
-            mtime_ns: meta.mtime() as i128 * 1_000_000_000 + meta.mtime_nsec() as i128,
-        })
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-        None
-    }
-}
-
 /// approximate hh:mm:ss using system time. avoids a chrono dep.
 fn format_clock(_now: Instant) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -683,11 +640,17 @@ fn format_clock(_now: Instant) -> String {
 
 // --- testable extractions ------------------------------------------------
 
-/// Tracks the last-observed `(size, inode)` so the drain loop can decide
-/// idle vs growth vs rotation without re-reading the buffer.
+/// Last-observed stat plus the head sample backing the rewrite check.
 pub(crate) struct DrainState {
-    pub last_size: u64,
-    pub last_inode: u64,
+    pub last: FileStat,
+    pub head: Vec<u8>,
+}
+
+impl DrainState {
+    pub fn new(path: &Path) -> Self {
+        let last = FileStat::from_path(path).unwrap_or(FileStat { size: 0, id: 0, mtime_ns: 0 });
+        Self { head: watch::read_head(path), last }
+    }
 }
 
 /// What [`drain_into_buffer`] decided this tick.
@@ -697,13 +660,16 @@ pub(crate) enum DrainOutcome {
     Idle,
     /// file grew; new bytes appended to the buffer.
     Grew,
-    /// inode changed or size shrunk; buffer reloaded from scratch.
+    /// contents replaced; buffer reloaded from scratch.
     Rotated,
 }
 
-/// Drain one tick: stat the file, branch on idle / grown / rotated.
-/// Mirrors funnel's drain shape, minus the per-line emit (we write the
-/// new bytes into the [`TextBuffer`] in one chunk).
+/// Drain one tick: stat the file, classify, act.
+///
+/// Classification is [`watch::classify`], shared with the streaming
+/// follow path so both agree on what counts as a rotation -- notably
+/// including the same-length in-place rewrite that size and inode alone
+/// cannot see.
 pub(crate) fn drain_into_buffer(
     path: &Path,
     buf: &crate::buffer::RcTextBuffer,
@@ -712,40 +678,52 @@ pub(crate) fn drain_into_buffer(
 ) -> DrainOutcome {
     use std::io::{Read as _, Seek as _};
 
-    let Ok(meta) = std::fs::metadata(path) else {
+    let Ok(curr) = FileStat::from_path(path) else {
         return DrainOutcome::Idle;
     };
-    let cur_size = meta.len();
-    let cur_inode = inode_of(&meta);
-    let rotated = cur_inode != state.last_inode || cur_size < state.last_size;
-    if rotated {
-        if let Ok(mut f) = std::fs::File::open(path) {
-            let mut b = buf.borrow_mut();
-            b.set_read_only(false);
-            let _ = b.read_file(&mut f);
-            b.set_margin_enabled(show_numbers);
-            b.set_read_only(true);
-        }
-        state.last_size = cur_size;
-        state.last_inode = cur_inode;
-        return DrainOutcome::Rotated;
+
+    // Cheap gate: skip the head read on the common idle tick.
+    if !curr.differs(&state.last) {
+        return DrainOutcome::Idle;
     }
-    if cur_size > state.last_size {
-        let mut chunk = Vec::with_capacity((cur_size - state.last_size) as usize);
-        if let Ok(mut f) = std::fs::File::open(path)
-            && f.seek(std::io::SeekFrom::Start(state.last_size)).is_ok()
-            && f.read_to_end(&mut chunk).is_ok()
-        {
-            let mut b = buf.borrow_mut();
-            b.set_read_only(false);
-            b.cursor_move_to_logical(crate::helpers::Point::MAX);
-            b.write_raw(&chunk);
-            b.set_read_only(true);
-            state.last_size = cur_size;
-            return DrainOutcome::Grew;
+
+    let curr_head = watch::read_head(path);
+    let head_changed = watch::head_changed(&state.head, &curr_head);
+    let delta = watch::classify(&state.last, &curr, head_changed);
+
+    // Commit the observation before acting: even if the read below fails
+    // we've seen this state, and re-reporting it every tick would spin.
+    state.last = curr;
+    state.head = curr_head;
+
+    match delta {
+        FileDelta::Idle => DrainOutcome::Idle,
+        FileDelta::Rotated => {
+            if let Ok(mut f) = std::fs::File::open(path) {
+                let mut b = buf.borrow_mut();
+                b.set_read_only(false);
+                let _ = b.read_file(&mut f);
+                b.set_margin_enabled(show_numbers);
+                b.set_read_only(true);
+            }
+            DrainOutcome::Rotated
+        }
+        FileDelta::Appended { from } => {
+            let mut chunk = Vec::with_capacity(curr.size.saturating_sub(from) as usize);
+            if let Ok(mut f) = std::fs::File::open(path)
+                && f.seek(std::io::SeekFrom::Start(from)).is_ok()
+                && f.read_to_end(&mut chunk).is_ok()
+            {
+                let mut b = buf.borrow_mut();
+                b.set_read_only(false);
+                b.cursor_move_to_logical(crate::helpers::Point::MAX);
+                b.write_raw(&chunk);
+                b.set_read_only(true);
+                return DrainOutcome::Grew;
+            }
+            DrainOutcome::Idle
         }
     }
-    DrainOutcome::Idle
 }
 
 /// Funnel-style scroll-delta application. `delta` is the value passed to
@@ -833,9 +811,7 @@ mod tests {
             b.read_file(&mut f).unwrap();
             b.set_read_only(true);
         }
-        let meta = std::fs::metadata(path).unwrap();
-        let state = DrainState { last_size: meta.len(), last_inode: inode_of(&meta) };
-        (buf, state)
+        (buf, DrainState::new(path))
     }
 
     #[test]
@@ -866,7 +842,7 @@ mod tests {
         );
         // state has caught up.
         let meta = std::fs::metadata(&path).unwrap();
-        assert_eq!(state.last_size, meta.len());
+        assert_eq!(state.last.size, meta.len());
         let _ = std::fs::remove_file(&path);
     }
 
@@ -880,7 +856,7 @@ mod tests {
         write_file(&path, b"new\n");
         let outcome = drain_into_buffer(&path, &buf, &mut state, false);
         assert_eq!(outcome, DrainOutcome::Rotated);
-        assert_eq!(state.last_size, 4);
+        assert_eq!(state.last.size, 4);
         let _ = std::fs::remove_file(&path);
     }
 
@@ -902,11 +878,42 @@ mod tests {
     fn drain_idle_when_file_missing() {
         let path = tmp_path("missing");
         let _ = std::fs::remove_file(&path);
-        // bootstrap state w/ fake values; drain should not panic.
+        // bootstrap state against a path that doesn't exist; drain should
+        // not panic.
         let buf = TextBuffer::new_rc(false).unwrap();
-        let mut state = DrainState { last_size: 0, last_inode: 0 };
+        let mut state = DrainState::new(&path);
         let outcome = drain_into_buffer(&path, &buf, &mut state, false);
         assert_eq!(outcome, DrainOutcome::Idle);
+    }
+
+    #[test]
+    fn drain_rotated_on_same_size_in_place_rewrite() {
+        // The case size + inode alone cannot see, and which the streaming
+        // follow path has always caught: `> file` with the same byte count
+        // leaves both unchanged, so only the head sample reveals that the
+        // old contents are gone. Draining this as an append would splice
+        // nothing and leave the viewer showing stale text forever.
+        let path = tmp_path("rewrite-same-size");
+        write_file(&path, b"aaa\nbbb\n");
+        let (buf, mut state) = fresh_buf_with_file(&path);
+        write_file(&path, b"xxx\nyyy\n"); // identical length
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Rotated);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn drain_rotated_on_truncate_then_longer_rewrite() {
+        // Grew, so it looks like an append -- but the leading bytes are
+        // different, so appending from the old size would graft new content
+        // onto a prefix that no longer exists.
+        let path = tmp_path("rewrite-longer");
+        write_file(&path, b"aaa\n");
+        let (buf, mut state) = fresh_buf_with_file(&path);
+        write_file(&path, b"xxx\nyyy\nzzz\n");
+        let outcome = drain_into_buffer(&path, &buf, &mut state, false);
+        assert_eq!(outcome, DrainOutcome::Rotated);
+        let _ = std::fs::remove_file(&path);
     }
 
     // --- WheelAccel ---
