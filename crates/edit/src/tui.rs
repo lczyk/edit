@@ -163,6 +163,32 @@ use crate::oklab::StraightRgba;
 use crate::{input, paint, unicode};
 use stdext::simd;
 
+/// Map a scrollbar thumb drag to a content scroll offset.
+///
+/// `trackable` is the travel available to the thumb -- the track height
+/// minus the thumb itself -- and `scrollable` is the content distance
+/// that travel maps onto. Both scrollbars in this file derive those two
+/// differently (a textarea counts visual lines and allows one viewport of
+/// overscroll; a scrollarea measures its child) but agree from here on,
+/// so the arithmetic lives in one place.
+///
+/// Returns `drag_start` unchanged when there is nowhere to travel.
+/// `trackable` really can reach zero: `draw_scrollbar` rounds the thumb
+/// to the nearest whole row and floors it at one, so a one-row track
+/// showing two rows of content yields a thumb as tall as its track --
+/// which divided straight through would panic.
+fn scrollbar_drag_offset(
+    drag_start: CoordType,
+    delta_y: CoordType,
+    scrollable: CoordType,
+    trackable: CoordType,
+) -> CoordType {
+    if scrollable <= 0 || trackable <= 0 {
+        return drag_start;
+    }
+    drag_start + (delta_y as i64 * scrollable as i64 / trackable as i64) as CoordType
+}
+
 const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
 const SHIFT_TAB: InputKey = vk::TAB.with_modifiers(kbmod::SHIFT);
 const KBMOD_FOR_WORD_NAV: InputKeyMod =
@@ -2669,14 +2695,12 @@ impl<'a> Context<'a, '_> {
                     // The textarea supports 1 height worth of "scrolling beyond the end".
                     // `track_height` is the same as the viewport height.
                     let scrollable_height = tb.visual_line_count() - 1;
-
-                    if scrollable_height > 0 {
-                        let trackable = track_rect.height() - tc.thumb_height;
-                        let delta_y = mouse.y - self.tui.mouse_down_position.y;
-                        tc.scroll_offset.y = tc.scroll_offset_y_drag_start
-                            + (delta_y as i64 * scrollable_height as i64 / trackable as i64)
-                                as CoordType;
-                    }
+                    tc.scroll_offset.y = scrollbar_drag_offset(
+                        tc.scroll_offset_y_drag_start,
+                        mouse.y - self.tui.mouse_down_position.y,
+                        scrollable_height,
+                        track_rect.height() - tc.thumb_height,
+                    );
                 }
             }
 
@@ -3208,15 +3232,12 @@ impl<'a> Context<'a, '_> {
                             let content_height = content_rect.height();
                             let track_height = track_rect.height();
                             let scrollable_height = content_height - track_height;
-
-                            if scrollable_height > 0 {
-                                let trackable = track_height - sc.thumb_height;
-                                let delta_y =
-                                    self.tui.mouse_position.y - self.tui.mouse_down_position.y;
-                                sc.scroll_offset.y = sc.scroll_offset_y_drag_start
-                                    + (delta_y as i64 * scrollable_height as i64 / trackable as i64)
-                                        as CoordType;
-                            }
+                            sc.scroll_offset.y = scrollbar_drag_offset(
+                                sc.scroll_offset_y_drag_start,
+                                self.tui.mouse_position.y - self.tui.mouse_down_position.y,
+                                scrollable_height,
+                                track_height - sc.thumb_height,
+                            );
 
                             self.set_input_consumed();
                         }
@@ -4382,5 +4403,42 @@ impl<'a> Node<'a> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drag_maps_travel_onto_content_proportionally() {
+        // Half the available travel scrolls half the content.
+        assert_eq!(scrollbar_drag_offset(0, 5, 100, 10), 50);
+        assert_eq!(scrollbar_drag_offset(0, 10, 100, 10), 100);
+    }
+
+    #[test]
+    fn drag_is_relative_to_where_it_started() {
+        assert_eq!(scrollbar_drag_offset(20, 1, 100, 10), 30);
+    }
+
+    #[test]
+    fn dragging_up_scrolls_back() {
+        assert_eq!(scrollbar_drag_offset(50, -5, 100, 10), 0);
+        assert_eq!(scrollbar_drag_offset(50, -10, 100, 10), -50);
+    }
+
+    #[test]
+    fn a_thumb_filling_its_track_does_not_divide_by_zero() {
+        // draw_scrollbar rounds the thumb to whole rows and floors it at
+        // one, so a one-row track with two rows of content leaves no
+        // travel at all. Dividing through would panic.
+        assert_eq!(scrollbar_drag_offset(7, 3, 1, 0), 7);
+    }
+
+    #[test]
+    fn nothing_to_scroll_holds_position() {
+        assert_eq!(scrollbar_drag_offset(7, 3, 0, 10), 7);
+        assert_eq!(scrollbar_drag_offset(7, 3, -1, 10), 7);
     }
 }
