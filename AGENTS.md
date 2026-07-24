@@ -56,7 +56,7 @@ Record shape + field reference: [doc/src/dev-input-log.md](doc/src/dev-input-log
 - **[crates/edit/src/framebuffer.rs](crates/edit/src/framebuffer.rs)** -- video-game-style framebuffer. UI draws into a buffer; diff against the previous frame is sent to the terminal.
 - **[crates/edit/src/tui.rs](crates/edit/src/tui.rs)** -- immediate-mode UI. Read its module doc.
 - **[crates/edit/src/vt.rs](crates/edit/src/vt.rs)** -- VT parser.
-- **[crates/edit/src/sys/](crates/edit/src/sys/)** -- platform abstractions (unix only); re-exports the platform glue from the `tty` crate.
+- **[crates/edit/src/sys/](crates/edit/src/sys/)** -- platform abstractions (unix only): terminal i/o (raw mode, sigwinch resize injection, polling stdin reader, `write_stdout`) plus the fs + ICU helpers.
 - **[crates/edit/src/term.rs](crates/edit/src/term.rs)** -- alt-screen mode switch, OSC 4/10/11 palette probe, ambiguous-width probe, kitty kbd proto push; `RestoreModes` is the inverse-on-drop guard. Used by `bin/edit/main.rs` and by `edit::mount`.
 - **[crates/edit/src/mount.rs](crates/edit/src/mount.rs)** -- thin external mount api for the tui: `mount(opts, draw_fn)` owns `Tui::new` + `term::setup` + the input/render loop + alt-screen restore. Used by the `eat` persona's snapshot view; not used by `bin/edit/main.rs` (which has its own richer loop).
 - **[crates/edit/src/eat/](crates/edit/src/eat/)** -- the `eat` persona's cli + render glue (snapshot tui via `mount`, follow tui via its own bespoke driver pending phase C). Reachable via argv0 dispatch in `bin/edit/main.rs` (`name == "eat"` or `--eat`); the `eat` binary is a `make install`-time symlink to `edit`, not a separate cargo target.
@@ -71,7 +71,6 @@ Terminal issues: check `vt.rs`, `sys/unix.rs`, and `edit::term::setup` first.
 - `lsh-bin` -- CLI for debugging LSH output.
 - `lsh-defs` -- bundled lsh language defs codegen + detection helpers + ansi-16 colourmap. Shared by `edit` and `edit::eat`.
 - `gutter` -- per-line gutter mark computation + render (git-diff overlays).
-- `tty` -- platform glue: stdin reader, write_stdout, mode switch, window-size injection. Re-exported via `edit::sys`.
 - `stdext` -- shared utilities (arena allocator, collections, SIMD helpers, sys shims).
 - `unicode-gen` -- codegen for Unicode LUTs (only needed to regenerate tables; tables are checked in).
 

@@ -22,7 +22,6 @@ lsh.workspace = true
 lsh-defs.workspace = true
 polyflag.workspace = true
 stdext.workspace = true
-tty.workspace = true
 argh = "*"
 libc = "0.2"
 toml-span = { version = "0.7", default-features = false }

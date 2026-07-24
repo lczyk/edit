@@ -75,8 +75,8 @@ pub fn run_snapshot(
     let mut header = snapshot_header(&path_label, Instant::now(), file_changed);
     let disk_check_interval = Duration::from_secs(2);
 
-    let _deinit = tty::init();
-    tty::switch_modes()?;
+    let _deinit = crate::sys::init();
+    crate::sys::switch_modes()?;
 
     // Eat is a viewer; suppress the editor's scroll/cursor animation so
     // any reload-on-r snap is instant. Restored on exit.
@@ -293,8 +293,8 @@ pub fn run_follow_mount(
 
     let mut wheel_accel = WheelAccel::default();
 
-    let _deinit = tty::init();
-    tty::switch_modes()?;
+    let _deinit = crate::sys::init();
+    crate::sys::switch_modes()?;
 
     // disable scroll/cursor animation. with a 250ms (or even 100ms)
     // poll the textarea's ~60ms scroll lerp lands between ticks --
