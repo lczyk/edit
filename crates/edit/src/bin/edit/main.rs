@@ -310,16 +310,16 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
                 return Ok(None);
             }
             if arg == "-L" || arg == "--list-languages" {
-                edit::eat::list_languages(edit::eat::ListFormat::Pretty);
+                edit::langlist::list_languages(edit::langlist::ListFormat::Pretty);
                 return Ok(None);
             }
             if let Some(value) = arg
                 .to_str()
                 .and_then(|s| s.strip_prefix("--list-languages=").or_else(|| s.strip_prefix("-L=")))
             {
-                match edit::eat::ListFormat::parse(value) {
+                match edit::langlist::ListFormat::parse(value) {
                     Ok(fmt) => {
-                        edit::eat::list_languages(fmt);
+                        edit::langlist::list_languages(fmt);
                         return Ok(None);
                     }
                     Err(e) => {
@@ -387,7 +387,7 @@ fn parse_args() -> apperr::Result<Option<std::path::PathBuf>> {
     // (per https://no-color.org) is honoured the same way as
     // `--quirks=-color` -- either turns colour off across the editor.
     edit::glyphs::set_ascii_only(!quirks.contains("unicode"));
-    edit::glyphs::set_no_color(!quirks.contains("color") || edit::eat::env_disables_color());
+    edit::glyphs::set_no_color(!quirks.contains("color") || edit::glyphs::env_disables_color());
     edit::glyphs::set_no_animations(!quirks.contains("animations"));
     documents::set_allow_create(quirks.contains("create"));
 

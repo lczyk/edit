@@ -17,6 +17,7 @@ pub mod hash;
 pub mod helpers;
 pub mod icu;
 pub mod input;
+pub mod langlist;
 pub mod lsh;
 pub mod mount;
 pub mod notify;

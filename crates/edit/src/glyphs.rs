@@ -34,6 +34,18 @@ pub fn no_color() -> bool {
     NO_COLOR.load(Ordering::Relaxed)
 }
 
+/// True iff `NO_COLOR` is set to a non-empty value, per
+/// <https://no-color.org>.
+///
+/// `FORCE_COLOR` is deliberately not consulted: the editor is
+/// interactive, so colour is already the default, and letting the
+/// environment turn it *on* would only be confusing. `eat` has a fuller
+/// precedence chain because it also has a `--color` flag and a
+/// possibly-redirected stdout.
+pub fn env_disables_color() -> bool {
+    std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty())
+}
+
 pub fn set_no_animations(enabled: bool) {
     NO_ANIMATIONS.store(enabled, Ordering::Relaxed);
 }

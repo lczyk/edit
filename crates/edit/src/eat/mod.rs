@@ -17,11 +17,24 @@ use argh::FromArgs;
 use lsh::runtime::{Language, Runtime};
 use stdext::arena::scratch_arena;
 
+use crate::langlist::ListFormat;
 use lsh_defs::detect::{
     disambiguate_language, find_language, language_from_content, language_from_shebang,
     match_file_associations,
 };
-use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, LANGUAGES, STRINGS};
+use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, STRINGS};
+
+/// argh glue for the shared [`ListFormat`]. The wrapper exists so
+/// `langlist` stays free of the cli framework -- argh is eat's
+/// dependency, not the library's.
+#[derive(Debug, PartialEq, Eq)]
+struct ListFormatArg(ListFormat);
+
+impl argh::FromArgValue for ListFormatArg {
+    fn from_arg_value(value: &str) -> Result<Self, String> {
+        ListFormat::parse(value).map(ListFormatArg)
+    }
+}
 
 /// eat -- a bat-like syntax-highlighting cat.
 #[derive(FromArgs, PartialEq, Debug)]
@@ -63,7 +76,7 @@ struct Cli {
 
     /// print known languages and exit (format: pretty, plain, json; defaults to pretty)
     #[argh(option, short = 'L')]
-    list_languages: Option<ListFormat>,
+    list_languages: Option<ListFormatArg>,
 
     /// print version and exit
     #[argh(switch)]
@@ -109,6 +122,8 @@ fn resolve_use_color(mode: ColorMode, output_is_tty: bool) -> bool {
     resolve_use_color_with_env(mode, output_is_tty, force.as_deref(), no.as_deref())
 }
 
+// The `NO_COLOR`-only half of this precedence lives in `crate::glyphs`,
+// where the editor -- which has no `ColorMode` -- reads it.
 fn resolve_use_color_with_env(
     mode: ColorMode,
     output_is_tty: bool,
@@ -138,16 +153,6 @@ fn resolve_use_color_with_env(
     }
     // fall back to terminal detection.
     output_is_tty
-}
-
-/// public helper for callers that don't have an `eat`-flavoured `ColorMode`
-/// (e.g. `edit`'s quirks setup): returns true iff `NO_COLOR` is set to a
-/// non-empty value. `FORCE_COLOR` is intentionally not consulted here --
-/// `edit` is interactive, so "force colour" is the default state anyway,
-/// and asking the env to enable it would be confusing. mirrors the
-/// precedence implemented in `resolve_use_color`.
-pub fn env_disables_color() -> bool {
-    std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,32 +196,6 @@ impl WrapMode {
     /// on a tty, and clipping long lines by default hides content.
     fn resolve(self) -> bool {
         !matches!(self, WrapMode::Never)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ListFormat {
-    Pretty,
-    Plain,
-    Json,
-}
-
-impl ListFormat {
-    /// Parse a format name. Used by both eat's argh-driven cli and edit's
-    /// hand-rolled parser when they expose `-L [<format>]`.
-    pub fn parse(value: &str) -> Result<Self, String> {
-        match value {
-            "pretty" => Ok(ListFormat::Pretty),
-            "plain" => Ok(ListFormat::Plain),
-            "json" => Ok(ListFormat::Json),
-            _ => Err(format!("invalid list format: {value}. expected pretty, plain, or json")),
-        }
-    }
-}
-
-impl argh::FromArgValue for ListFormat {
-    fn from_arg_value(value: &str) -> Result<Self, String> {
-        Self::parse(value)
     }
 }
 
@@ -903,29 +882,12 @@ mod tests {
     // --- list format ---
 
     #[test]
-    fn list_format_parsing() {
-        assert_eq!(
-            <ListFormat as argh::FromArgValue>::from_arg_value("pretty").unwrap(),
-            ListFormat::Pretty
-        );
-        assert_eq!(
-            <ListFormat as argh::FromArgValue>::from_arg_value("plain").unwrap(),
-            ListFormat::Plain
-        );
-        assert_eq!(
-            <ListFormat as argh::FromArgValue>::from_arg_value("json").unwrap(),
-            ListFormat::Json
-        );
-        assert!(<ListFormat as argh::FromArgValue>::from_arg_value("xml").is_err());
-    }
-
-    #[test]
-    fn json_str_escapes() {
-        assert_eq!(json_str("hello"), "\"hello\"");
-        assert_eq!(json_str("a\"b"), "\"a\\\"b\"");
-        assert_eq!(json_str("a\\b"), "\"a\\\\b\"");
-        assert_eq!(json_str("a\nb"), "\"a\\nb\"");
-        assert_eq!(json_str("a\tb"), "\"a\\tb\"");
+    fn list_format_arg_parsing() {
+        let parse = <ListFormatArg as argh::FromArgValue>::from_arg_value;
+        assert_eq!(parse("pretty").unwrap().0, ListFormat::Pretty);
+        assert_eq!(parse("plain").unwrap().0, ListFormat::Plain);
+        assert_eq!(parse("json").unwrap().0, ListFormat::Json);
+        assert!(parse("xml").is_err());
     }
 
     // --- follow duration ---
@@ -958,186 +920,6 @@ mod tests {
     // theme tests live in `lsh_defs::theme::tests` -- the colourmap impl
     // moved to the shared crate alongside the canonical
     // `HighlightKind::default_color` table.
-}
-
-/// gather all languages with their file associations and shebangs, sorted by name.
-fn collect_language_rows() -> Vec<(&'static Language, Vec<&'static str>)> {
-    let mut rows: Vec<(&'static Language, Vec<&'static str>)> = Vec::new();
-    for lang in LANGUAGES {
-        let exts: Vec<&str> = FILE_ASSOCIATIONS
-            .iter()
-            .filter(|(_, l)| std::ptr::eq(*l, lang))
-            .map(|(pat, _)| *pat)
-            .collect();
-        rows.push((lang, exts));
-    }
-    rows.sort_by_key(|(lang, _)| lang.name.to_ascii_lowercase());
-    rows
-}
-
-/// detect terminal width: $COLUMNS env var, fallback 80.
-fn term_width() -> usize {
-    std::env::var("COLUMNS").ok().and_then(|s| s.parse().ok()).unwrap_or(80)
-}
-
-/// list-languages: plain "Name: ext1, ext2" -- one per line, no colour, no shebang info.
-/// preserved verbatim from the original behaviour for scripting.
-fn list_languages_plain() -> ExitCode {
-    let rows = collect_language_rows();
-    for (lang, exts) in &rows {
-        print!("{}", lang.name);
-        if !exts.is_empty() {
-            print!(": {}", exts.join(", "));
-        }
-        println!();
-    }
-    ExitCode::from(0)
-}
-
-/// list-languages: pretty bat-style two-column output with shebangs.
-fn list_languages_pretty() -> ExitCode {
-    let rows = collect_language_rows();
-    let use_color = resolve_use_color(ColorMode::Auto, io::stdout().is_terminal());
-
-    // name column = max name length, capped, plus padding.
-    let max_name = rows.iter().map(|(l, _)| l.name.len()).max().unwrap_or(0);
-    let name_col = max_name.min(24) + 2;
-    let total = term_width().max(name_col + 20);
-    let body_width = total.saturating_sub(name_col).max(20);
-
-    let bold_cyan = if use_color { "\x1b[1;36m" } else { "" };
-    let yellow = if use_color { "\x1b[33m" } else { "" };
-    let reset = if use_color { "\x1b[m" } else { "" };
-
-    let stdout = io::stdout();
-    let mut w = stdout.lock();
-
-    for (lang, exts) in &rows {
-        // name column -- overflow onto its own line if too long.
-        if lang.name.len() + 2 > name_col {
-            let _ = writeln!(w, "{bold_cyan}{}{reset}", lang.name);
-            print_wrapped(&mut w, "", name_col, body_width, exts, "", reset);
-        } else {
-            let pad = name_col - lang.name.len();
-            let prefix = format!("{bold_cyan}{}{reset}{}", lang.name, " ".repeat(pad));
-            print_wrapped(&mut w, &prefix, name_col, body_width, exts, "", reset);
-        }
-
-        if !lang.shebangs.is_empty() {
-            let shebang_items: Vec<String> =
-                lang.shebangs.iter().map(|s| format!("#!{s}")).collect();
-            let shebang_refs: Vec<&str> = shebang_items.iter().map(|s| s.as_str()).collect();
-            print_wrapped(
-                &mut w,
-                &" ".repeat(name_col),
-                name_col,
-                body_width,
-                &shebang_refs,
-                yellow,
-                reset,
-            );
-        }
-    }
-
-    ExitCode::from(0)
-}
-
-/// write a comma-separated item list, hard-wrapping by greedy fill.
-/// `first_prefix` is printed at the start of the first line. continuation lines are
-/// indented to `name_col`. items are joined with ", ".
-fn print_wrapped(
-    w: &mut dyn Write,
-    first_prefix: &str,
-    name_col: usize,
-    body_width: usize,
-    items: &[&str],
-    item_color: &str,
-    reset: &str,
-) {
-    if items.is_empty() {
-        let _ = writeln!(w, "{first_prefix}");
-        return;
-    }
-
-    let indent = " ".repeat(name_col);
-    let mut col = 0usize;
-    let mut first_on_line = true;
-    let _ = write!(w, "{first_prefix}");
-
-    for item in items {
-        let chunk_len = if first_on_line { item.len() } else { 2 + item.len() };
-
-        if !first_on_line && col + chunk_len > body_width {
-            let _ = writeln!(w, ",");
-            let _ = write!(w, "{indent}");
-            col = 0;
-            first_on_line = true;
-        }
-
-        if first_on_line {
-            let _ = write!(w, "{item_color}{item}{reset}");
-            col = item.len();
-            first_on_line = false;
-        } else {
-            let _ = write!(w, ", {item_color}{item}{reset}");
-            col += chunk_len;
-        }
-    }
-    let _ = writeln!(w);
-}
-
-/// list-languages: json array of objects with id, name, extensions, shebangs.
-fn list_languages_json() -> ExitCode {
-    let rows = collect_language_rows();
-    let stdout = io::stdout();
-    let mut w = stdout.lock();
-    let _ = writeln!(w, "[");
-    for (i, (lang, exts)) in rows.iter().enumerate() {
-        let _ = write!(w, "  {{");
-        let _ = write!(w, "\"id\": {}, ", json_str(lang.id));
-        let _ = write!(w, "\"name\": {}, ", json_str(lang.name));
-        let _ = write!(w, "\"extensions\": [");
-        for (j, e) in exts.iter().enumerate() {
-            if j > 0 {
-                let _ = write!(w, ", ");
-            }
-            let _ = write!(w, "{}", json_str(e));
-        }
-        let _ = write!(w, "], \"shebangs\": [");
-        for (j, s) in lang.shebangs.iter().enumerate() {
-            if j > 0 {
-                let _ = write!(w, ", ");
-            }
-            let _ = write!(w, "{}", json_str(s));
-        }
-        let _ = write!(w, "]}}");
-        if i + 1 < rows.len() {
-            let _ = writeln!(w, ",");
-        } else {
-            let _ = writeln!(w);
-        }
-    }
-    let _ = writeln!(w, "]");
-    ExitCode::from(0)
-}
-
-/// minimal JSON string escape for ASCII-only language identifiers/extensions.
-fn json_str(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
 }
 
 /// parse argv with one ergonomic adjustment: bare `-L` / `--list-languages` (no value
@@ -1263,18 +1045,6 @@ fn parse_cli() -> Cli {
     }
 }
 
-/// Print the language list in the requested format and return an exit code.
-///
-/// Exposed publicly so the editor's own cli can offer the same `-L` surface
-/// without re-implementing the formatters.
-pub fn list_languages(format: ListFormat) -> ExitCode {
-    match format {
-        ListFormat::Pretty => list_languages_pretty(),
-        ListFormat::Plain => list_languages_plain(),
-        ListFormat::Json => list_languages_json(),
-    }
-}
-
 /// validate --follow combos, resolve language, dispatch to `follow::run`.
 /// `--paging` is silently ignored in follow mode (forced off); paging-while-
 /// following is a deliberate v2 once we have a scrollback ux for it.
@@ -1354,7 +1124,7 @@ pub fn main() -> ExitCode {
     let cli: Cli = parse_cli();
 
     if let Some(fmt) = cli.list_languages {
-        return list_languages(fmt);
+        return crate::langlist::list_languages(fmt.0);
     }
 
     if cli.version {
