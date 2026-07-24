@@ -1,25 +1,5 @@
 //! Provides fast, non-cryptographic hash functions.
 
-use std::hash::Hasher;
-
-/// A [`Hasher`] implementation for the wyhash algorithm.
-///
-/// NOTE that you DO NOT want to use this for hashing mere strings/slices.
-/// The stdlib [`Hash`] implementation for them calls [`Hasher::write`] twice,
-/// once for the contents and once for a length prefix / `0xff` suffix.
-#[derive(Default, Clone, Copy)]
-pub struct WyHash(u64);
-
-impl Hasher for WyHash {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        self.0 = hash(self.0, bytes);
-    }
-}
-
 /// The venerable wyhash hash function.
 ///
 /// It's fast, has good statistical properties, and is in the public domain.
@@ -157,19 +137,6 @@ mod tests {
         for n in 0..=buf.len() {
             let _ = hash(0, &buf[..n]);
         }
-    }
-
-    #[test]
-    fn wyhash_write_finish_matches_hash() {
-        let mut h = WyHash::default();
-        Hasher::write(&mut h, b"hello world");
-        assert_eq!(h.finish(), hash(0, b"hello world"));
-    }
-
-    #[test]
-    fn wyhash_default_finish_is_zero() {
-        let h = WyHash::default();
-        assert_eq!(h.finish(), 0);
     }
 
     #[test]

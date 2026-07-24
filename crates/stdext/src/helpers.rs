@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::mem::{self, MaybeUninit};
 use std::ops::{Bound, Range, RangeBounds};
-use std::{fmt, ptr, slice, str};
+use std::{ptr, slice, str};
 
 pub const KILO: usize = 1000;
 pub const MEGA: usize = 1000 * 1000;
@@ -18,26 +18,6 @@ pub type CoordType = isize;
 pub const KIBI: usize = 1024;
 pub const MEBI: usize = 1024 * 1024;
 pub const GIBI: usize = 1024 * 1024 * 1024;
-
-pub struct MetricFormatter<T>(pub T);
-
-impl fmt::Display for MetricFormatter<usize> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut value = self.0;
-        let mut suffix = "B";
-        if value >= GIGA {
-            value /= GIGA;
-            suffix = "GB";
-        } else if value >= MEGA {
-            value /= MEGA;
-            suffix = "MB";
-        } else if value >= KILO {
-            value /= KILO;
-            suffix = "kB";
-        }
-        write!(f, "{value}{suffix}")
-    }
-}
 
 #[inline(always)]
 #[cold]

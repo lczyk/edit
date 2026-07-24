@@ -147,7 +147,7 @@ use std::{io, iter, mem, ptr, time};
 
 use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::{BString, BVec};
-use stdext::{arena_format, arena_write_fmt, opt_ptr_eq, str_from_raw_parts};
+use stdext::{arena_format, opt_ptr_eq, str_from_raw_parts};
 
 use crate::buffer::{
     CursorMovement, MINIMAP_SOURCE_ROWS_PER_CELL, RcTextBuffer, TextBuffer, TextBufferCell,
@@ -1468,116 +1468,6 @@ impl Tui {
                 }
             }
         }
-    }
-
-    /// Outputs a debug string of the layout and focus tree.
-    pub fn debug_layout<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
-        let mut result = BString::empty();
-        result.push_str(arena, "general:\r\n- focus_path:\r\n");
-
-        for &id in &self.focused_node_path {
-            arena_write_fmt!(arena, result, "  - {id:016x}\r\n");
-        }
-
-        result.push_str(arena, "\r\ntree:\r\n");
-
-        for root in self.prev_tree.iterate_roots() {
-            Tree::visit_all(root, root, true, |node| {
-                let node = node.borrow();
-                let depth = node.depth;
-                result.push_repeat(arena, ' ', depth * 2);
-                arena_write_fmt!(arena, result, "- id: {:016x}\r\n", node.id);
-
-                result.push_repeat(arena, ' ', depth * 2);
-                arena_write_fmt!(arena, result, "  classname:    {}\r\n", node.classname);
-
-                if depth == 0
-                    && let Some(parent) = node.parent
-                {
-                    let parent = parent.borrow();
-                    result.push_repeat(arena, ' ', depth * 2);
-                    arena_write_fmt!(arena, result, "  parent:       {:016x}\r\n", parent.id);
-                }
-
-                result.push_repeat(arena, ' ', depth * 2);
-                arena_write_fmt!(
-                    arena,
-                    result,
-                    "  intrinsic:    {{{}, {}}}\r\n",
-                    node.intrinsic_size.width,
-                    node.intrinsic_size.height
-                );
-
-                result.push_repeat(arena, ' ', depth * 2);
-                arena_write_fmt!(
-                    arena,
-                    result,
-                    "  outer:        {{{}, {}, {}, {}}}\r\n",
-                    node.outer.left,
-                    node.outer.top,
-                    node.outer.right,
-                    node.outer.bottom
-                );
-
-                result.push_repeat(arena, ' ', depth * 2);
-                arena_write_fmt!(
-                    arena,
-                    result,
-                    "  inner:        {{{}, {}, {}, {}}}\r\n",
-                    node.inner.left,
-                    node.inner.top,
-                    node.inner.right,
-                    node.inner.bottom
-                );
-
-                if node.attributes.bordered {
-                    result.push_repeat(arena, ' ', depth * 2);
-                    result.push_str(arena, "  bordered:     true\r\n");
-                }
-
-                if node.attributes.bg.to_ne() != 0 {
-                    result.push_repeat(arena, ' ', depth * 2);
-                    arena_write_fmt!(arena, result, "  bg:           {:?}\r\n", node.attributes.bg);
-                }
-
-                if node.attributes.fg.to_ne() != 0 {
-                    result.push_repeat(arena, ' ', depth * 2);
-                    arena_write_fmt!(arena, result, "  fg:           {:?}\r\n", node.attributes.fg);
-                }
-
-                if self.is_node_focused(node.id) {
-                    result.push_repeat(arena, ' ', depth * 2);
-                    result.push_str(arena, "  focused:      true\r\n");
-                }
-
-                match &node.content {
-                    NodeContent::Text(content) => {
-                        result.push_repeat(arena, ' ', depth * 2);
-                        arena_write_fmt!(
-                            arena,
-                            result,
-                            "  text:         \"{}\"\r\n",
-                            &content.text
-                        );
-                    }
-                    NodeContent::Textarea(content) => {
-                        let tb = content.buffer.borrow();
-                        let tb = &*tb;
-                        result.push_repeat(arena, ' ', depth * 2);
-                        arena_write_fmt!(arena, result, "  textarea:     {tb:p}\r\n");
-                    }
-                    NodeContent::Scrollarea(..) => {
-                        result.push_repeat(arena, ' ', depth * 2);
-                        result.push_str(arena, "  scrollable:   true\r\n");
-                    }
-                    _ => {}
-                }
-
-                VisitControl::Continue
-            });
-        }
-
-        result
     }
 
     fn was_mouse_down_on_node(&self, id: u64) -> bool {
