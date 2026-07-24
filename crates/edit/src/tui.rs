@@ -140,8 +140,8 @@
 //! }
 //! ```
 
-#[cfg(debug_assertions)]
 use std::collections::HashMap;
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::{io, iter, mem, ptr, time};
 
