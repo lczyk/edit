@@ -2581,6 +2581,63 @@ mod tests {
         assert_eq!(dump(&tb), "foo\n");
     }
 
+    /// `buf_with` populates via `write_raw`, so the initial content sits in the
+    /// undo stack and merges with a following write. Drop the history the way
+    /// `recalc_after_content_swap` does on load, so the first edit made by the
+    /// test really is the bottom of the stack.
+    fn buf_loaded(text: &str) -> TextBuffer {
+        let mut tb = buf_with(text);
+        tb.undo_stack.clear();
+        tb.redo_stack.clear();
+        tb.last_history_type = HistoryType::Other;
+        tb
+    }
+
+    #[test]
+    fn undo_past_the_bottom_of_the_stack_is_inert() {
+        let mut tb = buf_loaded("foo\n");
+        tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+        tb.write_raw(b"bar");
+        assert_eq!(dump(&tb), "foobar\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "foo\n");
+        // Nothing left to undo, but the redo stack still holds the write.
+        tb.undo();
+        assert_eq!(dump(&tb), "foo\n");
+        tb.redo();
+        assert_eq!(dump(&tb), "foobar\n");
+    }
+
+    // The sanity round-trip check runs undo, redo, then undo again. Undo at
+    // the bottom of the stack moves nothing, but the paired redo would still
+    // re-apply the last undone edit -- which used to report a bogus buffer
+    // difference every time someone held undo down past the first edit.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn undo_past_the_bottom_does_not_trip_the_round_trip_check() {
+        use std::sync::{Mutex, OnceLock};
+        static SEEN: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
+        fn handler(msg: &str) {
+            SEEN.get().unwrap().lock().unwrap().push(msg.to_string());
+        }
+        let seen = SEEN.get_or_init(|| Mutex::new(Vec::new()));
+        seen.lock().unwrap().clear();
+        crate::notify::set_handler(handler);
+
+        let mut tb = buf_loaded("foo\n");
+        tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+        tb.write_raw(b"bar");
+        tb.undo();
+        tb.undo();
+
+        let msgs = seen.lock().unwrap();
+        let tripped: Vec<&String> =
+            msgs.iter().filter(|m| m.contains("undo_redo_round_trip")).collect();
+        assert!(tripped.is_empty(), "round trip check fired: {tripped:?}");
+        drop(msgs);
+        crate::notify::clear_handler();
+    }
+
     #[test]
     fn toggle_block_comment_undo_reverts() {
         let mut tb = buf_with("foo bar\n");

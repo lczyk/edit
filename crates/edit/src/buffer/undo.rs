@@ -240,16 +240,22 @@ impl TextBuffer {
     pub fn undo(&mut self) {
         // Sanity (F): undo+redo should be a no-op. Snapshot the byte content
         // before, run undo then redo, compare. Expensive: full buffer extract.
-        // Only runs with `sanity` feature; skipped when undo stack is empty.
+        // Only runs with `sanity` feature.
         #[cfg(feature = "sanity")]
         let snapshot = {
             let mut buf = Vec::new();
             self.buffer.extract_raw(0..self.text_length(), &mut buf, 0);
             buf
         };
-        self.undo_redo(true);
+
+        let moved = self.undo_redo(true);
+
+        // The round trip only holds when the undo half moved an entry. Undo at
+        // the bottom of the stack does nothing, but the paired redo would still
+        // pop the redo stack and re-apply the last undone edit -- so the check
+        // would report a difference on a buffer that is perfectly fine.
         #[cfg(feature = "sanity")]
-        {
+        if moved {
             // Re-do the undo we just did, then compare to the snapshot.
             self.undo_redo(false);
             let mut after = Vec::new();
@@ -264,6 +270,9 @@ impl TextBuffer {
             // Now actually perform the user-visible undo by undoing again.
             self.undo_redo(true);
         }
+
+        #[cfg(not(feature = "sanity"))]
+        let _ = moved;
     }
 
     /// Redo the last undo operation.
@@ -271,7 +280,10 @@ impl TextBuffer {
         self.undo_redo(false);
     }
 
-    fn undo_redo(&mut self, undo: bool) {
+    /// Moves entries between the undo and redo stacks, applying each one.
+    /// Returns whether anything moved -- `false` means the requested
+    /// direction had no applicable entry and the buffer is untouched.
+    fn undo_redo(&mut self, undo: bool) -> bool {
         let buffer_generation = self.buffer.generation();
         let mut entry_buffer_generation = None;
         let mut damage_start = CoordType::MAX;
@@ -390,7 +402,7 @@ impl TextBuffer {
 
         if damage_start == CoordType::MAX {
             // There weren't any undo/redo entries.
-            return;
+            return false;
         }
 
         self.highlighter_cache.invalidate_from(damage_start);
@@ -398,6 +410,8 @@ impl TextBuffer {
         if entry_buffer_generation.is_some() {
             self.recalc_after_content_changed();
         }
+
+        true
     }
 
     /// For interfacing with ICU.
