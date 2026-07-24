@@ -2,10 +2,17 @@
 //! that every embedder of edit's tui repeats: [`Tui::new`], the
 //! [`term::setup`] probe, the input/render loop, the alt-screen restore.
 //!
-//! The editor's own `bin/edit/main.rs` does **not** use this -- it has a
-//! richer loop with gutter refresh / minimap / disk-fingerprint / language
-//! redetect / OSC clipboard / terminal title. [`mount`] is purely additive
-//! for external callers (eat's snapshot+follow modes, future embedders).
+//! The editor's own `bin/edit/main.rs` does **not** use this. Its loop
+//! interleaves work no embedder wants: debounced gutter / minimap /
+//! language rebuilds, a disk-fingerprint poll, the terminal title, and a
+//! debug input log that needs the raw [`input::Input`] before the context
+//! consumes it. What the two loops genuinely shared -- the clipboard
+//! flush -- is [`flush_clipboard_to_host`], which both call; the rest is
+//! about a dozen lines of read/parse/settle skeleton that is cheaper to
+//! read twice than to invert behind callbacks.
+//!
+//! [`mount`] is therefore purely additive, for callers that want a
+//! textarea and nothing else (eat's snapshot + follow views).
 //!
 //! ## Caller responsibilities
 //!
