@@ -3,7 +3,8 @@
 Per-language token coverage lives in the lsh golden suite at
 `crates/lsh/tests/golden.rs`. This single PTY test only verifies that
 the editor's render path actually applies highlighting: opens a markdown
-fixture and checks that multiple foreground colours appear on screen.
+fixture and checks that the heading carries the heading colour and that
+several distinct foreground colours reach the screen.
 """
 
 from framework import (

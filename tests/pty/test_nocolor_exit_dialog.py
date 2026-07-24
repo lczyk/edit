@@ -6,7 +6,7 @@ one (Save by default) is shown as `<Save>` instead of `[Save]` so the
 focus is visible without colour.
 """
 
-from framework import CTRL_Q, Edit, expect, fixture, pause, test
+from framework import EXIT, Edit, expect, fixture, pause, test
 
 
 @test
@@ -16,7 +16,7 @@ def nocolor_exit_dialog_focus_shows_marker():
         ed.send(b"x")
         pause(0.2)
         # Open the unsaved-changes dialog.
-        ed.send(CTRL_Q)
+        ed.send(EXIT)
         pause(0.3)
         ed.drain()
         expect(b"<Save>" in ed.plain,

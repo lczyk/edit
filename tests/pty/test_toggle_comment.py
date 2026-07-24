@@ -1,16 +1,6 @@
 """Cmd+/ / Ctrl+/ toggles line comments. Undo reverts."""
 
-import sys
-
-from framework import CTRL_Z, Edit, expect, lsh_fixture, test
-
-
-# Kitty CSI-u: Ctrl+/ -> CSI 47;5u (codepoint 47 = '/', mod 5 = ctrl).
-# Cmd+/ (macos default chord) -> CSI 47;9u (codepoint 47, mod 9 = super).
-CTRL_SLASH = b"\x1b[47;5u"
-CMD_SLASH = b"\x1b[47;9u"
-
-TOGGLE_CHORD = CMD_SLASH if sys.platform == "darwin" else CTRL_SLASH
+from framework import TOGGLE_COMMENT, UNDO, Edit, expect, lsh_fixture, test
 
 
 def _frame_after(ed):
@@ -22,14 +12,14 @@ def _frame_after(ed):
 @test
 def keybinding_toggles_line_comment_and_undo_reverts():
     with Edit([lsh_fixture("go/kitchen_sink.go")]) as ed:
-        ed.send(TOGGLE_CHORD)
+        ed.send(TOGGLE_COMMENT)
         frame = _frame_after(ed)
         expect(b"// Line comment" not in frame,
                f"comment still present after toggle: {frame[:300]!r}")
         expect(b"Line comment" in frame,
                f"line content missing: {frame[:300]!r}")
 
-        ed.send(CTRL_Z)
+        ed.send(UNDO)
         frame = _frame_after(ed)
         expect(b"// Line comment" in frame,
                f"undo did not restore comment: {frame[:300]!r}")
@@ -38,11 +28,11 @@ def keybinding_toggles_line_comment_and_undo_reverts():
 @test
 def double_keyboard_toggle_round_trips():
     with Edit([lsh_fixture("go/kitchen_sink.go")]) as ed:
-        ed.send(TOGGLE_CHORD)
+        ed.send(TOGGLE_COMMENT)
         frame = _frame_after(ed)
         expect(b"// Line comment" not in frame,
                f"first toggle did not strip: {frame[:300]!r}")
-        ed.send(TOGGLE_CHORD)
+        ed.send(TOGGLE_COMMENT)
         frame = _frame_after(ed)
         expect(b"// Line comment" in frame,
                f"second toggle did not re-comment: {frame[:300]!r}")
@@ -53,18 +43,18 @@ def two_toggles_undo_individually():
     """Regression: each toggle should land in its own undo entry, not coalesce
     with the prior toggle (or any prior same-type edit) into one entry."""
     with Edit([lsh_fixture("go/kitchen_sink.go")]) as ed:
-        ed.send(TOGGLE_CHORD)
-        ed.send(TOGGLE_CHORD)
+        ed.send(TOGGLE_COMMENT)
+        ed.send(TOGGLE_COMMENT)
         frame = _frame_after(ed)
         expect(b"// Line comment" in frame,
                f"second toggle did not re-comment: {frame[:300]!r}")
         # First undo reverts the second (re-comment) -> uncommented.
-        ed.send(CTRL_Z)
+        ed.send(UNDO)
         frame = _frame_after(ed)
         expect(b"// Line comment" not in frame,
                f"first undo did not strip second toggle: {frame[:300]!r}")
         # Second undo reverts the first (uncomment) -> re-commented.
-        ed.send(CTRL_Z)
+        ed.send(UNDO)
         frame = _frame_after(ed)
         expect(b"// Line comment" in frame,
                f"second undo did not restore comment: {frame[:300]!r}")

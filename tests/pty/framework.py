@@ -16,7 +16,7 @@ register tests with `@test`:
     def my_case():
         with Edit([fixture("hello.txt")]) as ed:
             pause(0.4)
-            ed.send(CTRL_F)
+            ed.send(FIND)
             pause(0.4); ed.drain()
             expect(b"Find:" in ed.plain, "Find panel didn't open")
 
@@ -27,6 +27,7 @@ of the mirrored output so the real terminal doesn't reply to them.
 """
 
 import argparse
+import atexit
 import fcntl
 import importlib.util
 import io
@@ -37,6 +38,7 @@ import select
 import shutil
 import struct
 import sys
+import tempfile
 import termios
 import time
 import traceback
@@ -57,6 +59,26 @@ EDIT_BIN = os.environ.get(
 def fixture(name: str) -> str:
     """Return absolute path to a file in `tests/pty/fixtures/`."""
     return os.path.join(FIXTURES_DIR, name)
+
+
+_CONFIG_HOME = None
+
+
+def config_home() -> str:
+    """Throwaway `XDG_CONFIG_HOME` shared by every `Edit` in this run.
+
+    `edit` resolves its config dir as `$XDG_CONFIG_HOME/edit` (see
+    `settings::config_dir`) and creates `keybindings.toml` there on first
+    run from the shipped platform defaults. Without this the tests would
+    read whoever's `~/.config/edit` the run happens to sit next to, so a
+    stale local config would silently change which chords work -- and the
+    suite would pass or fail per machine.
+    """
+    global _CONFIG_HOME
+    if _CONFIG_HOME is None:
+        _CONFIG_HOME = tempfile.mkdtemp(prefix="edit-pty-config-")
+        atexit.register(shutil.rmtree, _CONFIG_HOME, True)
+    return _CONFIG_HOME
 
 
 def lsh_fixture(name: str) -> str:
@@ -104,28 +126,32 @@ def pause(seconds: float) -> None:
     time.sleep(seconds * PACE)
 
 
-_FG_RE = re.compile(rb"\x1b\[38;2;(\d+);(\d+);(\d+)m")
+_FG_TRUECOLOR_RE = re.compile(rb"\x1b\[38;2;\d+;\d+;\d+m")
+_FG_INDEXED_RE = re.compile(rb"\x1b\[(?:3[0-7]|9[0-7])m")
 
 
 def distinct_fg_colors(raw: bytes) -> set:
-    """Set of (R,G,B) foreground colors seen in a raw output buffer.
+    """Set of foreground-colour escapes seen in a raw output buffer.
 
-    Used by highlighting tests — plain text uses one fg, a working
-    syntax highlighter produces several.
+    Used by highlighting tests -- plain text uses one fg, a working syntax
+    highlighter produces several. Counts both encodings: the chrome (gutter,
+    statusbar) is truecolor, while syntax colours are ansi-16.
     """
-    return set(_FG_RE.findall(raw))
+    return set(_FG_TRUECOLOR_RE.findall(raw)) | set(_FG_INDEXED_RE.findall(raw))
 
 
-# Truecolor SGR prefixes for the default palette, keyed by the HighlightKind
-# in `crates/edit/src/buffer/mod.rs`. Values match `DEFAULT_THEME` /
-# `colormap.toml`.
-FG_COMMENT         = b"\x1b[38;2;63;174;58m"    # Green              — Comment
-FG_STRING          = b"\x1b[38;2;255;62;48m"    # BrightRed          — String
-FG_METHOD          = b"\x1b[38;2;255;201;68m"   # BrightYellow       — Method
-FG_VARIABLE        = b"\x1b[38;2;0;225;240m"    # BrightCyan         — Variable
-FG_KEYWORD_OTHER   = b"\x1b[38;2;47;106;255m"   # BrightBlue         — keyword.other / constant.language / meta.header / markup.heading / markup.list / markup.changed
-FG_NUMERIC         = b"\x1b[38;2;88;234;81m"    # BrightGreen        — constant.numeric / markup.inserted
-FG_KEYWORD_CONTROL = b"\x1b[38;2;252;116;255m"  # BrightMagenta      — keyword.control
+# Foreground SGR escapes for syntax highlighting, keyed by HighlightKind.
+# Syntax colours are ansi-16 rather than truecolor, so they follow the
+# terminal palette under both light and dark themes -- the canonical table is
+# `HighlightKind::default_color`, mapped to escapes by
+# `lsh_defs::theme::ansi16_sgr`.
+FG_COMMENT         = b"\x1b[32m"  # Green         -- Comment
+FG_STRING          = b"\x1b[91m"  # BrightRed     -- String / markup.deleted
+FG_METHOD          = b"\x1b[93m"  # BrightYellow  -- Method
+FG_VARIABLE        = b"\x1b[96m"  # BrightCyan    -- Variable
+FG_KEYWORD_OTHER   = b"\x1b[94m"  # BrightBlue    -- keyword.other / constant.language / meta.header / markup.heading / markup.list / markup.changed
+FG_NUMERIC         = b"\x1b[92m"  # BrightGreen   -- constant.numeric / markup.inserted
+FG_KEYWORD_CONTROL = b"\x1b[95m"  # BrightMagenta -- keyword.control
 
 
 # ---- ANSI color ------------------------------------------------------------
@@ -183,11 +209,15 @@ class Edit:
         self.buf = b""
         self.cols = cols
         self.rows = rows
+        # Resolve before forking: the child must not be the one to mkdtemp
+        # (it would get its own dir) or to register the atexit cleanup.
+        xdg_config_home = config_home()
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
             os.environ["TERM"] = "xterm-256color"
             os.environ["LINES"] = str(rows)
             os.environ["COLUMNS"] = str(cols)
+            os.environ["XDG_CONFIG_HOME"] = xdg_config_home
             if env:
                 for k, v in env.items():
                     if v is None:
@@ -293,7 +323,7 @@ class Edit:
 
     def close(self) -> None:
         try:
-            os.write(self.fd, CTRL_Q)
+            os.write(self.fd, EXIT)
         except OSError:
             pass
         # If the buffer was clean, edit exits immediately and the `n` below
@@ -376,6 +406,51 @@ SHIFT_DOWN = b"\x1b[1;2B"
 SHIFT_UP = b"\x1b[1;2A"
 SHIFT_HOME = b"\x1b[1;2H"
 SHIFT_END = b"\x1b[1;2F"
+
+_IS_MAC = sys.platform == "darwin"
+
+
+def csi_u(codepoint: int, shift=False, alt=False, ctrl=False, cmd=False) -> bytes:
+    """Kitty keyboard-protocol encoding of a modified key.
+
+    `edit` pushes flag 1 of the protocol on startup, so this is how it
+    hears chords the legacy encoding can't express -- anything with Super,
+    and Ctrl/Shift combinations on punctuation.
+    """
+    mods = 1 + (1 if shift else 0) + (2 if alt else 0) + (4 if ctrl else 0) + (8 if cmd else 0)
+    return b"\x1b[%d;%du" % (codepoint, mods)
+
+
+def primary(letter: str, shift: bool = False) -> bytes:
+    """`letter` held with the platform's primary modifier.
+
+    Cmd on macOS, Ctrl elsewhere -- the same split the editor applies as
+    `KBMOD_PRIMARY` (crates/edit/src/tui/textarea.rs) and that the shipped
+    keybindings.macos.toml / keybindings.linux.toml follow. Sending a bare
+    Ctrl byte on macOS is not just a different spelling of the chord; it
+    matches nothing, so the editor doesn't even redraw.
+    """
+    if _IS_MAC:
+        return csi_u(ord(letter.lower()), shift=shift, cmd=True)
+    if shift:
+        return csi_u(ord(letter.lower()), shift=True, ctrl=True)
+    return bytes([ord(letter.upper()) - 0x40])
+
+
+# Prefer these over the raw CTRL_* bytes for anything the editor routes
+# through the primary modifier.
+SELECT_ALL = primary("a")
+COPY = primary("c")
+CUT = primary("x")
+PASTE = primary("v")
+UNDO = primary("z")
+# macOS binds redo to Cmd+Shift+Z, other platforms to Ctrl+Y.
+REDO = primary("z", shift=True) if _IS_MAC else primary("y")
+FIND = primary("f")
+REPLACE = primary("r")
+EXIT = primary("q")
+SAVE = primary("s")
+TOGGLE_COMMENT = csi_u(ord("/"), cmd=True) if _IS_MAC else csi_u(ord("/"), ctrl=True)
 
 
 # ---- discovery + runner ---------------------------------------------------

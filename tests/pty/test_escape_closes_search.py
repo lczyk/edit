@@ -1,12 +1,12 @@
 """Escape closes the Find panel."""
 
-from framework import CTRL_F, ESC, Edit, expect, fixture, test
+from framework import ESC, FIND, Edit, expect, fixture, test
 
 
 @test
 def escape_hides_find_panel():
     with Edit([fixture("hello.txt")]) as ed:
-        ed.send(CTRL_F)
+        ed.send(FIND)
         expect(b"Find:" in ed.plain, "Find panel didn't open")
 
         mark = ed.mark()
