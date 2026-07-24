@@ -51,33 +51,44 @@ EDIT_BIN=target/debug/edit python3 tests/pty/framework.py
   `crates/lsh/tests/fixtures/` (`LSH_FIXTURES_DIR`).
 - `test_*.py` -- each defines `@test`-decorated functions.
 
-These tests are not part of `make verify` and are not run in CI. Run them by
-hand when touching rendering, input handling, or modal flow.
+Not part of `make verify` (that needs no Python and no built binary), but the
+`pty` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs
+them. The whole suite should pass; a failure is a real regression.
 
-**Known failures.** 5 of 26 fail on the current tree, deterministically and
-independently of `--pace`:
+## Chords
 
-- `test_undo_redo::undo_removes_insertion_and_redo_restores_it`
-- `test_toggle_comment::keybinding_toggles_line_comment_and_undo_reverts`
-- `test_toggle_comment::two_toggles_undo_individually`
-- `test_highlighting_smoke::highlighting_renders`
-- `test_nocolor_menu_focus::nocolor_menubar_focus_shows_marker`
+**Send `UNDO`, not `CTRL_Z`.** Cut/Copy/Paste/Undo/Redo/SelectAll and the
+menubar actions go through the platform's primary modifier -- Cmd on macOS,
+Ctrl elsewhere. `framework.py` exposes ready-made `UNDO`, `REDO`, `CUT`,
+`COPY`, `PASTE`, `SELECT_ALL`, `FIND`, `REPLACE`, `SAVE`, `EXIT` and
+`TOGGLE_COMMENT` that resolve per platform; build others with
+`primary("k")` or `csi_u(codepoint, cmd=True)`.
 
-Treat those as the baseline, not as breakage you introduced. Wiring this suite
-into CI is blocked on fixing them.
+The raw `CTRL_*` byte constants are still there for chords that really are
+Ctrl-only, but sending `CTRL_Z` on macOS matches nothing at all -- the editor
+doesn't even redraw, so the test sees an empty frame rather than an obviously
+wrong one.
+
+## Config isolation
+
+Each run points the child at a throwaway `XDG_CONFIG_HOME`, so `edit` creates
+a fresh `keybindings.toml` from the shipped platform defaults. Without it the
+tests would inherit whatever is in your `~/.config/edit`, and a stale local
+config would quietly decide which chords work -- passing on your machine and
+failing on CI, or worse, the other way around.
 
 ## Writing a test
 
 ```python
 # tests/pty/test_example.py
-from framework import CTRL_F, Edit, SHIFT_RIGHT, expect, fixture, test
+from framework import FIND, Edit, SHIFT_RIGHT, expect, fixture, test
 
 
 @test
-def ctrl_f_prefills_selection():
+def find_prefills_selection():
     with Edit([fixture("hello.txt")]) as ed:
         ed.send(SHIFT_RIGHT * 5)   # select 5 chars
-        ed.send(CTRL_F)            # open Find
+        ed.send(FIND)              # open Find
         frame = ed.last_plain_frame(b"Find:")
         expect(b"Find: hello" in frame, f"got: {frame[:120]!r}")
 ```
@@ -98,8 +109,12 @@ Key pieces:
 - `expect(cond, msg)` -- fail the test if `cond` is falsy.
 - `pause(s)` -- `time.sleep(s * PACE)`; rarely needed.
 - `fixture("name")` -- absolute path to a file in `fixtures/`.
-- Key constants: `CTRL_A...CTRL_Z`, `ESC`, `ENTER`, `BACKSPACE`, `TAB`, `F10`,
-  arrows (`LEFT`/`RIGHT`/`UP`/`DOWN`), `HOME`/`END`, and the `SHIFT_*` variants.
+- Key constants: `ESC`, `ENTER`, `BACKSPACE`, `TAB`, `F10`, arrows
+  (`LEFT`/`RIGHT`/`UP`/`DOWN`), `HOME`/`END`, the `SHIFT_*` variants, and the
+  platform-primary chords listed under [Chords](#chords).
+- `csi_u(codepoint, shift=, alt=, ctrl=, cmd=)` / `primary("k", shift=)` --
+  build a chord the constants don't cover.
+- `config_home()` -- the throwaway config dir the children share.
 
 ## Output
 

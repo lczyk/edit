@@ -53,16 +53,15 @@ step is skipped otherwise.
 ### PTY tests
 
 `make verify` covers the Rust suite. The end-to-end tests drive the built
-binary through a pseudo-terminal and run separately:
+binary through a pseudo-terminal and run separately (CI runs both):
 
 ```sh
 make build
 python3 tests/pty/framework.py
 ```
 
-5 of the 26 currently fail on a clean tree, which is why they aren't in CI.
-See [tests/pty/README.md](tests/pty/README.md) for the list, plus filters,
-`--watch` mode, and how to write new ones.
+See [tests/pty/README.md](tests/pty/README.md) for filters, `--watch` mode,
+and how to write new ones.
 
 ### Documentation
 

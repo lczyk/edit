@@ -35,7 +35,7 @@ Use the [Makefile](Makefile) -- do not invoke `cargo` directly in routine work. 
 make build && python3 tests/pty/framework.py
 ```
 
-Run them when a change touches rendering, input handling, or modal flow. 5 of the 26 currently fail on a clean tree (undo/redo, comment-toggle undo, highlighting smoke, nocolor menubar marker) -- that is the baseline, not your breakage. See [tests/pty/README.md](tests/pty/README.md) for the framework, filters, `--watch` mode, and the failure list.
+CI runs them; run them yourself when a change touches rendering, input handling, or modal flow. All 26 should pass. Two things to know before writing one: chords go through the platform primary modifier, so send `UNDO`, not `CTRL_Z` (a raw Ctrl byte matches nothing on macOS and the editor doesn't even redraw), and each run gets a throwaway `XDG_CONFIG_HOME` so the shipped keybinding defaults apply rather than your own `~/.config/edit`. See [tests/pty/README.md](tests/pty/README.md).
 
 ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
 
