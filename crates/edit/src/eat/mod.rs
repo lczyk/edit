@@ -4,9 +4,10 @@
 //! syntax-highlights via lsh, writes to stdout, optionally pages.
 
 pub mod follow;
-pub mod follow_tui;
 pub mod gutter_view;
 pub mod theme;
+pub mod viewer;
+pub mod views;
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, IsTerminal, Write};
@@ -1102,7 +1103,7 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
     // EAT_FOLLOW_NO_TUI=1 forces streaming even on a tty (debug / scripting).
     let force_no_tui = std::env::var("EAT_FOLLOW_NO_TUI").is_ok_and(|v| !v.is_empty());
     let result = if io::stdout().is_terminal() && !force_no_tui {
-        follow_tui::run_follow_mount(path, lang, cli.number, use_color, poll, cli.wrap.resolve())
+        views::run_follow_mount(path, lang, cli.number, use_color, poll, cli.wrap.resolve())
     } else {
         follow::run(path, lang, cli.number, use_color, poll)
     };
@@ -1171,8 +1172,7 @@ pub fn main() -> ExitCode {
             }
         };
         let use_color = resolve_use_color(cli.color, true);
-        return match follow_tui::run_snapshot(path, lang, cli.number, use_color, cli.wrap.resolve())
-        {
+        return match views::run_snapshot(path, lang, cli.number, use_color, cli.wrap.resolve()) {
             Ok(()) => ExitCode::from(0),
             Err(e) => {
                 eprintln!("{}: {e}", prog_name());

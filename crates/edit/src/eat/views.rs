@@ -1,4 +1,8 @@
-//! Alt-screen tuis for `eat`, both mounted through `edit::mount`:
+//! Eat's two alt-screen views, both mounted through `edit::mount`.
+//!
+//! Shared scaffolding -- the keymap and the terminal session -- lives in
+//! [`super::viewer`]; what stays here is what the two views genuinely do
+//! differently.
 //!
 //! - **snapshot view** (`run_snapshot`) -- `eat <file>` on a tty.
 //!   Read-only `TextBuffer` + edit's textarea (cursor / scroll /
@@ -26,11 +30,8 @@ use std::time::{Duration, Instant};
 
 use lsh::runtime::Language;
 
+use crate::eat::viewer::{self, ViewerKey};
 use crate::watch::{self, FileDelta, FileStat};
-
-/// Visual columns per Left/Right press when wrap is off. Matches less's
-/// default horizontal scroll step.
-const H_SCROLL_STEP: crate::helpers::CoordType = 8;
 
 // --- snapshot driver -----------------------------------------------------
 
@@ -52,7 +53,7 @@ pub fn run_snapshot(
 
     use crate::buffer::TextBuffer;
     use crate::helpers::{CoordType, Point, Size};
-    use crate::input::{kbmod, vk};
+
     use crate::mount;
 
     let buf =
@@ -75,14 +76,7 @@ pub fn run_snapshot(
     let mut header = snapshot_header(&path_label, Instant::now(), file_changed);
     let disk_check_interval = Duration::from_secs(2);
 
-    let _deinit = crate::sys::init();
-    crate::sys::switch_modes()?;
-
-    // Eat is a viewer; suppress the editor's scroll/cursor animation so
-    // any reload-on-r snap is instant. Restored on exit.
-    let prev_no_anim = crate::glyphs::no_animations();
-    crate::glyphs::set_no_animations(true);
-    let _restore_anim = scopeguard_no_anim(prev_no_anim);
+    let _session = viewer::ViewerSession::begin()?;
 
     let opts = mount::MountOpts {
         tick_interval: Some(disk_check_interval),
@@ -90,80 +84,53 @@ pub fn run_snapshot(
         ..Default::default()
     };
     mount::mount(opts, |ctx| -> ControlFlow<()> {
-        // Keyboard dispatch matches the follow view: textarea is mounted
-        // unfocused (no cursor block painted) so we translate keys to
-        // scroll-delta requests on the buffer here. Q exits, R reloads.
-        if let Some(k) = ctx.keyboard_input() {
-            let bare = k.key();
-            let shifted = k.modifiers_contains(kbmod::SHIFT);
-            // Primary chord modifier: Cmd on macOS, Ctrl elsewhere.
-            let primary = if cfg!(any(target_os = "macos", target_os = "ios")) {
-                kbmod::CMD
-            } else {
-                kbmod::CTRL
-            };
+        // The textarea is mounted unfocused (no cursor block painted), so
+        // it ignores keys and we translate them to scroll requests here.
+        if let Some(k) = ctx.keyboard_input()
+            && let Some(action) = viewer::classify(k)
+        {
             let body_h = (ctx.size().height - 1).max(1) as CoordType;
-            if bare == vk::Q || bare == vk::ESCAPE {
-                ctx.set_input_consumed();
-                return ControlFlow::Break(());
-            } else if bare == vk::C && k.modifiers_contains(primary) {
-                // copy selection -> clipboard. The textarea is mounted
-                // unfocused so its own copy chord never fires; do it here.
-                // mount flushes the clipboard to the host via OSC 52.
-                buf.borrow_mut().copy(ctx.clipboard_mut());
-                ctx.set_input_consumed();
-            } else if bare == vk::A && k.modifiers_contains(primary) {
-                buf.borrow_mut().select_all();
-                ctx.set_input_consumed();
-            } else if bare == vk::W {
-                wrap = !wrap;
-                buf.borrow_mut().set_word_wrap(wrap);
-                ctx.set_input_consumed();
-                ctx.needs_rerender();
-            } else if bare == vk::R {
-                ctx.set_input_consumed();
-                if let Ok(mut f) = std::fs::File::open(&path) {
-                    let mut b = buf.borrow_mut();
-                    b.set_read_only(false);
-                    let _ = b.read_file(&mut f);
-                    b.set_margin_enabled(show_numbers);
-                    b.set_word_wrap(wrap);
-                    b.set_read_only(true);
+            ctx.set_input_consumed();
+            match action {
+                ViewerKey::Quit => return ControlFlow::Break(()),
+                ViewerKey::Copy => buf.borrow_mut().copy(ctx.clipboard_mut()),
+                ViewerKey::SelectAll => buf.borrow_mut().select_all(),
+                ViewerKey::ToggleWrap => {
+                    wrap = !wrap;
+                    buf.borrow_mut().set_word_wrap(wrap);
+                    ctx.needs_rerender();
                 }
-                captured_stat = FileStat::from_path(&path).ok();
-                file_changed = false;
-                last_disk_check = Instant::now();
-                header = snapshot_header(&path_label, Instant::now(), file_changed);
-                ctx.needs_rerender();
-            } else if bare == vk::UP || (bare == vk::K && !shifted) {
-                buf.borrow_mut().request_scroll_delta_y(-1);
-                ctx.set_input_consumed();
-            } else if bare == vk::DOWN || (bare == vk::J && !shifted) {
-                buf.borrow_mut().request_scroll_delta_y(1);
-                ctx.set_input_consumed();
-            } else if bare == vk::PRIOR {
-                buf.borrow_mut().request_scroll_delta_y(-(body_h - 1).max(1));
-                ctx.set_input_consumed();
-            } else if bare == vk::NEXT {
-                buf.borrow_mut().request_scroll_delta_y((body_h - 1).max(1));
-                ctx.set_input_consumed();
-            } else if bare == vk::LEFT || (bare == vk::H && !shifted) {
-                buf.borrow_mut().request_scroll_delta_x(-H_SCROLL_STEP);
-                ctx.set_input_consumed();
-            } else if bare == vk::RIGHT || (bare == vk::L && !shifted) {
-                buf.borrow_mut().request_scroll_delta_x(H_SCROLL_STEP);
-                ctx.set_input_consumed();
-            } else if bare == vk::HOME || (bare == vk::G && !shifted) {
-                let n = buf.borrow().visual_line_count();
-                buf.borrow_mut().request_scroll_delta_y(-n);
-                ctx.set_input_consumed();
-            } else if bare == vk::END || (bare == vk::G && shifted) {
-                let mut b = buf.borrow_mut();
-                b.cursor_move_to_logical(Point::MAX);
-                let x = b.cursor_visual_pos().x;
-                b.set_preferred_column(x);
-                b.make_cursor_visible();
-                ctx.set_input_consumed();
+                ViewerKey::Reload => {
+                    if let Ok(mut f) = std::fs::File::open(&path) {
+                        let mut b = buf.borrow_mut();
+                        b.set_read_only(false);
+                        let _ = b.read_file(&mut f);
+                        b.set_margin_enabled(show_numbers);
+                        b.set_word_wrap(wrap);
+                        b.set_read_only(true);
+                    }
+                    captured_stat = FileStat::from_path(&path).ok();
+                    file_changed = false;
+                    last_disk_check = Instant::now();
+                    header = snapshot_header(&path_label, Instant::now(), file_changed);
+                    ctx.needs_rerender();
+                }
+                ViewerKey::ScrollLines(d) => buf.borrow_mut().request_scroll_delta_y(d),
+                ViewerKey::ScrollPages(p) => {
+                    buf.borrow_mut().request_scroll_delta_y(p * (body_h - 1).max(1));
+                }
+                ViewerKey::ScrollColumns(d) => buf.borrow_mut().request_scroll_delta_x(d),
+                ViewerKey::ToTop => {
+                    let n = buf.borrow().visual_line_count();
+                    buf.borrow_mut().request_scroll_delta_y(-n);
+                }
+                ViewerKey::ToBottom => {
+                    let mut b = buf.borrow_mut();
+                    b.cursor_move_to_logical(Point::MAX);
+                    let x = b.cursor_visual_pos().x;
+                    b.set_preferred_column(x);
+                    b.make_cursor_visible();
+                }
             }
         }
 
@@ -242,7 +209,7 @@ pub fn run_follow_mount(
 
     use crate::buffer::TextBuffer;
     use crate::helpers::{CoordType, Point, Size};
-    use crate::input::{kbmod, vk};
+
     use crate::mount;
 
     // tail-snap helper. `request_scroll_delta_y(visual_line_count)`
@@ -293,17 +260,7 @@ pub fn run_follow_mount(
 
     let mut wheel_accel = WheelAccel::default();
 
-    let _deinit = crate::sys::init();
-    crate::sys::switch_modes()?;
-
-    // disable scroll/cursor animation. with a 250ms (or even 100ms)
-    // poll the textarea's ~60ms scroll lerp lands between ticks --
-    // viewport sits still then snaps, reading as "jerky". Snapping
-    // instantly per tick gives the smooth funnel-style cadence.
-    // Restored on scope exit so the editor's animations are unaffected.
-    let prev_no_anim = crate::glyphs::no_animations();
-    crate::glyphs::set_no_animations(true);
-    let _restore_anim = scopeguard_no_anim(prev_no_anim);
+    let _session = viewer::ViewerSession::begin()?;
 
     let mut drain_state = DrainState::new(&path);
 
@@ -378,85 +335,57 @@ pub fn run_follow_mount(
             apply_scroll(raw_wheel);
         }
 
-        if let Some(k) = ctx.keyboard_input() {
-            // strip modifiers for the plain-key matches; SHIFT+g is
-            // handled separately so it can map to End-equivalent.
-            let bare = k.key();
-            let shifted = k.modifiers_contains(kbmod::SHIFT);
-            // Primary chord modifier: Cmd on macOS, Ctrl elsewhere.
-            let primary = if cfg!(any(target_os = "macos", target_os = "ios")) {
-                kbmod::CMD
-            } else {
-                kbmod::CTRL
-            };
-
-            // q / esc exit. textarea is unfocused so it won't handle
-            // anything itself; translate the rest into scroll-delta
-            // requests on the buffer and mirror the effect on
-            // pause_offset. j/k aliased to Down/Up, g to Home, G
-            // (shift+g) to End -- matches the legacy follow-tui keys.
-            if bare == vk::Q || bare == vk::ESCAPE {
-                ctx.set_input_consumed();
-                return ControlFlow::Break(());
-            } else if bare == vk::C && k.modifiers_contains(primary) {
-                // copy selection -> clipboard. The textarea is mounted
-                // unfocused so its own copy chord never fires; do it here.
-                // mount flushes the clipboard to the host via OSC 52.
-                buf.borrow_mut().copy(ctx.clipboard_mut());
-                ctx.set_input_consumed();
-            } else if bare == vk::A && k.modifiers_contains(primary) {
-                buf.borrow_mut().select_all();
-                ctx.set_input_consumed();
-            } else if bare == vk::UP || (bare == vk::K && !shifted) {
-                buf.borrow_mut().request_scroll_delta_y(-1);
-                apply_scroll(-1);
-                ctx.set_input_consumed();
-            } else if bare == vk::DOWN || (bare == vk::J && !shifted) {
-                buf.borrow_mut().request_scroll_delta_y(1);
-                apply_scroll(1);
-                ctx.set_input_consumed();
-            } else if bare == vk::LEFT || (bare == vk::H && !shifted) {
-                buf.borrow_mut().request_scroll_delta_x(-H_SCROLL_STEP);
-                ctx.set_input_consumed();
-            } else if bare == vk::RIGHT || (bare == vk::L && !shifted) {
-                buf.borrow_mut().request_scroll_delta_x(H_SCROLL_STEP);
-                ctx.set_input_consumed();
-            } else if bare == vk::W {
-                wrap = !wrap;
-                pending_rewrap = Some(if following {
-                    Rewrap::Tail
-                } else {
-                    let b = buf.borrow();
-                    let old_scroll_y = (b.visual_line_count() - body_h - pause_offset).max(0);
-                    drop(b);
-                    Rewrap::Line {
-                        top_logical: top_line_cache.get(&buf, old_scroll_y),
-                        old_scroll_y,
-                    }
-                });
-                buf.borrow_mut().set_word_wrap(wrap);
-                ctx.set_input_consumed();
-                ctx.needs_rerender();
-            } else if bare == vk::PRIOR {
-                let d = (body_h - 1).max(1);
-                buf.borrow_mut().request_scroll_delta_y(-d);
-                apply_scroll(-d);
-                ctx.set_input_consumed();
-            } else if bare == vk::NEXT {
-                let d = (body_h - 1).max(1);
-                buf.borrow_mut().request_scroll_delta_y(d);
-                apply_scroll(d);
-                ctx.set_input_consumed();
-            } else if bare == vk::HOME || (bare == vk::G && !shifted) {
-                let n = buf.borrow().visual_line_count();
-                buf.borrow_mut().request_scroll_delta_y(-n);
-                apply_scroll(-n);
-                ctx.set_input_consumed();
-            } else if bare == vk::END || (bare == vk::G && shifted) {
-                snap_to_tail(&mut buf.borrow_mut());
-                pause_offset = 0;
-                following = true;
-                ctx.set_input_consumed();
+        if let Some(k) = ctx.keyboard_input()
+            && let Some(action) = viewer::classify(k)
+        {
+            ctx.set_input_consumed();
+            match action {
+                ViewerKey::Quit => return ControlFlow::Break(()),
+                ViewerKey::Copy => buf.borrow_mut().copy(ctx.clipboard_mut()),
+                ViewerKey::SelectAll => buf.borrow_mut().select_all(),
+                // Reload is snapshot-only; the drain already tracks the file.
+                ViewerKey::Reload => {}
+                ViewerKey::ToggleWrap => {
+                    wrap = !wrap;
+                    // Re-wrapping moves every visual line, so remember what
+                    // to re-anchor on: the tail if following, otherwise the
+                    // logical line currently at the top of the viewport.
+                    pending_rewrap = Some(if following {
+                        Rewrap::Tail
+                    } else {
+                        let b = buf.borrow();
+                        let old_scroll_y = (b.visual_line_count() - body_h - pause_offset).max(0);
+                        drop(b);
+                        Rewrap::Line {
+                            top_logical: top_line_cache.get(&buf, old_scroll_y),
+                            old_scroll_y,
+                        }
+                    });
+                    buf.borrow_mut().set_word_wrap(wrap);
+                    ctx.needs_rerender();
+                }
+                // Vertical movement is mirrored onto pause_offset so the
+                // follow/paused state stays in lockstep with the textarea.
+                ViewerKey::ScrollLines(d) => {
+                    buf.borrow_mut().request_scroll_delta_y(d);
+                    apply_scroll(d);
+                }
+                ViewerKey::ScrollPages(p) => {
+                    let d = p * (body_h - 1).max(1);
+                    buf.borrow_mut().request_scroll_delta_y(d);
+                    apply_scroll(d);
+                }
+                ViewerKey::ScrollColumns(d) => buf.borrow_mut().request_scroll_delta_x(d),
+                ViewerKey::ToTop => {
+                    let n = buf.borrow().visual_line_count();
+                    buf.borrow_mut().request_scroll_delta_y(-n);
+                    apply_scroll(-n);
+                }
+                ViewerKey::ToBottom => {
+                    snap_to_tail(&mut buf.borrow_mut());
+                    pause_offset = 0;
+                    following = true;
+                }
             }
         }
 
@@ -582,19 +511,6 @@ impl TopLineCache {
         }
         self.line
     }
-}
-
-/// RAII guard restoring the global `no_animations` flag on drop. Used
-/// by `run_follow_mount` so animations are disabled only for the
-/// lifetime of the follow view.
-struct NoAnimRestore(bool);
-impl Drop for NoAnimRestore {
-    fn drop(&mut self) {
-        crate::glyphs::set_no_animations(self.0);
-    }
-}
-fn scopeguard_no_anim(prev: bool) -> NoAnimRestore {
-    NoAnimRestore(prev)
 }
 
 /// `MountOpts::on_probe` callback: reflow the buffer iff the terminal
