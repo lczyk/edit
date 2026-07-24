@@ -43,7 +43,7 @@ CI runs them twice, the second time against a `--features sanity` build with `--
 
 See [tests/pty/README.md](tests/pty/README.md).
 
-ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
+ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully and the search tests skip. `make test-icu` builds against an installed ICU and makes that skip a failure, so a run meant to cover search can't pass having covered nothing. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars -- note the default SONAME is the unversioned one, which only exists with the distro's ICU *development* package.
 
 ## Sanity checks
 
@@ -109,14 +109,18 @@ Record shape + field reference: [doc/src/dev-input-log.md](doc/src/dev-input-log
   - [crates/edit/src/simd/](crates/edit/src/simd/) -- `memchr2` line-break scanners (>100 GB/s).
   - [crates/edit/src/unicode/](crates/edit/src/unicode/) -- `Utf8Chars` iterator (4 GB/s, transparently inserts U+FFFD) and `MeasurementConfig` grapheme/width measurement (600 MB/s).
   - Without word-wrap, `memchr2` drives all line navigation -- 1 GB files feel like 1 MB.
+- **Rendering is two passes.** [crates/edit/src/buffer/render.rs](crates/edit/src/buffer/render.rs) walks the visible rows and builds the owned per-row IR in [buffer/layout.rs](crates/edit/src/buffer/layout.rs); [crates/edit/src/paint/](crates/edit/src/paint/) consumes it and writes into the framebuffer. `buffer` owns the IR because it produces it -- `paint` depends downward on `buffer`, never the reverse. Inside `paint/`, only `anim.rs` is animation; `draw.rs` and `physics.rs` are time-free by contract (see their module docs).
 - **[crates/edit/src/framebuffer.rs](crates/edit/src/framebuffer.rs)** -- video-game-style framebuffer. UI draws into a buffer; diff against the previous frame is sent to the terminal.
-- **[crates/edit/src/tui.rs](crates/edit/src/tui.rs)** -- immediate-mode UI. Read its module doc.
+- **[crates/edit/src/tui/](crates/edit/src/tui/)** -- immediate-mode UI. Read `mod.rs`'s module doc. `node.rs` is the arena tree + box layout, `textarea.rs` the biggest widget (and the only one with its own input handling).
+- **[crates/edit/src/input/](crates/edit/src/input/)** -- `keys.rs` is the wire-format-free vocabulary (`InputKey`, `vk`, `kbmod`); `vt_decode.rs` turns [vt.rs](crates/edit/src/vt.rs)'s tokens into it. A non-VT backend would be a sibling of the decoder, not a change to the vocabulary.
 - **[crates/edit/src/vt.rs](crates/edit/src/vt.rs)** -- VT parser.
 - **[crates/edit/src/sys/](crates/edit/src/sys/)** -- platform abstractions (unix only): terminal i/o (raw mode, sigwinch resize injection, polling stdin reader, `write_stdout`) plus the fs + ICU helpers. Absorbed the former `tty` crate; don't reintroduce it.
 - **[crates/edit/src/term.rs](crates/edit/src/term.rs)** -- alt-screen mode switch, OSC 4/10/11 palette probe, ambiguous-width probe, kitty kbd proto push; `RestoreModes` is the inverse-on-drop guard. Used by `bin/edit/main.rs` and by `edit::mount`.
-- **[crates/edit/src/mount.rs](crates/edit/src/mount.rs)** -- thin external mount api for the tui: `mount(opts, draw_fn)` owns `Tui::new` + `term::setup` + the input/render loop + alt-screen restore. Used by the `eat` persona's snapshot view; not used by `bin/edit/main.rs` (which has its own richer loop).
-- **[crates/edit/src/eat/](crates/edit/src/eat/)** -- the `eat` persona's cli + render glue (snapshot tui via `mount`, follow tui via its own bespoke driver pending phase C). Reachable via argv0 dispatch in `bin/edit/main.rs` (`name == "eat"` or `--eat`); the `eat` binary is a `make install`-time symlink to `edit`, not a separate cargo target.
-- **[crates/edit/src/bin/edit/](crates/edit/src/bin/edit/)** -- the binary. ~90% UI and business logic.
+- **[crates/edit/src/mount.rs](crates/edit/src/mount.rs)** -- thin external mount api for the tui: `mount(opts, draw_fn)` owns `Tui::new` + `term::setup` + the input/render loop + alt-screen restore. Used by `eat`'s alt-screen views; `bin/edit/main.rs` keeps its own loop (its module doc says why). `flush_clipboard_to_host` is shared by both.
+- **[crates/edit/src/watch.rs](crates/edit/src/watch.rs)** -- poll-based file-change detection. One `FileStat` answers both "did it change" (equality) and "how" (`classify`); rotation detection needs the head-byte sample, since a same-length rewrite is invisible to size and inode alone.
+- **[crates/edit/src/eat/](crates/edit/src/eat/)** -- the `eat` persona: `cli.rs` args, `detect.rs` language resolution, `stream.rs` the non-tty ansi pipeline, `views.rs` the two alt-screen views over `mount`, `viewer.rs` their shared keymap + terminal session. Reachable via argv0 dispatch in `bin/edit/main.rs` (`name == "eat"` or `--eat`); the `eat` binary is a `make install`-time symlink to `edit`, not a separate cargo target.
+- **[crates/edit/src/langlist.rs](crates/edit/src/langlist.rs)** -- the `-L` listing, shared by both personas rather than living under `eat`.
+- **[crates/edit/src/bin/edit/](crates/edit/src/bin/edit/)** -- the binary. ~90% UI and business logic. `cli.rs` is the argv surface, `modals.rs` the global dialogs (one `Option<Modal>`, so two can't paint at once).
 
 Terminal issues: check `vt.rs`, `sys/unix.rs`, and `edit::term::setup` first.
 
@@ -125,7 +129,7 @@ Terminal issues: check `vt.rs`, `sys/unix.rs`, and `edit::term::setup` first.
 - `edit` -- main binary and library. Includes `edit::eat` (busybox-style multicall: when invoked as `eat` via symlink, or with `--eat`, acts as a `bat`-like syntax-highlighting cat). User-facing surface documented in [doc/src/eat.md](doc/src/eat.md).
 - `lsh` -- syntax-highlighting compiler and runtime. Language definitions in [crates/lsh/definitions/](crates/lsh/definitions/). See [crates/lsh/README.md](crates/lsh/README.md).
 - `lsh-bin` -- CLI for debugging LSH output.
-- `lsh-defs` -- bundled lsh language defs codegen + detection helpers + ansi-16 colourmap. Shared by `edit` and `edit::eat`.
+- `lsh-defs` -- bundled lsh language defs codegen + detection helpers + ansi-16 colourmap. Shared by `edit` and `edit::eat`. The canonical highlight-kind colour table is `lsh::compiler::default_ansi16`; consumers map it via `Ansi16::sgr()` rather than transcribing it.
 - `gutter` -- per-line gutter mark computation + render (git-diff overlays).
 - `stdext` -- shared utilities (arena allocator, collections, SIMD helpers, sys shims).
 - `unicode-gen` -- codegen for Unicode LUTs (only needed to regenerate tables; tables are checked in).
