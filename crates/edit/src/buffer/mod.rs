@@ -4376,6 +4376,157 @@ mod tests {
         tb.set_selection(Some(TextBufferSelection { beg, end }));
     }
 
+    // --- search ---
+    //
+    // Search runs through ICU, which is dlopen'd at runtime and degrades
+    // gracefully when absent (see README's EDIT_CFG_ICU* vars). These tests
+    // therefore bail out rather than fail when the library isn't there --
+    // an assertion would turn "ICU not installed" into a spurious failure.
+    // `icu_available()` reports which way it went so a run on a box without
+    // ICU doesn't silently look like coverage.
+
+    // NB: the init has to happen exactly once across the whole process.
+    // ICU's lazy setup writes unsynchronised `static mut` singletons --
+    // fine for the editor, which is single-threaded, but the test harness
+    // runs these in parallel and would race. OnceLock serialises it.
+    fn icu_available() -> bool {
+        static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *AVAILABLE.get_or_init(|| {
+            let ok = crate::icu::init().is_ok();
+            if !ok {
+                eprintln!("note: ICU unavailable -- search tests skipped");
+            }
+            ok
+        })
+    }
+
+    /// The selected text, or `None` when nothing is selected.
+    fn selected_text(tb: &TextBuffer) -> Option<String> {
+        let (beg, end) = tb.selection_range()?;
+        let mut out = Vec::new();
+        tb.buffer.extract_raw(beg.offset..end.offset, &mut out, 0);
+        Some(String::from_utf8(out).unwrap())
+    }
+
+    #[test]
+    fn find_selects_the_literal_match() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("alpha\nbeta\ngamma\n");
+        tb.find_and_select("beta", SearchOptions::default()).unwrap();
+        assert_eq!(selected_text(&tb).as_deref(), Some("beta"));
+    }
+
+    #[test]
+    fn find_advances_through_successive_matches_then_wraps() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("x\nfoo\ny\nfoo\nz\n");
+        let opts = SearchOptions::default();
+
+        tb.find_and_select("foo", opts).unwrap();
+        let first = tb.selection_range().unwrap().0.logical_pos.y;
+        tb.find_and_select("foo", opts).unwrap();
+        let second = tb.selection_range().unwrap().0.logical_pos.y;
+        assert_ne!(first, second, "repeat search must advance to the next match");
+
+        // Past the last match it wraps back to the first.
+        tb.find_and_select("foo", opts).unwrap();
+        assert_eq!(tb.selection_range().unwrap().0.logical_pos.y, first);
+    }
+
+    #[test]
+    fn find_honours_match_case() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("Foo\nfoo\n");
+
+        // Case-sensitive: only the lowercase line matches.
+        let cased = SearchOptions { match_case: true, ..Default::default() };
+        tb.find_and_select("foo", cased).unwrap();
+        assert_eq!(tb.selection_range().unwrap().0.logical_pos.y, 1);
+
+        // Case-insensitive: the first line is now reachable.
+        let mut tb = buf_with("Foo\nfoo\n");
+        tb.find_and_select("foo", SearchOptions::default()).unwrap();
+        assert_eq!(tb.selection_range().unwrap().0.logical_pos.y, 0);
+    }
+
+    #[test]
+    fn find_whole_word_skips_substring_hits() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("format\nfor\n");
+        let opts = SearchOptions { whole_word: true, ..Default::default() };
+        tb.find_and_select("for", opts).unwrap();
+        // "format" contains "for" but isn't the whole word.
+        assert_eq!(tb.selection_range().unwrap().0.logical_pos.y, 1);
+    }
+
+    #[test]
+    fn find_regex_matches_a_pattern() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("id: 41\nid: 42\n");
+        let opts = SearchOptions { use_regex: true, ..Default::default() };
+        tb.find_and_select("4[0-9]", opts).unwrap();
+        assert_eq!(selected_text(&tb).as_deref(), Some("41"));
+    }
+
+    #[test]
+    fn find_literal_does_not_treat_the_needle_as_regex() {
+        if !icu_available() {
+            return;
+        }
+        // Regex-special characters must match themselves when use_regex is off.
+        let mut tb = buf_with("a.c\nabc\n");
+        tb.find_and_select("a.c", SearchOptions::default()).unwrap();
+        assert_eq!(tb.selection_range().unwrap().0.logical_pos.y, 0);
+    }
+
+    #[test]
+    fn find_with_no_match_leaves_the_selection_alone() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("alpha\nbeta\n");
+        tb.find_and_select("nowhere", SearchOptions::default()).unwrap();
+        assert!(selected_text(&tb).is_none_or(|s| s != "nowhere"));
+    }
+
+    #[test]
+    fn find_and_replace_all_rewrites_every_occurrence() {
+        if !icu_available() {
+            return;
+        }
+        let mut tb = buf_with("foo\nbar\nfoo\n");
+        tb.find_and_replace_all("foo", SearchOptions::default(), b"qux").unwrap();
+        assert_eq!(dump(&tb), "qux\nbar\nqux\n");
+    }
+
+    #[test]
+    fn search_survives_an_edit_between_queries() {
+        if !icu_available() {
+            return;
+        }
+        // The UText adapter caches UTF-16 chunks keyed on the buffer
+        // generation; an edit has to invalidate them or the second search
+        // reads stale text.
+        let mut tb = buf_with("foo\nbar\n");
+        tb.find_and_select("bar", SearchOptions::default()).unwrap();
+        assert_eq!(selected_text(&tb).as_deref(), Some("bar"));
+
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb.write_raw(b"zzz\n");
+        tb.find_and_select("bar", SearchOptions::default()).unwrap();
+        assert_eq!(selected_text(&tb).as_deref(), Some("bar"));
+    }
+
     #[test]
     fn toggle_line_comment_single_line_no_selection() {
         let mut tb = buf_with("foo\n");
