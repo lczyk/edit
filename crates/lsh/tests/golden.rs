@@ -35,6 +35,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Fish => "fish",
         Language::GitCommit => "git_commit",
         Language::GitRebase => "git_rebase",
+        Language::Gleam => "gleam",
         Language::Go => "go",
         Language::GoMod => "go_mod",
         Language::GoSum => "go_sum",
@@ -259,8 +260,19 @@ fn golden() {
         }
 
         let snap_file = snap_path(fixture);
-        if update || !snap_file.exists() {
+        if update {
             fs::write(&snap_file, &snap).unwrap();
+            continue;
+        }
+        // A missing snapshot is a failure, not something to fill in
+        // silently. Writing one here would mean a new fixture blesses
+        // whatever the highlighter happens to do, pass on the very same
+        // run, and never be looked at by anyone.
+        if !snap_file.exists() {
+            failures.push(format!(
+                "no snapshot for {} -- rerun with UPDATE_GOLDEN=1 and review the result",
+                fixture.display()
+            ));
             continue;
         }
         let existing = fs::read_to_string(&snap_file).unwrap_or_default();
