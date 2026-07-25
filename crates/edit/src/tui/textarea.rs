@@ -885,6 +885,12 @@ impl Context<'_, '_> {
                     vk::INSERT => match modifiers {
                         kbmod::SHIFT => tb.paste(self.clipboard_ref()),
                         kbmod::CTRL => tb.copy(self.clipboard_mut()),
+                        // Overtype in a one-line input field has nothing to
+                        // mean, and the field has no way to show the mode --
+                        // so bare Insert silently made the Find box overwrite.
+                        // Its siblings above (Tab, Return, arrows, Escape) all
+                        // bail out for single-line the same way.
+                        _ if single_line => return false,
                         _ => tb.set_overtype(!tb.is_overtype()),
                     },
                     vk::DELETE => match modifiers {

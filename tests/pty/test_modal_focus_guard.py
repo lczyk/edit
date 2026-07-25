@@ -9,15 +9,13 @@ field in the program.
 
 import sys
 
-from framework import ENTER, ESC, FIND, Edit, expect, fixture, test
+from framework import ENTER, ESC, FIND, Edit, csi_u, expect, fixture, test
 
 _MAC = sys.platform == "darwin"
 
 
 def _chord(letter, shift=False):
     """The platform's chord for a document action, per the shipped defaults."""
-    from framework import csi_u
-
     if _MAC:
         return csi_u(ord(letter), shift=shift, cmd=True)
     return csi_u(ord(letter), shift=shift, ctrl=True)
@@ -68,3 +66,23 @@ def window_actions_still_work_from_a_field():
         expect(b":" in screen, "the go-to-line modal did not open")
         ed.send(ESC)
         ed.send(ENTER, drain=False)
+
+@test
+def bare_insert_does_not_flip_overtype_in_a_field():
+    # The Insert arm in the textarea keymap had no single-line guard, unlike Tab,
+    # Return, the arrows and Escape beside it, so bare Insert silently put the
+    # Find box into overwrite mode -- where the field cannot show the mode and it
+    # has nothing to mean.
+    insert = b"\x1b[2~"
+    with Edit([fixture("hello.txt")], cols=60, rows=12) as ed:
+        ed.send(FIND)
+        ed.send(b"abcd")
+        expect(b"Find: abcd" in ed.screen(), "the needle did not take the text")
+
+        # Go back over "bcd" and type: in overtype it would replace them.
+        for _ in range(3):
+            ed.send(b"\x1b[D")
+        ed.send(insert)
+        ed.send(b"XY")
+        screen = ed.screen()
+        expect(b"Find: aXYbcd" in screen, f"the field is overwriting: {screen[:200]!r}")
