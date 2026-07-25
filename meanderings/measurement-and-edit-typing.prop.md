@@ -103,32 +103,31 @@ The cheap part has been taken: `build_textarea_physics` now reads
 that `anim_refactor.md` descoped will not reintroduce the bug when someone
 wires it up.
 
-## open: the visual-line stats drift underneath
+## fixed: the visual-line stats drift underneath
 
-Fixing the resumption bug uncovered a third one in the same family, quieter and
-intermittent: `stats_visual_lines_drift` (stored 5, recomputed 6) fires on
-about one run in four of the long-word PTY test, when typing inside a word wide
-enough to hard-wrap. The buffer's cached visual line count ends up a row short.
+Fixing the resumption bug uncovered two more in the same family, and they were
+cancelling each other out often enough to look like one intermittent fault.
+Both had the same shape as everything else here: an absolute quantity computed
+by relative arithmetic from a seed that was allowed to be mid-row.
 
-It is not a regression from the guards. Without them the cursor bug fires first
-and the test aborts before reaching this state, so the earlier trips were
-masking it -- measured both ways: 10 cursor trips and no stats trips without
-the guards, no cursor trips and intermittent stats trips with them.
+`goto_line_start` derives its result's `visual_pos.y` by offsetting whatever
+seed it is handed. A cursor inside a word too wide for a row carries the
+row-break ambiguity, so any count derived from it inherits the error.
 
-One hypothesis tested and rejected. `edit_begin` computes
-`line_height_in_rows` as `next_line.visual_pos.y - safe_start.visual_pos.y`
-where `next_line` is measured from the mid-row `cursor` and the subtrahend
-comes from `safe_start` -- two bases. Making both start at `safe_start` did not
-fix it and made the trip slightly more frequent, so the mismatch is not the
-cause even though it still reads wrong.
+- `edit_begin` measured the next line's row from the mid-row `cursor` while
+  subtracting a base taken from `safe_start` -- two seeds, one of them
+  ambiguous. Left `stats.visual_lines` a row **under**.
+- `reflow` recomputed the absolute count starting from `self.cursor`. A row
+  **over**.
 
-Where to look next: `edit_end` has two arms for updating `visual_lines`, an
-incremental delta when `deleted_count < info.distance_next_line_start` and a
-full remeasure otherwise. Instrumenting both against a from-scratch walk, per
-keystroke, would say which one drifts and on which input. The intermittency
-tracks input batching -- the test sends keys with `settle=0` -- so the state
-that triggers it depends on how many graphemes arrive in one frame.
+Both now start from an unambiguous seed: `safe_start` for the delta, the
+document start for the absolute count, which is also what the drift check
+itself walks.
 
-CI's strict-sanity PTY run is marked `continue-on-error` until this is fixed:
-it still reports, so a second unrelated trip would be visible, but it does not
-gate on a known-flaky check.
+Worth recording how nearly this was missed. The first hypothesis -- the
+mismatched bases in `edit_begin` -- was correct, and I rejected it on the
+evidence of PTY run counts, 2 failures in 5 against 4 in 6. That is noise, not
+a measurement. It only became tractable with a deterministic unit-level repro,
+which showed the drift on every run once the cursor was inside the word, and
+then showed the second fault the moment the first was fixed: the sign of the
+error flipped from under to over.
