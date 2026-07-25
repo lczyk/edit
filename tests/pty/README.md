@@ -129,6 +129,10 @@ Key pieces:
 
 - `Edit(argv, cols=?, rows=?)` -- spawns the editor. Use as a context manager.
 - `ed.send(bytes, settle=?, drain=?)` -- write + settle + drain.
+- `ed.screen()` -- force a full repaint and return it. Reach for this whenever
+  a test asserts that something is **not** on screen: the renderer only emits
+  the lines that changed, so absence from a drained diff means "not redrawn",
+  and a test built on it passes whenever the editor ignored the key.
 - `ed.drain(timeout=?)` / `ed.plain` -- manual read + ANSI-stripped buffer.
 - `ed.last_plain_frame(anchor)` -- stripped view from the last occurrence of
   `anchor` onward; use for assertions on the most recent frame.

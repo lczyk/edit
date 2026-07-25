@@ -22,7 +22,7 @@ Divergent fork of Microsoft's `edit` terminal editor, trimmed down for personal 
 Use the [Makefile](Makefile) -- do not invoke `cargo` directly in routine work. Run `make help` to list targets. Common ones:
 
 - `make build` -- release build. `make install` -- debug build with the `sanity` feature plus the `eat -> edit` symlink.
-- `make check` / `make clippy` / `make test` -- individual checks.
+- `make check` / `make clippy` / `make test` -- individual checks, across the whole workspace. All three share the `FEATURES` variable: every feature except stdext's `single-threaded`, which the threaded test harness cannot survive. Don't reach for `--all-features`.
 - `make format` / `make fmt-check` -- format the workspace / verify formatting.
 - `make verify` -- full pre-commit gate (fmt-check + clippy + test). Run this before reporting a task as done.
 - `make test-icu` -- test suite with ICU wired up; fails rather than skipping the search tests.
@@ -35,7 +35,13 @@ Use the [Makefile](Makefile) -- do not invoke `cargo` directly in routine work. 
 make build && python3 tests/pty/framework.py
 ```
 
-CI runs them; run them yourself when a change touches rendering, input handling, or modal flow. All 26 should pass. Two things to know before writing one: chords go through the platform primary modifier, so send `UNDO`, not `CTRL_Z` (a raw Ctrl byte matches nothing on macOS and the editor doesn't even redraw), and each run gets a throwaway `XDG_CONFIG_HOME` so the shipped keybinding defaults apply rather than your own `~/.config/edit`. See [tests/pty/README.md](tests/pty/README.md).
+CI runs them twice, the second time against a `--features sanity` build with `--strict-sanity`, which fails a test that tripped an invariant check. Run them yourself when a change touches rendering, input handling, or modal flow; all of them should pass. Three things to know before writing one:
+
+- Send `UNDO`, not `CTRL_Z`. Chords go through the platform primary modifier, and a raw Ctrl byte matches nothing on macOS -- the editor doesn't even redraw, so an assertion on absence passes for the wrong reason.
+- Assert on `ed.screen()`, not `ed.plain`, when a test cares that something is *not* on screen. The renderer only emits changed lines, so a drained diff is not a screen.
+- Each run gets a throwaway `XDG_CONFIG_HOME`, so the shipped keybinding defaults apply rather than your own `~/.config/edit`.
+
+See [tests/pty/README.md](tests/pty/README.md).
 
 ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
 
