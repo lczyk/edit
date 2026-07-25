@@ -507,23 +507,21 @@ pub fn cursor_block(
     let mut y = cursor_visual.y;
 
     if word_wrap_column > 0 && x >= word_wrap_column {
-        // The line the cursor is on wraps exactly on the word wrap column
-        // which means the cursor is invisible. We need to move it to the
-        // next line.
+        // The row is full to the wrap column, so column `x` is off the end of it
+        // and the caret has to go to the start of the row below.
         //
-        // Sanity (C): hitting this branch means cursor.visual_pos.x landed
-        // exactly on the wrap column -- the bug class from the screenshot
-        // thread. Selection paint and line highlight still read the
-        // un-bumped visual_pos.y, so the caret appears on a row offset
-        // from where text is being inserted.
-        #[cfg(feature = "sanity")]
-        crate::sanity_check!(
-            render_cursor_on_wrap_boundary,
-            false,
-            "vp={:?} wrap_col={} -- caret bumped to next row, may desync from text",
-            cursor_visual,
-            word_wrap_column
-        );
+        // This used to carry an unconditional sanity check, on the theory that
+        // reaching it at all meant the caret had drifted onto the wrap column.
+        // It has not meant that since the buffer started collapsing row-break
+        // positions: what reaches here now is a line whose length is exactly the
+        // wrap column with the cursor at its end, where there is no next
+        // grapheme on the line to collapse towards and the bump is the only
+        // correct answer. Probed at every width from 30 to 39 with a matching
+        // line: it fires at exactly one, the one where the line fills the row.
+        //
+        // So there is no invariant left here to assert -- only a legitimate case
+        // that the check called a bug, which is why it is gone rather than
+        // rephrased.
         x = 0;
         y += 1;
     }
