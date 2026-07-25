@@ -41,7 +41,9 @@ ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades grace
 
 ## Cmd modifier and terminal interop
 
-`kbmod::CMD` exists alongside `CTRL`/`ALT`/`SHIFT` and maps to Super in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 on startup (`CSI > 1 u` in `edit::term::setup`) and pops on exit (`CSI < u` from `edit::term::RestoreModes`). Textarea standard chords (Cut/Copy/Paste/Undo/Redo/SelectAll) pick the platform primary modifier via `KBMOD_PRIMARY` (Cmd on macOS, Ctrl elsewhere); word-nav-on-backspace/delete uses `KBMOD_FOR_WORD_NAV` (Alt on macOS, Ctrl elsewhere).
+`kbmod::CMD` exists alongside `CTRL`/`ALT`/`SHIFT` and maps to Super in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 on startup (`CSI > 1 u` in `edit::term::setup`) and pops on exit (`CSI < u` from `edit::term::RestoreModes`). Word-nav-on-backspace/delete uses `KBMOD_FOR_WORD_NAV` (Alt on macOS, Ctrl elsewhere).
+
+The textarea standard chords (Cut/Copy/Paste/Undo/Redo/SelectAll) are handled by the widget, not the global dispatch, so they work in modal input fields too. `bin/edit/main.rs` passes the configured chords down via `tui::set_textarea_chords`; absent that they default to `KBMOD_PRIMARY` (Cmd on macOS, Ctrl elsewhere). Don't move them into `handle_global_shortcuts` -- that runs before every other consumer and would take Cmd+C away from the search field.
 
 User-facing detail (terminal compat, alacritty `option_as_alt`, `Cmd+C` swallowing, etc.) lives in the knowledge base: [doc/src/terminal-keyboard.md](doc/src/terminal-keyboard.md) and [doc/src/alacritty.md](doc/src/alacritty.md). When a "this chord doesn't work" report lands, point there before changing code.
 

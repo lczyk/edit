@@ -19,7 +19,14 @@ The `Action` enum in `crates/edit/src/bin/edit/keybindings.rs` lists every binda
 - Editor commands: `move_line_up` / `_down`, `delete_line`, `toggle_line_comment`, `delete_to_line_start` / `_end`.
 - Cursor motion (mostly relevant on macOS where Cmd is the natural modifier): `small_jump_up` / `_down` (+ `_select` variants), `line_start` / `_end` (+ `_select`).
 
-Anything not in the `Action` enum is hardcoded -- typically because it's wired directly into the textarea key dispatch (`tui.rs`) for things like `Cmd+Z` undo, `Cmd+C` copy, etc. Those use a `KBMOD_PRIMARY` constant that resolves to `Cmd` on macOS and `Ctrl` elsewhere, so they follow platform convention without needing per-key config.
+Anything not in the `Action` enum is hardcoded -- dialog-internal keys (Return, Escape, arrows, Backspace) and the textarea's own navigation and selection map.
+
+`undo`, `redo`, `cut`, `copy`, `paste` and `select_all` are a special case worth knowing about. They are handled inside the textarea widget rather than by the global shortcut dispatch, so that they work in a modal's input field as well as in the document -- and so a rebind applies in both. The editor hands the widget your configured chords at startup; when nothing configures them (the `eat` viewer, say) they fall back to a `KBMOD_PRIMARY` constant that resolves to `Cmd` on macOS and `Ctrl` elsewhere.
+
+Two consequences:
+
+- Rebinding one of the six replaces the platform default rather than adding to it. `undo = "Ctrl+U"` on macOS means `Cmd+Z` no longer undoes.
+- `Cmd`/`Ctrl+Shift+Z` stays wired to redo whatever you bind, since the table has one `redo` entry and this is the other spelling people reach for.
 
 ## Chord syntax
 
