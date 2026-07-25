@@ -8,6 +8,12 @@ rust-version.workspace = true
 
 [features]
 single-threaded = []
+# Debug-only invariant checks, defined in `sanity.rs`. Tripped checks write to
+# $TMPDIR/edit/log/sanity-YYYYMMDD.log and surface via the notify hook. Turn on
+# through a dependent crate's own `sanity` feature rather than directly.
+sanity = [
+    #
+]
 
 [dependencies]
 libc = "0.2"

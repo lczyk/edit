@@ -20,14 +20,17 @@ pub mod input;
 pub mod langlist;
 pub mod lsh;
 pub mod mount;
-pub mod notify;
 pub mod oklab;
 pub mod paint;
 pub mod path;
-pub mod sanity;
 pub mod sys;
 pub mod term;
 pub mod tui;
 pub mod unicode;
 pub mod vt;
 pub mod watch;
+
+// Both live in `stdext` so the other crates can use them too. Re-exported at
+// this crate's root because the macros expand to `$crate::sanity::record`, and
+// because it keeps every call site in this crate saying `crate::sanity_check!`.
+pub use stdext::{notify, sanity, sanity_assert, sanity_check};

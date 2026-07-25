@@ -10,9 +10,13 @@ build = "build/main.rs"
 
 [features]
 # Debug-only invariant checks scattered through the buffer / measurement /
-# render layers. Tripped checks write to $TMPDIR/edit/log/sanity-YYYYMMDD.log
-# and surface via the statusbar warning flash. See crates/edit/src/sanity.rs.
+# render / highlighting layers. Tripped checks write to
+# $TMPDIR/edit/log/sanity-YYYYMMDD.log and surface via the statusbar warning
+# flash. The macros live in crates/stdext/src/sanity.rs so every crate can use
+# them; this forwards to the features that switch them on.
 sanity = [
+    "lsh/sanity",
+    "stdext/sanity",
     #
 ]
 

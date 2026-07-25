@@ -43,6 +43,11 @@ clippy:  ## Clippy with warnings denied (CI bar)
 .PHONY: test
 test:  ## Run the test suite with all features enabled
 	cargo test --all-features
+# The workspace sets default-members = edit, so the line above tests that
+# package only. The rest need naming explicitly -- and not via
+# --workspace --all-features, which switches on stdext's `single-threaded`
+# arena and makes edit's own tests abort with an arena OOM.
+	cargo test -p stdext -p lsh -p gutter --features stdext/sanity,lsh/sanity
 
 # ICU is dlopen'd, so the search tests skip when it can't be loaded. The
 # build defaults to the unversioned SONAME, which only exists if the -dev
