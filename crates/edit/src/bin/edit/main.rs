@@ -303,6 +303,20 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         let on = tb.is_column_guides_enabled();
         tb.set_column_guides_enabled(!on);
         ctx.needs_rerender();
+    } else if ctx.consume_shortcut(chord(Action::ToggleWordWrap)) {
+        // The menubar displayed this chord and the config file accepted it, but
+        // nothing ever dispatched it -- word wrap only toggled via the
+        // textarea's own hardcoded Alt+Z, which no rebinding could move. Same
+        // for the two below. The Alt+Z arm stays as an always-on alias; this
+        // runs first, so a configured chord wins.
+        let mut tb = state.document.buffer.borrow_mut();
+        let on = tb.is_word_wrap_enabled();
+        tb.set_word_wrap(!on);
+        ctx.needs_rerender();
+    } else if ctx.consume_shortcut(chord(Action::FocusStatusbar)) {
+        state.wants_statusbar_focus = true;
+    } else if ctx.consume_shortcut(chord(Action::OpenAbout)) {
+        state.modal = Some(modals::Modal::About);
     } else if search_enabled && ctx.consume_shortcut(chord(Action::Find)) {
         state.wants_search.kind = StateSearchKind::Search;
         state.wants_search.focus = true;
