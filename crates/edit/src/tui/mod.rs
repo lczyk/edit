@@ -1904,6 +1904,27 @@ impl<'a> Context<'a, '_> {
         self.tui.is_subtree_focused(&last_node)
     }
 
+    /// Whether a single-line input field holds the keyboard.
+    ///
+    /// Unlike [`Context::is_focused`] this does not need the node to have been
+    /// declared yet, so it answers before any widget exists this frame -- which
+    /// is what a shortcut handler running at the top of the frame needs in order
+    /// not to act on the document while the user is typing in a field. The
+    /// answer describes the end of the previous frame.
+    ///
+    /// Asks whether the focused node is a single-line textarea rather than
+    /// naming the fields, so a new dialog gets the same treatment for free.
+    /// Phrased as "is a field focused" rather than "is the document focused"
+    /// deliberately: focus takes a frame to settle back onto the document after
+    /// a dialog closes, and the stricter question would swallow the next
+    /// keystroke.
+    pub fn focus_is_in_text_field(&self) -> bool {
+        let id = *self.tui.focused_node_path.last().unwrap_or(&ROOT_ID);
+        self.tui.prev_node_map.get(id).is_some_and(
+            |node| matches!(&node.borrow().content, NodeContent::Textarea(tc) if tc.single_line),
+        )
+    }
+
     /// Begins a modal window. Call [`Context::modal_end()`].
     pub fn modal_begin(&mut self, classname: &'static str, title: &str) {
         self.block_begin(classname);

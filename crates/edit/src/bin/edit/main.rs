@@ -288,7 +288,6 @@ fn draw(ctx: &mut Context, state: &mut State) {
 const SMALL_JUMP_LINES: CoordType = 3;
 
 fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
-    use edit::buffer::MoveLineDirection;
     use keybindings::{Action, chord};
 
     let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
@@ -310,7 +309,27 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
     } else if search_enabled && ctx.consume_shortcut(chord(Action::Replace)) {
         state.wants_search.kind = StateSearchKind::Replace;
         state.wants_search.focus = true;
-    } else if ctx.consume_shortcut(chord(Action::MoveLineUp)) {
+    } else {
+        // Everything above acts on the window; everything in there acts on the
+        // document, so it must not fire while a text field owns the keyboard.
+        // Consuming unconditionally meant Cmd+Shift+K deleted a document line
+        // while the user was typing in the Find box, and the macOS cursor-motion
+        // chords (Cmd+arrows, Cmd+Backspace) moved and edited the document from
+        // inside every input field in the program.
+        if ctx.focus_is_in_text_field() || !handle_document_shortcuts(ctx, state) {
+            return;
+        }
+    }
+
+    ctx.needs_rerender();
+}
+
+/// Returns whether a chord was consumed.
+fn handle_document_shortcuts(ctx: &mut Context, state: &mut State) -> bool {
+    use edit::buffer::MoveLineDirection;
+    use keybindings::{Action, chord};
+
+    if ctx.consume_shortcut(chord(Action::MoveLineUp)) {
         state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Up);
     } else if ctx.consume_shortcut(chord(Action::MoveLineDown)) {
         state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Down);
@@ -361,10 +380,10 @@ fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
         tb.set_preferred_column(x);
         tb.make_cursor_visible();
     } else {
-        return;
+        return false;
     }
 
-    ctx.needs_rerender();
+    true
 }
 
 /// Pick minimap cell width for a terminal `terminal_width` cells wide. 0
