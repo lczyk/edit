@@ -1411,6 +1411,53 @@ impl TextBuffer {
         self.set_selection(if beg == end { None } else { Some(TextBufferSelection { beg, end }) });
     }
 
+    /// Collapses the two visual positions a row-break offset can have into one.
+    ///
+    /// With word wrap on, the offset at a row break is both the end of row `y`
+    /// and the start of row `y + 1`. Which form a position carries depends on
+    /// how it was reached: `goto_visual` (Home/End, arrows) keeps the row it was
+    /// asked for, `goto_logical` re-derives it -- see the note on
+    /// [`unicode::MeasurementConfig::measure_forward`], where the split is
+    /// deliberate so Home/End land on the row the user is looking at.
+    ///
+    /// This picks the start-of-next-row form, which is where text typed at that
+    /// offset actually appears. Costs one grapheme-wide forward measure, and
+    /// only for a position that could be on a break at all.
+    ///
+    /// Deliberately NOT applied to the stored cursor: that doubles as the seed
+    /// for the next relative measurement, and rewriting its `visual_pos` makes
+    /// the visual-line stats and the wrapped-view seed index disagree with it.
+    /// Caret painting is the one consumer that wants the collapsed form.
+    fn canonicalize_wrap_boundary(&self, mut cursor: Cursor) -> Cursor {
+        if self.word_wrap_column <= 0 || cursor.visual_pos.x <= 0 {
+            return cursor;
+        }
+
+        let next = self
+            .measurement_config()
+            .with_cursor(cursor)
+            .goto_logical(Point { x: cursor.logical_pos.x + 1, y: cursor.logical_pos.y });
+
+        // A grapheme that starts a new row means the cursor sits on the break.
+        // The logical-line check keeps the end of a wrapped line out of it --
+        // there the next grapheme is on the following line, not the next row.
+        if next.logical_pos.y == cursor.logical_pos.y && next.visual_pos.y > cursor.visual_pos.y {
+            cursor.visual_pos = Point { x: 0, y: cursor.visual_pos.y + 1 };
+        }
+
+        cursor
+    }
+
+    /// Where to paint the caret, in document-visual coordinates.
+    ///
+    /// Differs from [`TextBuffer::cursor_visual_pos`] only on a word-wrap row
+    /// break, where this returns the start of the following row -- the cell that
+    /// inserted text will occupy. Navigation and scrolling want the un-collapsed
+    /// position, so they keep using `cursor_visual_pos`.
+    pub fn caret_visual_pos(&self) -> Point {
+        self.canonicalize_wrap_boundary(self.cursor).visual_pos
+    }
+
     fn set_cursor_internal(&mut self, cursor: Cursor) {
         crate::sanity_assert!(
             cursor_logical_x_nonneg,
@@ -1475,17 +1522,22 @@ impl TextBuffer {
         // Sanity (A): re-derive visual_pos from the line start and compare
         // against the stored value. Catches the screenshot-bug class where
         // visual_pos.y drifts away from the row a fresh measurement says
-        // the cursor lives on.
+        // the cursor lives on. Both sides go through
+        // `canonicalize_wrap_boundary` -- comparing raw measurements would
+        // report every row break, since that is precisely where the two
+        // legitimate forms of a position differ.
         #[cfg(feature = "sanity")]
         {
             let from_start = self.goto_line_start(cursor, cursor.logical_pos.y);
             let remeasured = self.cursor_move_to_logical_internal(from_start, cursor.logical_pos);
+            let stored_caret = self.canonicalize_wrap_boundary(cursor).visual_pos;
+            let remeasured_caret = self.canonicalize_wrap_boundary(remeasured).visual_pos;
             crate::sanity_check!(
                 cursor_visual_pos_drift,
-                remeasured.visual_pos == cursor.visual_pos,
+                remeasured_caret == stored_caret,
                 "stored vp={:?} remeasured vp={:?} logical={:?}",
-                cursor.visual_pos,
-                remeasured.visual_pos,
+                stored_caret,
+                remeasured_caret,
                 cursor.logical_pos
             );
         }
@@ -2929,6 +2981,46 @@ mod tests {
         let l = tb.layout(Point { x: 0, y: 2 }, rect(80, 3), None).unwrap();
         let start = l.start_cursor.expect("non-empty viewport has a start cursor");
         assert_eq!(start.logical_pos.y, 2, "scroll origin y == start cursor logical y");
+    }
+
+    #[test]
+    fn caret_collapses_a_wrap_boundary_but_the_cursor_does_not() {
+        // "End" on a wrapped row leaves the cursor at the end of that row,
+        // while the same offset lays out at the start of the next one -- so the
+        // caret used to be painted a row above where typed text appeared.
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw(b"the quick brown fox jumps over the lazy dog\n");
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+
+        // Land on a row break the way End does: ask for the end of row 0.
+        tb.cursor_move_to_visual(Point { x: CoordType::MAX, y: 0 });
+        let cursor = tb.cursor_visual_pos();
+        assert_eq!(cursor.y, 0, "the cursor keeps the row it was asked for");
+        assert!(cursor.x > 0, "and sits at that row's break, not column 0");
+
+        // The caret follows the layout instead.
+        assert_eq!(tb.caret_visual_pos(), Point { x: 0, y: 1 });
+
+        // Mid-row and start-of-row positions are left alone.
+        tb.cursor_move_to_visual(Point { x: 2, y: 0 });
+        assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
+        tb.cursor_move_to_visual(Point { x: 0, y: 1 });
+        assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
+    }
+
+    #[test]
+    fn caret_at_the_end_of_a_wrapped_line_stays_put() {
+        // The last row of a wrapped line ends at a logical line end, not a row
+        // break: the next grapheme is on the following line, so there is no
+        // second visual position to collapse to.
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.write_raw(b"the quick brown fox\nnext\n");
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.cursor_move_to_logical(Point { x: 19, y: 0 });
+        assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
     }
 
     #[test]

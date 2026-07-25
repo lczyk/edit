@@ -58,14 +58,14 @@ impl Tui {
         let (visual_offset, cursor_override) = if crate::glyphs::no_animations() {
             anim_state.scroll_visual = (tc.scroll_offset.x as f32, tc.scroll_offset.y as f32);
             anim_state.cursor_visual = {
-                let c = tb.cursor_visual_pos();
+                let c = tb.caret_visual_pos();
                 Some((c.x as f32, c.y as f32))
             };
             anim_state.last_buffer_generation = tb.generation();
             // Bump the line-move gen so re-enabling animations doesn't
             // re-trigger an old trail.
             anim_state.last_line_move_gen = tb.peek_pending_line_move().1;
-            (tc.scroll_offset, tb.cursor_visual_pos())
+            (tc.scroll_offset, tb.caret_visual_pos())
         } else {
             paint::anim::snap_on_buffer_edit(
                 &mut anim_state.scroll_visual,
@@ -73,7 +73,7 @@ impl Tui {
                 &mut anim_state.last_buffer_generation,
                 tb.generation(),
                 tc.scroll_offset,
-                tb.cursor_visual_pos(),
+                tb.caret_visual_pos(),
             );
 
             let (line_move_ev, line_move_gen) = tb.peek_pending_line_move();
@@ -90,7 +90,7 @@ impl Tui {
                 tc.scroll_offset,
                 self.anim.dt_secs,
             );
-            let cursor_target = tb.cursor_visual_pos();
+            let cursor_target = tb.caret_visual_pos();
             let cursor_override = paint::anim::advance_cursor(
                 &mut anim_state.cursor_visual,
                 cursor_target,
