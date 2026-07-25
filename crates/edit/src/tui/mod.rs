@@ -639,6 +639,14 @@ impl Tui {
         mem::swap(&mut self.arena_prev, &mut self.arena_next);
         unsafe { self.arena_next.reset(0) };
 
+        // Widgets mark their cached buffer as seen while they draw; the retain at
+        // the end of the frame keeps only those. Clearing the marks here is what
+        // makes that retain do anything -- without it `seen` was set to true on
+        // creation, never unset, and the cache grew for the life of the process.
+        for cached in &mut self.cached_text_buffers {
+            cached.seen = false;
+        }
+
         // In the input handler below we transformed a mouse up into a release event.
         // Now, a frame later, we must reset it back to none, to stop it from triggering things.
         // Same for Scroll events.
