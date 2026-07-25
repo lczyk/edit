@@ -253,6 +253,19 @@ pub fn tick<S: FollowSource>(
         FileDelta::Idle => return Ok(TickOutcome::Idle),
     };
 
+    // Reading past EOF yields nothing, and a follow that reports Idle forever
+    // looks like a quiet file rather than a bug. A shrink should have been
+    // classified as a rotation and reset the offset to 0.
+    crate::sanity_check!(
+        follow_read_offset_within_file,
+        read_offset <= stat.size,
+        "read_offset={} size={} (prev size={}, rotated={})",
+        read_offset,
+        stat.size,
+        p.size,
+        rotated
+    );
+
     finish_tick(
         state,
         src,
@@ -287,6 +300,12 @@ fn finish_tick<S: FollowSource>(
     rotated: bool,
     read_offset: u64,
 ) -> io::Result<TickOutcome> {
+    // Line numbering restarts on rotation and only ever counts up otherwise, so
+    // a non-rotated tick that rewinds it means a reset happened without the
+    // rotation being detected -- the in-place-rewrite class.
+    #[cfg(feature = "sanity")]
+    let line_no_before = state.line_no;
+
     // on rotation, drop accumulated runtime state + partial line + numbering.
     let mut owned_runtime;
     let mut runtime_ref: Option<&mut Runtime<'static, 'static, 'static>> = if rotated {
@@ -335,6 +354,14 @@ fn finish_tick<S: FollowSource>(
         emitted += 1;
         state.partial.clear();
     }
+
+    #[cfg(feature = "sanity")]
+    crate::sanity_check!(
+        follow_line_numbering_monotonic,
+        rotated || state.line_no >= line_no_before,
+        "line_no went {line_no_before} -> {} without a rotation",
+        state.line_no
+    );
 
     writer.flush()?;
     Ok(if rotated { TickOutcome::Reset(emitted) } else { TickOutcome::Wrote(emitted) })

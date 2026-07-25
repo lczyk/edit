@@ -33,6 +33,9 @@ pub enum Token<'parser, 'input> {
 
 /// Stores the state of the parser.
 #[derive(Clone, Copy)]
+// Only so the progress check can name the state it got stuck in. Deriving it
+// unconditionally would put the variant names in the release binary.
+#[cfg_attr(feature = "sanity", derive(Debug))]
 enum State {
     Ground,
     Esc,
@@ -147,6 +150,16 @@ impl<'input> Stream<'_, 'input> {
         let input = self.input;
         let bytes = input.as_bytes();
 
+        // Each turn of the loop below either advances `off` or changes state, so
+        // the whole input cannot take more turns than it has bytes with room to
+        // spare. Exceeding that means a state stopped consuming and the editor
+        // is spinning on the same byte -- a hang rather than a wrong glyph, and
+        // one that is invisible without a check.
+        #[cfg(feature = "sanity")]
+        let spin_budget = bytes.len() * 4 + 16;
+        #[cfg(feature = "sanity")]
+        let mut spins = 0usize;
+
         // If the previous input ended with an escape character, `read_timeout()`
         // returned `Some(..)` timeout, and if the caller did everything correctly
         // and there was indeed a timeout, we should be called with an empty
@@ -157,6 +170,19 @@ impl<'input> Stream<'_, 'input> {
         }
 
         while self.off < bytes.len() {
+            #[cfg(feature = "sanity")]
+            {
+                spins += 1;
+                crate::sanity_check!(
+                    vt_parser_makes_progress,
+                    spins <= spin_budget,
+                    "{spins} turns over {} bytes, stuck at off={} in {:?}",
+                    bytes.len(),
+                    self.off,
+                    self.parser.state
+                );
+            }
+
             // TODO: The state machine can be roughly broken up into two parts:
             // * Wants to parse 1 `char` at a time: Ground, Esc, Ss3
             //   These could all be unified to a single call to `decode_next()`.

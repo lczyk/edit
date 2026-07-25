@@ -479,6 +479,19 @@ impl<'a> Node<'a> {
         outer.top += self.attributes.padding.top + t as CoordType;
         outer.right -= self.attributes.padding.right + r as CoordType;
         outer.bottom -= self.attributes.padding.bottom + b as CoordType;
+
+        // Nothing clamps this subtraction, so a node laid out narrower than its
+        // own padding + border comes out inside-out. `Rect::intersect` would
+        // then quietly flatten it to empty, and the widget draws into a
+        // degenerate rect -- the zero-height-track class of bug.
+        crate::sanity_check!(
+            node_inner_rect_not_inverted,
+            outer.left <= outer.right && outer.top <= outer.bottom,
+            "inner={outer:?} padding={:?} bordered={}",
+            self.attributes.padding,
+            self.attributes.bordered
+        );
+
         outer
     }
 

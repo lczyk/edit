@@ -358,6 +358,18 @@ impl TextBuffer {
                             let gap = self.buffer.allocate_gap(offset, line.len() + 2, 0);
                             written = slice_copy_safe(gap, line);
 
+                            // A gap shorter than requested (OOM) makes
+                            // `slice_copy_safe` drop the tail, so the undo
+                            // silently restores less text than it recorded.
+                            crate::sanity_check!(
+                                undo_reinsert_not_truncated,
+                                written == line.len(),
+                                "wrote {} of {} bytes (gap={})",
+                                written,
+                                line.len(),
+                                gap.len()
+                            );
+
                             if has_newline {
                                 if self.newlines_are_crlf && written < gap.len() {
                                     gap[written] = b'\r';

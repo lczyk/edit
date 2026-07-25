@@ -13,7 +13,16 @@ const INTERVAL: CoordType = 1024;
 #[derive(Default)]
 pub struct HighlighterCache {
     checkpoints: Vec<HighlighterState>,
+    /// Counts checkpoint-restoring seeks so the coherence check below can run
+    /// on a fraction of them -- it re-parses the file from the top.
+    #[cfg(feature = "sanity")]
+    seeks: u32,
 }
+
+/// One in this many checkpoint-restoring seeks gets verified against a full
+/// re-parse. Low enough to stay interactive on a large file.
+#[cfg(feature = "sanity")]
+const VERIFY_EVERY: u32 = 32;
 
 impl HighlighterCache {
     pub fn new() -> Self {
@@ -32,8 +41,10 @@ impl HighlighterCache {
         highlighter: &mut Highlighter,
         line: CoordType,
     ) -> BVec<'a, Highlight<HighlightKind>> {
+        let seeked = line != highlighter.logical_pos_y();
+
         // Do we need to random seek?
-        if line != highlighter.logical_pos_y() {
+        if seeked {
             // If so, restore the nearest, preceding checkpoint...
             if !self.checkpoints.is_empty() {
                 let n = Self::floor_line_to_offset(line);
@@ -61,7 +72,71 @@ impl HighlighterCache {
             }
         }
 
-        self.parse_line_impl(arena, highlighter)
+        let spans = self.parse_line_impl(arena, highlighter);
+
+        // Spans are half-open `[start, next.start)`, so a line's spans have to
+        // step strictly forward. A duplicated or out-of-order start means the
+        // compiler pipeline emitted overlapping tokens, which shows up only as
+        // odd-looking colour.
+        #[cfg(feature = "sanity")]
+        if let Some(bad) = spans.windows(2).position(|w| w[1].start <= w[0].start) {
+            crate::sanity_check!(
+                highlighter_spans_monotonic,
+                false,
+                "line {line}: span {} starts at {} after {}",
+                bad + 1,
+                spans[bad + 1].start,
+                spans[bad].start
+            );
+        }
+
+        #[cfg(feature = "sanity")]
+        if seeked {
+            self.verify_against_full_reparse(arena, highlighter, line, &spans);
+        }
+
+        spans
+    }
+
+    /// Compares a checkpoint-restored parse against parsing the file from the
+    /// top. The cache exists to avoid exactly that walk, so a mismatch means a
+    /// checkpoint outlived the edit that should have invalidated it -- the
+    /// stale-highlight class. Costs a full re-parse, hence [`VERIFY_EVERY`].
+    #[cfg(feature = "sanity")]
+    fn verify_against_full_reparse(
+        &mut self,
+        arena: &Arena,
+        highlighter: &Highlighter,
+        line: CoordType,
+        spans: &[Highlight<HighlightKind>],
+    ) {
+        self.seeks = self.seeks.wrapping_add(1);
+        if !self.seeks.is_multiple_of(VERIFY_EVERY) {
+            return;
+        }
+
+        // Without a line-0 checkpoint there is nothing to re-parse from: the
+        // `highlighter_at_line_zero` assert above already covers that case.
+        let Some(first) = self.checkpoints.first() else {
+            return;
+        };
+
+        let scratch = scratch_arena(Some(arena));
+        let mut fresh = highlighter.clone();
+        fresh.restore(first);
+        while fresh.logical_pos_y() < line {
+            let inner = scratch_arena(Some(&scratch));
+            _ = fresh.parse_next_line(&inner);
+        }
+        let expected = fresh.parse_next_line(&scratch);
+
+        crate::sanity_check!(
+            highlighter_cache_coherent,
+            &expected[..] == spans,
+            "line {line}: cached {:?} != re-parsed {:?}",
+            spans,
+            &expected[..]
+        );
     }
 
     fn parse_line_impl<'a>(

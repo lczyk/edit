@@ -103,6 +103,14 @@ impl GapBuffer {
 
     /// WARNING: The returned slice must not necessarily be the same length as `len` (due to OOM).
     pub fn allocate_gap(&mut self, off: usize, len: usize, delete: usize) -> &mut [u8] {
+        // NOTE: the clamps below are load-bearing API, not defensive slack.
+        // `copy_from` says "replace to the end" as `off..usize::MAX` and
+        // `copy_into` says "append" as `usize::MAX..usize::MAX`, both of which
+        // arrive here as an out-of-range request on purpose. That rules out a
+        // bounds check: an accidental over-large `off` or `delete` is
+        // indistinguishable from the sentinel until the API spells the two
+        // intents out separately.
+        //
         // Sanitize parameters
         let off = off.min(self.text_length);
         let delete = delete.min(self.text_length - off);

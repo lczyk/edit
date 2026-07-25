@@ -758,6 +758,19 @@ impl LineBuffer {
         clip_right: CoordType,
         text: &str,
     ) {
+        // A row outside the buffer draws nothing at all, silently. Callers are
+        // supposed to have clipped to the viewport already, so reaching this is
+        // an off-by-one in the clip -- and the symptom is text that simply never
+        // appears, with nothing to grep for.
+        crate::sanity_check!(
+            framebuffer_row_in_bounds,
+            y >= 0 && (y as usize) < self.lines.len(),
+            "y={} rows={} text={:?}",
+            y,
+            self.lines.len(),
+            &text[..text.len().min(32)]
+        );
+
         let Some(line) = self.lines.get_mut(y as usize) else {
             return;
         };
