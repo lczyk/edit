@@ -1200,7 +1200,22 @@ impl TextBuffer {
         // goto_line_start() is the fastest way for seeking across lines. As such we always
         // use it if the requested `.y` position is different. We still need to use it if the
         // `.x` position is smaller, but only because `goto_logical()` cannot seek backwards.
-        if pos.y != cursor.logical_pos.y || pos.x < cursor.logical_pos.x {
+        //
+        // Under word wrap we also use it for a plain rightward move, which would otherwise
+        // resume a measurement mid-row -- and a resumed measurement does not reproduce the
+        // layout. `Cursor` carries `wrap_opp` as a bare bool with no record of where the
+        // opportunity was, and `props_next_cluster` restarts as start-of-text, so
+        // `measure_forward` re-decides the break for itself. Inside a word long enough to
+        // force a hard wrap it decided every single grapheme began a new row, walking
+        // `visual_pos.y` off the end of the buffer (it exceeded `stats.visual_lines`).
+        //
+        // Costs a backwards memchr per move, which is the same thing vertical movement
+        // already pays under wrap. With wrap off there are no opportunities to misjudge and
+        // the fast resume stands.
+        if pos.y != cursor.logical_pos.y
+            || pos.x < cursor.logical_pos.x
+            || (self.word_wrap_column > 0 && cursor.visual_pos.x > 0)
+        {
             cursor = self.goto_line_start(cursor, pos.y);
         }
 
@@ -3017,6 +3032,39 @@ mod tests {
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
         tb.cursor_move_to_visual(Point { x: 0, y: 1 });
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
+    }
+
+    #[test]
+    fn walking_right_through_a_hard_wrapping_word_tracks_the_layout() {
+        // Regression: a rightward move on the same logical line used to resume the
+        // measurement from the cursor, and a resumed measurement re-decides the row
+        // breaks for itself. Inside a word too long to move down whole it called every
+        // grapheme the start of a new row, so the cursor's row ran off the end of the
+        // buffer: visual_pos.y reached 7 where stats.visual_lines was 6.
+        let mut tb = TextBuffer::new(true).unwrap();
+        let body = format!("{}{}", "hi hi hi hi hi hi ", "z".repeat(45));
+        tb.write_raw(body.as_bytes());
+        tb.set_word_wrap(true);
+        tb.set_width(34);
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+
+        let from_start = tb.goto_line_start(Cursor::default(), 0);
+        for x in 1..40 {
+            tb.cursor_move_to_logical(Point { x, y: 0 });
+            let walked = tb.cursor_visual_pos();
+            let fresh = tb
+                .measurement_config()
+                .with_cursor(from_start)
+                .goto_logical(Point { x, y: 0 })
+                .visual_pos;
+            assert_eq!(walked, fresh, "logical x={x} disagrees with a walk from the line start");
+            assert!(
+                walked.y < tb.visual_line_count(),
+                "logical x={x} put the cursor on row {} of {} rows",
+                walked.y,
+                tb.visual_line_count()
+            );
+        }
     }
 
     #[test]
