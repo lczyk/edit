@@ -74,7 +74,7 @@ restructured at the same time. That turned out not to be true: fixing the
 line-ending bug had already reduced that loop to a plain insert, so it took
 the typed API unchanged and got a better OOM check out of it.
 
-## deferred: deriving the caret from the layout
+## blocked: deriving the caret from the layout
 
 **The idea.** `Cursor` is both resumable measurement state and a paint
 position. That dual role produced a caret that disagreed with the text, the
@@ -82,23 +82,28 @@ collapse that fixed it, and the regression the collapse caused.
 `buffer/layout.rs` already produces an owned `TextareaLayout` per frame; the
 caret should be a value it returns.
 
-**What blocks it.** The caret is needed *before* `layout()` runs, because it
-seeds the animation lerp whose output `layout()` then consumes to pin the
-selection edge. So it cannot simply be read back out afterwards without
-restructuring that loop. The row loop also only spans the visible viewport, so
-a derived caret is `Option<Point>` and needs a tested off-screen fallback for
-animation continuity while scrolling.
+**Why it is blocked, precisely.** It is circular as the code stands.
+`tui/textarea.rs` reads `caret_visual_pos()` to get the animation's *target*,
+advances the lerp, and passes the *animated* result into `tb.layout(...)`,
+which uses it to pin the selection's active edge. So the caret has to exist
+before layout runs. Deriving it from layout instead needs either two layout
+passes per frame or the animator/draw separation that `anim_refactor.md`
+describes and descoped -- an animator that perturbs a finished frame IR rather
+than feeding into layout. That is the remaining stage of that refactor, not a
+change that can be made here.
 
-Two things that look like they would fall out of it, but do not:
-`canonicalize_wrap_boundary` has a second caller in the drift check and cannot
-be deleted, and the paint-time bump in `cursor_block` covers a case the
+**What has been taken instead.** Every place that painted the raw navigation
+cursor as the caret now uses `caret_visual_pos()`: the production path, the
+`build_textarea_physics` IR that the descoped stage would build on, and
+`render`'s fallback for callers passing no override. So the duplication that
+made this worth doing is gone even though the structural fix is not, and there
+is no outstanding defect behind it.
+
+Two things that look like they would fall out of the structural version, but do
+not: `canonicalize_wrap_boundary` has a second caller in the drift check and
+cannot be deleted, and the paint-time bump in `cursor_block` covers a case the
 collapse deliberately leaves alone (a line whose length is exactly the wrap
 column).
-
-The cheap part has been taken: `build_textarea_physics` now reads
-`caret_visual_pos()` rather than the navigation cursor, so the frame-wide IR
-that `anim_refactor.md` descoped will not reintroduce the bug when someone
-wires it up.
 
 ## fixed: the visual-line stats drift underneath
 

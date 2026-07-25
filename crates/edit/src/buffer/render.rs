@@ -485,7 +485,12 @@ impl TextBuffer {
         // by Copy/Cut/Delete and friends) is unchanged -- only the visible
         // bounds shift.
         let selection_active_is_end = self.selection.map(|s| s.end >= s.beg).unwrap_or(false);
-        let cursor_visual_render = cursor_override.unwrap_or(self.cursor.visual_pos);
+        // `caret_visual_pos`, not the raw cursor: at a word-wrap row break those
+        // are two different cells and this value is painted as the caret. The
+        // override is always supplied in production, so only a caller passing
+        // None sees this -- which is exactly how the same mistake survived in
+        // the physics IR until it was found.
+        let cursor_visual_render = cursor_override.unwrap_or_else(|| self.caret_visual_pos());
         if cursor_override.is_some() && self.selection.is_some() {
             let anim_cursor =
                 self.cursor_move_to_visual_internal(self.cursor, cursor_visual_render);
