@@ -348,38 +348,34 @@ impl TextBuffer {
                     let mut offset = cursor.offset;
 
                     while beg < added.len() {
-                        let (end, line) = simd::lines_fwd(added, beg, 0, 1);
-                        let has_newline = line != 0;
+                        // Write the recorded bytes back exactly as they were,
+                        // newline included. Re-synthesizing the newline from
+                        // `newlines_are_crlf` rewrote the line ending of every
+                        // restored line to the document's majority convention:
+                        // a file read with mixed endings keeps each line's own
+                        // bytes verbatim (`read_file_as_utf8` does not
+                        // normalise, and the flag is a majority vote), so
+                        // undoing a deletion silently converted the minority
+                        // lines.
+                        let (end, _) = simd::lines_fwd(added, beg, 0, 1);
                         let link = &added[beg..end];
-                        let line = unicode::strip_newline(link);
-                        let mut written;
+                        let written;
 
                         {
-                            let gap = self.buffer.allocate_gap(offset, line.len() + 2, 0);
-                            written = slice_copy_safe(gap, line);
+                            let gap = self.buffer.allocate_gap(offset, link.len(), 0);
+                            written = slice_copy_safe(gap, link);
 
                             // A gap shorter than requested (OOM) makes
                             // `slice_copy_safe` drop the tail, so the undo
                             // silently restores less text than it recorded.
                             crate::sanity_check!(
                                 undo_reinsert_not_truncated,
-                                written == line.len(),
+                                written == link.len(),
                                 "wrote {} of {} bytes (gap={})",
                                 written,
-                                line.len(),
+                                link.len(),
                                 gap.len()
                             );
-
-                            if has_newline {
-                                if self.newlines_are_crlf && written < gap.len() {
-                                    gap[written] = b'\r';
-                                    written += 1;
-                                }
-                                if written < gap.len() {
-                                    gap[written] = b'\n';
-                                    written += 1;
-                                }
-                            }
 
                             self.buffer.commit_gap(written);
                         }

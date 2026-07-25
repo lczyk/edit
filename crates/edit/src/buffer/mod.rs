@@ -50,7 +50,7 @@ use crate::helpers::*;
 use crate::icu;
 use crate::lsh::cache::HighlighterCache;
 use crate::lsh::{HighlightKind, Highlighter, Language};
-use crate::unicode::{self, Cursor, MeasurementConfig};
+use crate::unicode::{Cursor, MeasurementConfig};
 use lsh::runtime::Highlight;
 use stdext::simd::{self, memchr2};
 
@@ -2690,6 +2690,69 @@ mod tests {
         tb.redo_stack.clear();
         tb.last_history_type = HistoryType::Other;
         tb
+    }
+
+    /// Loads `text` through the real file path, byte for byte.
+    ///
+    /// Neither shortcut works for a mixed-ending buffer: `write_raw` canonicalises
+    /// line endings, and `copy_from_str` truncates to the first line by design
+    /// (it backs single-line editline fields). `read_file` is the path an opened
+    /// document takes, and it does not normalise -- which is the whole reason a
+    /// document can hold both conventions at once.
+    fn buf_verbatim(text: &str) -> TextBuffer {
+        use std::io::{Seek, SeekFrom, Write};
+
+        let mut path = std::env::temp_dir();
+        path.push(format!("edit-verbatim-{}-{:p}.txt", std::process::id(), text));
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        file.write_all(text.as_bytes()).unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+
+        let mut tb = TextBuffer::new(true).unwrap();
+        tb.read_file(&mut file).unwrap();
+        drop(file);
+        let _ = std::fs::remove_file(&path);
+
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        tb
+    }
+
+    #[test]
+    fn undo_restores_a_line_ending_it_did_not_choose() {
+        // A file is read without normalising its line endings, and
+        // `newlines_are_crlf` is a majority vote over the lines it found. So a
+        // mixed-ending file keeps each line's own bytes -- and undo has to put
+        // back what it took, not what the majority uses. Re-synthesizing the
+        // newline silently converted every restored minority line.
+        let mut tb = buf_verbatim("a\r\nb\nc\n");
+        tb.set_crlf(false); // majority is LF, but line 1 ends CRLF
+        assert_eq!(dump(&tb), "a\r\nb\nc\n", "setup did not preserve the endings");
+
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+        tb.delete(CursorMovement::Grapheme, 1);
+        assert_eq!(dump(&tb), "b\nc\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "a\r\nb\nc\n", "undo rewrote the line ending");
+    }
+
+    #[test]
+    fn undo_restores_an_lf_line_in_a_crlf_document() {
+        // The mirror image: CRLF majority, one LF line.
+        let mut tb = buf_verbatim("a\r\nb\nc\r\n");
+        tb.set_crlf(true);
+        assert_eq!(dump(&tb), "a\r\nb\nc\r\n", "setup did not preserve the endings");
+
+        select(&mut tb, Point { x: 0, y: 1 }, Point { x: 0, y: 2 });
+        tb.delete(CursorMovement::Grapheme, 1);
+        assert_eq!(dump(&tb), "a\r\nc\r\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "a\r\nb\nc\r\n", "undo rewrote the line ending");
     }
 
     #[test]
