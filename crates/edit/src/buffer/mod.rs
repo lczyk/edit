@@ -1187,6 +1187,13 @@ impl TextBuffer {
             cursor = self.goto_line_start(cursor, cursor.logical_pos.y - 1);
         }
 
+        // Same resumption hazard as `cursor_move_to_logical_internal`: a forward move on a
+        // row with an outstanding wrap opportunity cannot resume. No caller is known to
+        // drive this with such a cursor today, so this is a guard rather than a fix.
+        if self.word_wrap_column > 0 && cursor.wrap_opp {
+            cursor = self.goto_line_start(cursor, cursor.logical_pos.y);
+        }
+
         self.measurement_config().with_cursor(cursor).goto_offset(offset)
     }
 
@@ -1201,20 +1208,20 @@ impl TextBuffer {
         // use it if the requested `.y` position is different. We still need to use it if the
         // `.x` position is smaller, but only because `goto_logical()` cannot seek backwards.
         //
-        // Under word wrap we also use it for a plain rightward move, which would otherwise
-        // resume a measurement mid-row -- and a resumed measurement does not reproduce the
-        // layout. `Cursor` carries `wrap_opp` as a bare bool with no record of where the
-        // opportunity was, and `props_next_cluster` restarts as start-of-text, so
-        // `measure_forward` re-decides the break for itself. Inside a word long enough to
-        // force a hard wrap it decided every single grapheme began a new row, walking
-        // `visual_pos.y` off the end of the buffer (it exceeded `stats.visual_lines`).
+        // A rightward move also has to start over when the row has an outstanding wrap
+        // opportunity behind it, because a resumed measurement does not reproduce the
+        // layout. `measure_forward` keeps the opportunity's position in four locals and
+        // seeds them from wherever the resume happened, while `Cursor` only carries the
+        // bare `wrap_opp` bool -- so the resumed state believes the word may be broken
+        // right here. Inside a word long enough to force a hard wrap it decided every
+        // grapheme began a new row, walking `visual_pos.y` off the end of the buffer.
         //
-        // Costs a backwards memchr per move, which is the same thing vertical movement
-        // already pays under wrap. With wrap off there are no opportunities to misjudge and
-        // the fast resume stands.
+        // `!wrap_opp` is safe to resume from: every branch that reads those locals
+        // recomputes them from live state first. Testing the flag rather than "am I
+        // mid-row" keeps the fast path for the rows that have no opportunity to misjudge.
         if pos.y != cursor.logical_pos.y
             || pos.x < cursor.logical_pos.x
-            || (self.word_wrap_column > 0 && cursor.visual_pos.x > 0)
+            || (self.word_wrap_column > 0 && cursor.wrap_opp)
         {
             cursor = self.goto_line_start(cursor, pos.y);
         }
@@ -1281,6 +1288,12 @@ impl TextBuffer {
             cursor = self.goto_line_start(cursor, cursor.logical_pos.y - 1);
         }
         if pos.y == cursor.visual_pos.y && pos.x < cursor.visual_pos.x {
+            cursor = self.goto_line_start(cursor, cursor.logical_pos.y);
+        }
+        // A forward move lands here still holding whatever `wrap_opp` the caller's cursor
+        // had, which cannot be resumed from -- and this is the path taken on every edit,
+        // since `reflow_internal` drops the per-frame row index.
+        if self.word_wrap_column > 0 && cursor.wrap_opp {
             cursor = self.goto_line_start(cursor, cursor.logical_pos.y);
         }
         self.measurement_config().with_cursor(cursor).goto_visual(pos)
