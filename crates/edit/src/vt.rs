@@ -367,3 +367,57 @@ impl<'input> Stream<'_, 'input> {
         None
     }
 }
+
+#[cfg(all(test, feature = "sanity"))]
+mod tests {
+    use stdext::sanity::capture;
+
+    use super::*;
+
+    fn drain(input: &str) -> usize {
+        let mut parser = Parser::new();
+        let mut stream = parser.parse(input);
+        let mut tokens = 0;
+        while stream.next().is_some() {
+            tokens += 1;
+        }
+        tokens
+    }
+
+    /// The progress check bounds how many turns the loop may take per call. A
+    /// budget set too tight would fire on legal-but-awkward input, which is
+    /// worse than not having the check at all -- it would train the reader to
+    /// ignore the log.
+    #[test]
+    fn awkward_but_legal_input_does_not_trip_the_progress_check() {
+        let cases: &[&str] = &[
+            "plain text with no escapes at all",
+            "\x1b[1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16m", // many CSI params
+            "\x1b[?1049h\x1b[?25l\x1b[?1000;1006h",         // private modes
+            "\x1b]0;a title with spaces\x07",               // OSC + BEL
+            "\x1b]11;rgb:ffff/ffff/ffff\x1b\\",             // OSC + ST
+            "\x1bP+q544e\x1b\\",                            // DCS
+            "\x1b",                                         // lone escape
+            "\x1b[",                                        // truncated CSI
+            "\x1b[38;2;1;2;3mzero\x1b[m",
+            "\u{1f600}\u{0301}\u{4e00} mixed \u{fffd} width", // emoji, combining, CJK
+            "\x1b[999999999999999999999m",                    // overflowing param
+            "tail without a terminator \x1b[1",
+        ];
+
+        for case in cases {
+            let (tokens, msgs) = capture::trips(|| drain(case));
+            assert!(msgs.is_empty(), "input {case:?} tripped {msgs:?}");
+            let _ = tokens;
+        }
+    }
+
+    #[test]
+    fn a_long_run_of_escapes_stays_within_budget() {
+        // The budget scales with input length, so a stream of short sequences
+        // is the shape most likely to exhaust a per-call allowance.
+        let input = "\x1b[Aa".repeat(500);
+        let (_, msgs) = capture::trips(|| drain(&input));
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+}

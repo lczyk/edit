@@ -719,3 +719,35 @@ impl<'a> Node<'a> {
         }
     }
 }
+
+#[cfg(all(test, feature = "sanity"))]
+mod tests {
+    use stdext::sanity::capture;
+
+    use super::*;
+
+    #[test]
+    fn padding_wider_than_the_node_trips_the_inverted_rect_check() {
+        let mut node = Node::default();
+        node.attributes.padding = Rect::one(4);
+
+        // 3 columns of room, 4 of padding either side.
+        let (inner, msgs) =
+            capture::trips(|| node.outer_to_inner(Rect { left: 0, top: 0, right: 3, bottom: 3 }));
+
+        assert!(capture::fired(&msgs, "node_inner_rect_not_inverted"), "{msgs:?}");
+        assert!(inner.right < inner.left, "expected an inside-out rect, got {inner:?}");
+    }
+
+    #[test]
+    fn padding_that_fits_stays_quiet() {
+        let mut node = Node::default();
+        node.attributes.padding = Rect::one(1);
+
+        let (inner, msgs) =
+            capture::trips(|| node.outer_to_inner(Rect { left: 0, top: 0, right: 10, bottom: 10 }));
+
+        assert!(msgs.is_empty(), "{msgs:?}");
+        assert_eq!(inner, Rect { left: 1, top: 1, right: 9, bottom: 9 });
+    }
+}

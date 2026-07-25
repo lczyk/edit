@@ -1059,3 +1059,39 @@ impl Cursor {
         Self { pos: Point { x: -1, y: -1 }, overtype: false }
     }
 }
+
+#[cfg(all(test, feature = "sanity"))]
+mod tests {
+    use stdext::sanity::capture;
+
+    use super::*;
+
+    fn framebuffer(width: CoordType, height: CoordType) -> Framebuffer {
+        let mut fb = Framebuffer::new();
+        fb.flip(Size { width, height });
+        fb
+    }
+
+    #[test]
+    fn writing_to_a_row_that_does_not_exist_trips_the_bounds_check() {
+        let mut fb = framebuffer(20, 3);
+
+        let ((), msgs) = capture::trips(|| fb.replace_text(3, 0, 20, "past the last row"));
+        assert!(capture::fired(&msgs, "framebuffer_row_in_bounds"), "{msgs:?}");
+
+        let ((), msgs) = capture::trips(|| fb.replace_text(-1, 0, 20, "above the first row"));
+        assert!(capture::fired(&msgs, "framebuffer_row_in_bounds"), "{msgs:?}");
+    }
+
+    #[test]
+    fn writing_inside_the_buffer_stays_quiet() {
+        let mut fb = framebuffer(20, 3);
+
+        let ((), msgs) = capture::trips(|| {
+            for y in 0..3 {
+                fb.replace_text(y, 0, 20, "inside");
+            }
+        });
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+}

@@ -2667,27 +2667,17 @@ mod tests {
     #[cfg(feature = "sanity")]
     #[test]
     fn undo_past_the_bottom_does_not_trip_the_round_trip_check() {
-        use std::sync::{Mutex, OnceLock};
-        static SEEN: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
-        fn handler(msg: &str) {
-            SEEN.get().unwrap().lock().unwrap().push(msg.to_string());
-        }
-        let seen = SEEN.get_or_init(|| Mutex::new(Vec::new()));
-        seen.lock().unwrap().clear();
-        crate::notify::set_handler(handler);
+        use stdext::sanity::capture;
 
-        let mut tb = buf_loaded("foo\n");
-        tb.cursor_move_to_logical(Point { x: 3, y: 0 });
-        tb.write_raw(b"bar");
-        tb.undo();
-        tb.undo();
+        let ((), msgs) = capture::trips(|| {
+            let mut tb = buf_loaded("foo\n");
+            tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+            tb.write_raw(b"bar");
+            tb.undo();
+            tb.undo();
+        });
 
-        let msgs = seen.lock().unwrap();
-        let tripped: Vec<&String> =
-            msgs.iter().filter(|m| m.contains("undo_redo_round_trip")).collect();
-        assert!(tripped.is_empty(), "round trip check fired: {tripped:?}");
-        drop(msgs);
-        crate::notify::clear_handler();
+        assert!(!capture::fired(&msgs, "undo_redo_round_trip"), "{msgs:?}");
     }
 
     #[test]

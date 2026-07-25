@@ -162,3 +162,103 @@ impl HighlighterCache {
         ((line + INTERVAL - 1) / INTERVAL).try_into().unwrap_or(0)
     }
 }
+
+#[cfg(all(test, feature = "sanity"))]
+mod tests {
+    use stdext::arena::Arena;
+    use stdext::sanity::capture;
+
+    use super::*;
+    use crate::lsh::LANGUAGES;
+
+    /// Enough lines to force at least one checkpoint under the debug INTERVAL,
+    /// with content whose spans a stale checkpoint would get wrong: an unclosed
+    /// block comment swallows everything after it, so a checkpoint carried over
+    /// the wrong line would show up as a different span set.
+    fn document() -> String {
+        let mut doc = String::new();
+        for i in 0..(INTERVAL * 3) {
+            match i % 4 {
+                0 => doc.push_str("fn f() { let s = \"str\"; }\n"),
+                1 => doc.push_str("// a line comment\n"),
+                2 => doc.push_str("/* an unterminated block comment\n"),
+                _ => doc.push_str("still inside the comment */ let x = 1;\n"),
+            }
+        }
+        doc
+    }
+
+    fn language() -> &'static lsh::runtime::Language {
+        LANGUAGES.iter().find(|l| l.id == "rust").expect("rust is a bundled definition")
+    }
+
+    #[test]
+    fn seeking_around_agrees_with_a_full_reparse() {
+        // The coherence check normally samples one seek in VERIFY_EVERY; drive
+        // enough of them that it is guaranteed to fire, and assert it stays
+        // quiet. Walking backwards is what forces checkpoint restores.
+        let arena = Arena::new(4 * 1024 * 1024).unwrap();
+        let doc = document();
+        let lang = language();
+
+        let ((), msgs) = capture::trips(|| {
+            let mut cache = HighlighterCache::new();
+            let mut highlighter = Highlighter::new(&doc, lang);
+            for round in 0..(VERIFY_EVERY as CoordType * 2) {
+                let line = (INTERVAL * 3 - 1) - (round % (INTERVAL * 3));
+                let scratch = stdext::arena::scratch_arena(Some(&arena));
+                _ = cache.parse_line(&scratch, &mut highlighter, line);
+            }
+        });
+
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+
+    #[test]
+    fn invalidating_then_reparsing_agrees_too() {
+        // The failure mode the check exists for: a checkpoint that outlives the
+        // edit which should have dropped it. Invalidate above the first
+        // checkpoint so it survives -- dropping that one too is only legal
+        // alongside a fresh highlighter, which is the case below.
+        let arena = Arena::new(4 * 1024 * 1024).unwrap();
+        let doc = document();
+        let lang = language();
+
+        let ((), msgs) = capture::trips(|| {
+            let mut cache = HighlighterCache::new();
+            let mut highlighter = Highlighter::new(&doc, lang);
+            for round in 0..(VERIFY_EVERY as CoordType * 2) {
+                let scratch = stdext::arena::scratch_arena(Some(&arena));
+                _ = cache.parse_line(&scratch, &mut highlighter, INTERVAL * 2 + round % INTERVAL);
+                cache.invalidate_from(INTERVAL + round % INTERVAL);
+                let scratch = stdext::arena::scratch_arena(Some(&arena));
+                _ = cache.parse_line(&scratch, &mut highlighter, INTERVAL + round % INTERVAL);
+            }
+        });
+
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+
+    #[test]
+    fn a_full_invalidation_needs_a_fresh_highlighter() {
+        // `invalidate_from(0)` empties the checkpoints, and a seek with none of
+        // them left is only meaningful from line 0 -- `highlighter_at_line_zero`
+        // asserts exactly that. The render path satisfies it by building a new
+        // Highlighter per pass (see buffer/render.rs), so mirror that here.
+        let arena = Arena::new(4 * 1024 * 1024).unwrap();
+        let doc = document();
+        let lang = language();
+
+        let ((), msgs) = capture::trips(|| {
+            let mut cache = HighlighterCache::new();
+            for round in 0..(VERIFY_EVERY as CoordType * 2) {
+                let mut highlighter = Highlighter::new(&doc, lang);
+                let scratch = stdext::arena::scratch_arena(Some(&arena));
+                _ = cache.parse_line(&scratch, &mut highlighter, INTERVAL * 2 + round % INTERVAL);
+                cache.invalidate_from(0);
+            }
+        });
+
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+}

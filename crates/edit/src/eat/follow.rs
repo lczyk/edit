@@ -950,4 +950,59 @@ mod tests {
         // separator present
         assert!(got.contains("|") || got.contains("\u{2502}"));
     }
+
+    /// The two follow checks fire on state that the classifier is supposed to
+    /// rule out -- an offset past EOF, or numbering that rewinds without a
+    /// rotation. Neither is reachable while `classify` is right, so what these
+    /// pin is that the whole set of transitions it does allow keeps them quiet.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn no_transition_trips_the_follow_checks() {
+        use stdext::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            let mut src = MemSource::new();
+            let mut state = FollowState::new(20);
+            let mut out = Vec::new();
+
+            src.append(b"alpha\nbeta\n");
+            step_plain(&mut state, &mut src, &mut out);
+
+            // append, including a mid-line partial that a later tick completes
+            src.append(b"gamma\n");
+            step_plain(&mut state, &mut src, &mut out);
+            src.append(b"partial");
+            step_plain(&mut state, &mut src, &mut out);
+            src.append(b" completed\n");
+            step_plain(&mut state, &mut src, &mut out);
+
+            // touch with no content change
+            src.touch();
+            step_plain(&mut state, &mut src, &mut out);
+
+            // shrink without changing the inode
+            src.truncate();
+            step_plain(&mut state, &mut src, &mut out);
+            src.append(b"after truncate\n");
+            step_plain(&mut state, &mut src, &mut out);
+
+            // same size, different content, same inode
+            src.rewrite_in_place(b"AAAAAAAAAAAAAAA\n");
+            step_plain(&mut state, &mut src, &mut out);
+
+            // grew in place, same inode
+            src.rewrite_in_place(b"BBBB\nCCCC\nDDDD\n");
+            step_plain(&mut state, &mut src, &mut out);
+
+            // atomic rename: new inode
+            src.replace(b"rotated\n");
+            step_plain(&mut state, &mut src, &mut out);
+
+            // and a vanished file
+            src.stat_fail = 1;
+            step_plain(&mut state, &mut src, &mut out);
+        });
+
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
 }

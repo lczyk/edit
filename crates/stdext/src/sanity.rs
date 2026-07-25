@@ -76,6 +76,56 @@ fn is_suppressed(file: &'static str, line: u32) -> bool {
     }
 }
 
+/// Test support: observe the checks a piece of code trips.
+///
+/// The notify hook and the dedup window are both process-wide, so this
+/// serialises callers and clears the dedup state first -- otherwise a second
+/// test hitting the same call site within a second would see nothing and pass
+/// for the wrong reason.
+#[cfg(feature = "sanity")]
+pub mod capture {
+    use std::sync::Mutex;
+
+    static SERIALISE: Mutex<()> = Mutex::new(());
+    static MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    fn collect(msg: &str) {
+        if let Ok(mut msgs) = MESSAGES.lock() {
+            msgs.push(msg.to_string());
+        }
+    }
+
+    /// Runs `f` and returns its value alongside the summary of every check it
+    /// tripped, in order.
+    pub fn trips<R>(f: impl FnOnce() -> R) -> (R, Vec<String>) {
+        // A test that panicked mid-capture poisons these; its messages are of
+        // no interest to us, but the lock still has to be usable.
+        let _guard = SERIALISE.lock().unwrap_or_else(|e| e.into_inner());
+        MESSAGES.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        super::reset_dedup();
+        crate::notify::set_handler(collect);
+
+        let out = f();
+
+        crate::notify::clear_handler();
+        let msgs = std::mem::take(&mut *MESSAGES.lock().unwrap_or_else(|e| e.into_inner()));
+        (out, msgs)
+    }
+
+    /// Whether `trips` saw the named check fire.
+    pub fn fired(msgs: &[String], name: &str) -> bool {
+        msgs.iter().any(|m| m.contains(name))
+    }
+}
+
+/// Forgets which call sites fired recently. See [`capture::trips`].
+#[cfg(feature = "sanity")]
+pub fn reset_dedup() {
+    if let Ok(mut guard) = DEDUP.lock() {
+        *guard = None;
+    }
+}
+
 #[cfg(feature = "sanity")]
 fn write_log(file: &str, line: u32, name: &str, msg: &str) {
     let Some(path) = log_path() else { return };
@@ -173,23 +223,49 @@ macro_rules! sanity_assert {
 
 #[cfg(all(test, feature = "sanity"))]
 mod tests {
+    // All of these go through `capture::trips`, which serialises them. The
+    // notify hook is process-wide, so a hand-rolled handler here would race
+    // with whichever other test is installing or clearing one.
     #[test]
-    fn check_writes_log_and_calls_handler() {
-        use std::sync::{Mutex, OnceLock};
-        static RECEIVED: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
-        let received = RECEIVED.get_or_init(|| Mutex::new(Vec::new()));
-        fn record_handler(msg: &str) {
-            RECEIVED.get().unwrap().lock().unwrap().push(msg.to_string());
+    fn check_calls_the_notify_handler() {
+        use crate::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            crate::sanity_check!(test_intentional_trip, false, "expected = {}", 42);
+        });
+        assert!(capture::fired(&msgs, "test_intentional_trip"), "{msgs:?}");
+        assert!(msgs.iter().any(|m| m.contains("expected = 42")), "{msgs:?}");
+    }
+
+    #[test]
+    fn capture_sees_a_trip_and_stays_empty_otherwise() {
+        use crate::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            crate::sanity_check!(capture_positive, false, "value = {}", 7);
+        });
+        assert!(capture::fired(&msgs, "capture_positive"), "{msgs:?}");
+        assert!(msgs.iter().any(|m| m.contains("value = 7")), "{msgs:?}");
+
+        let ((), msgs) = capture::trips(|| {
+            crate::sanity_check!(capture_negative, true);
+        });
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+
+    #[test]
+    fn capture_clears_dedup_so_the_same_site_fires_twice() {
+        use crate::sanity::capture;
+
+        // Without the reset, the second call within the dedup window would be
+        // suppressed and a test asserting on it would pass having seen nothing.
+        fn trip() {
+            crate::sanity_check!(capture_dedup_reset, false, "again");
         }
-        crate::notify::set_handler(record_handler);
 
-        // Intentional trip with a unique name so dedup does not suppress.
-        crate::sanity_check!(test_intentional_trip, false, "expected = {}", 42);
-
-        let msgs = received.lock().unwrap();
-        assert!(msgs.iter().any(|m| m.contains("test_intentional_trip")));
-        assert!(msgs.iter().any(|m| m.contains("expected = 42")));
-
-        crate::notify::clear_handler();
+        for round in 0..2 {
+            let ((), msgs) = capture::trips(trip);
+            assert!(capture::fired(&msgs, "capture_dedup_reset"), "round {round}: {msgs:?}");
+        }
     }
 }
