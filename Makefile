@@ -32,22 +32,24 @@ install: sync-version  ## Install the edit binary (debug build, sanity feature o
 	cargo install --debug --features sanity --path crates/edit --force
 	ln -sf edit "$${CARGO_INSTALL_ROOT:-$$HOME/.cargo}/bin/eat"
 
+# Every package, every feature except one: stdext's `single-threaded` swaps the
+# scratch arenas for a `static mut` pair, which is only sound in a
+# single-threaded program -- and the test harness runs tests on threads, where
+# it aborts with an arena OOM. So --all-features is not usable here; this list
+# is every other feature in the workspace. Keep it in step when adding one.
+FEATURES := edit/sanity,lsh/sanity,gutter/sanity,stdext/sanity
+
 .PHONY: check
-check:  ## Fast type-check across all targets and features
-	cargo check --all-targets --all-features
+check:  ## Fast type-check across the workspace
+	cargo check --workspace --all-targets --features $(FEATURES)
 
 .PHONY: clippy
 clippy:  ## Clippy with warnings denied (CI bar)
-	cargo clippy --all-targets --all-features -- --deny warnings
+	cargo clippy --workspace --all-targets --features $(FEATURES) -- --deny warnings
 
 .PHONY: test
-test:  ## Run the test suite with all features enabled
-	cargo test --all-features
-# The workspace sets default-members = edit, so the line above tests that
-# package only. The rest need naming explicitly -- and not via
-# --workspace --all-features, which switches on stdext's `single-threaded`
-# arena and makes edit's own tests abort with an arena OOM.
-	cargo test -p stdext -p lsh -p gutter --features stdext/sanity,lsh/sanity,gutter/sanity
+test:  ## Run the test suite across the workspace
+	cargo test --workspace --features $(FEATURES)
 
 # ICU is dlopen'd, so the search tests skip when it can't be loaded. The
 # build defaults to the unversioned SONAME, which only exists if the -dev

@@ -64,6 +64,10 @@ impl Deref for ScratchArena<'_> {
     }
 }
 
+// Only the selected implementation is compiled. Gating the modules rather than
+// just the re-export keeps the other one's `init` from reading as dead code,
+// which `-D warnings` treats as an error.
+#[cfg(feature = "single-threaded")]
 mod single_threaded {
     use super::*;
 
@@ -116,6 +120,7 @@ mod single_threaded {
     }
 }
 
+#[cfg(not(feature = "single-threaded"))]
 mod multi_threaded {
     use std::cell::Cell;
     use std::ptr;

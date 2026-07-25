@@ -34,10 +34,13 @@ jobs:
         run: rustup toolchain install stable --no-self-update --profile minimal --component rustfmt,clippy
       - name: Check formatting
         run: cargo fmt --all -- --check
+      # Not --all-features: stdext's `single-threaded` feature swaps the scratch
+      # arenas for a `static mut` pair, which the threaded test harness aborts
+      # on. See the FEATURES comment in the Makefile.
       - name: Run tests
-        run: cargo test --all-features --all-targets
+        run: cargo test --workspace --all-targets --features edit/sanity,lsh/sanity,gutter/sanity,stdext/sanity
       - name: Run clippy
-        run: cargo clippy --all-features --all-targets -- --no-deps --deny warnings
+        run: cargo clippy --workspace --all-targets --features edit/sanity,lsh/sanity,gutter/sanity,stdext/sanity -- --no-deps --deny warnings
 
   pty:
     runs-on: ubuntu-latest

@@ -268,6 +268,90 @@ impl Default for BString<'_> {
     }
 }
 
+impl Deref for BString<'_> {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl DerefMut for BString<'_> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut str {
+        self.as_mut_str()
+    }
+}
+
+impl PartialEq<BString<'_>> for BString<'_> {
+    #[inline]
+    fn eq(&self, other: &BString) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for BString<'_> {}
+
+impl PartialEq<&str> for BString<'_> {
+    #[inline]
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialOrd for BString<'_> {
+    #[inline]
+    fn partial_cmp(&self, other: &BString) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for BString<'_> {
+    #[inline]
+    fn cmp(&self, other: &BString) -> std::cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+impl fmt::Debug for BString<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
+impl fmt::Display for BString<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
+    }
+}
+
+/// Pairs a [`BString`] with an allocator so you can use `write!` on it.
+// NOTE: This struct uses a generic allocator, because I found that it shrinks the binary by 3KB somehow.
+// I never investigated why that is, or what the impact of that is, but it can't be good.
+// It does kind of make sense though, since this struct is generally temporary only.
+pub struct BStringFormatter<'s, 'a, A> {
+    string: &'s mut BString<'a>,
+    alloc: &'a A,
+}
+
+impl<A> fmt::Write for BStringFormatter<'_, '_, A>
+where
+    A: Allocator,
+{
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.string.push_str(self.alloc, s);
+        Ok(())
+    }
+
+    #[inline]
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        self.string.push(self.alloc, c);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,89 +585,5 @@ mod tests {
         // Deref to &str — call str method directly.
         assert!(s.contains("ell"));
         assert_eq!(s.to_uppercase(), "HELLO");
-    }
-}
-
-impl Deref for BString<'_> {
-    type Target = str;
-
-    #[inline]
-    fn deref(&self) -> &str {
-        self.as_str()
-    }
-}
-
-impl DerefMut for BString<'_> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut str {
-        self.as_mut_str()
-    }
-}
-
-impl PartialEq<BString<'_>> for BString<'_> {
-    #[inline]
-    fn eq(&self, other: &BString) -> bool {
-        self.as_str() == other.as_str()
-    }
-}
-
-impl Eq for BString<'_> {}
-
-impl PartialEq<&str> for BString<'_> {
-    #[inline]
-    fn eq(&self, other: &&str) -> bool {
-        self.as_str() == *other
-    }
-}
-
-impl PartialOrd for BString<'_> {
-    #[inline]
-    fn partial_cmp(&self, other: &BString) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for BString<'_> {
-    #[inline]
-    fn cmp(&self, other: &BString) -> std::cmp::Ordering {
-        self.as_str().cmp(other.as_str())
-    }
-}
-
-impl fmt::Debug for BString<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.as_str(), f)
-    }
-}
-
-impl fmt::Display for BString<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
-    }
-}
-
-/// Pairs a [`BString`] with an allocator so you can use `write!` on it.
-// NOTE: This struct uses a generic allocator, because I found that it shrinks the binary by 3KB somehow.
-// I never investigated why that is, or what the impact of that is, but it can't be good.
-// It does kind of make sense though, since this struct is generally temporary only.
-pub struct BStringFormatter<'s, 'a, A> {
-    string: &'s mut BString<'a>,
-    alloc: &'a A,
-}
-
-impl<A> fmt::Write for BStringFormatter<'_, '_, A>
-where
-    A: Allocator,
-{
-    #[inline]
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.string.push_str(self.alloc, s);
-        Ok(())
-    }
-
-    #[inline]
-    fn write_char(&mut self, c: char) -> fmt::Result {
-        self.string.push(self.alloc, c);
-        Ok(())
     }
 }
