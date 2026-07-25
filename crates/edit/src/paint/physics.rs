@@ -101,7 +101,13 @@ pub fn build_textarea_physics<'a>(
     TextareaPhysics {
         dest,
         scroll_offset,
-        cursor_visual: tb.cursor_visual_pos(),
+        // The caret, not the navigation cursor: at a word-wrap row break those
+        // are two different cells, and painting from the latter puts the caret
+        // a row away from the character it precedes. This IR is not on the
+        // production path yet (only its tests call it), so the distinction has
+        // never mattered here -- which is exactly why it would have come back
+        // the day the frame-wide physics pass gets wired up.
+        cursor_visual: tb.caret_visual_pos(),
         visual_line_count: tb.visual_line_count(),
         minimap_cells: tb.minimap_cells(),
         minimap_content_rows: tb.minimap_content_rows(),
