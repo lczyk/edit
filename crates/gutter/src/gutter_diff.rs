@@ -96,6 +96,17 @@ fn marks_from_ops(ops: &[LineOp], current_lines: u32) -> Vec<GutterMark> {
             }
         }
     }
+    // `y` walks the current side of the diff, so it ends on the number of
+    // lines the op stream describes. A caller whose `current_lines` disagrees
+    // -- a stale line count, a buffer edited since the diff -- gets marks
+    // dropped on the floor by `set_mark`, and the margin is quietly wrong for
+    // the rest of the file rather than obviously broken.
+    stdext::sanity_check!(
+        gutter_marks_cover_the_buffer,
+        y == current_lines,
+        "op stream covers {y} lines, caller said {current_lines}"
+    );
+
     marks
 }
 
@@ -173,6 +184,86 @@ mod tests {
                 GutterMark::None,
             ]
         );
+    }
+
+    #[test]
+    fn too_divergent_yields_no_marks_at_the_right_length() {
+        // `diff` bails past MAX_D; the fallback must still hand back one mark
+        // per current line, or the caller indexes into a short vec.
+        let baseline: String = (0..6000).map(|i| format!("a{i}\n")).collect();
+        let current: String = (0..6000).map(|i| format!("b{i}\n")).collect();
+        let lines = linediff::split_lines(current.as_bytes()).len() as u32;
+        let got = compute_marks(baseline.as_bytes(), current.as_bytes(), lines);
+        assert_eq!(got.len(), lines as usize);
+        assert!(got.iter().all(|m| *m == GutterMark::None), "expected marks suppressed");
+    }
+
+    #[test]
+    fn binary_content_is_recognised() {
+        // A NUL anywhere in the first 8 KiB suppresses the baseline, so a
+        // binary file does not get a line diff run over it.
+        assert!(is_binary(b"\x7fELF\0\0\0"));
+        assert!(is_binary(&[b'a'; 4096].iter().copied().chain([0]).collect::<Vec<_>>()));
+        assert!(!is_binary(b"plain text\nwith lines\n"));
+        assert!(!is_binary(b""));
+        // Past the sampled window it reads as text, by design.
+        let mut late = vec![b'a'; 8 * 1024];
+        late.push(0);
+        assert!(!is_binary(&late));
+    }
+
+    #[test]
+    fn a_mark_is_produced_for_every_current_line() {
+        // The op walk indexes marks by line, and `set_mark` drops anything out
+        // of range. Whatever the shape of the change, the length has to match
+        // and the marks have to be in range for the caller to trust either.
+        let cases: &[(&str, &str)] = &[
+            ("", ""),
+            ("a\n", ""),
+            ("", "a\n"),
+            ("a\nb\nc\n", "a\nb\nc\n"),
+            ("a\nb\nc\n", "c\nb\na\n"),
+            ("a\nb\nc\nd\ne\n", "a\nX\ne\n"),
+            ("a\n", "a\nb\nc\nd\ne\n"),
+            ("one\ntwo", "one\ntwo\nthree"),
+        ];
+        for (baseline, current) in cases {
+            let lines = linediff::split_lines(current.as_bytes()).len() as u32;
+            let got = compute_marks(baseline.as_bytes(), current.as_bytes(), lines);
+            assert_eq!(got.len(), lines as usize, "{baseline:?} -> {current:?}");
+        }
+    }
+
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn the_coverage_check_stays_quiet_on_real_diffs() {
+        use stdext::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            for (baseline, current) in [
+                ("", "a\nb\n"),
+                ("a\nb\nc\n", "a\nB\nc\n"),
+                ("a\nb\nc\nd\ne\n", "a\nX\ne\n"),
+                ("a\nb\nc\n", ""),
+            ] {
+                let lines = linediff::split_lines(current.as_bytes()).len() as u32;
+                _ = compute_marks(baseline.as_bytes(), current.as_bytes(), lines);
+            }
+        });
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn a_stale_line_count_trips_the_coverage_check() {
+        use stdext::sanity::capture;
+
+        // What the check is for: the buffer grew since the diff was computed,
+        // so the op stream describes fewer lines than the caller claims.
+        let ((), msgs) = capture::trips(|| {
+            _ = compute_marks(b"a\nb\n", b"a\nb\n", 5);
+        });
+        assert!(capture::fired(&msgs, "gutter_marks_cover_the_buffer"), "{msgs:?}");
     }
 
     #[test]

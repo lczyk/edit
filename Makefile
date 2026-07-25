@@ -47,7 +47,7 @@ test:  ## Run the test suite with all features enabled
 # package only. The rest need naming explicitly -- and not via
 # --workspace --all-features, which switches on stdext's `single-threaded`
 # arena and makes edit's own tests abort with an arena OOM.
-	cargo test -p stdext -p lsh -p gutter --features stdext/sanity,lsh/sanity
+	cargo test -p stdext -p lsh -p gutter --features stdext/sanity,lsh/sanity,gutter/sanity
 
 # ICU is dlopen'd, so the search tests skip when it can't be loaded. The
 # build defaults to the unversioned SONAME, which only exists if the -dev

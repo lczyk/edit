@@ -86,7 +86,6 @@ fn is_suppressed(file: &'static str, line: u32) -> bool {
 pub mod capture {
     use std::sync::Mutex;
 
-    static SERIALISE: Mutex<()> = Mutex::new(());
     static MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
     fn collect(msg: &str) {
@@ -98,18 +97,17 @@ pub mod capture {
     /// Runs `f` and returns its value alongside the summary of every check it
     /// tripped, in order.
     pub fn trips<R>(f: impl FnOnce() -> R) -> (R, Vec<String>) {
-        // A test that panicked mid-capture poisons these; its messages are of
-        // no interest to us, but the lock still has to be usable.
-        let _guard = SERIALISE.lock().unwrap_or_else(|e| e.into_inner());
-        MESSAGES.lock().unwrap_or_else(|e| e.into_inner()).clear();
-        super::reset_dedup();
-        crate::notify::set_handler(collect);
+        crate::notify::serialise_tests(|| {
+            MESSAGES.lock().unwrap_or_else(|e| e.into_inner()).clear();
+            super::reset_dedup();
+            crate::notify::set_handler(collect);
 
-        let out = f();
+            let out = f();
 
-        crate::notify::clear_handler();
-        let msgs = std::mem::take(&mut *MESSAGES.lock().unwrap_or_else(|e| e.into_inner()));
-        (out, msgs)
+            crate::notify::clear_handler();
+            let msgs = std::mem::take(&mut *MESSAGES.lock().unwrap_or_else(|e| e.into_inner()));
+            (out, msgs)
+        })
     }
 
     /// Whether `trips` saw the named check fire.

@@ -188,4 +188,32 @@ mod tests {
         assert_eq!(split_lines(b"a\n"), vec![b"a" as &[u8]]);
         assert_eq!(split_lines(b"a\nb"), vec![b"a" as &[u8], b"b" as &[u8]]);
     }
+
+    #[test]
+    fn wildly_divergent_input_bails_instead_of_grinding() {
+        // Myers is O(ND); past MAX_D the diff gives up and the caller falls
+        // back to "no marks" rather than wait. Nothing else exercised that
+        // branch -- and a regression there shows up as a hang, not a wrong
+        // answer.
+        let a: String = (0..6000).map(|i| format!("a{i}\n")).collect();
+        let b: String = (0..6000).map(|i| format!("b{i}\n")).collect();
+        let al = split_lines(a.as_bytes());
+        let bl = split_lines(b.as_bytes());
+        assert_eq!(diff(&al, &bl), None);
+    }
+
+    #[test]
+    fn a_long_but_similar_file_still_diffs() {
+        // The bail is on divergence, not size: same length, one changed line.
+        let a: String = (0..6000).map(|i| format!("line {i}\n")).collect();
+        let b = a.replace("line 3000\n", "changed\n");
+        let al = split_lines(a.as_bytes());
+        let bl = split_lines(b.as_bytes());
+        let ops = diff(&al, &bl).expect("one changed line is well within MAX_D");
+        assert_eq!(
+            ops.iter().filter(|op| !matches!(op, LineOp::Equal(_))).count(),
+            2,
+            "expected one delete and one insert, got {ops:?}"
+        );
+    }
 }

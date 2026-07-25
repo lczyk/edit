@@ -67,3 +67,59 @@ fn canonicalise(p: &Path) -> io::Result<PathBuf> {
     // in locate() lines up.
     std::fs::canonicalize(p)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A path that cannot resolve. `locate` canonicalises both the file and
+    /// the toplevel, so this fails whether or not `git` is on $PATH and
+    /// whether or not the temp dir happens to sit inside a repository.
+    fn missing_path() -> PathBuf {
+        std::env::temp_dir().join(format!("gutter-no-such-file-{}", std::process::id()))
+    }
+
+    #[test]
+    fn locating_a_missing_file_is_an_error_not_a_panic() {
+        // The whole feature is best-effort: no repo, no git binary, or a path
+        // outside the worktree all have to come back as a plain Err so the
+        // caller can fall back to no marks.
+        assert!(locate(&missing_path()).is_err());
+    }
+
+    #[test]
+    fn a_baseline_for_a_missing_file_is_an_error() {
+        let info = GitInfo {
+            repo_root: std::env::temp_dir(),
+            rel_path: format!("gutter-no-such-file-{}", std::process::id()),
+        };
+        assert!(read_baseline(&info).is_err());
+    }
+
+    #[test]
+    fn loading_a_baseline_for_a_missing_file_yields_no_marks() {
+        // The state constructor swallows every failure mode above; a `None`
+        // here is what suppresses the margin rather than crashing the editor.
+        let state = crate::gutter_diff::BaselineState::load(&missing_path());
+        assert!(state.bytes.is_none());
+    }
+
+    #[test]
+    fn this_repo_locates_and_has_a_baseline() {
+        // Positive direction, skipped rather than failed when the environment
+        // cannot provide it -- a source tarball with no .git, or no git binary.
+        let here = Path::new(file!());
+        if !here.exists() {
+            return;
+        }
+        let Ok(info) = locate(here) else {
+            return;
+        };
+        assert!(info.repo_root.is_absolute());
+        assert!(info.rel_path.ends_with("git.rs"), "rel_path={}", info.rel_path);
+        assert!(!info.rel_path.starts_with('/'));
+        // This file is committed, so HEAD:<rel> resolves.
+        let bytes = read_baseline(&info).expect("committed file has a baseline");
+        assert!(bytes.starts_with(b"//!"), "baseline did not look like this file");
+    }
+}

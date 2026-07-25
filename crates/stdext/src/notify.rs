@@ -32,6 +32,22 @@ pub fn warn(msg: &str) {
     handler(msg);
 }
 
+/// Serialises tests that install or clear the handler.
+///
+/// There is one handler for the whole process, so two tests touching it in
+/// parallel see each other's state -- one clearing it mid-flight makes the
+/// other's `warn` vanish. Every test that cares takes this, including
+/// [`crate::sanity::capture::trips`].
+#[cfg(any(test, feature = "sanity"))]
+pub fn serialise_tests<R>(f: impl FnOnce() -> R) -> R {
+    use std::sync::Mutex;
+    static LOCK: Mutex<()> = Mutex::new(());
+    // A test that panicked while holding this poisoned it; its state is of no
+    // interest, but the lock still has to be usable by everyone after it.
+    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    f()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,16 +61,20 @@ mod tests {
 
     #[test]
     fn warn_with_no_handler_is_noop() {
-        clear_handler();
-        warn("nothing");
+        serialise_tests(|| {
+            clear_handler();
+            warn("nothing");
+        });
     }
 
     #[test]
     fn handler_receives_message() {
-        *LAST.lock().unwrap() = None;
-        set_handler(record);
-        warn("hello");
-        assert_eq!(LAST.lock().unwrap().as_deref(), Some("hello"));
-        clear_handler();
+        serialise_tests(|| {
+            *LAST.lock().unwrap() = None;
+            set_handler(record);
+            warn("hello");
+            assert_eq!(LAST.lock().unwrap().as_deref(), Some("hello"));
+            clear_handler();
+        });
     }
 }

@@ -15,6 +15,7 @@ build = "build/main.rs"
 # flash. The macros live in crates/stdext/src/sanity.rs so every crate can use
 # them; this forwards to the features that switch them on.
 sanity = [
+    "gutter/sanity",
     "lsh/sanity",
     "stdext/sanity",
     #
