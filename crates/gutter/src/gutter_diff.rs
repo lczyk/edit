@@ -96,14 +96,16 @@ fn marks_from_ops(ops: &[LineOp], current_lines: u32) -> Vec<GutterMark> {
             }
         }
     }
-    // `y` walks the current side of the diff, so it ends on the number of
-    // lines the op stream describes. A caller whose `current_lines` disagrees
-    // -- a stale line count, a buffer edited since the diff -- gets marks
-    // dropped on the floor by `set_mark`, and the margin is quietly wrong for
-    // the rest of the file rather than obviously broken.
+    // `y` walks the current side of the diff. Overshooting `current_lines`
+    // means `set_mark` dropped marks on the floor and the margin is quietly
+    // wrong for the rest of the file rather than obviously broken.
+    //
+    // Undershooting is normal and not checked: a buffer ending in a newline
+    // shows a final empty line that `split_lines` does not produce, so the
+    // caller legitimately asks for one more mark than the diff describes.
     stdext::sanity_check!(
         gutter_marks_cover_the_buffer,
-        y == current_lines,
+        y <= current_lines,
         "op stream covers {y} lines, caller said {current_lines}"
     );
 
@@ -255,15 +257,30 @@ mod tests {
 
     #[cfg(feature = "sanity")]
     #[test]
-    fn a_stale_line_count_trips_the_coverage_check() {
+    fn a_line_count_short_of_the_diff_trips_the_coverage_check() {
         use stdext::sanity::capture;
 
-        // What the check is for: the buffer grew since the diff was computed,
-        // so the op stream describes fewer lines than the caller claims.
+        // What the check is for: the op stream describes more lines than the
+        // caller left room for, so marks past the end are discarded.
         let ((), msgs) = capture::trips(|| {
-            _ = compute_marks(b"a\nb\n", b"a\nb\n", 5);
+            _ = compute_marks(b"", b"a\nb\nc\n", 1);
         });
         assert!(capture::fired(&msgs, "gutter_marks_cover_the_buffer"), "{msgs:?}");
+    }
+
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn a_trailing_newline_asking_for_one_extra_mark_is_fine() {
+        use stdext::sanity::capture;
+
+        // The editor counts the empty line after a final newline, which
+        // `split_lines` does not produce. Asking for that extra mark is normal
+        // and must stay quiet -- this fired on four PTY tests when the check
+        // demanded exact equality.
+        let ((), msgs) = capture::trips(|| {
+            _ = compute_marks(b"a\nb\nc\n", b"a\nb\nc\n", 4);
+        });
+        assert!(msgs.is_empty(), "{msgs:?}");
     }
 
     #[test]
