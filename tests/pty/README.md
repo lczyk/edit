@@ -69,6 +69,34 @@ Ctrl-only, but sending `CTRL_Z` on macOS matches nothing at all -- the editor
 doesn't even redraw, so the test sees an empty frame rather than an obviously
 wrong one.
 
+## Sanity checks as an oracle
+
+A binary built with `--features sanity` logs every tripped invariant to
+`$TMPDIR/edit/log/sanity-YYYYMMDD.log`. Nothing in a passing test notices, so
+point the suite at one and ask it to care:
+
+```sh
+cargo build --features sanity
+EDIT_BIN=target/debug/edit python3 tests/pty/framework.py --strict-sanity
+```
+
+Any check tripped during a test now fails that test, naming it:
+
+```
+FAIL ( 0.62s)  oracle_probe::hits_the_hard_wrap_trip
+        sanity checks tripped:
+          cursor_visual_pos_drift: stored vp=Point { x: 1, y: 2 } ...
+```
+
+`--strict-sanity` is off by default: a binary built without the feature can
+never trip, and a run against someone else's stale log would report their
+findings as yours.
+
+`EDIT_SANITY_PANIC=1` escalates a soft check to a panic instead, which kills
+the editor mid-test. The harness recognises the resulting dead child and
+reports the exit status plus the same trip list, rather than the bare
+`OSError: [Errno 5]` the PTY hands it.
+
 ## Config isolation
 
 Each run points the child at a throwaway `XDG_CONFIG_HOME`, so `edit` creates

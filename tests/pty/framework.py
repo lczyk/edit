@@ -61,6 +61,50 @@ def fixture(name: str) -> str:
     return os.path.join(FIXTURES_DIR, name)
 
 
+SANITY_LOG_DIR = os.path.join(tempfile.gettempdir(), "edit", "log")
+
+
+def _sanity_logs() -> list:
+    if not os.path.isdir(SANITY_LOG_DIR):
+        return []
+    return sorted(
+        os.path.join(SANITY_LOG_DIR, f)
+        for f in os.listdir(SANITY_LOG_DIR)
+        if f.startswith("sanity-") and f.endswith(".log")
+    )
+
+
+def sanity_mark() -> dict:
+    """Byte offsets of the sanity logs, to diff new lines against later.
+
+    A build with the `sanity` feature appends a line per tripped invariant to
+    `$TMPDIR/edit/log/sanity-YYYYMMDD.log`. Nothing else surfaces them, so a
+    trip is invisible to a passing test unless we go looking.
+    """
+    marks = {}
+    for path in _sanity_logs():
+        try:
+            marks[path] = os.path.getsize(path)
+        except OSError:
+            pass
+    return marks
+
+
+def sanity_since(mark: dict) -> list:
+    """Lines appended to any sanity log since `mark`."""
+    lines = []
+    for path in _sanity_logs():
+        try:
+            with open(path, "rb") as f:
+                f.seek(mark.get(path, 0))
+                lines += f.read().decode(errors="replace").splitlines()
+        except OSError:
+            pass
+    # Strip the timestamp/pid/path prefix; the check name and message are the
+    # part a failure message wants.
+    return [line.split(" ", 3)[-1] if line.count(" ") >= 3 else line for line in lines]
+
+
 _CONFIG_HOME = None
 
 
@@ -111,6 +155,7 @@ _PROBE_RE = re.compile(
 
 WATCH = False
 PACE = 1.0
+STRICT_SANITY = False
 
 # Base settle time after a `send()` — gives `edit` time to process the input
 # and redraw before we read. Scaled by PACE.
@@ -209,6 +254,7 @@ class Edit:
         self.buf = b""
         self.cols = cols
         self.rows = rows
+        self._sanity_mark = sanity_mark()
         # Resolve before forking: the child must not be the one to mkdtemp
         # (it would get its own dir) or to register the atexit cleanup.
         xdg_config_home = config_home()
@@ -294,7 +340,13 @@ class Edit:
         Tests rarely need explicit `pause()`/`drain()` anymore. Pass
         `settle=0` or `drain=False` if you want finer control.
         """
-        os.write(self.fd, data)
+        try:
+            os.write(self.fd, data)
+        except OSError as e:
+            # The PTY only errors like this once the child is gone. Bare, that
+            # reads as an unexplained EIO; with EDIT_SANITY_PANIC=1 set it is
+            # usually a tripped check taking the editor down mid-test.
+            raise self._child_died(e) from None
         pause(SEND_SETTLE if settle is None else settle)
         if drain:
             self.drain(DRAIN_TIMEOUT)
@@ -340,6 +392,33 @@ class Edit:
             os.close(self.fd)
         except OSError:
             pass
+
+    def _child_died(self, cause: OSError) -> AssertionError:
+        """Explain a write to a dead child, naming the checks it tripped."""
+        self.drain(0.1)  # whatever it managed to say on the way out
+        status = None
+        try:
+            pid, raw = os.waitpid(self.pid, os.WNOHANG)
+            if pid:
+                status = raw
+        except ChildProcessError:
+            pass
+
+        detail = [f"{EDIT_BIN} exited during the test ({cause})"]
+        if status is not None:
+            sig = status & 0x7F
+            if sig:
+                detail.append(f"killed by signal {sig}")
+            else:
+                detail.append(f"exit code {status >> 8}")
+        trips = sanity_since(self._sanity_mark)
+        if trips:
+            detail.append("sanity checks tripped:")
+            detail += [f"  {t}" for t in trips]
+            detail.append(f"full log: {SANITY_LOG_DIR}")
+        else:
+            detail.append("no sanity trips logged -- check the editor's own output above")
+        return ExpectError("\n".join(detail))
 
     def _wait_exit(self, timeout: float) -> bool:
         deadline = time.monotonic() + timeout
@@ -485,8 +564,16 @@ def _run_one(name, fn) -> tuple:
     if WATCH:
         sys.stdout = buf_out
         sys.stderr = buf_err
+    mark = sanity_mark()
     try:
         fn()
+        # A soft check logs and flashes the statusbar, neither of which a test
+        # notices -- so under --strict-sanity a trip fails the test that caused
+        # it. Off by default: a binary built without the feature never trips,
+        # and a run against a stale log would report someone else's.
+        trips = sanity_since(mark) if STRICT_SANITY else []
+        if trips:
+            return False, "\n".join(["sanity checks tripped:"] + [f"  {t}" for t in trips])
         return True, ""
     except ExpectError as e:
         return False, str(e)
@@ -514,13 +601,17 @@ def main() -> None:
                         help="Multiplier on pause(s) calls (default 1.0, 3.0 with --watch).")
     parser.add_argument("--filter", default=None,
                         help="Run tests whose registered name contains this substring.")
+    parser.add_argument("--strict-sanity", action="store_true",
+                        help="Fail a test if the editor tripped a sanity check during it "
+                             "(needs a binary built with --features sanity).")
     parser.add_argument("paths", nargs="*",
                         help="Test files to run (default: all test_*.py in this dir).")
     args = parser.parse_args()
 
-    global WATCH, PACE
+    global WATCH, PACE, STRICT_SANITY
     WATCH = args.watch
     PACE = args.pace if args.pace is not None else (2.0 if args.watch else 1.0)
+    STRICT_SANITY = args.strict_sanity
 
     paths = args.paths or _collect_default_paths()
     # Resolve relative paths.

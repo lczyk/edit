@@ -61,3 +61,10 @@ jobs:
       # Timings are plain sleeps; a loaded runner needs a slower pace.
       - name: Run PTY tests
         run: python3 tests/pty/framework.py --pace 2
+      # Again against a sanity build, where --strict-sanity turns a tripped
+      # invariant into a failed test. Separate run: the checks cost enough that
+      # the plain pass above is what should report a timing regression.
+      - name: Build with sanity checks
+        run: cargo build --features sanity
+      - name: Run PTY tests with the invariant checks armed
+        run: EDIT_BIN=target/debug/edit python3 tests/pty/framework.py --pace 2 --strict-sanity
