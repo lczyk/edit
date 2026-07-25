@@ -81,8 +81,16 @@ impl TextBuffer {
         // See other uses of `word_wrap_cursor_next_line` in this function.
         if self.word_wrap_column > 0 {
             let safe_start = self.goto_line_start(cursor, cursor.logical_pos.y);
+            // Seeded from `safe_start`, not from `cursor`. The row count below
+            // subtracts `safe_start.visual_pos.y`, and `goto_line_start` derives
+            // its result's `visual_pos.y` by relative arithmetic from whatever
+            // seed it is handed -- so a mid-row seed carried its own ambiguity
+            // into the count, and an edit made with the cursor inside a word too
+            // wide for a row left `stats.visual_lines` one short. `edit_end`
+            // recomputes the same target from `safe_start`, so this also makes
+            // the two ends of the delta agree.
             let next_line = self.cursor_move_to_logical_internal(
-                cursor,
+                safe_start,
                 Point { x: 0, y: cursor.logical_pos.y + 1 },
             );
             self.active_edit_line_info = Some(ActiveEditLineInfo {

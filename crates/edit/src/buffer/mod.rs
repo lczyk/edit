@@ -971,7 +971,13 @@ impl TextBuffer {
 
             // Recalculate the line statistics.
             if self.word_wrap_column > 0 {
-                let end = self.cursor_move_to_logical_internal(self.cursor, Point::MAX);
+                // From the document start, not from `self.cursor`. This is an
+                // absolute count, and `visual_pos.y` is derived by relative
+                // arithmetic from whatever seed it is given -- so seeding it with
+                // a cursor sitting inside a word too wide for a row folded that
+                // cursor's own ambiguity into the total, leaving it a row over.
+                // The same walk is what the drift check compares against.
+                let end = self.cursor_move_to_logical_internal(Cursor::default(), Point::MAX);
                 self.stats.visual_lines = end.visual_pos.y + 1;
             } else {
                 self.stats.visual_lines = self.stats.logical_lines;
@@ -3108,6 +3114,94 @@ mod tests {
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
         tb.cursor_move_to_visual(Point { x: 0, y: 1 });
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
+    }
+
+    #[test]
+    fn reflowing_after_an_edit_inside_a_hard_wrapping_word_keeps_the_count() {
+        // The other half of the same bug, and the one the PTY test was catching:
+        // reflow recomputed the absolute visual line count starting from
+        // `self.cursor`, so a cursor sitting inside a word too wide for a row
+        // folded its own ambiguity into the total -- a row over, where the
+        // edit_begin half was a row under.
+        //
+        // A width change is what triggers a reflow; the PTY harness does it by
+        // nudging the window to force a full repaint.
+        let body = format!(
+            "{}{}\nsecond line here\nthird line here\n",
+            "hi hi hi hi hi hi ",
+            "z".repeat(45)
+        );
+
+        for width in [30, 34, 40] {
+            for steps in [19, 25, 30] {
+                let mut tb = TextBuffer::new(true).unwrap();
+                tb.write_raw(body.as_bytes());
+                tb.set_word_wrap(true);
+                tb.set_width(width);
+                tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+                for _ in 0..steps {
+                    tb.cursor_move_delta(CursorMovement::Grapheme, 1);
+                }
+                tb.write_canon(b"QQ");
+                tb.set_width(width - 1);
+                tb.set_width(width);
+
+                let end = tb.cursor_move_to_logical_internal(
+                    Cursor::default(),
+                    Point { x: 0, y: CoordType::MAX },
+                );
+                assert_eq!(
+                    tb.stats.visual_lines,
+                    end.visual_pos.y + 1,
+                    "width={width} steps={steps}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn editing_inside_a_hard_wrapping_word_keeps_the_visual_line_count() {
+        // Regression: an edit made while the cursor sat inside a word too wide
+        // for a row left stats.visual_lines one short. edit_begin measured the
+        // next line's row from the mid-row cursor while subtracting a base taken
+        // from the line start, and goto_line_start derives visual_pos.y by
+        // relative arithmetic from whatever seed it is given -- so a mid-row
+        // seed carried its own ambiguity into the row count.
+        //
+        // The trailing lines matter: the drift is in the edited line's delta, and
+        // without anything after it the total happens to come out right.
+        let body = format!(
+            "{}{}\nsecond line here\nthird line here\n",
+            "hi hi hi hi hi hi ",
+            "z".repeat(45)
+        );
+
+        for width in [30, 34, 40, 44, 50] {
+            for steps in [1, 5, 18, 19, 20, 25, 30, 40] {
+                for chunk in ["Q", "QQ", "QQQ"] {
+                    let mut tb = TextBuffer::new(true).unwrap();
+                    tb.write_raw(body.as_bytes());
+                    tb.set_word_wrap(true);
+                    tb.set_width(width);
+                    tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+                    // Walk in with deltas, the way the arrow keys do.
+                    for _ in 0..steps {
+                        tb.cursor_move_delta(CursorMovement::Grapheme, 1);
+                    }
+                    tb.write_canon(chunk.as_bytes());
+
+                    let end = tb.cursor_move_to_logical_internal(
+                        Cursor::default(),
+                        Point { x: 0, y: CoordType::MAX },
+                    );
+                    assert_eq!(
+                        tb.stats.visual_lines,
+                        end.visual_pos.y + 1,
+                        "width={width} steps={steps} chunk={chunk:?}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
