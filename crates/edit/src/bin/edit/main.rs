@@ -287,117 +287,193 @@ fn draw(ctx: &mut Context, state: &mut State) {
 /// Lines moved per "small jump" action.
 const SMALL_JUMP_LINES: CoordType = 3;
 
-fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
-    use keybindings::{Action, chord};
+/// Where an action's effect lands, which decides whether focus can veto it.
+///
+/// Window actions reach the frame around the document -- dialogs, panels, view
+/// toggles -- and stay available whatever holds the keyboard. Document actions
+/// reach into the buffer, so a text field must be able to shadow them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Scope {
+    Window,
+    Document,
+}
 
-    let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
+/// Every chord the keybinding table dispatches, in priority order.
+///
+/// Kept as data so the mapping can be examined without a terminal: which
+/// actions are reachable at all, in what order they win, and which a focused
+/// field shadows. Three actions sat in the table for a long time with no
+/// dispatch behind them at all, advertised by the menubar and accepted by the
+/// config file; a list is checkable, a chain of `else if` is not.
+const DISPATCH: &[(keybindings::Action, Scope)] = {
+    use keybindings::Action::*;
+    &[
+        (Exit, Scope::Window),
+        (Save, Scope::Window),
+        (GoToLine, Scope::Window),
+        (ToggleColumnGuides, Scope::Window),
+        (ToggleWordWrap, Scope::Window),
+        (FocusStatusbar, Scope::Window),
+        (OpenAbout, Scope::Window),
+        (Find, Scope::Window),
+        (Replace, Scope::Window),
+        (MoveLineUp, Scope::Document),
+        (MoveLineDown, Scope::Document),
+        (DeleteLine, Scope::Document),
+        (ToggleLineComment, Scope::Document),
+        (SmallJumpUpSelect, Scope::Document),
+        (SmallJumpDownSelect, Scope::Document),
+        (SmallJumpUp, Scope::Document),
+        (SmallJumpDown, Scope::Document),
+        (LineStart, Scope::Document),
+        (LineEnd, Scope::Document),
+        (LineStartSelect, Scope::Document),
+        (LineEndSelect, Scope::Document),
+        (DeleteToLineStart, Scope::Document),
+        (DeleteToLineEnd, Scope::Document),
+        (JumpDocumentStart, Scope::Document),
+        (JumpDocumentEnd, Scope::Document),
+    ]
+};
 
-    if ctx.consume_shortcut(chord(Action::Exit)) {
-        state.modal = Some(modals::Modal::ConfirmExit);
-    } else if ctx.consume_shortcut(chord(Action::Save)) {
-        save_document(ctx, state);
-    } else if ctx.consume_shortcut(chord(Action::GoToLine)) {
-        state.modal = Some(modals::Modal::GoToLine);
-    } else if ctx.consume_shortcut(chord(Action::ToggleColumnGuides)) {
-        let mut tb = state.document.buffer.borrow_mut();
-        let on = tb.is_column_guides_enabled();
-        tb.set_column_guides_enabled(!on);
-        ctx.needs_rerender();
-    } else if ctx.consume_shortcut(chord(Action::ToggleWordWrap)) {
-        // The menubar displayed this chord and the config file accepted it, but
-        // nothing ever dispatched it -- word wrap only toggled via the
-        // textarea's own hardcoded Alt+Z, which no rebinding could move. Same
-        // for the two below. The Alt+Z arm stays as an always-on alias; this
-        // runs first, so a configured chord wins.
-        let mut tb = state.document.buffer.borrow_mut();
-        let on = tb.is_word_wrap_enabled();
-        tb.set_word_wrap(!on);
-        ctx.needs_rerender();
-    } else if ctx.consume_shortcut(chord(Action::FocusStatusbar)) {
-        state.wants_statusbar_focus = true;
-    } else if ctx.consume_shortcut(chord(Action::OpenAbout)) {
-        state.modal = Some(modals::Modal::About);
-    } else if search_enabled && ctx.consume_shortcut(chord(Action::Find)) {
-        state.wants_search.kind = StateSearchKind::Search;
-        state.wants_search.focus = true;
-    } else if search_enabled && ctx.consume_shortcut(chord(Action::Replace)) {
-        state.wants_search.kind = StateSearchKind::Replace;
-        state.wants_search.focus = true;
-    } else {
-        // Everything above acts on the window; everything in there acts on the
-        // document, so it must not fire while a text field owns the keyboard.
-        // Consuming unconditionally meant Cmd+Shift+K deleted a document line
-        // while the user was typing in the Find box, and the macOS cursor-motion
-        // chords (Cmd+arrows, Cmd+Backspace) moved and edited the document from
-        // inside every input field in the program.
-        if ctx.focus_is_in_text_field() || !handle_document_shortcuts(ctx, state) {
-            return;
+/// Which action a keystroke means. Pure: no tui, no buffer, no terminal.
+///
+/// `search_enabled` and `focus_in_field` are the only live state that changes
+/// the answer, and both arrive as plain values so the whole table can be
+/// exercised from a unit test.
+fn resolve(
+    key: edit::input::InputKey,
+    focus_in_field: bool,
+    search_enabled: bool,
+) -> Option<keybindings::Action> {
+    use keybindings::Action;
+
+    if key == edit::input::vk::NULL {
+        return None; // an unbound action, which no keystroke should match
+    }
+    for &(action, scope) in DISPATCH {
+        if keybindings::chord(action) != key {
+            continue;
         }
+        if scope == Scope::Document && focus_in_field {
+            return None;
+        }
+        if !search_enabled && matches!(action, Action::Find | Action::Replace) {
+            return None;
+        }
+        return Some(action);
+    }
+    None
+}
+
+fn handle_global_shortcuts(ctx: &mut Context, state: &mut State) {
+    use edit::buffer::MoveLineDirection;
+    use keybindings::Action;
+
+    let Some(key) = ctx.keyboard_input() else {
+        return;
+    };
+    let search_enabled = state.wants_search.kind != StateSearchKind::Disabled;
+    let Some(action) = resolve(key, ctx.focus_is_in_text_field(), search_enabled) else {
+        return;
+    };
+
+    match action {
+        Action::Exit => state.modal = Some(modals::Modal::ConfirmExit),
+        Action::Save => save_document(ctx, state),
+        Action::GoToLine => state.modal = Some(modals::Modal::GoToLine),
+        Action::ToggleColumnGuides => {
+            let mut tb = state.document.buffer.borrow_mut();
+            let on = tb.is_column_guides_enabled();
+            tb.set_column_guides_enabled(!on);
+        }
+        Action::ToggleWordWrap => {
+            let mut tb = state.document.buffer.borrow_mut();
+            let on = tb.is_word_wrap_enabled();
+            tb.set_word_wrap(!on);
+        }
+        Action::FocusStatusbar => state.wants_statusbar_focus = true,
+        Action::OpenAbout => state.modal = Some(modals::Modal::About),
+        Action::Find => {
+            state.wants_search.kind = StateSearchKind::Search;
+            state.wants_search.focus = true;
+        }
+        Action::Replace => {
+            state.wants_search.kind = StateSearchKind::Replace;
+            state.wants_search.focus = true;
+        }
+        Action::MoveLineUp => {
+            state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Up)
+        }
+        Action::MoveLineDown => {
+            state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Down)
+        }
+        Action::DeleteLine => state.document.buffer.borrow_mut().delete_lines(),
+        Action::ToggleLineComment => toggle_line_comment(state),
+        Action::SmallJumpUpSelect => edit::buffer::small_jump_select(
+            &mut state.document.buffer.borrow_mut(),
+            -SMALL_JUMP_LINES,
+        ),
+        Action::SmallJumpDownSelect => edit::buffer::small_jump_select(
+            &mut state.document.buffer.borrow_mut(),
+            SMALL_JUMP_LINES,
+        ),
+        Action::SmallJumpUp => {
+            edit::buffer::small_jump(&mut state.document.buffer.borrow_mut(), -SMALL_JUMP_LINES)
+        }
+        Action::SmallJumpDown => {
+            edit::buffer::small_jump(&mut state.document.buffer.borrow_mut(), SMALL_JUMP_LINES)
+        }
+        Action::LineStart => {
+            edit::buffer::smart_line_start(&mut state.document.buffer.borrow_mut(), false)
+        }
+        Action::LineEnd => edit::buffer::line_end(&mut state.document.buffer.borrow_mut(), false),
+        Action::LineStartSelect => {
+            edit::buffer::smart_line_start(&mut state.document.buffer.borrow_mut(), true)
+        }
+        Action::LineEndSelect => {
+            edit::buffer::line_end(&mut state.document.buffer.borrow_mut(), true)
+        }
+        Action::DeleteToLineStart => state.document.buffer.borrow_mut().delete_to_line_edge(false),
+        Action::DeleteToLineEnd => state.document.buffer.borrow_mut().delete_to_line_edge(true),
+        Action::JumpDocumentStart => {
+            let mut tb = state.document.buffer.borrow_mut();
+            tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+            tb.set_preferred_column(0);
+            tb.make_cursor_visible();
+        }
+        Action::JumpDocumentEnd => {
+            let mut tb = state.document.buffer.borrow_mut();
+            tb.cursor_move_to_logical(Point::MAX);
+            let x = tb.cursor_visual_pos().x;
+            tb.set_preferred_column(x);
+            tb.make_cursor_visible();
+        }
+        // Handled by the menubar or the textarea, never by this table.
+        Action::Undo
+        | Action::Redo
+        | Action::Cut
+        | Action::Copy
+        | Action::Paste
+        | Action::SelectAll
+        | Action::FocusMenubar => return,
     }
 
+    ctx.set_input_consumed();
     ctx.needs_rerender();
 }
 
-/// Returns whether a chord was consumed.
-fn handle_document_shortcuts(ctx: &mut Context, state: &mut State) -> bool {
-    use edit::buffer::MoveLineDirection;
-    use keybindings::{Action, chord};
-
-    if ctx.consume_shortcut(chord(Action::MoveLineUp)) {
-        state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Up);
-    } else if ctx.consume_shortcut(chord(Action::MoveLineDown)) {
-        state.document.buffer.borrow_mut().move_selected_lines(MoveLineDirection::Down);
-    } else if ctx.consume_shortcut(chord(Action::DeleteLine)) {
-        state.document.buffer.borrow_mut().delete_lines();
-    } else if ctx.consume_shortcut(chord(Action::ToggleLineComment)) {
-        // TODO: when we have a user-facing warning/toast system, surface a
-        // "no comment syntax for this file" hint instead of silent noop.
-        let lang = state.document.buffer.borrow().language();
-        let line_tok = lang.and_then(|l| l.line_comment);
-        let block_tok = lang.and_then(|l| l.block_comment);
-        if let Some(tok) =
-            line_tok.or_else(|| document::fallback_line_comment(&state.document.path))
-        {
-            state.document.buffer.borrow_mut().toggle_line_comment(tok);
-        } else if let Some((open, close)) = block_tok {
-            state.document.buffer.borrow_mut().toggle_per_line_block_comment(open, close);
-        }
-    } else if ctx.consume_shortcut(chord(Action::SmallJumpUpSelect)) {
-        edit::buffer::small_jump_select(&mut state.document.buffer.borrow_mut(), -SMALL_JUMP_LINES);
-    } else if ctx.consume_shortcut(chord(Action::SmallJumpDownSelect)) {
-        edit::buffer::small_jump_select(&mut state.document.buffer.borrow_mut(), SMALL_JUMP_LINES);
-    } else if ctx.consume_shortcut(chord(Action::SmallJumpUp)) {
-        edit::buffer::small_jump(&mut state.document.buffer.borrow_mut(), -SMALL_JUMP_LINES);
-    } else if ctx.consume_shortcut(chord(Action::SmallJumpDown)) {
-        edit::buffer::small_jump(&mut state.document.buffer.borrow_mut(), SMALL_JUMP_LINES);
-    } else if ctx.consume_shortcut(chord(Action::LineStart)) {
-        edit::buffer::smart_line_start(&mut state.document.buffer.borrow_mut(), false);
-    } else if ctx.consume_shortcut(chord(Action::LineEnd)) {
-        edit::buffer::line_end(&mut state.document.buffer.borrow_mut(), false);
-    } else if ctx.consume_shortcut(chord(Action::LineStartSelect)) {
-        edit::buffer::smart_line_start(&mut state.document.buffer.borrow_mut(), true);
-    } else if ctx.consume_shortcut(chord(Action::LineEndSelect)) {
-        edit::buffer::line_end(&mut state.document.buffer.borrow_mut(), true);
-    } else if ctx.consume_shortcut(chord(Action::DeleteToLineStart)) {
-        state.document.buffer.borrow_mut().delete_to_line_edge(false);
-    } else if ctx.consume_shortcut(chord(Action::DeleteToLineEnd)) {
-        state.document.buffer.borrow_mut().delete_to_line_edge(true);
-    } else if ctx.consume_shortcut(chord(Action::JumpDocumentStart)) {
-        let mut tb = state.document.buffer.borrow_mut();
-        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
-        tb.set_preferred_column(0);
-        tb.make_cursor_visible();
-    } else if ctx.consume_shortcut(chord(Action::JumpDocumentEnd)) {
-        let mut tb = state.document.buffer.borrow_mut();
-        tb.cursor_move_to_logical(Point::MAX);
-        let x = tb.cursor_visual_pos().x;
-        tb.set_preferred_column(x);
-        tb.make_cursor_visible();
-    } else {
-        return false;
+fn toggle_line_comment(state: &mut State) {
+    // TODO: when we have a user-facing warning/toast system, surface a
+    // "no comment syntax for this file" hint instead of silent noop.
+    let lang = state.document.buffer.borrow().language();
+    let line_tok = lang.and_then(|l| l.line_comment);
+    let block_tok = lang.and_then(|l| l.block_comment);
+    if let Some(tok) = line_tok.or_else(|| document::fallback_line_comment(&state.document.path)) {
+        state.document.buffer.borrow_mut().toggle_line_comment(tok);
+    } else if let Some((open, close)) = block_tok {
+        state.document.buffer.borrow_mut().toggle_per_line_block_comment(open, close);
     }
-
-    true
 }
 
 /// Pick minimap cell width for a terminal `terminal_width` cells wide. 0
@@ -480,5 +556,103 @@ fn sanitize_control_chars(text: &str) -> Cow<'_, str> {
         Cow::Owned(sanitized)
     } else {
         Cow::Borrowed(text)
+    }
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use edit::input::{kbmod, vk};
+    use keybindings::Action;
+
+    use super::*;
+
+    /// Serialises tests that read the keybinding table.
+    ///
+    /// `keybindings::chord` borrows a process-wide `SemiRefCell` that is only
+    /// `Sync` by assertion -- the editor is single-threaded, so nothing there
+    /// contends. The test harness is not, and two threads borrowing it at once
+    /// panics with "RefCell already mutably borrowed".
+    fn with_bindings<R>(f: impl FnOnce() -> R) -> R {
+        use std::sync::Mutex;
+        static LOCK: Mutex<()> = Mutex::new(());
+        let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        f()
+    }
+
+    /// Actions this table deliberately does not own. Undo/Redo/Cut/Copy/Paste/
+    /// SelectAll belong to the textarea, so that they work in input fields too;
+    /// FocusMenubar is consumed by the menubar itself.
+    const NOT_OURS: &[Action] = &[
+        Action::Undo,
+        Action::Redo,
+        Action::Cut,
+        Action::Copy,
+        Action::Paste,
+        Action::SelectAll,
+        Action::FocusMenubar,
+    ];
+
+    #[test]
+    fn every_action_is_either_dispatched_here_or_deliberately_elsewhere() {
+        // The bug this pins: toggle_word_wrap, focus_statusbar and open_about
+        // each had a table entry, a config key, docs and a menu item showing
+        // their chord -- and no dispatch at all. Nothing failed, because
+        // nothing was checking that the table and the handler agreed.
+        for &(action, _) in keybindings::ACTION_KEYS.iter() {
+            let dispatched = DISPATCH.iter().any(|&(a, _)| a == action);
+            let excused = NOT_OURS.contains(&action);
+            assert!(
+                dispatched != excused,
+                "{action:?} is {} -- every action must be dispatched here or listed as owned elsewhere, not both or neither",
+                if dispatched {
+                    "both dispatched and excused"
+                } else {
+                    "neither dispatched nor excused"
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn a_field_shadows_document_actions_but_not_window_ones() {
+        with_bindings(|| {
+            let delete_line = keybindings::chord(Action::DeleteLine);
+            let exit = keybindings::chord(Action::Exit);
+
+            assert_eq!(resolve(delete_line, false, true), Some(Action::DeleteLine));
+            assert_eq!(resolve(delete_line, true, true), None, "a field must shadow it");
+
+            assert_eq!(resolve(exit, false, true), Some(Action::Exit));
+            assert_eq!(
+                resolve(exit, true, true),
+                Some(Action::Exit),
+                "exit is not the field's to eat"
+            );
+        });
+    }
+
+    #[test]
+    fn search_actions_need_search_enabled() {
+        with_bindings(|| {
+            let find = keybindings::chord(Action::Find);
+            assert_eq!(resolve(find, false, true), Some(Action::Find));
+            assert_eq!(resolve(find, false, false), None);
+        });
+    }
+
+    #[test]
+    fn an_unbound_action_is_not_matched_by_a_null_keystroke() {
+        with_bindings(|| {
+            // An unbound entry parses to vk::NULL. Without the guard every unbound
+            // action would answer to the same non-keystroke.
+            assert_eq!(resolve(vk::NULL, false, true), None);
+        });
+    }
+
+    #[test]
+    fn an_unmapped_chord_resolves_to_nothing() {
+        with_bindings(|| {
+            assert_eq!(resolve(kbmod::CTRL | kbmod::ALT | vk::F7, false, true), None);
+        });
     }
 }

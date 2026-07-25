@@ -20,6 +20,9 @@ pub const DEFAULT_TOML: &str = include_str!("keybindings.linux.toml");
 
 /// Configurable user actions. Each has at most one chord in the config.
 #[derive(Clone, Copy, PartialEq, Eq)]
+// Only so a failing dispatch assertion can name the action. Deriving it
+// unconditionally would put the variant names in the release binary.
+#[cfg_attr(test, derive(Debug))]
 #[repr(usize)]
 pub enum Action {
     Exit,
@@ -58,7 +61,7 @@ pub enum Action {
 
 const ACTION_COUNT: usize = 32;
 
-const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
+pub const ACTION_KEYS: [(Action, &str); ACTION_COUNT] = [
     (Action::Exit, "exit"),
     (Action::Save, "save"),
     (Action::Undo, "undo"),
