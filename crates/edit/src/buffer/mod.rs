@@ -1433,15 +1433,34 @@ impl TextBuffer {
             return cursor;
         }
 
-        let next = self
-            .measurement_config()
-            .with_cursor(cursor)
+        // BOTH measurements start from the line start -- including `next`,
+        // which must not resume from `here`.
+        //
+        // A resumed measurement does not reproduce the layout mid-row. `Cursor`
+        // carries `wrap_opp` as a bare bool, without the position of the
+        // opportunity it refers to, so `measure_forward` seeds its shadow copy
+        // with wherever the resume happened: the resumed state believes a word
+        // may be broken right there. Inside a word long enough to force a hard
+        // wrap the two paths then disagree --
+        //
+        //   from the line start: logical 19 -> (1, 1), logical 20 -> (2, 1)
+        //   resumed from 19:     logical 20 -> (1, 2)
+        //
+        // -- and the second answer collapsed a perfectly good mid-row position
+        // onto the row below it, painting the caret a row low. The renderer
+        // walks from the line start, so that is the answer that matches what
+        // the user sees.
+        let from_start = self.goto_line_start(cursor, cursor.logical_pos.y);
+        let cfg = self.measurement_config();
+        let here = cfg.clone().with_cursor(from_start).goto_logical(cursor.logical_pos);
+        let next = cfg
+            .with_cursor(from_start)
             .goto_logical(Point { x: cursor.logical_pos.x + 1, y: cursor.logical_pos.y });
 
         // A grapheme that starts a new row means the cursor sits on the break.
         // The logical-line check keeps the end of a wrapped line out of it --
         // there the next grapheme is on the following line, not the next row.
-        if next.logical_pos.y == cursor.logical_pos.y && next.visual_pos.y > cursor.visual_pos.y {
+        if next.logical_pos.y == cursor.logical_pos.y && next.visual_pos.y > here.visual_pos.y {
             cursor.visual_pos = Point { x: 0, y: cursor.visual_pos.y + 1 };
         }
 
@@ -2998,6 +3017,27 @@ mod tests {
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
         tb.cursor_move_to_visual(Point { x: 0, y: 1 });
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
+    }
+
+    #[test]
+    fn the_caret_stays_mid_row_inside_a_hard_wrapping_word() {
+        // Regression: a word too long for a row hard-wraps, but the row before
+        // it ends early at the space that let the word move down whole. Deciding
+        // "is this position a row break?" by resuming a measurement from the
+        // cursor answers yes for a position one grapheme into that word, and
+        // the caret got collapsed onto the row below the character it precedes.
+        let mut tb = TextBuffer::new(true).unwrap();
+        let body = format!("{}{}{}", "hi hi hi hi hi hi ", "z".repeat(45), " tail".repeat(4));
+        tb.write_raw(body.as_bytes());
+        tb.set_word_wrap(true);
+        tb.set_width(34);
+
+        // The word starts at 18 and the row that holds it starts there too, so
+        // 19 is its second character: one column into a row, not a break.
+        tb.cursor_move_to_logical(Point { x: 19, y: 0 });
+        let cursor = tb.cursor_visual_pos();
+        assert_eq!(cursor, Point { x: 1, y: 1 }, "the word should start the row it wrapped onto");
+        assert_eq!(tb.caret_visual_pos(), cursor, "a mid-row position must not be collapsed");
     }
 
     #[test]
