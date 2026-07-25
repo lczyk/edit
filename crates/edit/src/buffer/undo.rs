@@ -151,8 +151,7 @@ impl TextBuffer {
         self.buffer.extract_raw(off..to.offset, deleted, out_off);
 
         // Delete the portion from the buffer by enlarging the gap.
-        let count = to.offset - off;
-        self.buffer.allocate_gap(off, 0, count);
+        self.buffer.apply(Edit::Delete { range: off..to.offset });
 
         self.stats.logical_lines += logical_y_before - to.logical_pos.y;
     }
@@ -347,7 +346,9 @@ impl TextBuffer {
                 mem::swap(&mut change.deleted, &mut change.added);
 
                 // Delete the inserted portion.
-                self.buffer.allocate_gap(cursor.offset, 0, change.deleted.len());
+                self.buffer.apply(Edit::Delete {
+                    range: cursor.offset..cursor.offset + change.deleted.len(),
+                });
 
                 // Reinsert the deleted portion.
                 {
@@ -367,26 +368,16 @@ impl TextBuffer {
                         // lines.
                         let (end, _) = simd::lines_fwd(added, beg, 0, 1);
                         let link = &added[beg..end];
-                        let written;
 
-                        {
-                            let gap = self.buffer.allocate_gap(offset, link.len(), 0);
-                            written = slice_copy_safe(gap, link);
-
-                            // A gap shorter than requested (OOM) makes
-                            // `slice_copy_safe` drop the tail, so the undo
-                            // silently restores less text than it recorded.
-                            crate::sanity_check!(
-                                undo_reinsert_not_truncated,
-                                written == link.len(),
-                                "wrote {} of {} bytes (gap={})",
-                                written,
-                                link.len(),
-                                gap.len()
-                            );
-
-                            self.buffer.commit_gap(written);
-                        }
+                        // A short allocation (OOM) drops the tail, so the undo
+                        // would silently restore less text than it recorded.
+                        let written = self.buffer.apply(Edit::Insert { at: offset, text: link });
+                        crate::sanity_check!(
+                            undo_reinsert_not_truncated,
+                            written == link.len(),
+                            "wrote {written} of {} bytes",
+                            link.len()
+                        );
 
                         beg = end;
                         offset += written;

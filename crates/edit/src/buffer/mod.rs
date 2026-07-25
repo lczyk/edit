@@ -36,11 +36,11 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::str;
 
-pub use gap_buffer::GapBuffer;
+pub use gap_buffer::{Edit, GapBuffer};
 use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::{BString, BVec};
 use stdext::unicode::Utf8Chars;
-use stdext::{ReplaceRange as _, arena_write_fmt, minmax, slice_copy_safe};
+use stdext::{ReplaceRange as _, arena_write_fmt, minmax};
 
 use crate::cell::SemiRefCell;
 use crate::clipboard::Clipboard;

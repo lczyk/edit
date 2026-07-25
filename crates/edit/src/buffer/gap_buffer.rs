@@ -60,6 +60,24 @@ pub struct GapBuffer {
     buffer: BackingBuffer,
 }
 
+/// A complete edit to a [`GapBuffer`], with the intent stated rather than
+/// encoded in the range.
+///
+/// "Replace to the end" used to be spelled `off..usize::MAX` and "append"
+/// `usize::MAX..usize::MAX`, which meant an out-of-range range could be either
+/// a deliberate idiom or a caller's mistake, and so could not be checked.
+#[derive(Debug)]
+pub enum Edit<'a> {
+    /// Insert at `at`, shifting the rest along.
+    Insert { at: usize, text: &'a [u8] },
+    /// Remove `range`.
+    Delete { range: Range<usize> },
+    /// Replace `range` with `text`.
+    Replace { range: Range<usize>, text: &'a [u8] },
+    /// Replace everything from `from` onwards with `text`.
+    ReplaceToEnd { from: usize, text: &'a [u8] },
+}
+
 impl GapBuffer {
     pub fn new(small: bool) -> io::Result<Self> {
         let reserve;
@@ -101,15 +119,18 @@ impl GapBuffer {
         self.generation = generation;
     }
 
+    /// Makes room at `off` for `len` bytes, removing `delete` of the existing
+    /// ones, and hands back the space to write into.
+    ///
+    /// The raw door, for the two callers that fill the space incrementally: a
+    /// streaming file read and undo's reinsert loop. Everything else should
+    /// state its intent with [`Edit`] and go through [`GapBuffer::apply`].
+    ///
     /// WARNING: The returned slice must not necessarily be the same length as `len` (due to OOM).
-    pub fn allocate_gap(&mut self, off: usize, len: usize, delete: usize) -> &mut [u8] {
-        // NOTE: the clamps below are load-bearing API, not defensive slack.
-        // `copy_from` says "replace to the end" as `off..usize::MAX` and
-        // `copy_into` says "append" as `usize::MAX..usize::MAX`, both of which
-        // arrive here as an out-of-range request on purpose. That rules out a
-        // bounds check: an accidental over-large `off` or `delete` is
-        // indistinguishable from the sentinel until the API spells the two
-        // intents out separately.
+    pub fn reserve_gap(&mut self, off: usize, len: usize, delete: usize) -> &mut [u8] {
+        // Out-of-range arguments are clamped rather than refused. Callers going
+        // through `apply` have already been checked; `replace` is permissive by
+        // contract, matching `WriteableDocument::replace`.
         //
         // Sanitize parameters
         let off = off.min(self.text_length);
@@ -239,10 +260,51 @@ impl GapBuffer {
         self.gap_len -= len;
     }
 
-    pub fn replace(&mut self, range: Range<usize>, src: &[u8]) {
-        let gap = self.allocate_gap(range.start, src.len(), range.end.saturating_sub(range.start));
+    /// Replaces `range` with `src`, clamping an out-of-range range.
+    ///
+    /// Permissive on purpose, mirroring [`crate::document::WriteableDocument`],
+    /// whose contract says a range may be out of bounds and must be clamped.
+    /// Prefer [`GapBuffer::apply`] inside the buffer, where the intent can be
+    /// stated and therefore checked.
+    pub fn replace(&mut self, range: Range<usize>, src: &[u8]) -> usize {
+        let gap = self.reserve_gap(range.start, src.len(), range.end.saturating_sub(range.start));
         let len = slice_copy_safe(gap, src);
         self.commit_gap(len);
+        len
+    }
+
+    /// Applies a stated edit, returning how many bytes of its text were written.
+    ///
+    /// Fewer than the text's length means the allocation came up short, which
+    /// only happens under OOM.
+    pub fn apply(&mut self, edit: Edit<'_>) -> usize {
+        let (off, delete, text) = match edit {
+            Edit::Insert { at, text } => (at, 0, text),
+            Edit::Delete { ref range } => {
+                (range.start, range.end.saturating_sub(range.start), &[][..])
+            }
+            Edit::Replace { ref range, text } => {
+                (range.start, range.end.saturating_sub(range.start), text)
+            }
+            Edit::ReplaceToEnd { from, text } => {
+                (from, self.text_length.saturating_sub(from), text)
+            }
+        };
+
+        // Checkable at last. While "replace to the end" and "append" were spelled
+        // as an out-of-range range, a caller's arithmetic slip was
+        // indistinguishable from the idiom, so this could not be asserted.
+        crate::sanity_check!(
+            gap_edit_in_bounds,
+            off <= self.text_length && off.saturating_add(delete) <= self.text_length,
+            "{edit:?} against a buffer of {} bytes",
+            self.text_length
+        );
+
+        let gap = self.reserve_gap(off, text.len(), delete);
+        let written = slice_copy_safe(gap, text);
+        self.commit_gap(written);
+        written
     }
 
     pub fn clear(&mut self) {
@@ -304,7 +366,7 @@ impl GapBuffer {
         // Update the buffer starting at `off`.
         loop {
             let chunk = src.read_forward(off);
-            self.replace(off..usize::MAX, chunk);
+            self.apply(Edit::ReplaceToEnd { from: off, text: chunk });
             off += chunk.len();
 
             // No more data to copy -> Done. By checking this _after_ the replace()
@@ -467,6 +529,56 @@ mod tests {
         b.replace(0..0, b"abcdef");
         b.replace(2..4, b"WXYZ");
         assert_eq!(collect(&b), b"abWXYZef");
+    }
+
+    #[test]
+    fn apply_states_the_intent_that_a_range_used_to_encode() {
+        let mut b = GapBuffer::new(true).unwrap();
+        b.apply(Edit::Insert { at: 0, text: b"abcdef" });
+        assert_eq!(collect(&b), b"abcdef");
+
+        b.apply(Edit::Delete { range: 1..3 });
+        assert_eq!(collect(&b), b"adef");
+
+        b.apply(Edit::Replace { range: 1..2, text: b"XY" });
+        assert_eq!(collect(&b), b"aXYef");
+
+        // What `off..usize::MAX` used to mean.
+        b.apply(Edit::ReplaceToEnd { from: 2, text: b"Z" });
+        assert_eq!(collect(&b), b"aXZ");
+
+        // And what an empty text at the end means: a truncation.
+        b.apply(Edit::ReplaceToEnd { from: 1, text: b"" });
+        assert_eq!(collect(&b), b"a");
+    }
+
+    #[test]
+    fn apply_reports_how_much_it_wrote() {
+        let mut b = GapBuffer::new(true).unwrap();
+        assert_eq!(b.apply(Edit::Insert { at: 0, text: b"hello" }), 5);
+        assert_eq!(b.apply(Edit::Delete { range: 0..2 }), 0);
+    }
+
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn apply_notices_an_out_of_range_edit() {
+        use stdext::sanity::capture;
+
+        let mut b = GapBuffer::new(true).unwrap();
+        b.apply(Edit::Insert { at: 0, text: b"abc" });
+
+        // The whole point of the enum: this is now distinguishable from the
+        // deliberate "to the end" idiom, which used to look identical.
+        let ((), msgs) = capture::trips(|| {
+            b.apply(Edit::Delete { range: 2..99 });
+        });
+        assert!(capture::fired(&msgs, "gap_edit_in_bounds"), "{msgs:?}");
+
+        // ...while the idiom itself stays quiet.
+        let ((), msgs) = capture::trips(|| {
+            b.apply(Edit::ReplaceToEnd { from: 1, text: b"Z" });
+        });
+        assert!(msgs.is_empty(), "{msgs:?}");
     }
 
     #[test]

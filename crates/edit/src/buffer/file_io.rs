@@ -13,7 +13,8 @@ impl TextBuffer {
 
             let delete = self.buffer.len() - self.cursor.offset;
             if delete != 0 {
-                self.buffer.allocate_gap(self.cursor.offset, 0, delete);
+                self.buffer
+                    .apply(Edit::Delete { range: self.cursor.offset..self.cursor.offset + delete });
             }
         }
     }
@@ -170,7 +171,7 @@ impl TextBuffer {
         }
 
         loop {
-            let gap = self.buffer.allocate_gap(self.text_length(), chunk_size, 0);
+            let gap = self.buffer.reserve_gap(self.text_length(), chunk_size, 0);
             if gap.is_empty() {
                 break;
             }
