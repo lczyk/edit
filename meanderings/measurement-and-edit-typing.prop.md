@@ -102,3 +102,33 @@ The cheap part has been taken: `build_textarea_physics` now reads
 `caret_visual_pos()` rather than the navigation cursor, so the frame-wide IR
 that `anim_refactor.md` descoped will not reintroduce the bug when someone
 wires it up.
+
+## open: the visual-line stats drift underneath
+
+Fixing the resumption bug uncovered a third one in the same family, quieter and
+intermittent: `stats_visual_lines_drift` (stored 5, recomputed 6) fires on
+about one run in four of the long-word PTY test, when typing inside a word wide
+enough to hard-wrap. The buffer's cached visual line count ends up a row short.
+
+It is not a regression from the guards. Without them the cursor bug fires first
+and the test aborts before reaching this state, so the earlier trips were
+masking it -- measured both ways: 10 cursor trips and no stats trips without
+the guards, no cursor trips and intermittent stats trips with them.
+
+One hypothesis tested and rejected. `edit_begin` computes
+`line_height_in_rows` as `next_line.visual_pos.y - safe_start.visual_pos.y`
+where `next_line` is measured from the mid-row `cursor` and the subtrahend
+comes from `safe_start` -- two bases. Making both start at `safe_start` did not
+fix it and made the trip slightly more frequent, so the mismatch is not the
+cause even though it still reads wrong.
+
+Where to look next: `edit_end` has two arms for updating `visual_lines`, an
+incremental delta when `deleted_count < info.distance_next_line_start` and a
+full remeasure otherwise. Instrumenting both against a from-scratch walk, per
+keystroke, would say which one drifts and on which input. The intermittency
+tracks input batching -- the test sends keys with `settle=0` -- so the state
+that triggers it depends on how many graphemes arrive in one frame.
+
+CI's strict-sanity PTY run is marked `continue-on-error` until this is fixed:
+it still reports, so a second unrelated trip would be visible, but it does not
+gate on a known-flaky check.
