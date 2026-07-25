@@ -61,21 +61,18 @@ slightly-wrong output. Make them say so.
   coverage check at the end of `marks_from_ops`, which already catches the same
   condition once instead of once per line.
 
-## deferred: typed gap-buffer edits
+## done: typed gap-buffer edits
 
-**The idea.** Replace `allocate_gap(off, len, delete)` and its sentinel ranges
-with an enum -- `Insert { at, text }`, `Delete { range }`, `ReplaceToEnd
-{ from }`, `Append` -- so both intents are explicit, a bounds check becomes
-possible, and an undo entry becomes a natural mirror of the edit.
+`allocate_gap(off, len, delete)` with `off..usize::MAX` for "replace to the
+end" and `usize::MAX..usize::MAX` for "append" is now an `Edit` enum plus
+`apply`, which can and does check the range. `replace` stays as the permissive
+door, matching `WriteableDocument::replace`'s clamping contract, and
+`reserve_gap` keeps the two callers that fill space incrementally.
 
-**Why it is bigger than it looks.** `undo.rs`'s reinsert loop drives
-`allocate_gap` directly for the `&mut [u8]` gap it returns, writes into it by
-hand, and commits a partial length. It also carries the OOM-truncation check.
-Either the enum coexists with raw gap access -- in which case the sentinel path
-survives beside it and nothing is really typed -- or that loop is restructured
-at the same time. That loop was the site of a line-ending corruption bug fixed
-this session, so it deserves its own change with its own tests rather than
-riding along.
+Deferred here on the grounds that undo's reinsert loop would have to be
+restructured at the same time. That turned out not to be true: fixing the
+line-ending bug had already reduced that loop to a plain insert, so it took
+the typed API unchanged and got a better OOM check out of it.
 
 ## deferred: deriving the caret from the layout
 
