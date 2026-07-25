@@ -3,6 +3,7 @@
 A simple editor for simple needs -- forked, then bent to fit one pair of hands.
 
 This is a divergent fork of [microsoft/edit](https://github.com/microsoft/edit).
+
 It shares the ancestry and the MIT licence (see [LICENSE](LICENSE)) but is no
 longer the same program: Windows support, localization, packaging, benchmarks
 and the multi-document surface are gone, while syntax highlighting, a diff
