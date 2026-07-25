@@ -502,6 +502,19 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     let kind = unsafe { kind.try_into().unwrap_unchecked() };
                     let start = (self.registers.hs as usize).min(line.len());
 
+                    // `hs` only ever moves forward, so spans come out ordered
+                    // and consumers can treat them as tiling the line. A
+                    // backwards start means the definition or a compiler pass
+                    // rewound it, and the only symptom downstream is text
+                    // painted in the wrong colour.
+                    stdext::sanity_check!(
+                        runtime_highlight_starts_monotonic,
+                        res.last().is_none_or(|last| start >= last.start),
+                        "start={start} follows {} (line len {})",
+                        res.last().map_or(0, |last| last.start),
+                        line.len()
+                    );
+
                     if let Some(last) = res.last_mut()
                         && (last.start == start || last.kind == kind)
                     {
