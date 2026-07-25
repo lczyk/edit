@@ -143,6 +143,7 @@
 use std::collections::HashMap;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::{io, iter, mem, ptr, time};
 
 use stdext::arena::{Arena, scratch_arena};
@@ -197,10 +198,63 @@ const ROOT_ID: u64 = 0x14057B7EF767814F; // Knuth's MMIX constant
 const SHIFT_TAB: InputKey = vk::TAB.with_modifiers(kbmod::SHIFT);
 const KBMOD_FOR_WORD_NAV: InputKeyMod =
     if cfg!(any(target_os = "macos", target_os = "ios")) { kbmod::ALT } else { kbmod::CTRL };
-// Primary application modifier: Cmd on macOS, Ctrl elsewhere. Used for
-// the standard Cut/Copy/Paste/Undo/Redo/SelectAll chords in the textarea.
+// Primary application modifier: Cmd on macOS, Ctrl elsewhere. The default
+// for the standard Cut/Copy/Paste/Undo/Redo/SelectAll chords in the textarea.
 const KBMOD_PRIMARY: InputKeyMod =
     if cfg!(any(target_os = "macos", target_os = "ios")) { kbmod::CMD } else { kbmod::CTRL };
+
+/// The chords a textarea handles itself: editing operations that belong to the
+/// widget rather than to any one screen, so they work the same in the document
+/// and in a modal's input field.
+///
+/// Defaults to `KBMOD_PRIMARY` plus the usual letter. A host with a keybinding
+/// config calls [`set_textarea_chords`] to replace them -- otherwise rebinding
+/// e.g. `undo` would edit the menubar's label and nothing else. `vk::NULL`
+/// leaves an action unbound, which is what an empty binding means.
+#[derive(Clone, Copy)]
+pub struct TextareaChords {
+    pub cut: InputKey,
+    pub copy: InputKey,
+    pub paste: InputKey,
+    pub undo: InputKey,
+    pub redo: InputKey,
+    pub select_all: InputKey,
+}
+
+impl Default for TextareaChords {
+    fn default() -> Self {
+        Self {
+            cut: vk::X.with_modifiers(KBMOD_PRIMARY),
+            copy: vk::C.with_modifiers(KBMOD_PRIMARY),
+            paste: vk::V.with_modifiers(KBMOD_PRIMARY),
+            undo: vk::Z.with_modifiers(KBMOD_PRIMARY),
+            redo: vk::Y.with_modifiers(KBMOD_PRIMARY),
+            select_all: vk::A.with_modifiers(KBMOD_PRIMARY),
+        }
+    }
+}
+
+/// Six slots, in the order [`TextareaChords`] declares them. Atomics rather
+/// than a lock because this is written once at startup and read per keystroke.
+static TEXTAREA_CHORDS: [AtomicU32; 6] = [const { AtomicU32::new(u32::MAX) }; 6];
+
+/// Overrides the chords a textarea handles. Call once, before the first frame.
+pub fn set_textarea_chords(chords: TextareaChords) {
+    let vals = [chords.cut, chords.copy, chords.paste, chords.undo, chords.redo, chords.select_all];
+    for (slot, key) in TEXTAREA_CHORDS.iter().zip(vals) {
+        slot.store(key.value(), Ordering::Relaxed);
+    }
+}
+
+fn textarea_chords() -> TextareaChords {
+    // u32::MAX marks "never set"; no real chord can collide with it, since the
+    // key occupies the low 24 bits and the modifiers the top 8.
+    if TEXTAREA_CHORDS[0].load(Ordering::Relaxed) == u32::MAX {
+        return TextareaChords::default();
+    }
+    let k = |i: usize| InputKey::new(TEXTAREA_CHORDS[i].load(Ordering::Relaxed));
+    TextareaChords { cut: k(0), copy: k(1), paste: k(2), undo: k(3), redo: k(4), select_all: k(5) }
+}
 
 type Input<'input> = input::Input<'input>;
 type InputKey = input::InputKey;

@@ -554,366 +554,381 @@ impl Context<'_, '_> {
 
             make_cursor_visible = true;
 
-            match key {
-                vk::BACK => {
-                    let granularity = if modifiers == KBMOD_FOR_WORD_NAV {
-                        CursorMovement::Word
-                    } else {
-                        CursorMovement::Grapheme
-                    };
-                    tb.delete(granularity, -1);
-                }
-                vk::TAB => {
-                    if single_line {
-                        // If this is just a simple input field, don't consume Tab (= early return).
-                        return false;
+            // The configured chords are matched first, on the whole
+            // key+modifier combination -- a rebound action need not live on the
+            // letter the default used, so the per-key match below could not see
+            // it. An unbound action is `vk::NULL`, which no real keystroke is.
+            let chords = textarea_chords();
+            let chord = *input;
+            let configured = chord != vk::NULL
+                && if chord == chords.undo {
+                    tb.undo();
+                    true
+                } else if chord == chords.redo {
+                    tb.redo();
+                    true
+                } else if chord == chords.cut {
+                    tb.cut(self.clipboard_mut());
+                    true
+                } else if chord == chords.copy {
+                    tb.copy(self.clipboard_mut());
+                    true
+                } else if chord == chords.paste {
+                    tb.paste(self.clipboard_ref());
+                    true
+                } else if chord == chords.select_all {
+                    tb.select_all();
+                    true
+                } else {
+                    false
+                };
+
+            if configured {
+                change_preferred_column = true;
+            } else {
+                match key {
+                    vk::BACK => {
+                        let granularity = if modifiers == KBMOD_FOR_WORD_NAV {
+                            CursorMovement::Word
+                        } else {
+                            CursorMovement::Grapheme
+                        };
+                        tb.delete(granularity, -1);
                     }
-                    tb.indent_change(if modifiers == kbmod::SHIFT { -1 } else { 1 });
-                }
-                vk::RETURN => {
-                    if single_line {
-                        // If this is just a simple input field, don't consume Enter (= early return).
-                        return false;
-                    }
-                    write = b"\n";
-                }
-                vk::ESCAPE => {
-                    // If there was a selection, clear it and show the cursor (= fallthrough).
-                    if !tb.clear_selection() {
+                    vk::TAB => {
                         if single_line {
-                            // If this is just a simple input field, don't consume the escape key
-                            // (early return) and don't show the cursor (= return false).
+                            // If this is just a simple input field, don't consume Tab (= early return).
                             return false;
                         }
-
-                        // If this is a textarea, don't show the cursor if
-                        // the escape key was pressed and nothing happened.
-                        make_cursor_visible = false;
+                        tb.indent_change(if modifiers == kbmod::SHIFT { -1 } else { 1 });
                     }
-                }
-                vk::PRIOR => {
-                    let height = node_prev.inner.height() - 1;
-
-                    // If the cursor was already on the first line,
-                    // move it to the start of the buffer.
-                    if tb.cursor_visual_pos().y == 0 {
-                        tb.set_preferred_column(0);
-                    }
-
-                    if modifiers == kbmod::SHIFT {
-                        tb.selection_update_visual(Point {
-                            x: tb.preferred_column(),
-                            y: tb.cursor_visual_pos().y - height,
-                        });
-                    } else {
-                        tb.cursor_move_to_visual(Point {
-                            x: tb.preferred_column(),
-                            y: tb.cursor_visual_pos().y - height,
-                        });
-                    }
-                }
-                vk::NEXT => {
-                    let height = node_prev.inner.height() - 1;
-
-                    // If the cursor was already on the last line,
-                    // move it to the end of the buffer.
-                    if tb.cursor_visual_pos().y >= tb.visual_line_count() - 1 {
-                        tb.set_preferred_column(CoordType::MAX);
-                    }
-
-                    if modifiers == kbmod::SHIFT {
-                        tb.selection_update_visual(Point {
-                            x: tb.preferred_column(),
-                            y: tb.cursor_visual_pos().y + height,
-                        });
-                    } else {
-                        tb.cursor_move_to_visual(Point {
-                            x: tb.preferred_column(),
-                            y: tb.cursor_visual_pos().y + height,
-                        });
-                    }
-
-                    if tb.preferred_column() == CoordType::MAX {
-                        tb.set_preferred_column(tb.cursor_visual_pos().x);
-                    }
-                }
-                vk::END => {
-                    let logical_before = tb.cursor_logical_pos();
-                    let destination = if modifiers.contains(kbmod::CTRL) {
-                        Point::MAX
-                    } else {
-                        Point { x: CoordType::MAX, y: tb.cursor_visual_pos().y }
-                    };
-
-                    if modifiers.contains(kbmod::SHIFT) {
-                        tb.selection_update_visual(destination);
-                    } else {
-                        tb.cursor_move_to_visual(destination);
-                    }
-
-                    if !modifiers.contains(kbmod::CTRL) {
-                        let logical_after = tb.cursor_logical_pos();
-
-                        // If word-wrap is enabled and the user presses End the first time,
-                        // it moves to the start of the visual line. The second time they
-                        // press it, it moves to the start of the logical line.
-                        if tb.is_word_wrap_enabled() && logical_after == logical_before {
-                            if modifiers == kbmod::SHIFT {
-                                tb.selection_update_logical(Point {
-                                    x: CoordType::MAX,
-                                    y: tb.cursor_logical_pos().y,
-                                });
-                            } else {
-                                tb.cursor_move_to_logical(Point {
-                                    x: CoordType::MAX,
-                                    y: tb.cursor_logical_pos().y,
-                                });
-                            }
+                    vk::RETURN => {
+                        if single_line {
+                            // If this is just a simple input field, don't consume Enter (= early return).
+                            return false;
                         }
+                        write = b"\n";
                     }
-                }
-                vk::HOME => {
-                    let logical_before = tb.cursor_logical_pos();
-                    let destination = if modifiers.contains(kbmod::CTRL) {
-                        Default::default()
-                    } else {
-                        Point { x: 0, y: tb.cursor_visual_pos().y }
-                    };
-
-                    if modifiers.contains(kbmod::SHIFT) {
-                        tb.selection_update_visual(destination);
-                    } else {
-                        tb.cursor_move_to_visual(destination);
-                    }
-
-                    if !modifiers.contains(kbmod::CTRL) {
-                        let mut logical_after = tb.cursor_logical_pos();
-
-                        // If word-wrap is enabled and the user presses Home the first time,
-                        // it moves to the start of the visual line. The second time they
-                        // press it, it moves to the start of the logical line.
-                        if tb.is_word_wrap_enabled() && logical_after == logical_before {
-                            if modifiers == kbmod::SHIFT {
-                                tb.selection_update_logical(Point {
-                                    x: 0,
-                                    y: tb.cursor_logical_pos().y,
-                                });
-                            } else {
-                                tb.cursor_move_to_logical(Point {
-                                    x: 0,
-                                    y: tb.cursor_logical_pos().y,
-                                });
-                            }
-                            logical_after = tb.cursor_logical_pos();
-                        }
-
-                        // If the line has some indentation and the user pressed Home,
-                        // the first time it'll stop at the indentation. The second time
-                        // they press it, it'll move to the true start of the line.
-                        //
-                        // If the cursor is already at the start of the line,
-                        // we move it back to the end of the indentation.
-                        if logical_after.x == 0
-                            && let indent_end = tb.indent_end_logical_pos()
-                            && (logical_before > indent_end || logical_before.x == 0)
-                        {
-                            if modifiers == kbmod::SHIFT {
-                                tb.selection_update_logical(indent_end);
-                            } else {
-                                tb.cursor_move_to_logical(indent_end);
-                            }
-                        }
-                    }
-                }
-                vk::LEFT => {
-                    let granularity = if modifiers.contains(KBMOD_FOR_WORD_NAV) {
-                        CursorMovement::Word
-                    } else {
-                        CursorMovement::Grapheme
-                    };
-                    if modifiers.contains(kbmod::SHIFT) {
-                        tb.selection_update_delta(granularity, -1);
-                    } else if let Some((beg, _)) = tb.selection_range() {
-                        unsafe { tb.set_cursor(beg) };
-                    } else {
-                        tb.cursor_move_delta(granularity, -1);
-                    }
-                }
-                vk::UP => {
-                    if single_line {
-                        return false;
-                    }
-                    match modifiers {
-                        kbmod::NONE => {
-                            let mut x = tb.preferred_column();
-                            let mut y = tb.cursor_visual_pos().y - 1;
-
-                            // If there's a selection we put the cursor above it.
-                            if let Some((beg, _)) = tb.selection_range() {
-                                x = beg.visual_pos.x;
-                                y = beg.visual_pos.y - 1;
-                                tb.set_preferred_column(x);
+                    vk::ESCAPE => {
+                        // If there was a selection, clear it and show the cursor (= fallthrough).
+                        if !tb.clear_selection() {
+                            if single_line {
+                                // If this is just a simple input field, don't consume the escape key
+                                // (early return) and don't show the cursor (= return false).
+                                return false;
                             }
 
-                            // If the cursor was already on the first line,
-                            // move it to the start of the buffer.
-                            if y < 0 {
-                                x = 0;
-                                tb.set_preferred_column(0);
-                            }
-
-                            tb.cursor_move_to_visual(Point { x, y });
-                        }
-                        kbmod::CTRL => {
-                            tc.scroll_offset.y -= 1;
+                            // If this is a textarea, don't show the cursor if
+                            // the escape key was pressed and nothing happened.
                             make_cursor_visible = false;
                         }
-                        kbmod::SHIFT => {
-                            // If the cursor was already on the first line,
-                            // move it to the start of the buffer.
-                            if tb.cursor_visual_pos().y == 0 {
-                                tb.set_preferred_column(0);
-                            }
+                    }
+                    vk::PRIOR => {
+                        let height = node_prev.inner.height() - 1;
 
+                        // If the cursor was already on the first line,
+                        // move it to the start of the buffer.
+                        if tb.cursor_visual_pos().y == 0 {
+                            tb.set_preferred_column(0);
+                        }
+
+                        if modifiers == kbmod::SHIFT {
                             tb.selection_update_visual(Point {
                                 x: tb.preferred_column(),
-                                y: tb.cursor_visual_pos().y - 1,
+                                y: tb.cursor_visual_pos().y - height,
+                            });
+                        } else {
+                            tb.cursor_move_to_visual(Point {
+                                x: tb.preferred_column(),
+                                y: tb.cursor_visual_pos().y - height,
                             });
                         }
-                        _ => return false,
                     }
-                }
-                vk::RIGHT => {
-                    let granularity = if modifiers.contains(KBMOD_FOR_WORD_NAV) {
-                        CursorMovement::Word
-                    } else {
-                        CursorMovement::Grapheme
-                    };
-                    if modifiers.contains(kbmod::SHIFT) {
-                        tb.selection_update_delta(granularity, 1);
-                    } else if let Some((_, end)) = tb.selection_range() {
-                        unsafe { tb.set_cursor(end) };
-                    } else {
-                        tb.cursor_move_delta(granularity, 1);
-                    }
-                }
-                vk::DOWN => {
-                    if single_line {
-                        return false;
-                    }
-                    match modifiers {
-                        kbmod::NONE => {
-                            let mut x = tb.preferred_column();
-                            let mut y = tb.cursor_visual_pos().y + 1;
+                    vk::NEXT => {
+                        let height = node_prev.inner.height() - 1;
 
-                            // If there's a selection we put the cursor below it.
-                            if let Some((_, end)) = tb.selection_range() {
-                                x = end.visual_pos.x;
-                                y = end.visual_pos.y + 1;
-                                tb.set_preferred_column(x);
-                            }
-
-                            // If the cursor was already on the last line,
-                            // move it to the end of the buffer.
-                            if y >= tb.visual_line_count() {
-                                x = CoordType::MAX;
-                            }
-
-                            tb.cursor_move_to_visual(Point { x, y });
-
-                            // If we fell into the `if y >= tb.get_visual_line_count()` above, we wanted to
-                            // update the `preferred_column` but didn't know yet what it was. Now we know!
-                            if x == CoordType::MAX {
-                                tb.set_preferred_column(tb.cursor_visual_pos().x);
-                            }
+                        // If the cursor was already on the last line,
+                        // move it to the end of the buffer.
+                        if tb.cursor_visual_pos().y >= tb.visual_line_count() - 1 {
+                            tb.set_preferred_column(CoordType::MAX);
                         }
-                        kbmod::CTRL => {
-                            tc.scroll_offset.y += 1;
-                            make_cursor_visible = false;
-                        }
-                        kbmod::SHIFT => {
-                            // If the cursor was already on the last line,
-                            // move it to the end of the buffer.
-                            if tb.cursor_visual_pos().y >= tb.visual_line_count() - 1 {
-                                tb.set_preferred_column(CoordType::MAX);
-                            }
 
+                        if modifiers == kbmod::SHIFT {
                             tb.selection_update_visual(Point {
                                 x: tb.preferred_column(),
-                                y: tb.cursor_visual_pos().y + 1,
+                                y: tb.cursor_visual_pos().y + height,
                             });
+                        } else {
+                            tb.cursor_move_to_visual(Point {
+                                x: tb.preferred_column(),
+                                y: tb.cursor_visual_pos().y + height,
+                            });
+                        }
 
-                            if tb.preferred_column() == CoordType::MAX {
-                                tb.set_preferred_column(tb.cursor_visual_pos().x);
+                        if tb.preferred_column() == CoordType::MAX {
+                            tb.set_preferred_column(tb.cursor_visual_pos().x);
+                        }
+                    }
+                    vk::END => {
+                        let logical_before = tb.cursor_logical_pos();
+                        let destination = if modifiers.contains(kbmod::CTRL) {
+                            Point::MAX
+                        } else {
+                            Point { x: CoordType::MAX, y: tb.cursor_visual_pos().y }
+                        };
+
+                        if modifiers.contains(kbmod::SHIFT) {
+                            tb.selection_update_visual(destination);
+                        } else {
+                            tb.cursor_move_to_visual(destination);
+                        }
+
+                        if !modifiers.contains(kbmod::CTRL) {
+                            let logical_after = tb.cursor_logical_pos();
+
+                            // If word-wrap is enabled and the user presses End the first time,
+                            // it moves to the start of the visual line. The second time they
+                            // press it, it moves to the start of the logical line.
+                            if tb.is_word_wrap_enabled() && logical_after == logical_before {
+                                if modifiers == kbmod::SHIFT {
+                                    tb.selection_update_logical(Point {
+                                        x: CoordType::MAX,
+                                        y: tb.cursor_logical_pos().y,
+                                    });
+                                } else {
+                                    tb.cursor_move_to_logical(Point {
+                                        x: CoordType::MAX,
+                                        y: tb.cursor_logical_pos().y,
+                                    });
+                                }
                             }
                         }
+                    }
+                    vk::HOME => {
+                        let logical_before = tb.cursor_logical_pos();
+                        let destination = if modifiers.contains(kbmod::CTRL) {
+                            Default::default()
+                        } else {
+                            Point { x: 0, y: tb.cursor_visual_pos().y }
+                        };
+
+                        if modifiers.contains(kbmod::SHIFT) {
+                            tb.selection_update_visual(destination);
+                        } else {
+                            tb.cursor_move_to_visual(destination);
+                        }
+
+                        if !modifiers.contains(kbmod::CTRL) {
+                            let mut logical_after = tb.cursor_logical_pos();
+
+                            // If word-wrap is enabled and the user presses Home the first time,
+                            // it moves to the start of the visual line. The second time they
+                            // press it, it moves to the start of the logical line.
+                            if tb.is_word_wrap_enabled() && logical_after == logical_before {
+                                if modifiers == kbmod::SHIFT {
+                                    tb.selection_update_logical(Point {
+                                        x: 0,
+                                        y: tb.cursor_logical_pos().y,
+                                    });
+                                } else {
+                                    tb.cursor_move_to_logical(Point {
+                                        x: 0,
+                                        y: tb.cursor_logical_pos().y,
+                                    });
+                                }
+                                logical_after = tb.cursor_logical_pos();
+                            }
+
+                            // If the line has some indentation and the user pressed Home,
+                            // the first time it'll stop at the indentation. The second time
+                            // they press it, it'll move to the true start of the line.
+                            //
+                            // If the cursor is already at the start of the line,
+                            // we move it back to the end of the indentation.
+                            if logical_after.x == 0
+                                && let indent_end = tb.indent_end_logical_pos()
+                                && (logical_before > indent_end || logical_before.x == 0)
+                            {
+                                if modifiers == kbmod::SHIFT {
+                                    tb.selection_update_logical(indent_end);
+                                } else {
+                                    tb.cursor_move_to_logical(indent_end);
+                                }
+                            }
+                        }
+                    }
+                    vk::LEFT => {
+                        let granularity = if modifiers.contains(KBMOD_FOR_WORD_NAV) {
+                            CursorMovement::Word
+                        } else {
+                            CursorMovement::Grapheme
+                        };
+                        if modifiers.contains(kbmod::SHIFT) {
+                            tb.selection_update_delta(granularity, -1);
+                        } else if let Some((beg, _)) = tb.selection_range() {
+                            unsafe { tb.set_cursor(beg) };
+                        } else {
+                            tb.cursor_move_delta(granularity, -1);
+                        }
+                    }
+                    vk::UP => {
+                        if single_line {
+                            return false;
+                        }
+                        match modifiers {
+                            kbmod::NONE => {
+                                let mut x = tb.preferred_column();
+                                let mut y = tb.cursor_visual_pos().y - 1;
+
+                                // If there's a selection we put the cursor above it.
+                                if let Some((beg, _)) = tb.selection_range() {
+                                    x = beg.visual_pos.x;
+                                    y = beg.visual_pos.y - 1;
+                                    tb.set_preferred_column(x);
+                                }
+
+                                // If the cursor was already on the first line,
+                                // move it to the start of the buffer.
+                                if y < 0 {
+                                    x = 0;
+                                    tb.set_preferred_column(0);
+                                }
+
+                                tb.cursor_move_to_visual(Point { x, y });
+                            }
+                            kbmod::CTRL => {
+                                tc.scroll_offset.y -= 1;
+                                make_cursor_visible = false;
+                            }
+                            kbmod::SHIFT => {
+                                // If the cursor was already on the first line,
+                                // move it to the start of the buffer.
+                                if tb.cursor_visual_pos().y == 0 {
+                                    tb.set_preferred_column(0);
+                                }
+
+                                tb.selection_update_visual(Point {
+                                    x: tb.preferred_column(),
+                                    y: tb.cursor_visual_pos().y - 1,
+                                });
+                            }
+                            _ => return false,
+                        }
+                    }
+                    vk::RIGHT => {
+                        let granularity = if modifiers.contains(KBMOD_FOR_WORD_NAV) {
+                            CursorMovement::Word
+                        } else {
+                            CursorMovement::Grapheme
+                        };
+                        if modifiers.contains(kbmod::SHIFT) {
+                            tb.selection_update_delta(granularity, 1);
+                        } else if let Some((_, end)) = tb.selection_range() {
+                            unsafe { tb.set_cursor(end) };
+                        } else {
+                            tb.cursor_move_delta(granularity, 1);
+                        }
+                    }
+                    vk::DOWN => {
+                        if single_line {
+                            return false;
+                        }
+                        match modifiers {
+                            kbmod::NONE => {
+                                let mut x = tb.preferred_column();
+                                let mut y = tb.cursor_visual_pos().y + 1;
+
+                                // If there's a selection we put the cursor below it.
+                                if let Some((_, end)) = tb.selection_range() {
+                                    x = end.visual_pos.x;
+                                    y = end.visual_pos.y + 1;
+                                    tb.set_preferred_column(x);
+                                }
+
+                                // If the cursor was already on the last line,
+                                // move it to the end of the buffer.
+                                if y >= tb.visual_line_count() {
+                                    x = CoordType::MAX;
+                                }
+
+                                tb.cursor_move_to_visual(Point { x, y });
+
+                                // If we fell into the `if y >= tb.get_visual_line_count()` above, we wanted to
+                                // update the `preferred_column` but didn't know yet what it was. Now we know!
+                                if x == CoordType::MAX {
+                                    tb.set_preferred_column(tb.cursor_visual_pos().x);
+                                }
+                            }
+                            kbmod::CTRL => {
+                                tc.scroll_offset.y += 1;
+                                make_cursor_visible = false;
+                            }
+                            kbmod::SHIFT => {
+                                // If the cursor was already on the last line,
+                                // move it to the end of the buffer.
+                                if tb.cursor_visual_pos().y >= tb.visual_line_count() - 1 {
+                                    tb.set_preferred_column(CoordType::MAX);
+                                }
+
+                                tb.selection_update_visual(Point {
+                                    x: tb.preferred_column(),
+                                    y: tb.cursor_visual_pos().y + 1,
+                                });
+
+                                if tb.preferred_column() == CoordType::MAX {
+                                    tb.set_preferred_column(tb.cursor_visual_pos().x);
+                                }
+                            }
+                            _ => return false,
+                        }
+                    }
+                    vk::INSERT => match modifiers {
+                        kbmod::SHIFT => tb.paste(self.clipboard_ref()),
+                        kbmod::CTRL => tb.copy(self.clipboard_mut()),
+                        _ => tb.set_overtype(!tb.is_overtype()),
+                    },
+                    vk::DELETE => match modifiers {
+                        kbmod::SHIFT => tb.cut(self.clipboard_mut()),
+                        m if m == KBMOD_FOR_WORD_NAV => tb.delete(CursorMovement::Word, 1),
+                        _ => tb.delete(CursorMovement::Grapheme, 1),
+                    },
+                    vk::B => match modifiers {
+                        kbmod::ALT if cfg!(any(target_os = "macos", target_os = "ios")) => {
+                            // On macOS, terminals commonly emit the Emacs style
+                            // Alt+B (ESC b) sequence for Alt+Left.
+                            tb.cursor_move_delta(CursorMovement::Word, -1);
+                        }
                         _ => return false,
-                    }
+                    },
+                    vk::F => match modifiers {
+                        kbmod::ALT if cfg!(any(target_os = "macos", target_os = "ios")) => {
+                            // On macOS, terminals commonly emit the Emacs style
+                            // Alt+F (ESC f) sequence for Alt+Right.
+                            tb.cursor_move_delta(CursorMovement::Word, 1);
+                        }
+                        _ => return false,
+                    },
+                    vk::H => match modifiers {
+                        kbmod::CTRL => tb.delete(CursorMovement::Word, -1),
+                        _ => return false,
+                    },
+                    vk::L => match modifiers {
+                        kbmod::CTRL => tb.select_line(),
+                        _ => return false,
+                    },
+                    vk::Z => match modifiers {
+                        // Kept as an always-on alias: the config has a single
+                        // `redo` entry, and this is the other spelling users reach
+                        // for. Everything else on this key is configurable above.
+                        m if m == KBMOD_PRIMARY | kbmod::SHIFT => tb.redo(),
+                        kbmod::ALT => tb.set_word_wrap(!tb.is_word_wrap_enabled()),
+                        _ => return false,
+                    },
+                    _ => return false,
                 }
-                vk::INSERT => match modifiers {
-                    kbmod::SHIFT => tb.paste(self.clipboard_ref()),
-                    kbmod::CTRL => tb.copy(self.clipboard_mut()),
-                    _ => tb.set_overtype(!tb.is_overtype()),
-                },
-                vk::DELETE => match modifiers {
-                    kbmod::SHIFT => tb.cut(self.clipboard_mut()),
-                    m if m == KBMOD_FOR_WORD_NAV => tb.delete(CursorMovement::Word, 1),
-                    _ => tb.delete(CursorMovement::Grapheme, 1),
-                },
-                vk::A => match modifiers {
-                    m if m == KBMOD_PRIMARY => tb.select_all(),
-                    _ => return false,
-                },
-                vk::B => match modifiers {
-                    kbmod::ALT if cfg!(any(target_os = "macos", target_os = "ios")) => {
-                        // On macOS, terminals commonly emit the Emacs style
-                        // Alt+B (ESC b) sequence for Alt+Left.
-                        tb.cursor_move_delta(CursorMovement::Word, -1);
-                    }
-                    _ => return false,
-                },
-                vk::F => match modifiers {
-                    kbmod::ALT if cfg!(any(target_os = "macos", target_os = "ios")) => {
-                        // On macOS, terminals commonly emit the Emacs style
-                        // Alt+F (ESC f) sequence for Alt+Right.
-                        tb.cursor_move_delta(CursorMovement::Word, 1);
-                    }
-                    _ => return false,
-                },
-                vk::H => match modifiers {
-                    kbmod::CTRL => tb.delete(CursorMovement::Word, -1),
-                    _ => return false,
-                },
-                vk::L => match modifiers {
-                    kbmod::CTRL => tb.select_line(),
-                    _ => return false,
-                },
-                vk::X => match modifiers {
-                    m if m == KBMOD_PRIMARY => tb.cut(self.clipboard_mut()),
-                    _ => return false,
-                },
-                vk::C => match modifiers {
-                    m if m == KBMOD_PRIMARY => tb.copy(self.clipboard_mut()),
-                    _ => return false,
-                },
-                vk::V => match modifiers {
-                    m if m == KBMOD_PRIMARY => tb.paste(self.clipboard_ref()),
-                    _ => return false,
-                },
-                vk::Y => match modifiers {
-                    m if m == KBMOD_PRIMARY => tb.redo(),
-                    _ => return false,
-                },
-                vk::Z => match modifiers {
-                    m if m == KBMOD_PRIMARY => tb.undo(),
-                    m if m == KBMOD_PRIMARY | kbmod::SHIFT => tb.redo(),
-                    kbmod::ALT => tb.set_word_wrap(!tb.is_word_wrap_enabled()),
-                    _ => return false,
-                },
-                _ => return false,
+
+                change_preferred_column = !matches!(key, vk::PRIOR | vk::NEXT | vk::UP | vk::DOWN);
             }
-
-            change_preferred_column = !matches!(key, vk::PRIOR | vk::NEXT | vk::UP | vk::DOWN);
         } else {
             return false;
         }

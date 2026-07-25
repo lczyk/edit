@@ -373,6 +373,26 @@ class Edit:
         """Opaque position in the raw byte stream; pass to `plain_since`."""
         return len(self.buf)
 
+    def screen(self) -> bytes:
+        """Force a full repaint and return it, ANSI-stripped.
+
+        The renderer only emits the lines that changed, so a drained diff is
+        not a screen: text missing from it means "not redrawn", which is not
+        the same as "not there". Asserting absence against a diff is how a
+        test ends up passing because the editor ignored the key entirely.
+
+        Nudging the window size reallocates the framebuffer, which makes the
+        editor redraw every cell. The size is put back before returning.
+        """
+        mark = len(self.buf)
+        _set_winsize(self.fd, self.cols - 1, self.rows)
+        pause(0.15)
+        self.drain(0.1)
+        _set_winsize(self.fd, self.cols, self.rows)
+        pause(0.15)
+        self.drain(0.1)
+        return _ANSI_RE.sub(b"", self.buf[mark:])
+
     def close(self) -> None:
         try:
             os.write(self.fd, EXIT)

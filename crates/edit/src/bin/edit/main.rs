@@ -98,6 +98,20 @@ fn run() -> apperr::Result<()> {
     if let Err(err) = keybindings::load_or_create() {
         state.add_error(err);
     }
+    // The textarea handles these six itself, so that they also work in a
+    // modal's input field. Hand it the configured chords, or rebinding them
+    // would relabel the menubar and change nothing else.
+    {
+        use keybindings::{Action, chord};
+        edit::tui::set_textarea_chords(edit::tui::TextareaChords {
+            cut: chord(Action::Cut),
+            copy: chord(Action::Copy),
+            paste: chord(Action::Paste),
+            undo: chord(Action::Undo),
+            redo: chord(Action::Redo),
+            select_all: chord(Action::SelectAll),
+        });
+    }
     // This will reopen stdin if it's redirected (which may fail) and switch
     // the terminal to raw mode which prevents the user from pressing Ctrl+C.
     // `handle_args` may want to print a help message (must not fail),
