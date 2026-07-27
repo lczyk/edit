@@ -76,7 +76,13 @@ impl TextBuffer {
                     sep
                 );
             }
-            (None, true)
+            // Added/Modified colour the whole logical line's bar; the deleted
+            // arrows flag a boundary and belong only to the row that owns it.
+            let mark = match self.gutter_mark(cursor_beg.logical_pos.y) {
+                m @ (GutterMark::Added | GutterMark::Modified) => Some(m),
+                _ => None,
+            };
+            (mark, true)
         }
     }
 

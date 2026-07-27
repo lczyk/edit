@@ -3313,6 +3313,46 @@ mod tests {
     }
 
     #[test]
+    fn a_wrapped_row_keeps_the_diff_bar_of_the_line_it_belongs_to() {
+        let mut tb = buf_with("the quick brown fox jumps over the lazy dog\nplain\n");
+        tb.set_margin_enabled(true);
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.set_gutter_marks(vec![GutterMark::Modified, GutterMark::None]);
+
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(12, 10), None).unwrap();
+        assert!(l.lines.iter().any(|line| line.text.contains("plain")), "both lines are visible");
+        let wrapped_rows = l
+            .lines
+            .iter()
+            .take_while(|line| !line.text.contains("plain"))
+            .filter(|line| line.dim_wrapped_margin)
+            .count();
+        assert!(wrapped_rows > 0, "width 12 wraps the first line");
+        assert_eq!(
+            l.gutter_marks.len(),
+            wrapped_rows + 1,
+            "every row of the modified line carries the mark, continuations included"
+        );
+        assert!(l.gutter_marks.iter().all(|&(_, m)| m == GutterMark::Modified));
+    }
+
+    #[test]
+    fn a_wrapped_row_does_not_repeat_the_deleted_arrow() {
+        // Repeating the arrow down a wrapped line would claim a deletion at
+        // every row break.
+        let mut tb = buf_with("the quick brown fox jumps over the lazy dog\n");
+        tb.set_margin_enabled(true);
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.set_gutter_marks(vec![GutterMark::DeletedAbove]);
+
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(12, 8), None).unwrap();
+        assert_eq!(l.gutter_marks.len(), 1, "only the row that owns the boundary");
+        assert_eq!(l.gutter_marks[0].1, GutterMark::DeletedAbove);
+    }
+
+    #[test]
     fn caret_collapses_a_wrap_boundary_but_the_cursor_does_not() {
         // "End" on a wrapped row leaves the cursor at the end of that row,
         // while the same offset lays out at the start of the next one -- so the
