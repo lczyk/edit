@@ -76,10 +76,14 @@ impl TextBuffer {
                     sep
                 );
             }
-            // Added/Modified colour the whole logical line's bar; the deleted
-            // arrows flag a boundary and belong only to the row that owns it.
+            // Added/Modified colour the whole logical line's bar, and the
+            // boundary DeletedBelow flags sits under the line's last row --
+            // the caller walks it down. DeletedAbove is the one arrow that
+            // belongs to the first row alone.
             let mark = match self.gutter_mark(cursor_beg.logical_pos.y) {
-                m @ (GutterMark::Added | GutterMark::Modified) => Some(m),
+                m @ (GutterMark::Added | GutterMark::Modified | GutterMark::DeletedBelow) => {
+                    Some(m)
+                }
                 _ => None,
             };
             (mark, true)
@@ -470,6 +474,7 @@ impl TextBuffer {
         let text_width = width - self.margin_width;
         let mut visual_pos_x_max = 0;
         let mut gutter_paint: Vec<(CoordType, GutterMark)> = Vec::new();
+        let mut deleted_below: Option<(usize, CoordType)> = None;
 
         // Pick the cursor closer to the `origin.y`.
         let mut cursor = {
@@ -593,7 +598,22 @@ impl TextBuffer {
                     &cursor_beg,
                 );
                 if let Some(mark) = mark {
-                    gutter_paint.push((destination.top + y, mark));
+                    let row = destination.top + y;
+                    let logical_y = cursor_beg.logical_pos.y;
+                    // DeletedBelow points at the gap under the whole logical
+                    // line, so it rides down to that line's last visible row
+                    // instead of claiming a gap at every wrap.
+                    if mark == GutterMark::DeletedBelow
+                        && let Some((idx, pending_y)) = deleted_below
+                        && pending_y == logical_y
+                    {
+                        gutter_paint[idx].0 = row;
+                    } else {
+                        if mark == GutterMark::DeletedBelow {
+                            deleted_below = Some((gutter_paint.len(), logical_y));
+                        }
+                        gutter_paint.push((row, mark));
+                    }
                 }
                 decor.dim_wrapped_margin = dim;
             }

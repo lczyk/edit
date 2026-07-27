@@ -3353,6 +3353,22 @@ mod tests {
     }
 
     #[test]
+    fn the_deleted_below_arrow_rides_to_the_last_row_of_a_wrapped_line() {
+        // The gap it points at is under the whole line, and a file w/out a
+        // trailing newline puts the mark on real content that can wrap.
+        let mut tb = buf_with("the quick brown fox jumps over the lazy dog");
+        tb.set_margin_enabled(true);
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.set_gutter_marks(vec![GutterMark::DeletedBelow]);
+
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(12, 12), None).unwrap();
+        let last_row = l.lines.iter().rposition(|line| line.text.contains("dog")).unwrap();
+        assert!(last_row > 0, "width 12 wraps the line");
+        assert_eq!(l.gutter_marks, vec![(last_row as CoordType, GutterMark::DeletedBelow)]);
+    }
+
+    #[test]
     fn caret_collapses_a_wrap_boundary_but_the_cursor_does_not() {
         // "End" on a wrapped row leaves the cursor at the end of that row,
         // while the same offset lays out at the start of the next one -- so the
