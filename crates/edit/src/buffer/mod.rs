@@ -2805,6 +2805,229 @@ mod tests {
         assert_eq!(dump(&tb), "foobar\n");
     }
 
+    /// Baseline for the undo sanity checks: a well-behaved history, walked to
+    /// the bottom and back, must trip nothing. Undo past the bottom moves no
+    /// entry at all, so it is the case most likely to make a check reason
+    /// about an entry that was never applied.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn a_clean_undo_history_trips_nothing() {
+        use stdext::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            let mut tb = buf_loaded("foo\nbar\n");
+            tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+            tb.write_raw(b"XYZ");
+            // A grouped multi-line edit, so the checks see an undo that pops
+            // more than one entry in a single call.
+            select(&mut tb, Point { x: 0, y: 0 }, Point { x: 0, y: 1 });
+            tb.toggle_line_comment("#");
+            assert_eq!(dump(&tb), "# fooXYZ\n# bar\n");
+
+            tb.undo();
+            tb.undo();
+            tb.undo();
+            assert_eq!(dump(&tb), "foo\nbar\n");
+
+            tb.redo();
+            tb.redo();
+            tb.redo();
+            assert_eq!(dump(&tb), "# fooXYZ\n# bar\n");
+        });
+
+        assert!(msgs.is_empty(), "{msgs:?}");
+    }
+
+    /// Shrunk out of `shuffled_edits_and_undos_trip_nothing`. `edit_begin` used
+    /// to merge on a shared `HistoryType` alone, which says nothing about
+    /// *where* the second edit landed: two deletes in a row at unrelated
+    /// offsets -- no cursor move in between, so nothing reset
+    /// `last_history_type` -- had their removed bytes concatenated into one
+    /// entry as if adjacent, and undo reinserted the join at the second one's
+    /// position.
+    #[test]
+    fn two_deletes_at_unrelated_offsets_do_not_merge() {
+        let mut tb = buf_loaded("alpha beta\ngamma\n\ndelta epsilon\n");
+        tb.cursor_move_to_logical(Point { x: 10, y: 0 });
+        tb.delete(CursorMovement::Word, 1);
+        assert_eq!(dump(&tb), "alpha beta\n\ndelta epsilon\n");
+        // Deletes the whole of line 0 -- offset 0, nowhere near where the word
+        // delete left off.
+        tb.delete_lines();
+        assert_eq!(dump(&tb), "\ndelta epsilon\n");
+
+        tb.undo();
+        assert_eq!(dump(&tb), "alpha beta\n\ndelta epsilon\n", "undo skipped the line delete");
+        tb.undo();
+        assert_eq!(dump(&tb), "alpha beta\ngamma\n\ndelta epsilon\n");
+    }
+
+    /// The other half of the merge rule. An entry says "delete `added`,
+    /// reinsert `deleted`", which cannot express "insert X, then delete X and
+    /// write Y" -- so a write that starts by replacing a selection must not
+    /// merge into the typing run before it. It used to, leaving `added`
+    /// describing more bytes than the document held; undo then ran off the end
+    /// of the buffer and left the text untouched.
+    #[test]
+    fn a_selection_replace_does_not_merge_into_the_typing_before_it() {
+        let mut tb = buf_loaded("one two\n");
+        tb.cursor_move_to_logical(Point { x: 7, y: 0 });
+        tb.write_canon(b"XY");
+        assert_eq!(dump(&tb), "one twoXY\n");
+
+        // Replaces the selection rather than extending the run.
+        select(&mut tb, Point { x: 0, y: 0 }, Point { x: 3, y: 0 });
+        tb.write_canon(b"Z");
+        assert_eq!(dump(&tb), "Z twoXY\n");
+
+        tb.undo();
+        assert_eq!(dump(&tb), "one twoXY\n", "undo did not put the replaced selection back");
+        tb.undo();
+        assert_eq!(dump(&tb), "one two\n");
+    }
+
+    /// Backspace and forward-delete runs are the reason the merge exists at
+    /// all -- tightening the rule must not cost them their single undo step.
+    #[test]
+    fn a_run_of_deletes_is_still_one_undo_step() {
+        let mut tb = buf_loaded("abcdef\n");
+        tb.cursor_move_to_logical(Point { x: 6, y: 0 });
+        for _ in 0..3 {
+            tb.delete(CursorMovement::Grapheme, -1);
+        }
+        assert_eq!(dump(&tb), "abc\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "abcdef\n", "the backspaces did not collapse into one step");
+
+        tb.cursor_move_to_logical(Point { x: 0, y: 0 });
+        for _ in 0..3 {
+            tb.delete(CursorMovement::Grapheme, 1);
+        }
+        assert_eq!(dump(&tb), "def\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "abcdef\n", "the forward deletes did not collapse into one step");
+    }
+
+    /// Same for typing: a run of keystrokes is one step, and the run does not
+    /// reach back across an undo into the entry it just moved to the redo
+    /// stack.
+    #[test]
+    fn a_run_of_typing_is_one_undo_step_and_stops_at_an_undo() {
+        let mut tb = buf_loaded("\n");
+        tb.write_canon(b"a");
+        tb.write_canon(b"b");
+        tb.write_canon(b"c");
+        assert_eq!(dump(&tb), "abc\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "\n", "the keystrokes did not collapse into one step");
+
+        tb.redo();
+        assert_eq!(dump(&tb), "abc\n");
+        tb.undo();
+        tb.write_canon(b"z");
+        assert_eq!(dump(&tb), "z\n");
+        tb.undo();
+        assert_eq!(dump(&tb), "\n", "the write merged into the entry the undo had just parked");
+    }
+
+    /// Randomised edit/undo/redo sequences, replayed against the checks. Fixed
+    /// seed per round, so a failure names the exact sequence to reproduce.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn shuffled_edits_and_undos_trip_nothing() {
+        use stdext::sanity::capture;
+
+        // xorshift64*, so the sequence is reproducible without a dependency.
+        fn next(state: &mut u64) -> u64 {
+            *state ^= *state >> 12;
+            *state ^= *state << 25;
+            *state ^= *state >> 27;
+            state.wrapping_mul(0x2545_f491_4f6c_dd1d)
+        }
+
+        for seed in 1..600u64 {
+            let mut rng = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15);
+            let mut trace = Vec::new();
+
+            let ((), msgs) = capture::trips(|| {
+                let mut tb = buf_loaded("alpha beta\ngamma\n\ndelta epsilon\n");
+                // Half the seeds run wrapped: `stats.visual_lines` only has a
+                // life of its own when word-wrap is on.
+                let wrapped = !seed.is_multiple_of(2);
+                tb.set_width(if wrapped { 12 } else { 24 });
+                tb.set_word_wrap(wrapped);
+
+                for _ in 0..80 {
+                    let op = next(&mut rng) % 16;
+                    let y = (next(&mut rng) % 6) as CoordType;
+                    let x = (next(&mut rng) % 12) as CoordType;
+                    // Not every op jumps first: a cursor move resets
+                    // `last_history_type`, so always moving would never let a
+                    // run of typing merge into one entry -- the common case.
+                    let jump = next(&mut rng).is_multiple_of(3);
+                    trace.push((op, x, y, jump as u64));
+
+                    if jump {
+                        tb.cursor_move_to_logical(Point { x, y });
+                    }
+                    match op {
+                        0 => tb.write_raw(b"zz"),
+                        1 => tb.write_raw(b"\n"),
+                        2 => tb.delete(CursorMovement::Grapheme, 1),
+                        3 => tb.delete(CursorMovement::Grapheme, -1),
+                        4 => tb.delete(CursorMovement::Word, 1),
+                        5 => tb.delete_to_line_edge(true),
+                        6 => tb.delete_lines(),
+                        7 => tb.indent_change(1),
+                        8 => {
+                            select(&mut tb, Point { x: 0, y }, Point { x, y: y + 1 });
+                            tb.toggle_line_comment("#");
+                        }
+                        9 => {
+                            select(&mut tb, Point { x: 0, y }, Point { x, y: y + 1 });
+                            tb.write_raw(b"Q");
+                        }
+                        10 => tb.write_canon(b"a\tb"),
+                        11 => tb.indent_change(-1),
+                        12 => {
+                            select(&mut tb, Point { x: 0, y }, Point { x, y: y + 1 });
+                            tb.move_selected_lines(if jump {
+                                MoveLineDirection::Up
+                            } else {
+                                MoveLineDirection::Down
+                            });
+                        }
+                        13 => tb.delete_to_line_edge(false),
+                        14 => tb.undo(),
+                        _ => tb.redo(),
+                    }
+                }
+            });
+
+            assert!(msgs.is_empty(), "seed {seed}: {msgs:?}\ntrace (op,x,y): {trace:?}");
+        }
+    }
+
+    /// The digest check is only worth having if it can actually see a wrong
+    /// undo. Corrupt the recorded replacement text behind undo's back and
+    /// confirm it notices -- a redo-and-compare round trip would not, since
+    /// both halves read the same corrupted bytes.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn a_corrupted_undo_entry_trips_the_content_check() {
+        use stdext::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            let mut tb = buf_loaded("foo\n");
+            tb.cursor_move_to_logical(Point { x: 3, y: 0 });
+            tb.write_raw(b"bar");
+            tb.undo_stack.back().unwrap().borrow_mut().deleted = b"XYZ".to_vec();
+            tb.undo();
+        });
+
+        assert!(capture::fired(&msgs, "undo_content_mismatch"), "{msgs:?}");
+    }
+
     #[test]
     fn toggle_block_comment_undo_reverts() {
         let mut tb = buf_with("foo bar\n");
