@@ -3369,6 +3369,25 @@ mod tests {
     }
 
     #[test]
+    fn a_horizontal_scroll_offset_changes_nothing_while_wrapped() {
+        // Toggling wrap on while scrolled right leaves the scroll animation
+        // feeding a nonzero x for a few frames.
+        let mut tb = buf_with("the quick brown fox jumps over the lazy dog\nplain\n");
+        tb.set_margin_enabled(true);
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+        tb.set_gutter_marks(vec![GutterMark::Modified, GutterMark::None]);
+
+        let rows = |l: &TextareaLayout| {
+            l.lines.iter().map(|r| (r.text.clone(), r.dim_wrapped_margin)).collect::<Vec<_>>()
+        };
+        let pinned = tb.layout(Point { x: 0, y: 0 }, rect(12, 12), None).unwrap();
+        let scrolled = tb.layout(Point { x: 3, y: 0 }, rect(12, 12), None).unwrap();
+        assert_eq!(rows(&scrolled), rows(&pinned));
+        assert_eq!(scrolled.gutter_marks, pinned.gutter_marks);
+    }
+
+    #[test]
     fn caret_collapses_a_wrap_boundary_but_the_cursor_does_not() {
         // "End" on a wrapped row leaves the cursor at the end of that row,
         // while the same offset lays out at the start of the next one -- so the

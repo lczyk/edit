@@ -85,6 +85,14 @@ impl Tui {
                 time::Instant::now(),
             );
 
+            // Toggling wrap on pins the scroll target's x to 0 without
+            // touching the buffer generation, so nothing snaps the lerp and it
+            // spends the next few frames feeding a horizontal offset to a
+            // layout that has no horizontal scroll.
+            if tb.word_wrap_column() > 0 {
+                anim_state.scroll_visual.0 = tc.scroll_offset.x as f32;
+            }
+
             let visual_offset = paint::anim::advance_scroll(
                 &mut anim_state.scroll_visual,
                 tc.scroll_offset,

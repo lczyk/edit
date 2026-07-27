@@ -468,6 +468,12 @@ impl TextBuffer {
             return None;
         }
 
+        // Wrapped rows have no horizontal scroll to honour, and a nonzero x
+        // starts each row mid-text -- which reads as a continuation row, so
+        // the margin shows dots and the wrong numbers for the rest of the
+        // viewport.
+        let origin = if self.word_wrap_column > 0 { Point { x: 0, y: origin.y } } else { origin };
+
         let width = destination.width();
         let height = destination.height();
         let line_number_width = self.margin_width.max(3) as usize - 3;
