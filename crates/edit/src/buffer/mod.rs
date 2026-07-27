@@ -1541,29 +1541,20 @@ impl TextBuffer {
     }
 
     fn set_cursor_internal(&mut self, cursor: Cursor) {
+        // One hypothesis, not four: no document position is left of column
+        // zero or above row zero, on either axis. The in-bounds checks below
+        // are signed comparisons and pass happily for a negative coordinate,
+        // so this is the only thing standing between an underflowed cursor and
+        // a seek that walks off the front of the buffer.
         crate::sanity_assert!(
-            cursor_logical_x_nonneg,
-            cursor.logical_pos.x >= 0,
-            "cursor.logical_pos.x={}",
-            cursor.logical_pos.x
-        );
-        crate::sanity_assert!(
-            cursor_logical_y_nonneg,
-            cursor.logical_pos.y >= 0,
-            "cursor.logical_pos.y={}",
-            cursor.logical_pos.y
-        );
-        crate::sanity_assert!(
-            cursor_visual_x_nonneg,
-            cursor.visual_pos.x >= 0,
-            "cursor.visual_pos.x={}",
-            cursor.visual_pos.x
-        );
-        crate::sanity_assert!(
-            cursor_visual_y_nonneg,
-            cursor.visual_pos.y >= 0,
-            "cursor.visual_pos.y={}",
-            cursor.visual_pos.y
+            cursor_position_nonneg,
+            cursor.logical_pos.x >= 0
+                && cursor.logical_pos.y >= 0
+                && cursor.visual_pos.x >= 0
+                && cursor.visual_pos.y >= 0,
+            "logical={:?} visual={:?}",
+            cursor.logical_pos,
+            cursor.visual_pos
         );
 
         // State-consistency checks: the cursor being published must agree
