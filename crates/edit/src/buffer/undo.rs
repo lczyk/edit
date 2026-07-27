@@ -41,6 +41,9 @@ impl TextBuffer {
         let cursor_before = self.cursor;
         self.set_cursor_internal(cursor);
 
+        #[cfg(feature = "sanity")]
+        let content_digest = self.content_digest();
+
         // If both the last and this are a Write/Delete operation, we skip allocating a new undo history item.
         if history_type != self.last_history_type
             || !matches!(history_type, HistoryType::Write | HistoryType::Delete)
@@ -59,6 +62,13 @@ impl TextBuffer {
                 cursor: cursor.logical_pos,
                 deleted: Vec::new(),
                 added: Vec::new(),
+                // Taken here rather than in `edit_begin_grouping`: undo pops a
+                // group one entry at a time, so each entry needs the content as
+                // it stood before its *own* edit, not before the group's first.
+                #[cfg(feature = "sanity")]
+                content_before: content_digest,
+                #[cfg(feature = "sanity")]
+                content_after: Default::default(),
             }));
 
             if let Some(info) = &self.active_edit_group
@@ -172,12 +182,17 @@ impl TextBuffer {
 
         #[cfg(feature = "sanity")]
         {
-            let entry = self.undo_stack.back_mut().unwrap().borrow_mut();
+            let content_digest = self.content_digest();
+            let mut entry = self.undo_stack.back_mut().unwrap().borrow_mut();
             crate::sanity_check!(
                 edit_group_non_empty,
                 !entry.deleted.is_empty() || !entry.added.is_empty(),
                 "undo entry has neither deleted nor added bytes"
             );
+            // Overwritten rather than set once: a run of typing merges into the
+            // entry pushed by the first keystroke, so the post-state moves with
+            // each keystroke while the pre-state stays put.
+            entry.content_after = content_digest;
         }
 
         if let Some(info) = self.active_edit_line_info.take() {
@@ -245,46 +260,52 @@ impl TextBuffer {
 
     /// Undo the last edit operation.
     pub fn undo(&mut self) {
-        // Sanity (F): undo+redo should be a no-op. Snapshot the byte content
-        // before, run undo then redo, compare. Expensive: full buffer extract.
-        // Only runs with `sanity` feature.
-        #[cfg(feature = "sanity")]
-        let snapshot = {
-            let mut buf = Vec::new();
-            self.buffer.extract_raw(0..self.text_length(), &mut buf, 0);
-            buf
-        };
-
-        let moved = self.undo_redo(true);
-
-        // The round trip only holds when the undo half moved an entry. Undo at
-        // the bottom of the stack does nothing, but the paired redo would still
-        // pop the redo stack and re-apply the last undone edit -- so the check
-        // would report a difference on a buffer that is perfectly fine.
-        #[cfg(feature = "sanity")]
-        if moved {
-            // Re-do the undo we just did, then compare to the snapshot.
-            self.undo_redo(false);
-            let mut after = Vec::new();
-            self.buffer.extract_raw(0..self.text_length(), &mut after, 0);
-            crate::sanity_check!(
-                undo_redo_round_trip,
-                after == snapshot,
-                "buffer differs after undo+redo: before_len={} after_len={}",
-                snapshot.len(),
-                after.len()
-            );
-            // Now actually perform the user-visible undo by undoing again.
-            self.undo_redo(true);
-        }
-
-        #[cfg(not(feature = "sanity"))]
-        let _ = moved;
+        self.sanity_check_history_idle("undo");
+        self.undo_redo(true);
     }
 
     /// Redo the last undo operation.
     pub fn redo(&mut self) {
+        self.sanity_check_history_idle("redo");
         self.undo_redo(false);
+    }
+
+    /// Sanity (H): an edit half-way through construction owns the entry at the
+    /// back of the undo stack and has not finished writing into it. Undoing
+    /// from there applies a partial entry and leaves `active_edit_off` pointing
+    /// into a buffer that moved under it.
+    fn sanity_check_history_idle(&self, _what: &str) {
+        crate::sanity_check!(
+            history_move_during_active_edit,
+            self.active_edit_depth == 0 && self.active_edit_group.is_none(),
+            "{_what} with active_edit_depth={} grouping={}",
+            self.active_edit_depth,
+            self.active_edit_group.is_some()
+        );
+    }
+
+    /// FNV-1a over the whole document plus its byte length. Walks the gap
+    /// buffer chunk at a time, so unlike an `extract_raw` snapshot it
+    /// allocates nothing -- but it is still `O(len)` per edit, which is why
+    /// it only exists under the `sanity` feature.
+    #[cfg(feature = "sanity")]
+    fn content_digest(&self) -> ContentDigest {
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        let mut off = 0;
+
+        loop {
+            let chunk = self.buffer.read_forward(off);
+            if chunk.is_empty() {
+                break;
+            }
+            for &b in chunk {
+                hash ^= b as u64;
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            off += chunk.len();
+        }
+
+        ContentDigest { hash, len: off }
     }
 
     /// Moves entries between the undo and redo stacks, applying each one.
@@ -384,6 +405,24 @@ impl TextBuffer {
                     }
                 }
 
+                // Sanity (G): the document now has to be byte-for-byte what it
+                // was on the other side of this entry's edit. Ground truth --
+                // the digests were taken as the edit happened, so a `deleted`/
+                // `added` pair that is wrong in a way undo and redo agree on
+                // still trips this, which a redo-it-and-compare round trip
+                // cannot see.
+                #[cfg(feature = "sanity")]
+                {
+                    let expected = if undo { change.content_before } else { change.content_after };
+                    let actual = self.content_digest();
+                    crate::sanity_check!(
+                        undo_content_mismatch,
+                        actual == expected,
+                        "{} landed on {actual}, recorded {expected}",
+                        if undo { "undo" } else { "redo" }
+                    );
+                }
+
                 // Restore the previous line statistics.
                 mem::swap(&mut self.stats, &mut change.stats_before);
 
@@ -416,6 +455,39 @@ impl TextBuffer {
 
         if entry_buffer_generation.is_some() {
             self.recalc_after_content_changed();
+        }
+
+        // Sanity (I): the restored stats come from a snapshot taken an
+        // arbitrary number of edits ago, so unlike the incremental updates in
+        // `edit_end` they can be stale rather than merely drifted. Nothing on
+        // this path recomputes them, and a wrong line count is what turns a
+        // correct undo into a visibly wrong one.
+        #[cfg(feature = "sanity")]
+        {
+            let end = self.cursor_move_to_logical_internal(
+                Cursor::default(),
+                Point { x: 0, y: CoordType::MAX },
+            );
+            let logical = end.logical_pos.y + 1;
+            let visual = if self.word_wrap_column > 0 { end.visual_pos.y + 1 } else { logical };
+            crate::sanity_check!(
+                undo_stats_drift,
+                self.stats.logical_lines == logical && self.stats.visual_lines == visual,
+                "restored logical/visual={}/{} recomputed={logical}/{visual}",
+                self.stats.logical_lines,
+                self.stats.visual_lines
+            );
+        }
+
+        // Sanity (J): the loop assigns `self.cursor` directly -- it has to,
+        // the stats are not settled yet -- so undo is the one path that
+        // publishes a cursor without going through the `set_cursor_internal`
+        // checks. Re-publish the settled one so it gets them. Pure
+        // re-assignment; the only effect is the checks.
+        #[cfg(feature = "sanity")]
+        {
+            let cursor = self.cursor;
+            self.set_cursor_internal(cursor);
         }
 
         true

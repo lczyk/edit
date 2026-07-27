@@ -29,6 +29,8 @@ mod undo;
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
+#[cfg(feature = "sanity")]
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Read as _, Write as _};
 use std::mem;
@@ -204,6 +206,33 @@ struct HistoryEntry {
     deleted: Vec<u8>,
     /// Text that was added to the buffer.
     added: Vec<u8>,
+
+    /// Content digest + byte length of the whole document either side of
+    /// this entry's edit, recorded as the edit happened. Ground truth for
+    /// the undo/redo content checks: undoing this entry has to land on
+    /// `before`, redoing it on `after`. Unlike `deleted`/`added` these are
+    /// *not* swapped when the entry changes stacks -- "before the edit" and
+    /// "after the edit" mean the same thing in both directions.
+    #[cfg(feature = "sanity")]
+    content_before: ContentDigest,
+    #[cfg(feature = "sanity")]
+    content_after: ContentDigest,
+}
+
+/// See [`HistoryEntry::content_before`]. The length rides along because a
+/// bare hash mismatch says nothing about *how* the content diverged.
+#[cfg(feature = "sanity")]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
+pub(super) struct ContentDigest {
+    hash: u64,
+    len: usize,
+}
+
+#[cfg(feature = "sanity")]
+impl fmt::Display for ContentDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:016x}/{}b", self.hash, self.len)
+    }
 }
 
 /// Caches an ICU search operation.
@@ -2774,26 +2803,6 @@ mod tests {
         assert_eq!(dump(&tb), "foo\n");
         tb.redo();
         assert_eq!(dump(&tb), "foobar\n");
-    }
-
-    // The sanity round-trip check runs undo, redo, then undo again. Undo at
-    // the bottom of the stack moves nothing, but the paired redo would still
-    // re-apply the last undone edit -- which used to report a bogus buffer
-    // difference every time someone held undo down past the first edit.
-    #[cfg(feature = "sanity")]
-    #[test]
-    fn undo_past_the_bottom_does_not_trip_the_round_trip_check() {
-        use stdext::sanity::capture;
-
-        let ((), msgs) = capture::trips(|| {
-            let mut tb = buf_loaded("foo\n");
-            tb.cursor_move_to_logical(Point { x: 3, y: 0 });
-            tb.write_raw(b"bar");
-            tb.undo();
-            tb.undo();
-        });
-
-        assert!(!capture::fired(&msgs, "undo_redo_round_trip"), "{msgs:?}");
     }
 
     #[test]
