@@ -32,11 +32,26 @@ impl TextBuffer {
 
     /// Starts a new edit operation.
     /// This is used for tracking the undo/redo history.
-    pub(super) fn edit_begin(&mut self, history_type: HistoryType, cursor: Cursor) {
+    ///
+    /// `extent_end` is the far end of the range this edit is about to touch;
+    /// for a pure insertion that is `cursor.offset` itself. It exists only to
+    /// decide whether the edit continues the previous one -- see below.
+    pub(super) fn edit_begin(
+        &mut self,
+        history_type: HistoryType,
+        cursor: Cursor,
+        extent_end: usize,
+    ) {
         self.active_edit_depth += 1;
         if self.active_edit_depth > 1 {
             return;
         }
+
+        // Where the previous edit left off. `active_edit_off` still holds it:
+        // nothing touches the field between one `edit_end` and the next
+        // `edit_begin`, and with no edit in between the two are in the same
+        // coordinate space.
+        let seam = self.active_edit_off;
 
         let cursor_before = self.cursor;
         self.set_cursor_internal(cursor);
@@ -44,9 +59,31 @@ impl TextBuffer {
         #[cfg(feature = "sanity")]
         let content_digest = self.content_digest();
 
+        // A run of typing, or of backspaces, belongs in one undo step. Sharing
+        // a `HistoryType` is not enough to say two edits are part of one run
+        // though -- nothing resets `last_history_type` unless the cursor moves.
+        let continues_run = match history_type {
+            // Two unrelated deletes back to back (delete word, then delete
+            // line) had their removed bytes concatenated into one entry as if
+            // they had been adjacent, and undo put the join back at the second
+            // one's position. A delete run continues iff the new range starts
+            // where the previous one left off (forward delete) or ends there
+            // (backspace).
+            HistoryType::Delete => cursor.offset == seam || extent_end == seam,
+            // Typing continues a run only as a *pure* insertion at the seam. A
+            // write that starts by deleting a selection is a replacement, and
+            // an entry -- undo deletes `added`, reinserts `deleted` -- cannot
+            // express "insert X, then delete X and write Y". Merging one in
+            // left `added` describing more bytes than the document held, so
+            // undo tried to delete off the end of the buffer.
+            HistoryType::Write => cursor.offset == seam && extent_end == cursor.offset,
+            HistoryType::Other => false,
+        };
+
         // If both the last and this are a Write/Delete operation, we skip allocating a new undo history item.
         if history_type != self.last_history_type
             || !matches!(history_type, HistoryType::Write | HistoryType::Delete)
+            || !continues_run
         {
             self.redo_stack.clear();
             while self.undo_stack.len() > 1000 {
@@ -440,9 +477,12 @@ impl TextBuffer {
                 // Can't use `set_cursor_internal` here, because we haven't updated the line stats yet.
                 self.cursor = cursor_before;
 
-                if self.undo_stack.is_empty() {
-                    self.last_history_type = HistoryType::Other;
-                }
+                // Unconditionally, not just when the stack empties: the entry
+                // at the back is a different one than the edit before the undo
+                // was merging into, and `active_edit_off` now points into a
+                // buffer that moved. Letting the next edit continue that run
+                // would append it to a resurrected entry.
+                self.last_history_type = HistoryType::Other;
             }
         }
 

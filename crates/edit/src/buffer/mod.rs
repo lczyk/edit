@@ -1684,7 +1684,7 @@ impl TextBuffer {
         // If we have an active selection, writing an empty `text`
         // will still delete the selection. As such, we check this first.
         if let Some((beg, end)) = self.selection_range_internal(false) {
-            self.edit_begin(history_type, beg);
+            self.edit_begin(history_type, beg, end.offset);
             self.edit_delete(end);
             self.set_selection(None);
             edit_begun = true;
@@ -1701,7 +1701,7 @@ impl TextBuffer {
         }
 
         if !edit_begun {
-            self.edit_begin(history_type, at);
+            self.edit_begin(history_type, at, at.offset);
         }
 
         let mut offset = 0;
@@ -1886,7 +1886,7 @@ impl TextBuffer {
             }
         }
 
-        self.edit_begin(HistoryType::Delete, beg);
+        self.edit_begin(HistoryType::Delete, beg, end.offset);
         self.edit_delete(end);
         self.edit_end();
 
@@ -1921,7 +1921,7 @@ impl TextBuffer {
             }
         }
 
-        self.edit_begin(HistoryType::Delete, beg);
+        self.edit_begin(HistoryType::Delete, beg, end.offset);
         self.edit_delete(end);
         self.edit_end();
 
@@ -2088,7 +2088,7 @@ impl TextBuffer {
             // ...and paste it below the selection. This will then
             // appear to the user as if the selection was moved up.
             self.cursor_move_to_logical(Point { x: 0, y: paste });
-            self.edit_begin(HistoryType::Write, self.cursor);
+            self.edit_begin(HistoryType::Write, self.cursor, self.cursor.offset);
             // The `extract_selection` call can return an empty `Vec`),
             // if the `cut` line was at the end of the file. Since we want to
             // paste the line somewhere it needs a trailing newline at the minimum.
@@ -2162,7 +2162,7 @@ impl TextBuffer {
             return;
         }
 
-        self.edit_begin(HistoryType::Delete, beg);
+        self.edit_begin(HistoryType::Delete, beg, end.offset);
         self.edit_delete(end);
         self.edit_end();
 
@@ -2182,7 +2182,7 @@ impl TextBuffer {
         self.buffer.extract_raw(beg.offset..end.offset, &mut out, 0);
 
         if delete && !out.is_empty() {
-            self.edit_begin(HistoryType::Delete, beg);
+            self.edit_begin(HistoryType::Delete, beg, end.offset);
             self.edit_delete(end);
             self.edit_end();
             self.set_selection(None);
