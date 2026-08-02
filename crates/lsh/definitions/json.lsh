@@ -1,4 +1,7 @@
 #[display_name = "JSON"]
+#[line_comment = "//"]
+#[block_comment_open = "/*"]
+#[block_comment_close = "*/"]
 #[path = "**/*.json"]
 #[path = "**/*.jsonc"]
 #[path = "**/*.jsonl"]
