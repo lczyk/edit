@@ -1563,6 +1563,11 @@ impl TextBuffer {
         // crashing -- the previous `debug_assert` form caught the
         // visual_lines stale-stats bug only because we happened to be in a
         // debug build.
+        //
+        // Both line stats are counts, so the last row a cursor may sit on is
+        // one below them. `<=` admits a cursor one row past the end of the
+        // document, which is the shape every "the caret is drawn below the
+        // last line" report has taken.
         crate::sanity_check!(
             cursor_offset_in_bounds,
             cursor.offset <= self.text_length(),
@@ -1572,7 +1577,7 @@ impl TextBuffer {
         );
         crate::sanity_check!(
             cursor_logical_y_in_bounds,
-            cursor.logical_pos.y <= self.stats.logical_lines,
+            cursor.logical_pos.y < self.stats.logical_lines,
             "cursor.logical_pos.y={} stats.logical_lines={}",
             cursor.logical_pos.y,
             self.stats.logical_lines
@@ -1586,7 +1591,7 @@ impl TextBuffer {
         );
         crate::sanity_check!(
             cursor_visual_y_in_bounds,
-            cursor.visual_pos.y <= self.stats.visual_lines,
+            cursor.visual_pos.y < self.stats.visual_lines,
             "cursor.visual_pos.y={} stats.visual_lines={}",
             cursor.visual_pos.y,
             self.stats.visual_lines
@@ -3412,6 +3417,28 @@ mod tests {
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
         tb.cursor_move_to_visual(Point { x: 0, y: 1 });
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
+    }
+
+    /// The row bounds are only worth having if they can see a cursor that has
+    /// left the document. Publish one a row past the end -- the shape every
+    /// "the caret is painted below the last line" report has taken -- and
+    /// confirm both notice. No public call is asked to produce it, so this
+    /// keeps its meaning once the paths that used to are fixed.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn a_cursor_a_row_past_the_document_trips_the_bounds() {
+        use stdext::sanity::capture;
+
+        let ((), msgs) = capture::trips(|| {
+            let mut tb = buf_with("hello world");
+            let mut cursor = tb.cursor;
+            cursor.logical_pos.y = tb.stats.logical_lines;
+            cursor.visual_pos.y = tb.stats.visual_lines;
+            unsafe { tb.set_cursor(cursor) };
+        });
+
+        assert!(capture::fired(&msgs, "cursor_logical_y_in_bounds"), "{msgs:?}");
+        assert!(capture::fired(&msgs, "cursor_visual_y_in_bounds"), "{msgs:?}");
     }
 
     #[test]
