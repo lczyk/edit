@@ -45,6 +45,44 @@ See [tests/pty/README.md](tests/pty/README.md).
 
 ICU is loaded via `dlopen` at runtime. If missing, Search/Replace degrades gracefully. See [README.md](README.md) for `EDIT_CFG_ICU*` env vars.
 
+## Sanity checks
+
+Implementation in [crates/stdext/src/sanity.rs](crates/stdext/src/sanity.rs); call sites are scattered through the buffer, measurement, render and highlighting layers. Two macros, both at crate root:
+
+- `sanity_check!(name, cond, "fmt", args...)` -- soft. On failure logs a line to `$TMPDIR/edit/log/sanity-YYYYMMDD.log`, flashes a statusbar warning, and carries on. Deduplicated per call site over a 1s window.
+- `sanity_assert!(name, cond, ...)` -- hard. Same logging, then panics with the logfile path in the message. Without the `sanity` feature it degrades to a plain `debug_assert!`.
+
+Both compile to nothing without the feature, so release builds carry zero cost. `EDIT_SANITY_PANIC=1` promotes a soft trip to a panic, which is how you bisect one.
+
+A sanity check is not a unit test. It is a **standing hypothesis about a property that must hold at a chokepoint**, evaluated against every input the program ever sees -- the fuzzing counterpart to the test suite's fixed cases. That shapes how they are written:
+
+- One property per check, named as the hypothesis it asserts (`cursor_visual_pos_drift`, `gutter_marks_cover_the_buffer`), not as the bug that motivated it.
+- Put it where the property must hold -- the setter, the publish point, the boundary the value crosses -- not at the site that happened to break it once. `set_cursor_internal` in [crates/edit/src/buffer/mod.rs](crates/edit/src/buffer/mod.rs) is the model: every cursor in the program passes through it, so a check there covers every path that could produce a bad one.
+- The message carries the operands, not the diagnosis. Whoever reads the log wants the numbers.
+- A check that re-derives a value must re-derive it by a *different* route than the code under test. A remeasure that calls back into the same function it is checking agrees with the bug and reports nothing.
+
+Unit-test the check itself with `stdext::sanity::capture::trips`, which returns the trips a closure produced. End to end, the PTY suite has `--strict-sanity`, which fails any test that tripped a check:
+
+```sh
+cargo build --features sanity
+EDIT_BIN=target/debug/edit python3 tests/pty/framework.py --strict-sanity
+```
+
+## The `tdd+sanity` flow
+
+Default working style for **non-fatal behaviour bugs whose misbehaviour can be stated as an invariant** -- the wrong thing renders, the cursor lands somewhere it shouldn't, a mark attaches to the wrong row. Such a report is two defects, and they get fixed in this order:
+
+1. **A gap in the sanity system.** The editor did something it must never do and nothing noticed.
+2. **The editor bug itself.**
+
+So: write (or repair) the sanity check first, and prove it trips on the *unfixed* build -- via `capture::trips` in a unit test, or a PTY test under `--strict-sanity`. Only then fix the editor, and watch the same check go quiet.
+
+The ordering is the whole point. Sanity coverage is close to untestable after the fact: patch the editor first and the check never fires, so you cannot tell a check that would have caught the bug from one that is blind to it. A check written against a green build is a guess. Both defects want their own commit -- the check, then the fix.
+
+Phrase the hypothesis in terms of observable behaviour rather than the mechanism you are about to change. "The cursor stays on the same visual row when Left is pressed at the end of a line" outlives whichever measurement path currently gets it wrong; "goto_line_start returns the right offset" does not.
+
+Not every bug fits. Skip straight to the fix for panics and crashes (a plain test is the right oracle), for one-off logic errors with no invariant behind them, and for anything where the check would only restate the implementation line-for-line.
+
 ## Cmd modifier and terminal interop
 
 `kbmod::CMD` exists alongside `CTRL`/`ALT`/`SHIFT` and maps to Super in the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/). The editor pushes flag 1 on startup (`CSI > 1 u` in `edit::term::setup`) and pops on exit (`CSI < u` from `edit::term::RestoreModes`). Word-nav-on-backspace/delete uses `KBMOD_FOR_WORD_NAV` (Alt on macOS, Ctrl elsewhere).
