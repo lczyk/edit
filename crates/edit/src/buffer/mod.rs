@@ -3419,6 +3419,23 @@ mod tests {
         assert_eq!(tb.caret_visual_pos(), tb.cursor_visual_pos());
     }
 
+    #[test]
+    fn moving_back_off_the_end_of_a_file_without_a_trailing_newline_keeps_the_row() {
+        // The last line owns a wrap opportunity and no newline closes it, so
+        // the wrap lookahead ran off the end of the text and reported a wrap
+        // the width cannot produce -- putting the caret a row below the
+        // document.
+        let mut tb = buf_with("hello world");
+        tb.set_word_wrap(true);
+        tb.set_width(100);
+        tb.cursor_move_to_logical(Point::MAX);
+        assert_eq!(tb.cursor_visual_pos(), Point { x: 11, y: 0 });
+
+        tb.cursor_move_delta(CursorMovement::Grapheme, -1);
+        assert_eq!(tb.cursor_logical_pos(), Point { x: 10, y: 0 });
+        assert_eq!(tb.cursor_visual_pos(), Point { x: 10, y: 0 });
+    }
+
     /// The row bounds are only worth having if they can see a cursor that has
     /// left the document. Publish one a row past the end -- the shape every
     /// "the caret is painted below the last line" report has taken -- and

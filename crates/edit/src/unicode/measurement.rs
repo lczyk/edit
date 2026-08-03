@@ -357,6 +357,10 @@ impl<'doc> MeasurementConfig<'doc> {
 
                 // The loop below should not modify the target we already found.
                 let mut visual_pos_x_lookahead = visual_pos_x;
+                // Which is also why the end-of-text guard needs its own copy:
+                // `offset` stays put here, so comparing against it stops
+                // detecting a stalled reader once the first cluster is past.
+                let mut offset_lookahead = offset;
 
                 loop {
                     let props_current_cluster = props_next_cluster;
@@ -406,7 +410,7 @@ impl<'doc> MeasurementConfig<'doc> {
                         }
                     }
 
-                    if offset_next_cluster == offset {
+                    if offset_next_cluster == offset_lookahead {
                         // No advance and the iterator is empty? End of text reached.
                         if chunk_iter.is_empty() {
                             break;
@@ -414,6 +418,7 @@ impl<'doc> MeasurementConfig<'doc> {
                         // Ignore the first iteration when processing the start-of-text.
                         continue;
                     }
+                    offset_lookahead = offset_next_cluster;
 
                     // The max. width of a terminal cell is 2.
                     width = width.min(2);
@@ -585,6 +590,19 @@ mod test {
                 wrap_opp: false,
             }
         );
+    }
+
+    #[test]
+    fn test_lookahead_stops_at_the_end_of_the_text() {
+        // A target inside the last word of a document that ends without a
+        // newline. The wrap lookahead re-reads the exhausted iterator here,
+        // and it must notice: 11 columns cannot wrap at column 100.
+        let text = "hello world".as_bytes();
+        let cursor = MeasurementConfig::new(&text)
+            .with_word_wrap_column(100)
+            .goto_logical(Point { x: 10, y: 0 });
+        assert_eq!(cursor.logical_pos, Point { x: 10, y: 0 });
+        assert_eq!(cursor.visual_pos, Point { x: 10, y: 0 });
     }
 
     #[test]
