@@ -8,7 +8,9 @@
 # Set a value to "" to leave an action unbound.
 
 [keybindings]
-exit             = "Cmd+Q"
+# Ctrl even on macOS: every terminal claims Cmd+Q for its own quit, so binding
+# Exit there means the terminal dies without the save-changes prompt.
+exit             = "Ctrl+Q"
 save             = "Cmd+S"
 
 undo             = "Cmd+Z"

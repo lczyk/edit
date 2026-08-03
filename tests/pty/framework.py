@@ -547,7 +547,9 @@ UNDO = primary("z")
 REDO = primary("z", shift=True) if _IS_MAC else primary("y")
 FIND = primary("f")
 REPLACE = primary("r")
-EXIT = primary("q")
+# Exit is Ctrl+Q on both platforms -- macOS terminals claim Cmd+Q themselves,
+# so the shipped keybindings.macos.toml leaves it on Ctrl.
+EXIT = CTRL_Q
 SAVE = primary("s")
 TOGGLE_COMMENT = csi_u(ord("/"), cmd=True) if _IS_MAC else csi_u(ord("/"), ctrl=True)
 

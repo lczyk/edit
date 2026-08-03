@@ -60,9 +60,12 @@ them. The whole suite should pass; a failure is a real regression.
 **Send `UNDO`, not `CTRL_Z`.** Cut/Copy/Paste/Undo/Redo/SelectAll and the
 menubar actions go through the platform's primary modifier -- Cmd on macOS,
 Ctrl elsewhere. `framework.py` exposes ready-made `UNDO`, `REDO`, `CUT`,
-`COPY`, `PASTE`, `SELECT_ALL`, `FIND`, `REPLACE`, `SAVE`, `EXIT` and
+`COPY`, `PASTE`, `SELECT_ALL`, `FIND`, `REPLACE`, `SAVE` and
 `TOGGLE_COMMENT` that resolve per platform; build others with
 `primary("k")` or `csi_u(codepoint, cmd=True)`.
+
+`EXIT` is the exception and is Ctrl+Q everywhere: macOS terminals claim
+Cmd+Q for their own quit, so the shipped macOS bindings leave Exit on Ctrl.
 
 The raw `CTRL_*` byte constants are still there for chords that really are
 Ctrl-only, but sending `CTRL_Z` on macOS matches nothing at all -- the editor

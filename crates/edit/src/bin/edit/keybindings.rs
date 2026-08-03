@@ -387,7 +387,9 @@ mod tests {
         } else {
             kbmod::CTRL
         };
-        assert_eq!(kb.chord(Action::Exit), primary | vk::Q);
+        // Exit is the one action that stays on Ctrl everywhere: macOS
+        // terminals claim Cmd+Q for their own quit.
+        assert_eq!(kb.chord(Action::Exit), kbmod::CTRL | vk::Q);
         assert_eq!(kb.chord(Action::Save), primary | vk::S);
         assert_eq!(kb.chord(Action::FocusMenubar), vk::F10);
     }
