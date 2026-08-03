@@ -34,7 +34,8 @@ The diagnostic shortcut is **asymmetry between sibling chords**:
 | `Cmd+C` | copy terminal selection to OS clipboard | forward in alt-screen, keep default in normal screen |
 | `Cmd+V` | paste OS clipboard as bracketed paste | usually fine -- `edit` handles bracketed paste as a paste event |
 | `Cmd+F` | terminal search | forward to running program |
-| `Cmd+Q` | quit terminal | leave alone (you want this) |
+| `Cmd+Q` | quit terminal | leave alone -- which is why Exit ships on `Ctrl+Q` even on macOS |
+| `Cmd+W` | close terminal window | leave alone; note it takes `edit` with it, unsaved changes and all |
 | `Cmd+N` / `Cmd+T` | new window / tab | leave alone |
 | `Option+Backspace` | depends on `option_as_alt` | enable `option_as_alt` so Option carries Alt modifier |
 

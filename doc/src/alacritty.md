@@ -17,20 +17,39 @@ Values:
 - `"OnlyLeft"` / `"OnlyRight"` -- only the named side acts as Alt; the other keeps native behaviour. Useful if you still want `Option+E` -> `é` etc. on one side.
 - `"Both"` -- both Option keys act as Alt. Loses native composed-char input entirely.
 
+## Cmd chords need no config at all
+
+Alacritty encodes `Command` as Super in the kitty protocol on its own. Every `Cmd+<key>` that Alacritty does not claim for itself already arrives as a genuine Cmd chord -- `Cmd+Z`, `Cmd+A`, `Cmd+S`, `Cmd+L`, `Cmd+G`, `Cmd+/`, `Cmd+Shift+K` and the rest need no bindings at all.
+
+So the only chords worth configuring are the handful Alacritty claims: `Cmd+C`, `Cmd+F`, `Cmd+B`, `Cmd+K`, `Cmd+N`, `Cmd+W`, `Cmd+Q`. Anything else you add is at best redundant -- and a binding that rewrites the chord into different bytes will actively break it.
+
+In particular, do **not** rewrite a Cmd chord into a legacy control byte. `edit` binds Find to `Cmd+F` on macOS, and a `0x06` byte cannot express Super, so a `chars`-based `Ctrl+F` rewrite loses the chord entirely.
+
 ## Forwarding `Cmd+F`
 
-Alacritty's default `Cmd+F` opens the built-in `SearchForward`. To forward to the running program (so `edit`'s `Cmd+F` Find chord fires), send `Ctrl+F` (`0x06`) on the PTY:
+Alacritty's default `Cmd+F` opens the built-in `SearchForward`. Forward it the way `Cmd+C` is forwarded below -- and for the same reason, register both halves, or the terminal's own search stops working in the shell:
 
 ```toml
+# Cmd+F in alt-screen mode (TUI apps like `edit`) -> forward to program.
 [[keyboard.bindings]]
 key = "F"
 mods = "Command"
-chars = ""
+mode = "Alt"
+action = "ReceiveChar"
+
+# Cmd+F in normal-screen mode (shell) -> Alacritty's own search.
+[[keyboard.bindings]]
+key = "F"
+mods = "Command"
+mode = "~Alt"
+action = "SearchForward"
 ```
 
-This sends a literal `Ctrl+F` byte. Works because `edit`'s textarea historically also accepted `Ctrl+F` -- though the canonical chord is now `Cmd+F` via the kitty protocol on macOS, the legacy byte still routes correctly through the menubar Find action.
+## `Cmd+Q` and `Cmd+W` belong to the terminal
 
-Alternative (cleaner): use `action = "ReceiveChar"` to let the chord pass through as a kitty-encoded keypress, same pattern as `Cmd+C` below. Either works.
+Both quit Alacritty and neither reaches `edit`. That is why the shipped macOS bindings leave Exit on `Ctrl+Q`: bound to `Cmd+Q` it would never fire, and the terminal would exit with the document still open and no save-changes prompt.
+
+`Cmd+W` carries the same hazard and has no editor-side fix -- it closes the window out from under whatever is running.
 
 ## Forwarding `Cmd+C` (split per screen mode)
 
@@ -73,7 +92,14 @@ option_as_alt = "Both"
 [[keyboard.bindings]]
 key = "F"
 mods = "Command"
-chars = ""
+mode = "Alt"
+action = "ReceiveChar"
+
+[[keyboard.bindings]]
+key = "F"
+mods = "Command"
+mode = "~Alt"
+action = "SearchForward"
 
 [[keyboard.bindings]]
 key = "C"
