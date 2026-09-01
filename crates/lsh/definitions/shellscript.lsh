@@ -20,37 +20,44 @@ pub fn shellscript() {
 
         if /#.*/ {
             yield comment;
+        } else if /\\./ {
+            // Outside quotes a backslash escapes the next character; `\'` must
+            // not reach the branch below as an opening quote.
         } else if /'/ {
-            until /$/ {
-                yield string;
+            loop {
+                if /[^']+/ {}
                 if /'/ { yield string; break; }
+                yield string;
                 await input;
             }
         } else if /\$'/ {
             // ANSI C quoting $'...\n...'
-            until /$/ {
+            loop {
+                if /[^'\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /'/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /"/ {
             // TODO: Handle nested evaluation via $(...) and $((...)).
-            until /$/ {
+            loop {
+                if /[^"\\$]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /\$(?:\{[^}]+\}|\(\([^)]*\)\)|\([^)]*\)|[A-Za-z_]\w*|\d+|[#?*!@$-])/ {
                     yield variable;
                 }
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /`/ {
-            until /$/ {
+            loop {
+                if /[^`\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /`/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /<<-?\s*['"]?(?:EOF|END|HEREDOC)\>['"]?.*/ {
             // TODO: We need proper capturing to support arbitrary delimiters + lookbehind across lines.

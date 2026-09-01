@@ -1,0 +1,35 @@
+[32m#!/usr/bin/env bash[m
+[32m# Quoted strings that span more than one line.[m
+
+single=[91m'first[m
+[91msecond'[m
+
+ansi_c=[91m$'first\ttab[m
+[91msecond'[m
+
+double=[91m"first [m[96m$USER[m
+[91msecond [m[96m${HOME}[m[91m"[m
+
+backtick=[91m`uname -s[m
+[91muname -r`[m
+
+[32m# A jq program passed as a multi-line single-quoted argument.[m
+jq [91m"[m[96m$FILTER[m[91m"[m[91m'[m
+[91m    delpaths([ $prev[] | [.] ])[m
+[91m    | . + ($base | slice($prev))[m
+[91m    | . + $overlay'[m --argjson prev [91m"[m[96m$prev[m[91m"[m [91m"[m[96m$cfg[m[91m"[m
+
+[32m# A backslash-escaped quote outside any string does not open one.[m
+echo [91m'it'[m\'[91m's a trap'[m
+
+[32m# Quotes inside a heredoc body are inert.[m
+cat <<'EOF'
+[91mdon't panic[m
+EOF
+
+echo [95mdone[m
+
+[32m# An unterminated quote runs to the end of the file.[m
+echo [91m"no closing quote[m
+[91mstill inside the string[m
+

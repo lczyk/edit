@@ -15,9 +15,8 @@
 {"line":16,"kind":"string","text":"'hello world'"}
 {"line":17,"kind":"other","text":"echo "}
 {"line":17,"kind":"string","text":"'it'"}
-{"line":17,"kind":"other","text":"\\"}
-{"line":17,"kind":"string","text":"''"}
-{"line":17,"kind":"other","text":"s a trap'"}
+{"line":17,"kind":"other","text":"\\'"}
+{"line":17,"kind":"string","text":"'s a trap'"}
 {"line":19,"kind":"comment","text":"# Double-quoted strings"}
 {"line":20,"kind":"other","text":"echo "}
 {"line":20,"kind":"string","text":"\"hello "}

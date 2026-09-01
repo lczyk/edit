@@ -1,0 +1,49 @@
+{"line":1,"kind":"comment","text":"#!/usr/bin/env bash"}
+{"line":2,"kind":"comment","text":"# Quoted strings that span more than one line."}
+{"line":4,"kind":"other","text":"single="}
+{"line":4,"kind":"string","text":"'first"}
+{"line":5,"kind":"string","text":"second'"}
+{"line":7,"kind":"other","text":"ansi_c="}
+{"line":7,"kind":"string","text":"$'first\\ttab"}
+{"line":8,"kind":"string","text":"second'"}
+{"line":10,"kind":"other","text":"double="}
+{"line":10,"kind":"string","text":"\"first "}
+{"line":10,"kind":"variable","text":"$USER"}
+{"line":11,"kind":"string","text":"second "}
+{"line":11,"kind":"variable","text":"${HOME}"}
+{"line":11,"kind":"string","text":"\""}
+{"line":13,"kind":"other","text":"backtick="}
+{"line":13,"kind":"string","text":"`uname -s"}
+{"line":14,"kind":"string","text":"uname -r`"}
+{"line":16,"kind":"comment","text":"# A jq program passed as a multi-line single-quoted argument."}
+{"line":17,"kind":"other","text":"jq "}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"variable","text":"$FILTER"}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"string","text":"'"}
+{"line":18,"kind":"string","text":"    delpaths([ $prev[] | [.] ])"}
+{"line":19,"kind":"string","text":"    | . + ($base | slice($prev))"}
+{"line":20,"kind":"string","text":"    | . + $overlay'"}
+{"line":20,"kind":"other","text":" --argjson prev "}
+{"line":20,"kind":"string","text":"\""}
+{"line":20,"kind":"variable","text":"$prev"}
+{"line":20,"kind":"string","text":"\""}
+{"line":20,"kind":"other","text":" "}
+{"line":20,"kind":"string","text":"\""}
+{"line":20,"kind":"variable","text":"$cfg"}
+{"line":20,"kind":"string","text":"\""}
+{"line":22,"kind":"comment","text":"# A backslash-escaped quote outside any string does not open one."}
+{"line":23,"kind":"other","text":"echo "}
+{"line":23,"kind":"string","text":"'it'"}
+{"line":23,"kind":"other","text":"\\'"}
+{"line":23,"kind":"string","text":"'s a trap'"}
+{"line":25,"kind":"comment","text":"# Quotes inside a heredoc body are inert."}
+{"line":26,"kind":"other","text":"cat <<'EOF'"}
+{"line":27,"kind":"string","text":"don't panic"}
+{"line":28,"kind":"other","text":"EOF"}
+{"line":30,"kind":"other","text":"echo "}
+{"line":30,"kind":"keyword.control","text":"done"}
+{"line":32,"kind":"comment","text":"# An unterminated quote runs to the end of the file."}
+{"line":33,"kind":"other","text":"echo "}
+{"line":33,"kind":"string","text":"\"no closing quote"}
+{"line":34,"kind":"string","text":"still inside the string"}

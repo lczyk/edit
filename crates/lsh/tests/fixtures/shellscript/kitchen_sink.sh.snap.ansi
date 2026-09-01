@@ -14,7 +14,7 @@
 
 [32m# Single-quoted strings[m
 echo [91m'hello world'[m
-echo [91m'it'[m\[91m''[ms a trap'
+echo [91m'it'[m\'[91m's a trap'[m
 
 [32m# Double-quoted strings[m
 echo [91m"hello [m[96m$USER[m[91m"[m
