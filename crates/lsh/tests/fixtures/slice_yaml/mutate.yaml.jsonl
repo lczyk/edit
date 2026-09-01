@@ -1,0 +1,32 @@
+{"line":1,"kind":"keyword.other","text":"package: "}
+{"line":1,"kind":"string","text":"terminfo"}
+{"line":3,"kind":"keyword.other","text":"slices:"}
+{"line":4,"kind":"other","text":"  "}
+{"line":4,"kind":"method","text":"bins"}
+{"line":4,"kind":"other","text":":"}
+{"line":5,"kind":"other","text":"    "}
+{"line":5,"kind":"keyword.other","text":"contents:"}
+{"line":6,"kind":"other","text":"      /usr/bin/tic:"}
+{"line":8,"kind":"other","text":"  "}
+{"line":8,"kind":"method","text":"db"}
+{"line":8,"kind":"other","text":":"}
+{"line":9,"kind":"other","text":"    "}
+{"line":9,"kind":"keyword.other","text":"essential:"}
+{"line":10,"kind":"other","text":"      terminfo_bins:"}
+{"line":11,"kind":"other","text":"    "}
+{"line":11,"kind":"keyword.other","text":"contents:"}
+{"line":12,"kind":"other","text":"      /etc/terminfo/:"}
+{"line":13,"kind":"other","text":"    "}
+{"line":13,"kind":"keyword.other","text":"mutate: "}
+{"line":13,"kind":"other","text":"|"}
+{"line":14,"kind":"string","text":"      # A hash inside the body is script, not a yaml comment."}
+{"line":15,"kind":"string","text":"      src = content.read(\"/etc/terminfo/chiseltest.src\")"}
+{"line":17,"kind":"string","text":"      content.write(\"/etc/terminfo/c/chiseltest\", src)"}
+{"line":18,"kind":"keyword.other","text":"    hint: "}
+{"line":18,"kind":"string","text":"rebuilt from source"}
+{"line":20,"kind":"other","text":"  "}
+{"line":20,"kind":"method","text":"copyright"}
+{"line":20,"kind":"other","text":":"}
+{"line":21,"kind":"other","text":"    "}
+{"line":21,"kind":"keyword.other","text":"contents:"}
+{"line":22,"kind":"other","text":"      /usr/share/doc/terminfo/copyright:"}

@@ -71,25 +71,63 @@ fn slice_yaml_value() {
 // names; deeper nested keys are normal yaml, with `essential` / `contents` /
 // `mutate` treated as structural keywords.
 fn slice_yaml_in_slices_line() {
-    if /\s*$/ {
-        // Blank line.
-    } else if /\s*#.*/ {
-        yield comment;
-    } else if /  ([\w.+*\/-]+):/ {
-        // Exactly two-space indent + key = slice name.
-        yield $1 as method;
-        slice_yaml_value();
-    } else if /\s+/ {
-        yield other;
-        if /-\s+/ {
-            // List item
+    var two = 2;
+
+    // The block-scalar branch re-enters this dispatch once the body ends, so
+    // the dedented line that closed it is still highlighted as a slice line.
+    loop {
+        if /\s*$/ {
+            // Blank line.
+        } else if /\s*#.*/ {
+            yield comment;
+        } else {
+            if /\s+/ {
+                yield other;
+            }
+
+            var indentation = off;
+
+            if off == two {
+                // Exactly two-space indent + key = slice name.
+                if /([\w.+*\/-]+):/ {
+                    yield $1 as method;
+                }
+            } else {
+                if /-\s+/ {
+                    // List item
+                }
+                if /(?:essential|contents|mutate|hint):(?:\s+|$)/ {
+                    yield keyword.other;
+                } else if /[\w.+*\/-]+:(?:\s+|$)/ {
+                    // Generic Key:
+                }
+            }
+
+            if /[|>][-+]?\s*$/ {
+                yield other;
+                loop {
+                    await input;
+                    if /\s+/ {
+                    }
+                    if /$/ {
+                        // A blank line stays inside the block scalar.
+                        yield string;
+                        continue;
+                    }
+                    if off <= indentation {
+                        break;
+                    }
+                    if /.*/ {
+                        yield string;
+                    }
+                }
+                continue;
+            }
+
+            slice_yaml_value();
         }
-        if /(?:essential|contents|mutate|hint):(?:\s+|$)/ {
-            yield keyword.other;
-        } else if /[\w.+*\/-]+:(?:\s+|$)/ {
-            // Generic Key:
-        }
-        slice_yaml_value();
+
+        break;
     }
 }
 

@@ -1,0 +1,23 @@
+[94mpackage: [m[91mterminfo[m
+
+[94mslices:[m
+  [93mbins[m:
+    [94mcontents:[m
+      /usr/bin/tic:
+
+  [93mdb[m:
+    [94messential:[m
+      terminfo_bins:
+    [94mcontents:[m
+      /etc/terminfo/:
+    [94mmutate: [m|
+[91m      # A hash inside the body is script, not a yaml comment.[m
+[91m      src = content.read("/etc/terminfo/chiseltest.src")[m
+
+[91m      content.write("/etc/terminfo/c/chiseltest", src)[m
+[94m    hint: [m[91mrebuilt from source[m
+
+  [93mcopyright[m:
+    [94mcontents:[m
+      /usr/share/doc/terminfo/copyright:
+

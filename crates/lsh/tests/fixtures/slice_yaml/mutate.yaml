@@ -1,0 +1,22 @@
+package: terminfo
+
+slices:
+  bins:
+    contents:
+      /usr/bin/tic:
+
+  db:
+    essential:
+      terminfo_bins:
+    contents:
+      /etc/terminfo/:
+    mutate: |
+      # A hash inside the body is script, not a yaml comment.
+      src = content.read("/etc/terminfo/chiseltest.src")
+
+      content.write("/etc/terminfo/c/chiseltest", src)
+    hint: rebuilt from source
+
+  copyright:
+    contents:
+      /usr/share/doc/terminfo/copyright:
