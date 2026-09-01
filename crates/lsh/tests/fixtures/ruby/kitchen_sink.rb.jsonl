@@ -194,3 +194,10 @@
 {"line":123,"kind":"constant.numeric","text":"?Z"}
 {"line":124,"kind":"other","text":"ch_esc = "}
 {"line":124,"kind":"constant.numeric","text":"?\\n"}
+{"line":126,"kind":"comment","text":"# Strings carry raw newlines, single- and double-quoted alike."}
+{"line":127,"kind":"other","text":"raw = "}
+{"line":127,"kind":"string","text":"'line one"}
+{"line":128,"kind":"string","text":"line two'"}
+{"line":129,"kind":"other","text":"esc = "}
+{"line":129,"kind":"string","text":"\"escaped \\\" quote"}
+{"line":130,"kind":"string","text":"line two\""}

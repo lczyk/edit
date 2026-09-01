@@ -11,20 +11,22 @@ pub fn fish() {
             yield comment;
         } else if /'/ {
             // Single-quoted strings: no escapes, no interpolation.
-            until /$/ {
-                yield string;
+            loop {
+                if /[^']+/ {}
                 if /'/ { yield string; break; }
+                yield string;
                 await input;
             }
         } else if /"/ {
-            until /$/ {
+            loop {
+                if /[^"\\$]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /\$[A-Za-z_]\w*/ {
                     yield variable;
                 }
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /\$[A-Za-z_]\w*(?:\[[\d. -]*\])?/ {
             yield variable;

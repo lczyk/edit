@@ -117,3 +117,7 @@ pub fn main() {
   list.map(shapes, area)
   |> list.each(io.debug)
 }
+
+// A string literal may carry a raw newline.
+const span = "line one
+line two"

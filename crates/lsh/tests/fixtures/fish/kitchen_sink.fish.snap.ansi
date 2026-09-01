@@ -181,3 +181,9 @@ disown
 [32m# Exit[m
 exit [92m0[m
 
+[32m# Strings carry raw newlines, single- and double-quoted alike.[m
+[94mset[m raw [91m'line one[m
+[91mline two'[m
+[94mset[m interp [91m"line one [m[96m$USER[m
+[91mline two"[m
+

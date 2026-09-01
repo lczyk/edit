@@ -341,3 +341,13 @@
 {"line":181,"kind":"comment","text":"# Exit"}
 {"line":182,"kind":"other","text":"exit "}
 {"line":182,"kind":"constant.numeric","text":"0"}
+{"line":184,"kind":"comment","text":"# Strings carry raw newlines, single- and double-quoted alike."}
+{"line":185,"kind":"keyword.other","text":"set"}
+{"line":185,"kind":"other","text":" raw "}
+{"line":185,"kind":"string","text":"'line one"}
+{"line":186,"kind":"string","text":"line two'"}
+{"line":187,"kind":"keyword.other","text":"set"}
+{"line":187,"kind":"other","text":" interp "}
+{"line":187,"kind":"string","text":"\"line one "}
+{"line":187,"kind":"variable","text":"$USER"}
+{"line":188,"kind":"string","text":"line two\""}

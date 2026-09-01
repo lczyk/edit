@@ -118,3 +118,7 @@
   |> list.[93meach[m(io.debug)
 }
 
+[32m// A string literal may carry a raw newline.[m
+[94mconst[m span = [91m"line one[m
+[91mline two"[m
+

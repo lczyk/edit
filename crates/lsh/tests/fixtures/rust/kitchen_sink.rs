@@ -31,3 +31,7 @@ fn main() {
         _ => unreachable!(),
     }
 }
+
+// A string literal may carry a raw newline.
+const SPAN: &str = "line one
+line two";

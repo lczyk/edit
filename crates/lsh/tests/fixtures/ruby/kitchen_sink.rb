@@ -122,3 +122,9 @@ str_Q = %Q{interp}
 ch_a = ?a
 ch_z = ?Z
 ch_esc = ?\n
+
+# Strings carry raw newlines, single- and double-quoted alike.
+raw = 'line one
+line two'
+esc = "escaped \" quote
+line two"

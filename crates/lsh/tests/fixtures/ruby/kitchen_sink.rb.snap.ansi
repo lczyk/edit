@@ -123,3 +123,9 @@ ch_a = [92m?a[m
 ch_z = [92m?Z[m
 ch_esc = [92m?\n[m
 
+[32m# Strings carry raw newlines, single- and double-quoted alike.[m
+raw = [91m'line one[m
+[91mline two'[m
+esc = [91m"escaped \" quote[m
+[91mline two"[m
+

@@ -14,12 +14,13 @@ pub fn gleam() {
         } else if /\/\/.*/ {
             yield comment;
         } else if /"/ {
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
                 if /\\(?:[fnrt"\\]|u\{[0-9A-Fa-f]+\})/ {}
                 else if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /(?:as|assert|auto|case|delegate|derive|echo|else|if|implement|panic|return|todo|use)\>/ {
             yield keyword.control;

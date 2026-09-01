@@ -40,18 +40,20 @@ pub fn ruby() {
         } else if /\?(?:\\[a-zA-Z0-9\\'"]|[A-Za-z0-9_])\>/ {
             yield constant.numeric;
         } else if /'/ {
-            until /$/ {
+            loop {
+                if /[^'\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /'/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /"/ {
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /`/ {
             loop {

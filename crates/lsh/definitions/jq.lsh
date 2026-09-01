@@ -15,22 +15,24 @@ pub fn jq() {
         if /#.*/ {
             yield comment;
         } else if /"/ {
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
                 if /\\\(/ {
                     // string interpolation `"\(expr)"` -- gobble through
                     // the matching close paren without nesting awareness
                     // (good enough for the common case).
-                    until /$/ {
+                    loop {
+                        if /[^)\\]+/ {}
                         yield other;
                         if /\)/ { break; }
                         if /\\./ {}
-                        await input;
+                        else { await input; }
                     }
                 }
                 else if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /(?:if|then|elif|else|end|as|def|reduce|foreach|try|catch|label|import|include|module)\>/ {
             yield keyword.control;

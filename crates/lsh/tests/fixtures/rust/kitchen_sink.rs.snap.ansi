@@ -32,3 +32,7 @@
     }
 }
 
+[32m// A string literal may carry a raw newline.[m
+[94mconst[m [96mSPAN[m: &[96mstr[m = [91m"line one[m
+[91mline two"[m;
+

@@ -46,3 +46,8 @@ try (.bad | tonumber) catch "n/a"
 
 # regex builtins
 split(",") | map(test("^[0-9]+$"))
+
+# Strings carry raw newlines, interpolation included.
+| "line one
+line two \(.field
++ 1) tail"

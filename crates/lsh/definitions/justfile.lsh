@@ -44,29 +44,33 @@ pub fn justfile() {
                 await input;
             }
         } else if /"/ {
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /'/ {
-            until /$/ {
-                yield string;
+            loop {
+                if /[^']+/ {}
                 if /'/ { yield string; break; }
+                yield string;
                 await input;
             }
         } else if /`/ {
-            until /$/ {
+            loop {
+                if /[^`\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /`/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /\{\{/ {
-            until /$/ {
-                yield variable;
+            loop {
+                if /[^}]+/ {}
                 if /\}\}/ { yield variable; break; }
+                yield variable;
                 await input;
             }
         } else if /(?:if|else|in)\>/ {

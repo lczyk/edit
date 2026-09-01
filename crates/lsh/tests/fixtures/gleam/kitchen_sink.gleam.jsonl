@@ -459,3 +459,8 @@
 {"line":118,"kind":"method","text":"each"}
 {"line":118,"kind":"other","text":"(io.debug)"}
 {"line":119,"kind":"other","text":"}"}
+{"line":121,"kind":"comment","text":"// A string literal may carry a raw newline."}
+{"line":122,"kind":"keyword.other","text":"const"}
+{"line":122,"kind":"other","text":" span = "}
+{"line":122,"kind":"string","text":"\"line one"}
+{"line":123,"kind":"string","text":"line two\""}

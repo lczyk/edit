@@ -50,3 +50,11 @@ greeting := if os() == "macos" { "hi mac" } else { "hi " + os() }
 
 count := 42
 hex := 0xff
+
+# Strings and backtick substitutions carry raw newlines.
+span := "line one
+line two"
+raw := 'line one
+line two'
+shell := `uname -s
+uname -r`

@@ -179,3 +179,10 @@
 {"line":48,"kind":"other","text":"("}
 {"line":48,"kind":"string","text":"\"^[0-9]+$\""}
 {"line":48,"kind":"other","text":"))"}
+{"line":50,"kind":"comment","text":"# Strings carry raw newlines, interpolation included."}
+{"line":51,"kind":"other","text":"| "}
+{"line":51,"kind":"string","text":"\"line one"}
+{"line":52,"kind":"string","text":"line two "}
+{"line":52,"kind":"other","text":"\\(.field"}
+{"line":53,"kind":"other","text":"+ 1"}
+{"line":53,"kind":"string","text":") tail\""}

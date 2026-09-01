@@ -23,11 +23,12 @@ pub fn rust() {
                 }
             }
         } else if /b?"/ {
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
+                else { await input; }
             }
         } else if /br?#+"/ {
             // Raw string. Not handling matching `#` count precisely.

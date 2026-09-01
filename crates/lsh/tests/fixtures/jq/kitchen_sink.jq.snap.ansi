@@ -47,3 +47,8 @@
 [32m# regex builtins[m
 [33msplit[m([91m","[m) | [33mmap[m([33mtest[m([91m"^[0-9]+$"[m))
 
+[32m# Strings carry raw newlines, interpolation included.[m
+| [91m"line one[m
+[91mline two [m\(.field
++ 1[91m) tail"[m
+

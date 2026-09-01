@@ -180,3 +180,9 @@ disown
 
 # Exit
 exit 0
+
+# Strings carry raw newlines, single- and double-quoted alike.
+set raw 'line one
+line two'
+set interp "line one $USER
+line two"

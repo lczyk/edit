@@ -111,3 +111,13 @@
 {"line":31,"kind":"other","text":"!(),"}
 {"line":32,"kind":"other","text":"    }"}
 {"line":33,"kind":"other","text":"}"}
+{"line":35,"kind":"comment","text":"// A string literal may carry a raw newline."}
+{"line":36,"kind":"keyword.other","text":"const"}
+{"line":36,"kind":"other","text":" "}
+{"line":36,"kind":"variable","text":"SPAN"}
+{"line":36,"kind":"other","text":": &"}
+{"line":36,"kind":"variable","text":"str"}
+{"line":36,"kind":"other","text":" = "}
+{"line":36,"kind":"string","text":"\"line one"}
+{"line":37,"kind":"string","text":"line two\""}
+{"line":37,"kind":"other","text":";"}
