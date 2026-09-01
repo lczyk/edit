@@ -116,62 +116,68 @@ fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_detect(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Result<()> {
-    let assembly = generator.assemble()?;
-
+/// Index into `assembly.entrypoints` of the definition that owns `path`,
+/// resolved the way the editor resolves it: the path globs first, then each
+/// candidate dialect's `detect()` against the head of the file when more than
+/// one glob matches. Returns an index rather than a reference so the caller
+/// can still consume the rest of the assembly.
+fn resolve_entrypoint(
+    assembly: &lsh::compiler::Assembly<'_>,
+    path: &Path,
+) -> anyhow::Result<usize> {
     let path_bytes = path.as_os_str().as_encoded_bytes();
-    let candidates: Vec<_> = assembly
+    let candidates: Vec<usize> = assembly
         .entrypoints
         .iter()
-        .filter(|ep| ep.paths.iter().any(|pat| glob_match(pat.as_bytes(), path_bytes)))
+        .enumerate()
+        .filter(|(_, ep)| ep.paths.iter().any(|pat| glob_match(pat.as_bytes(), path_bytes)))
+        .map(|(i, _)| i)
         .collect();
 
-    if candidates.is_empty() {
+    let Some(&first) = candidates.first() else {
         bail!("no matching highlighting definition for {}", path.display());
+    };
+
+    if candidates.len() == 1 {
+        return Ok(first);
     }
 
-    let picked = if candidates.len() == 1 {
-        candidates[0]
-    } else {
-        let src = std::fs::read(path)?;
-        let head = &src[..src.len().min(4096)];
-        let charsets: Vec<SerializedCharset> =
-            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
-        let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, 0);
-        let mut base = None;
-        let mut decided = None;
-        for cand in &candidates {
-            match cand.detect_address {
-                Some(addr) => {
-                    if runtime.detect(head, addr as u32) {
-                        decided = Some(*cand);
-                        break;
-                    }
+    let src = std::fs::read(path)?;
+    let head = &src[..src.len().min(4096)];
+    let charsets: Vec<SerializedCharset> =
+        assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+    let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, 0);
+    let mut base = None;
+
+    for &cand in &candidates {
+        match assembly.entrypoints[cand].detect_address {
+            Some(addr) => {
+                if runtime.detect(head, addr as u32) {
+                    return Ok(cand);
                 }
-                None => {
-                    if base.is_none() {
-                        base = Some(*cand);
-                    }
+            }
+            None => {
+                if base.is_none() {
+                    base = Some(cand);
                 }
             }
         }
-        decided.or(base).unwrap_or(candidates[0])
-    };
+    }
 
-    println!("{}", picked.name);
+    Ok(base.unwrap_or(first))
+}
+
+fn run_detect(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Result<()> {
+    let assembly = generator.assemble()?;
+    let picked = resolve_entrypoint(&assembly, path)?;
+
+    println!("{}", assembly.entrypoints[picked].name);
     Ok(())
 }
 
 fn run_render(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Result<()> {
     let assembly = generator.assemble()?;
-
-    let Some(entrypoint) = assembly.entrypoints.iter().find(|ep| {
-        ep.paths
-            .iter()
-            .any(|pattern| glob_match(pattern.as_bytes(), path.as_os_str().as_encoded_bytes()))
-    }) else {
-        bail!("No matching highlighting definition found");
-    };
+    let entrypoint_address = assembly.entrypoints[resolve_entrypoint(&assembly, path)?].address;
 
     let mut color_map = Vec::new();
     let mut unknown_kinds = Vec::new();
@@ -219,7 +225,7 @@ fn run_render(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Resul
         &assembly.instructions,
         &assembly.strings,
         &charsets,
-        entrypoint.address as u32,
+        entrypoint_address as u32,
     );
 
     let reader = BufReader::with_capacity(128 * 1024, File::open(path)?);
