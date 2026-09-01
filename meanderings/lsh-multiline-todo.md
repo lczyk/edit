@@ -71,7 +71,7 @@ the `until` but inside an enclosing `loop` is fine.
       fish, gleam, justfile (all four of `"` `'` `` ` `` `{{ }}`), jq.
       `just` and `jq` were checked against their real CLIs: both fold a
       raw newline into the string rather than rejecting it.
-- [ ] **everywhere else** -- c, objc, glsl, javascript, python, go,
+- [x] **everywhere else** -- c, objc, glsl, javascript, python, go,
       dockerfile, makefile, json, awk, sed, hcl. a raw newline inside
       those strings is a syntax error in the language, so line-bounded
       is the right behaviour and only the dead `await input` goes.
