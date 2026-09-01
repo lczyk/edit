@@ -67,15 +67,15 @@ the `until` but inside an enclosing `loop` is fine.
       the only `yield string` sits on the closing-quote path. moving a
       `yield string` past the loop covers the remainder, and nothing
       else moves.
-- [ ] **languages with genuinely multi-line strings** -- rust, ruby,
-      fish, gleam, justfile (all four of `"` `'` `` ` `` `{{ }}`), jq,
-      hcl. the middle two were checked against the real `just` / `jq`
-      CLIs.
+- [x] **languages with genuinely multi-line strings** -- rust, ruby,
+      fish, gleam, justfile (all four of `"` `'` `` ` `` `{{ }}`), jq.
+      `just` and `jq` were checked against their real CLIs: both fold a
+      raw newline into the string rather than rejecting it.
 - [ ] **everywhere else** -- c, objc, glsl, javascript, python, go,
-      dockerfile, makefile, json, awk, sed. a raw newline inside those
-      strings is a syntax error in the language, so line-bounded is the
-      right behaviour and only the dead `await input` goes. verified
-      against `node` and the go compiler rather than assumed.
+      dockerfile, makefile, json, awk, sed, hcl. a raw newline inside
+      those strings is a syntax error in the language, so line-bounded
+      is the right behaviour and only the dead `await input` goes.
+      verified against `node` and the go compiler rather than assumed.
       backslash-newline continuation already renders acceptably; adding
       `if /\\$/ { await input; }` is a separate, optional improvement.
 - [ ] **lsh-bin render** picks the first glob match and never runs the
