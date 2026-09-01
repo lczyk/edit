@@ -11,4 +11,6 @@
 [96mkey_file[m = /etc/ssl/private/server.key
 [96mprotocols[m = TLSv1.2, TLSv1.3 [32m# Supported protocols: "TLSv1.2" and "TLSv1.3"[m
 [96mcipher_suite[m = [91m"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"[m
+[96mbanner[m = [91m"missing its closing quote[m
+[96mmotd[m = [91m'also missing[m
 

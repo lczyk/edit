@@ -21,3 +21,9 @@
 {"line":13,"kind":"variable","text":"cipher_suite"}
 {"line":13,"kind":"other","text":" = "}
 {"line":13,"kind":"string","text":"\"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256\""}
+{"line":14,"kind":"variable","text":"banner"}
+{"line":14,"kind":"other","text":" = "}
+{"line":14,"kind":"string","text":"\"missing its closing quote"}
+{"line":15,"kind":"variable","text":"motd"}
+{"line":15,"kind":"other","text":" = "}
+{"line":15,"kind":"string","text":"'also missing"}

@@ -7,6 +7,9 @@ fn single_quote_string() {
             break;
         }
     }
+
+    // Colours the remainder when the closing quote never arrives.
+    yield string;
 }
 
 fn double_quote_string() {
@@ -18,4 +21,7 @@ fn double_quote_string() {
             break;
         }
     }
+
+    // Colours the remainder when the closing quote never arrives.
+    yield string;
 }
