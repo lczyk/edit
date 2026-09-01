@@ -1,0 +1,28 @@
+summary: block scalars with blank lines in the body
+
+execute: |
+  set -eu
+
+  # A hash inside the body is script, not a yaml comment.
+  printf 'cols#80, lines#24\n' > "$rootfs/terminfo.src"
+
+  echo done
+
+folded: >
+  first line
+
+  second paragraph
+strip: |-
+  no trailing newline
+
+  still inside
+nested:
+  script: |
+
+    leading blank line
+    # another hash
+
+    trailing blank line
+
+  sibling: 1
+after: 2

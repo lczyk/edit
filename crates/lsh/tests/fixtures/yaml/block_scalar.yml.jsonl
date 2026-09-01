@@ -1,0 +1,22 @@
+{"line":1,"kind":"other","text":"summary: "}
+{"line":1,"kind":"string","text":"block scalars with blank lines in the body"}
+{"line":3,"kind":"other","text":"execute: |"}
+{"line":4,"kind":"string","text":"  set -eu"}
+{"line":6,"kind":"string","text":"  # A hash inside the body is script, not a yaml comment."}
+{"line":7,"kind":"string","text":"  printf 'cols#80, lines#24\\n' > \"$rootfs/terminfo.src\""}
+{"line":9,"kind":"string","text":"  echo done"}
+{"line":11,"kind":"other","text":"folded: >"}
+{"line":12,"kind":"string","text":"  first line"}
+{"line":14,"kind":"string","text":"  second paragraph"}
+{"line":15,"kind":"other","text":"strip: |-"}
+{"line":16,"kind":"string","text":"  no trailing newline"}
+{"line":18,"kind":"string","text":"  still inside"}
+{"line":19,"kind":"other","text":"nested:"}
+{"line":20,"kind":"other","text":"  script: |"}
+{"line":22,"kind":"string","text":"    leading blank line"}
+{"line":23,"kind":"string","text":"    # another hash"}
+{"line":25,"kind":"string","text":"    trailing blank line"}
+{"line":27,"kind":"other","text":"  sibling: "}
+{"line":27,"kind":"constant.numeric","text":"1"}
+{"line":28,"kind":"other","text":"after: "}
+{"line":28,"kind":"constant.numeric","text":"2"}

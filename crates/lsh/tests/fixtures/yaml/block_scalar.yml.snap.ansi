@@ -1,0 +1,29 @@
+summary: [91mblock scalars with blank lines in the body[m
+
+execute: |
+[91m  set -eu[m
+
+[91m  # A hash inside the body is script, not a yaml comment.[m
+[91m  printf 'cols#80, lines#24\n' > "$rootfs/terminfo.src"[m
+
+[91m  echo done[m
+
+folded: >
+[91m  first line[m
+
+[91m  second paragraph[m
+strip: |-
+[91m  no trailing newline[m
+
+[91m  still inside[m
+nested:
+  script: |
+
+[91m    leading blank line[m
+[91m    # another hash[m
+
+[91m    trailing blank line[m
+
+  sibling: [92m1[m
+after: [92m2[m
+

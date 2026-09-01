@@ -29,6 +29,13 @@ pub fn yaml() {
                 if /\s+/ {
                 }
 
+                if /$/ {
+                    // A blank line belongs to the block scalar; only a
+                    // dedented non-blank line ends it.
+                    yield string;
+                    continue;
+                }
+
                 if off <= indentation {
                     // Once the new indentation is smaller, the multiline string has ended.
                     break;
