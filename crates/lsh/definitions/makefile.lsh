@@ -31,14 +31,12 @@ pub fn makefile() {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /'/ {
             until /$/ {
                 yield string;
                 if /\\./ {}
                 else if /'/ { yield string; break; }
-                await input;
             }
         } else if /\$[@<?^+*|%]/ {
             yield variable;

@@ -44,7 +44,6 @@ pub fn objc() {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /(?:L|u|U)?'(?:\\(?:[xuU][\da-fA-F]+|[0-7]+|.)|[^'\\])'/ {
             yield string;

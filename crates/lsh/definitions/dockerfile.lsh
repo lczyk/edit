@@ -40,14 +40,12 @@ pub fn dockerfile() {
                     yield variable;
                 }
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /'/ {
             until /$/ {
                 yield string;
                 if /\\./ {}
                 else if /'/ { yield string; break; }
-                await input;
             }
         } else if /\$(?:\{[^}]+\}|[A-Za-z_]\w*)/ {
             yield variable;

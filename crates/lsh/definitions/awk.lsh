@@ -19,7 +19,6 @@ pub fn awk() {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /(BEGIN|BEGINFILE|END|ENDFILE)\>/ {
             yield $1 as keyword.control;

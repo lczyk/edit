@@ -26,14 +26,12 @@ pub fn javascript() {
                 yield string;
                 if /\\./ {}
                 else if /'/ { yield string; break; }
-                await input;
             }
         } else if /"/ {
             until /$/ {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /`/ {
             loop {

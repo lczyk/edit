@@ -56,6 +56,5 @@ fn json_string() {
             yield string;
             break;
         }
-        await input;
     }
 }

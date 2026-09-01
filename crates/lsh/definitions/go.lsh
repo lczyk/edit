@@ -23,7 +23,6 @@ pub fn go() {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /`/ {
             loop {

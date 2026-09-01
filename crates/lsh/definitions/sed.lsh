@@ -19,14 +19,12 @@ pub fn sed() {
                 yield string;
                 if /\\./ {}
                 else if /\// { yield other; break; }
-                await input;
             }
             // replacement half
             until /$/ {
                 yield string;
                 if /\\./ {}
                 else if /\// { yield other; break; }
-                await input;
             }
             // flags: g (global), p (print), i/I (case), m/M (multi-line),
             // numeric Nth-match selector.
@@ -40,14 +38,12 @@ pub fn sed() {
                 yield string;
                 if /\\./ {}
                 else if /\// { yield other; break; }
-                await input;
             }
             // dest set
             until /$/ {
                 yield string;
                 if /\\./ {}
                 else if /\// { yield other; break; }
-                await input;
             }
         } else if /\// {
             // standalone address regex `/PAT/`
@@ -55,7 +51,6 @@ pub fn sed() {
                 yield string;
                 if /\\./ {}
                 else if /\// { yield string; break; }
-                await input;
             }
         } else if /\\\d/ {
             // backreferences `\1` ... `\9` and `&` (handled below)

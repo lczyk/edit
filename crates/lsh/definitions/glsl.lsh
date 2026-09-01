@@ -37,7 +37,6 @@ pub fn glsl() {
                 yield string;
                 if /\\./ {}
                 else if /"/ { yield string; break; }
-                await input;
             }
         } else if /#\s*(?:version|include|extension|define|undef|ifdef|ifndef|if|elif|else|endif|pragma|error|line)\>/ {
             yield keyword.other;
