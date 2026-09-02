@@ -125,6 +125,28 @@ if /([\w:.-]+)\s*=/ {
 The full regex match is still consumed.
 Only capture group `$1` receives the `variable` highlight; everything else falls through to the following `yield`.
 
+## Remembering a delimiter
+
+A heredoc names its terminator at the opener, so the close cannot be a fixed regex.
+`save $N` remembers capture group `N`, and `if $saved` later tests for that exact text at the current position, consuming it on success:
+
+```rs
+if /<<-?\s*['"]?(\w+)['"]?.*/ {
+    save $1;
+    loop {
+        await input;
+        if $saved {
+            if /$/ { yield other; break; }
+        }
+        if /.*/ {}
+        yield string;
+    }
+}
+```
+
+One span is remembered at a time, and it survives across lines and through the editor's incremental re-highlighting.
+`save` only works inside the `if` whose regex defined the group, like `yield $N as`.
+
 ## Variables and the input position
 
 You can store the current input offset in a variable and compare against it later:
