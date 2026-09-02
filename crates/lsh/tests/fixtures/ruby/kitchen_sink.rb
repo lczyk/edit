@@ -128,3 +128,17 @@ raw = 'line one
 line two'
 esc = "escaped \" quote
 line two"
+
+# Heredocs: squiggly, dashed, quoted, and plain. The rest of the opener line
+# is still code; the body starts on the next line.
+sql = <<~SQL.strip
+  SELECT * FROM users
+  WHERE name = 'SQL'
+SQL
+html = <<-'HTML'
+    <p>#{not_interpolated}</p>
+    HTML
+plain = <<EOS
+EOS mid-line stays body
+EOS
+puts sql

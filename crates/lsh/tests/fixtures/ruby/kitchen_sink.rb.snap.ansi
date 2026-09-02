@@ -129,3 +129,17 @@ raw = [91m'line one[m
 esc = [91m"escaped \" quote[m
 [91mline two"[m
 
+[32m# Heredocs: squiggly, dashed, quoted, and plain. The rest of the opener line[m
+[32m# is still code; the body starts on the next line.[m
+sql = [91m<<~SQL[m.strip
+[91m  SELECT * FROM users[m
+[91m  WHERE name = 'SQL'[m
+SQL
+html = [91m<<-'HTML'[m
+[91m    <p>#{not_interpolated}</p>[m
+    HTML
+plain = [91m<<EOS[m
+[91mEOS mid-line stays body[m
+EOS
+puts sql
+

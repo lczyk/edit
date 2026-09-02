@@ -201,3 +201,20 @@
 {"line":129,"kind":"other","text":"esc = "}
 {"line":129,"kind":"string","text":"\"escaped \\\" quote"}
 {"line":130,"kind":"string","text":"line two\""}
+{"line":132,"kind":"comment","text":"# Heredocs: squiggly, dashed, quoted, and plain. The rest of the opener line"}
+{"line":133,"kind":"comment","text":"# is still code; the body starts on the next line."}
+{"line":134,"kind":"other","text":"sql = "}
+{"line":134,"kind":"string","text":"<<~SQL"}
+{"line":134,"kind":"other","text":".strip"}
+{"line":135,"kind":"string","text":"  SELECT * FROM users"}
+{"line":136,"kind":"string","text":"  WHERE name = 'SQL'"}
+{"line":137,"kind":"other","text":"SQL"}
+{"line":138,"kind":"other","text":"html = "}
+{"line":138,"kind":"string","text":"<<-'HTML'"}
+{"line":139,"kind":"string","text":"    <p>#{not_interpolated}</p>"}
+{"line":140,"kind":"other","text":"    HTML"}
+{"line":141,"kind":"other","text":"plain = "}
+{"line":141,"kind":"string","text":"<<EOS"}
+{"line":142,"kind":"string","text":"EOS mid-line stays body"}
+{"line":143,"kind":"other","text":"EOS"}
+{"line":144,"kind":"other","text":"puts sql"}
