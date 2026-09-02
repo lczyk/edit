@@ -14,3 +14,10 @@
     }
 }
 
+[32m/* A block comment mentions a /path and some[m
+[32m   yield keyword.other; that is not code,[m
+[32m   and ends here. */[m
+[94mfn[m after_comment() {
+    [95mif[m [91m/x/[m { [94myield[m [4mstring[m; }
+}
+

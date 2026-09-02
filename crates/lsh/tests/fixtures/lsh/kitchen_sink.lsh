@@ -13,3 +13,10 @@ pub fn demo() {
         }
     }
 }
+
+/* A block comment mentions a /path and some
+   yield keyword.other; that is not code,
+   and ends here. */
+fn after_comment() {
+    if /x/ { yield string; }
+}

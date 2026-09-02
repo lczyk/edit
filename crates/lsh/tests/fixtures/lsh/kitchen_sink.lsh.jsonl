@@ -47,3 +47,18 @@
 {"line":13,"kind":"other","text":"        }"}
 {"line":14,"kind":"other","text":"    }"}
 {"line":15,"kind":"other","text":"}"}
+{"line":17,"kind":"comment","text":"/* A block comment mentions a /path and some"}
+{"line":18,"kind":"comment","text":"   yield keyword.other; that is not code,"}
+{"line":19,"kind":"comment","text":"   and ends here. */"}
+{"line":20,"kind":"keyword.other","text":"fn"}
+{"line":20,"kind":"other","text":" after_comment() {"}
+{"line":21,"kind":"other","text":"    "}
+{"line":21,"kind":"keyword.control","text":"if"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"string","text":"/x/"}
+{"line":21,"kind":"other","text":" { "}
+{"line":21,"kind":"keyword.other","text":"yield"}
+{"line":21,"kind":"other","text":" "}
+{"line":21,"kind":"markup.link","text":"string"}
+{"line":21,"kind":"other","text":"; }"}
+{"line":22,"kind":"other","text":"}"}

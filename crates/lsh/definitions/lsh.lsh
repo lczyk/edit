@@ -9,6 +9,14 @@ pub fn lsh() {
 
         if /\/\/.*/ {
             yield comment;
+        } else if /\/\*/ {
+            loop {
+                if /[^*]+/ {}
+                yield comment;
+                if /\*\// { yield comment; break; }
+                else if /\*/ {}
+                else { await input; }
+            }
         } else if /pub|fn|await/ {
             if /\w+/ {
                 yield other;
