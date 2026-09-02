@@ -7,11 +7,39 @@
 #[path = "**/*.sed"]
 #[shebang = "sed"]
 pub fn sed() {
+    var one = 1;
+    var more = 0;
+
     until /$/ {
         yield other;
 
         if /#.*/ {
             yield comment;
+        } else if /([aic])\\$/ {
+            // Append / insert / change: the text follows on the next lines,
+            // each one continued by a trailing backslash except the last.
+            yield $1 as keyword.other;
+            yield other;
+            loop {
+                await input;
+                until /$/ {
+                    if /[^\\]+/ {}
+                    else if /\\$/ { more = 1; }
+                    else if /\\./ {}
+                }
+                yield string;
+                if more == one {
+                    more = 0;
+                } else {
+                    break;
+                }
+            }
+        } else if /([aic])[ \t]+/ {
+            // GNU one-line form: the rest of the line is the text.
+            yield $1 as keyword.other;
+            yield other;
+            if /.*/ {}
+            yield string;
         } else if /(s)\// {
             yield $1 as keyword.other;
             // pattern half of `s/PATTERN/REPL/[flags]`

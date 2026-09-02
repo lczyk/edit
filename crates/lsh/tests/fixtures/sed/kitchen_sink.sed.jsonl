@@ -81,3 +81,16 @@
 {"line":42,"kind":"keyword.other","text":"w"}
 {"line":42,"kind":"other","text":" out.txt"}
 {"line":43,"kind":"keyword.other","text":"q"}
+{"line":45,"kind":"comment","text":"# a\\ i\\ c\\ take a text block; each line but the last ends in a backslash."}
+{"line":46,"kind":"keyword.other","text":"a"}
+{"line":46,"kind":"other","text":"\\"}
+{"line":47,"kind":"string","text":"# not a comment, this is text\\"}
+{"line":48,"kind":"string","text":"123 s/x/y/ is text too"}
+{"line":49,"kind":"keyword.other","text":"i"}
+{"line":49,"kind":"other","text":" "}
+{"line":49,"kind":"string","text":"text on one line, GNU style"}
+{"line":50,"kind":"string","text":"/start/"}
+{"line":50,"kind":"keyword.other","text":"c"}
+{"line":50,"kind":"other","text":"\\"}
+{"line":51,"kind":"string","text":"replaced"}
+{"line":52,"kind":"keyword.other","text":"p"}

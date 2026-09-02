@@ -41,3 +41,12 @@ s/whole/[&]/g
 # write the result to a file, then quit
 w out.txt
 q
+
+# a\ i\ c\ take a text block; each line but the last ends in a backslash.
+a\
+# not a comment, this is text\
+123 s/x/y/ is text too
+i text on one line, GNU style
+/start/c\
+replaced
+p
