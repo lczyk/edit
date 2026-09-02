@@ -1,0 +1,17 @@
+{"line":1,"kind":"markup.heading","text":"# Code spans"}
+{"line":3,"kind":"other","text":"A double-backtick span "}
+{"line":3,"kind":"string","text":"``with a ` inside``"}
+{"line":3,"kind":"other","text":" and one that wraps "}
+{"line":3,"kind":"string","text":"``across"}
+{"line":4,"kind":"string","text":"the line break``"}
+{"line":4,"kind":"other","text":" before more prose."}
+{"line":6,"kind":"other","text":"A triple-backtick span "}
+{"line":6,"kind":"string","text":"```wraps"}
+{"line":7,"kind":"string","text":"too```"}
+{"line":7,"kind":"other","text":" and a single one "}
+{"line":7,"kind":"string","text":"`also"}
+{"line":8,"kind":"string","text":"wraps`"}
+{"line":8,"kind":"other","text":"."}
+{"line":10,"kind":"other","text":"An unterminated "}
+{"line":10,"kind":"string","text":"``span stops at the blank line"}
+{"line":12,"kind":"other","text":"so this paragraph is prose again."}

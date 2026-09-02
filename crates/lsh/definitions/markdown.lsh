@@ -272,11 +272,25 @@ pub fn markdown() {
                     }
                 }
             } else if /```/ {
-                until /$/ { if /```/ { break; } }
-                yield string;
+                // Inline spans may wrap, but a blank line ends the paragraph
+                // and with it any span still open.
+                loop {
+                    if /[^`]+/ {}
+                    if /```/ { yield string; break; }
+                    if /`+/ {}
+                    yield string;
+                    await input;
+                    if /$/ { break; }
+                }
             } else if /``/ {
-                until /$/ { if /``/ { break; } }
-                yield string;
+                loop {
+                    if /[^`]+/ {}
+                    if /``/ { yield string; break; }
+                    if /`+/ {}
+                    yield string;
+                    await input;
+                    if /$/ { break; }
+                }
             } else if /`/ {
                 loop {
                     if /[^`]+/ {
