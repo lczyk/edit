@@ -799,9 +799,10 @@ pub fn parse<'a>(
     pattern: &str,
     dst_good: IRCell<'a>,
     dst_bad: IRCell<'a>,
-) -> Result<(IRCell<'a>, CaptureList<'a>), String> {
+) -> Result<(IRCell<'a>, CaptureList<'a>, bool), String> {
     let parser = RegexParser::new(pattern);
     let regex = parser.parse()?;
+    let empty = matches_empty(&regex);
 
     let mut codegen = CodeGen::new(compiler, dst_good, dst_bad);
     let entry = codegen.generate(&regex)?;
@@ -809,5 +810,20 @@ pub fn parse<'a>(
     // Reverse captures: Concat iterates in reverse, so groups are pushed in reverse order.
     codegen.captures.reverse();
 
-    Ok((entry, codegen.captures))
+    Ok((entry, codegen.captures, empty))
+}
+
+/// Whether the pattern can match at a position without consuming anything.
+/// An `until` guard that can is tested and satisfied before its body ever
+/// runs at end of line, which is what strands an `await input` inside it.
+fn matches_empty(regex: &Regex) -> bool {
+    match regex {
+        Regex::Empty | Regex::EndOfLine | Regex::WordEnd => true,
+        Regex::Literal(s, _) => s.is_empty(),
+        Regex::CharClass(_) | Regex::Dot => false,
+        Regex::Concat(parts) => parts.iter().all(matches_empty),
+        Regex::Alt(parts) => parts.iter().any(matches_empty),
+        Regex::Repeat { inner, min, .. } => *min == 0 || matches_empty(inner),
+        Regex::Group { inner, .. } => matches_empty(inner),
+    }
 }

@@ -1335,3 +1335,114 @@ pub struct MnemonicFormattingConfig<'a> {
     pub numeric_prefix: &'a str,
     pub numeric_suffix: &'a str,
 }
+
+#[cfg(test)]
+mod tests {
+    use stdext::arena::scratch_arena;
+
+    use super::*;
+    use crate::compiler::{Compiler, SerializedCharset};
+
+    /// Compile a single-definition source and run it over `lines`, returning
+    /// the `(kind, text)` spans of each line.
+    fn highlight(src: &str, lines: &[&str]) -> Vec<Vec<(String, String)>> {
+        let _ = stdext::arena::init(16 * 1024 * 1024);
+
+        let arena = scratch_arena(None);
+        let mut compiler = Compiler::new(&arena);
+        compiler.parse("test.lsh", src).unwrap();
+        let assembly = compiler.assemble().unwrap();
+
+        let charsets: Vec<SerializedCharset> =
+            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+        let max_id = assembly.highlight_kinds.iter().map(|hk| hk.value).max().unwrap_or(0);
+        let mut kind_names: Vec<&str> = vec![""; max_id as usize + 1];
+        for hk in &assembly.highlight_kinds {
+            kind_names[hk.value as usize] = hk.identifier;
+        }
+
+        let mut runtime = Runtime::new(
+            &assembly.instructions,
+            &assembly.strings,
+            &charsets,
+            assembly.entrypoints[0].address as u32,
+        );
+
+        lines
+            .iter()
+            .map(|line| {
+                let scratch = scratch_arena(Some(&arena));
+                let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
+                highlights
+                    .windows(2)
+                    .filter(|w| w[0].start != w[1].start)
+                    .map(|w| {
+                        let kind = kind_names.get(w[0].kind as usize).copied().unwrap_or("?");
+                        (kind.to_string(), line[w[0].start..w[1].start].to_string())
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// A loop's no-progress check compares the offset against where the
+    /// iteration started. Across an `await input` that baseline belongs to the
+    /// previous line, and the check used to fire on the new line and force the
+    /// offset past its first character -- here, past the closing backtick.
+    #[test]
+    fn a_loop_that_awaits_input_keeps_the_first_column_of_the_next_line() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       if /`/ {\n\
+                           loop {\n\
+                               if /[^`]+/ {}\n\
+                               if /`/ { yield string; break; }\n\
+                               yield string;\n\
+                               await input;\n\
+                           }\n\
+                           if /.*/ {}\n\
+                           yield other;\n\
+                       }\n\
+                   }\n";
+
+        let spans = highlight(src, &["`aa", "bb", "` tail"]);
+
+        assert_eq!(spans[0], [("string".to_string(), "`aa".to_string())]);
+        assert_eq!(spans[1], [("string".to_string(), "bb".to_string())]);
+        assert_eq!(
+            spans[2],
+            [("string".to_string(), "`".to_string()), ("other".to_string(), " tail".to_string())]
+        );
+    }
+
+    /// Resuming from an `await input` lands on whatever follows it. When that
+    /// is an already-serialized call, the generator has to jump to it: an
+    /// inlined copy falls through into the code that happens to sit after it.
+    #[test]
+    fn a_call_after_an_await_resumes_the_call_and_not_its_neighbour() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   fn t_word() {\n\
+                       if /\\w+/ { yield keyword; }\n\
+                   }\n\
+                   pub fn t() {\n\
+                       loop {\n\
+                           await input;\n\
+                           t_word();\n\
+                           if /.*/ {}\n\
+                           yield other;\n\
+                       }\n\
+                   }\n";
+
+        // The first line runs the loop body straight through; the second one
+        // reaches it by resuming from the await.
+        let spans = highlight(src, &["one two", "three four"]);
+
+        let expected = |word: &str, rest: &str| {
+            [("keyword".to_string(), word.to_string()), ("other".to_string(), rest.to_string())]
+        };
+        assert_eq!(spans[0], expected("one", " two"));
+        assert_eq!(spans[1], expected("three", " four"));
+    }
+}

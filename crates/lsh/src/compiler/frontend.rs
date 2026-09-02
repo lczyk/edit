@@ -33,11 +33,19 @@ struct RegexSpan<'a> {
     pub dst_good: IRCell<'a>,
     pub dst_bad: IRCell<'a>,
     pub capture_groups: BVec<'a, (IRRegCell<'a>, IRRegCell<'a>)>,
+    /// The pattern can match without consuming input.
+    pub matches_empty: bool,
 }
 
 struct Context<'a> {
     loop_start: Option<IRCell<'a>>,
     loop_exit: Option<IRCell<'a>>,
+    /// Register holding the input offset at the start of the enclosing loop
+    /// iteration, against which the loop's no-progress check compares.
+    progress_baseline: Option<IRRegCell<'a>>,
+    /// The enclosing loop is an `until` whose guard matches the empty string,
+    /// so it exits at end of line before the body can reach an `await input`.
+    stranded_await: bool,
     capture_groups: BVec<'a, (IRRegCell<'a>, IRRegCell<'a>)>,
 }
 
@@ -180,7 +188,7 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
 
         let loop_start = self.compiler.alloc_noop();
         let loop_exit = self.compiler.alloc_noop();
-        self.parse_until_impl(loop_start, loop_start, loop_exit)
+        self.parse_until_impl(loop_start, loop_start, loop_exit, false)
     }
 
     fn parse_until(&mut self) -> CompileResult<IRSpan<'a>> {
@@ -190,7 +198,7 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
 
         let loop_exit = self.compiler.alloc_noop();
         re.dst_good.borrow_mut().set_next(loop_exit);
-        self.parse_until_impl(re.src, re.dst_bad, loop_exit)
+        self.parse_until_impl(re.src, re.dst_bad, loop_exit, re.matches_empty)
     }
 
     fn parse_until_impl(
@@ -198,6 +206,7 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
         loop_start: IRCell<'a>,
         loop_good: IRCell<'a>,
         loop_exit: IRCell<'a>,
+        stranded_await: bool,
     ) -> CompileResult<IRSpan<'a>> {
         // First, save the current input offset.
         // This is used to detect if the loop made any progress.
@@ -212,6 +221,8 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             Context {
                 loop_start: Some(loop_start),
                 loop_exit: Some(loop_exit),
+                progress_baseline: Some(saved_offset),
+                stranded_await,
                 capture_groups: BVec::empty(),
             },
         );
@@ -350,14 +361,22 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             let re = self.parse_if_regex()?;
 
             // Push context with capture groups for the block
-            let (loop_start, loop_exit) = self
+            let (loop_start, loop_exit, progress_baseline, stranded_await) = self
                 .context
                 .last()
-                .map(|ctx| (ctx.loop_start, ctx.loop_exit))
-                .unwrap_or((None, None));
+                .map(|ctx| {
+                    (ctx.loop_start, ctx.loop_exit, ctx.progress_baseline, ctx.stranded_await)
+                })
+                .unwrap_or((None, None, None, false));
             self.context.push(
                 self.compiler.arena,
-                Context { loop_start, loop_exit, capture_groups: re.capture_groups },
+                Context {
+                    loop_start,
+                    loop_exit,
+                    progress_baseline,
+                    stranded_await,
+                    capture_groups: re.capture_groups,
+                },
             );
             let bl = self.parse_block()?;
             self.context.pop();
@@ -493,7 +512,9 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
         let dst_good = self.compiler.alloc_noop();
         let dst_bad = self.compiler.alloc_noop();
         match regex::parse(self.compiler, pattern, dst_good, dst_bad) {
-            Ok((src, capture_groups)) => Ok(RegexSpan { src, dst_good, dst_bad, capture_groups }),
+            Ok((src, capture_groups, matches_empty)) => {
+                Ok(RegexSpan { src, dst_good, dst_bad, capture_groups, matches_empty })
+            }
             Err(err) => raise!(self, "{}", err),
         }
     }
@@ -508,8 +529,53 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
 
         self.expect(';')?;
 
+        if self.context.last().is_some_and(|ctx| ctx.stranded_await) {
+            raise!(
+                self,
+                "`await input` can never suspend here: the enclosing `until` guard matches the \
+                 empty string, so the loop exits at end of line before this is reached. Use \
+                 `loop` and gobble up to the delimiter instead."
+            );
+        }
+
         let ir = self.compiler.alloc_iri(IRI::AwaitInput);
-        Ok(IRSpan::single(ir))
+
+        // An enclosing loop's no-progress check compares the offset against
+        // where the iteration started. Suspending leaves that baseline on the
+        // previous line, where it no longer says anything about progress, so
+        // retire it -- otherwise the check fires on the next line and forces
+        // the offset past its first character. Only the suspending path may
+        // do so: with input left on the line `await input` is a no-op, and
+        // there the check is all that keeps the loop from spinning.
+        let mut baselines: BVec<IRRegCell<'a>> = BVec::empty();
+        for ctx in self.context.iter() {
+            if let Some(baseline) = ctx.progress_baseline
+                && !baselines.iter().any(|&b| std::ptr::eq(b, baseline))
+            {
+                baselines.push(self.compiler.arena, baseline);
+            }
+        }
+        if baselines.is_empty() {
+            return Ok(IRSpan::single(ir));
+        }
+
+        let mut last = ir;
+        for &baseline in baselines.iter() {
+            let node = self.compiler.alloc_iri(IRI::MovImm { dst: baseline, imm: u32::MAX });
+            last.borrow_mut().set_next(node);
+            last = node;
+        }
+
+        let cont = self.compiler.alloc_noop();
+        last.borrow_mut().set_next(cont);
+
+        let first = self.compiler.alloc_ir(IR {
+            next: Some(cont),
+            instr: IRI::If { condition: Condition::EndOfLine, then: ir },
+            offset: usize::MAX,
+        });
+
+        Ok(IRSpan { first, last: cont })
     }
 
     fn parse_yield(&mut self) -> CompileResult<IRSpan<'a>> {
@@ -832,5 +898,61 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             }
         }
         self.pos + bytes.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use stdext::arena::Arena;
+
+    use crate::compiler::Compiler;
+
+    fn compile(body: &str) -> Result<(), String> {
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut compiler = Compiler::new(&arena);
+        let src = format!(
+            "#[display_name = \"T\"]\n\
+             #[path = \"**/*.t\"]\n\
+             pub fn t() {{\n{body}}}\n"
+        );
+        compiler.parse("test.lsh", &src).map(|_| ()).map_err(|e| e.message)
+    }
+
+    #[test]
+    fn an_await_under_an_eol_guard_is_rejected() {
+        let err = compile("until /$/ { await input; }\n").unwrap_err();
+        assert!(err.contains("can never suspend"), "{err}");
+    }
+
+    /// The guard is about a nullable pattern, not about the `$` spelling: a
+    /// star-only guard is satisfied by the empty match just as readily.
+    #[test]
+    fn an_await_under_any_nullable_guard_is_rejected() {
+        let err = compile("until /a*/ { await input; }\n").unwrap_err();
+        assert!(err.contains("can never suspend"), "{err}");
+    }
+
+    #[test]
+    fn an_await_under_a_consuming_guard_is_fine() {
+        compile("if /\"/ { until /\"/ { await input; } }\n").unwrap();
+    }
+
+    #[test]
+    fn an_await_in_a_plain_loop_is_fine() {
+        compile("loop { await input; }\n").unwrap();
+    }
+
+    /// An `if` inside the loop inherits the verdict; the await is no less
+    /// stranded for sitting one block deeper.
+    #[test]
+    fn a_nested_if_does_not_launder_the_await() {
+        let err = compile("until /$/ { if /a/ { await input; } }\n").unwrap_err();
+        assert!(err.contains("can never suspend"), "{err}");
+    }
+
+    /// An inner `loop` does re-open the door: its own guard is what counts.
+    #[test]
+    fn an_inner_loop_reopens_the_await() {
+        compile("until /$/ { loop { await input; } }\n").unwrap();
     }
 }
