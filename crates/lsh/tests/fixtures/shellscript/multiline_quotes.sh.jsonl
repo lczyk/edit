@@ -43,7 +43,18 @@
 {"line":28,"kind":"other","text":"EOF"}
 {"line":30,"kind":"other","text":"echo "}
 {"line":30,"kind":"keyword.control","text":"done"}
-{"line":32,"kind":"comment","text":"# An unterminated quote runs to the end of the file."}
-{"line":33,"kind":"other","text":"echo "}
-{"line":33,"kind":"string","text":"\"no closing quote"}
-{"line":34,"kind":"string","text":"still inside the string"}
+{"line":32,"kind":"comment","text":"# Heredocs name their own terminator; `<<-` lets it hide behind tabs."}
+{"line":33,"kind":"other","text":"cat <<'SH'"}
+{"line":34,"kind":"string","text":"don't panic, and SH mid-line is body"}
+{"line":35,"kind":"string","text":"SHx is body too"}
+{"line":36,"kind":"other","text":"SH"}
+{"line":37,"kind":"other","text":"cat <<-EOT | sort"}
+{"line":38,"kind":"string","text":"\tindented body"}
+{"line":39,"kind":"other","text":"\tEOT"}
+{"line":40,"kind":"other","text":"cat <<__END__"}
+{"line":41,"kind":"other","text":"__END__"}
+{"line":42,"kind":"other","text":"echo after heredocs"}
+{"line":44,"kind":"comment","text":"# An unterminated quote runs to the end of the file."}
+{"line":45,"kind":"other","text":"echo "}
+{"line":45,"kind":"string","text":"\"no closing quote"}
+{"line":46,"kind":"string","text":"still inside the string"}

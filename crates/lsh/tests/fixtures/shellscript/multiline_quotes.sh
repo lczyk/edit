@@ -29,6 +29,18 @@ EOF
 
 echo done
 
+# Heredocs name their own terminator; `<<-` lets it hide behind tabs.
+cat <<'SH'
+don't panic, and SH mid-line is body
+SHx is body too
+SH
+cat <<-EOT | sort
+	indented body
+	EOT
+cat <<__END__
+__END__
+echo after heredocs
+
 # An unterminated quote runs to the end of the file.
 echo "no closing quote
 still inside the string

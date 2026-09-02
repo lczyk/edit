@@ -29,6 +29,18 @@ EOF
 
 echo [95mdone[m
 
+[32m# Heredocs name their own terminator; `<<-` lets it hide behind tabs.[m
+cat <<'SH'
+[91mdon't panic, and SH mid-line is body[m
+[91mSHx is body too[m
+SH
+cat <<-EOT | sort
+[91m	indented body[m
+	EOT
+cat <<__END__
+__END__
+echo after heredocs
+
 [32m# An unterminated quote runs to the end of the file.[m
 echo [91m"no closing quote[m
 [91mstill inside the string[m

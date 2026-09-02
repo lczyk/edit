@@ -59,14 +59,22 @@ pub fn shellscript() {
                 else if /`/ { yield string; break; }
                 else { await input; }
             }
-        } else if /<<-?\s*['"]?(?:EOF|END|HEREDOC)\>['"]?.*/ {
-            // TODO: We need proper capturing to support arbitrary delimiters + lookbehind across lines.
+        } else if /<<</ {
+            // Here-string. Consumed whole so its operand can't be mistaken
+            // for a heredoc delimiter one character later.
+        } else if /<<-?\s*['"]?([A-Za-z_]\w*)['"]?.*/ {
+            // The terminator is whatever word the opener named; `<<-` also
+            // lets it sit behind tabs.
+            save $1;
             yield other;
             loop {
                 await input;
-                if /\t*(?:EOF|END|HEREDOC)\>.*/ {
-                    yield other;
-                    break;
+                if /\t*/ {}
+                if $saved {
+                    if /$/ {
+                        yield other;
+                        break;
+                    }
                 }
                 if /.*/ {}
                 yield string;
