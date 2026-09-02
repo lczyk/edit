@@ -52,7 +52,23 @@ pub fn yaml() {
 
     yield other;
 
-    if /---/ {
+    if /"/ {
+        loop {
+            if /[^"\\]+/ {}
+            yield string;
+            if /\\./ {}
+            else if /"/ { yield string; break; }
+            else { await input; }
+        }
+    } else if /'/ {
+        loop {
+            if /[^']+/ {}
+            yield string;
+            if /''/ {}
+            else if /'/ { yield string; break; }
+            else { await input; }
+        }
+    } else if /---/ {
         yield other;
     } else if /true|false|yes|no|null|~/ {
         // If it looks like a keyword, check if it's actually a string (e.g. "foo: true false").

@@ -40,7 +40,23 @@ fn slice_yaml_detect() {
 fn slice_yaml_value() {
     yield other;
 
-    if /---/ {
+    if /"/ {
+        loop {
+            if /[^"\\]+/ {}
+            yield string;
+            if /\\./ {}
+            else if /"/ { yield string; break; }
+            else { await input; }
+        }
+    } else if /'/ {
+        loop {
+            if /[^']+/ {}
+            yield string;
+            if /''/ {}
+            else if /'/ { yield string; break; }
+            else { await input; }
+        }
+    } else if /---/ {
         yield other;
     } else if /true|false|yes|no|null|~/ {
         if /\s*[^\s#]+[^#]*/ {

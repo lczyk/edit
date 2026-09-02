@@ -30,3 +30,13 @@
 {"line":21,"kind":"other","text":"    "}
 {"line":21,"kind":"keyword.other","text":"contents:"}
 {"line":22,"kind":"other","text":"      /usr/share/doc/terminfo/copyright:"}
+{"line":24,"kind":"other","text":"  "}
+{"line":24,"kind":"method","text":"quoted"}
+{"line":24,"kind":"other","text":":"}
+{"line":25,"kind":"other","text":"    "}
+{"line":25,"kind":"keyword.other","text":"contents:"}
+{"line":26,"kind":"other","text":"      /usr/share/quoted:"}
+{"line":27,"kind":"other","text":"    "}
+{"line":27,"kind":"keyword.other","text":"hint: "}
+{"line":27,"kind":"string","text":"\"issue #42: the # sign is text"}
+{"line":28,"kind":"string","text":"      across a second line\""}

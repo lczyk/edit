@@ -1,0 +1,15 @@
+{"line":1,"kind":"comment","text":"# A hash inside quotes is text, and a quoted scalar may span lines."}
+{"line":2,"kind":"other","text":"title: "}
+{"line":2,"kind":"string","text":"\"issue #42: the # sign\""}
+{"line":3,"kind":"other","text":"note: "}
+{"line":3,"kind":"string","text":"'it''s quoted, with a # inside'"}
+{"line":4,"kind":"other","text":"long: "}
+{"line":4,"kind":"string","text":"\"first line"}
+{"line":5,"kind":"string","text":"  second line # still string\""}
+{"line":6,"kind":"other","text":"also: "}
+{"line":6,"kind":"string","text":"'first"}
+{"line":7,"kind":"string","text":"  second'"}
+{"line":8,"kind":"other","text":"after: "}
+{"line":8,"kind":"constant.numeric","text":"1"}
+{"line":8,"kind":"other","text":" "}
+{"line":8,"kind":"comment","text":"# a real comment"}

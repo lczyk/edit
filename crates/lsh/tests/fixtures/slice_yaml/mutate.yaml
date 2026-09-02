@@ -20,3 +20,9 @@ slices:
   copyright:
     contents:
       /usr/share/doc/terminfo/copyright:
+
+  quoted:
+    contents:
+      /usr/share/quoted:
+    hint: "issue #42: the # sign is text
+      across a second line"

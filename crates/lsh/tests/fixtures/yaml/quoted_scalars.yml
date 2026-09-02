@@ -1,0 +1,8 @@
+# A hash inside quotes is text, and a quoted scalar may span lines.
+title: "issue #42: the # sign"
+note: 'it''s quoted, with a # inside'
+long: "first line
+  second line # still string"
+also: 'first
+  second'
+after: 1 # a real comment

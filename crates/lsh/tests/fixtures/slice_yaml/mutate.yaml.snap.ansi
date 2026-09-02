@@ -21,3 +21,9 @@
     [94mcontents:[m
       /usr/share/doc/terminfo/copyright:
 
+  [93mquoted[m:
+    [94mcontents:[m
+      /usr/share/quoted:
+    [94mhint: [m[91m"issue #42: the # sign is text[m
+[91m      across a second line"[m
+
