@@ -176,8 +176,8 @@ impl<'a> Compiler<'a> {
                 stack.push_back(next);
             }
 
-            if let IRI::If { condition, .. } = node.instr {
-                match condition {
+            match node.instr {
+                IRI::If { condition, .. } => match condition {
                     Condition::Cmp { .. } => {}
                     Condition::EndOfLine => {}
                     Condition::Charset { cs, .. } => {
@@ -192,7 +192,15 @@ impl<'a> Compiler<'a> {
                             }
                         }
                     }
-                }
+                },
+                // A callee's matchers count too. Functions are collected in
+                // source order, so one defined further down is unknown here;
+                // then nothing can be skipped safely.
+                IRI::Call { name } => match self.functions.iter().find(|f| f.name == name) {
+                    Some(f) => stack.push_back(f.body),
+                    None => return Charset::yes(),
+                },
+                _ => {}
             }
         }
 

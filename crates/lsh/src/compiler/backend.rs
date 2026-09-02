@@ -719,9 +719,13 @@ impl<'a> LivenessAnalysis<'a> {
                 }
             }
             IRI::AddImm { dst, .. } => {
+                // Read-modify-write: the old value is consumed as well as
+                // replaced, or a counter bumped inside a loop looks dead at
+                // the loop head and its register gets handed to a temporary.
                 if let dst_reg = dst.borrow()
                     && dst_reg.physical.is_none()
                 {
+                    use_set.insert(dst_reg.id);
                     def_set.insert(dst_reg.id);
                 }
             }

@@ -1416,6 +1416,81 @@ mod tests {
         );
     }
 
+    /// A counter bumped with `+=` inside a loop is read as well as written,
+    /// so it must stay live across the back-edge. The allocator used to see
+    /// only the write, decide the register was free at the loop head, and
+    /// hand it to the temporary every `yield` goes through -- the counter
+    /// then read whatever kind was flushed last.
+    #[test]
+    fn a_counter_bumped_in_a_loop_survives_the_yields_in_it() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       if /\\[/ {\n\
+                           var opens = 1;\n\
+                           var closes = 0;\n\
+                           loop {\n\
+                               yield other;\n\
+                               if /\\[/ { opens += 1; }\n\
+                               else if /\\]/ {\n\
+                                   closes += 1;\n\
+                                   if opens == closes { yield string; break; }\n\
+                               }\n\
+                               else if /\\d/ { yield keyword; }\n\
+                               else { break; }\n\
+                           }\n\
+                       }\n\
+                       if /.*/ { yield other; }\n\
+                   }\n";
+
+        // The inner `]` must not close the outer array: only the last `]`
+        // carries the string colour, and the tail is left alone.
+        let spans = highlight(src, &["[[1]] tail"]);
+        assert_eq!(
+            spans[0],
+            [
+                ("other".to_string(), "[[".to_string()),
+                ("keyword".to_string(), "1".to_string()),
+                ("other".to_string(), "]".to_string()),
+                ("string".to_string(), "]".to_string()),
+                ("other".to_string(), " tail".to_string()),
+            ]
+        );
+    }
+
+    /// A loop skips characters none of its matchers care about before each
+    /// iteration. Matchers reached through a call count too: without that,
+    /// a loop whose only matchers live in a helper skipped straight past
+    /// everything the helper would have coloured.
+    #[test]
+    fn a_loop_does_not_skip_what_its_callee_would_match() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       until /$/ {\n\
+                           yield other;\n\
+                           if /#/ { yield comment; }\n\
+                           else { t_word(); }\n\
+                       }\n\
+                   }\n\
+                   fn t_word() {\n\
+                       if /\\w+/ { yield keyword; }\n\
+                   }\n";
+
+        // The skip runs between iterations, so the word has to sit behind a
+        // character the loop itself does not match.
+        let spans = highlight(src, &[" ab #"]);
+        assert_eq!(
+            spans[0],
+            [
+                ("other".to_string(), " ".to_string()),
+                ("keyword".to_string(), "ab".to_string()),
+                ("other".to_string(), " ".to_string()),
+                ("comment".to_string(), "#".to_string()),
+            ]
+        );
+    }
+
     /// Resuming from an `await input` lands on whatever follows it. When that
     /// is an already-serialized call, the generator has to jump to it: an
     /// inlined copy falls through into the code that happens to sit after it.
