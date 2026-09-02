@@ -1,0 +1,26 @@
+{"line":1,"kind":"other","text":"Link text may wrap: read the ["}
+{"line":1,"kind":"string","text":"package slicing guidelines available in the"}
+{"line":2,"kind":"string","text":"Chisel documentation"}
+{"line":2,"kind":"other","text":"]("}
+{"line":2,"kind":"markup.link","text":"https://ubuntu.com/chisel/docs/latest/how-to/slice-a-package/"}
+{"line":2,"kind":"other","text":")."}
+{"line":4,"kind":"other","text":"Across three lines with a ["}
+{"line":4,"kind":"string","text":"title"}
+{"line":5,"kind":"string","text":"that keeps"}
+{"line":6,"kind":"string","text":"going"}
+{"line":6,"kind":"other","text":"]("}
+{"line":6,"kind":"markup.link","text":"https://example.com"}
+{"line":6,"kind":"other","text":" "}
+{"line":6,"kind":"string","text":"\"the title\""}
+{"line":6,"kind":"other","text":") and a tail."}
+{"line":8,"kind":"other","text":"An unclosed ["}
+{"line":8,"kind":"string","text":"bracket colors the rest of the paragraph"}
+{"line":9,"kind":"string","text":"but stops at the blank line below."}
+{"line":11,"kind":"other","text":"Back to plain text."}
+{"line":13,"kind":"other","text":"A wrapped linked image [!["}
+{"line":13,"kind":"string","text":"alt"}
+{"line":13,"kind":"other","text":"]("}
+{"line":13,"kind":"markup.link","text":"img.png"}
+{"line":13,"kind":"other","text":")]("}
+{"line":13,"kind":"markup.link","text":"https://example.com"}
+{"line":14,"kind":"other","text":") too."}

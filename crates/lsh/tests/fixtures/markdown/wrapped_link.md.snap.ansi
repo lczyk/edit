@@ -1,0 +1,15 @@
+Link text may wrap: read the [[91mpackage slicing guidelines available in the[m
+[91mChisel documentation[m]([4mhttps://ubuntu.com/chisel/docs/latest/how-to/slice-a-package/[m).
+
+Across three lines with a [[91mtitle[m
+[91mthat keeps[m
+[91mgoing[m]([4mhttps://example.com[m [91m"the title"[m) and a tail.
+
+An unclosed [[91mbracket colors the rest of the paragraph[m
+[91mbut stops at the blank line below.[m
+
+Back to plain text.
+
+A wrapped linked image [![[91malt[m]([4mimg.png[m)]([4mhttps://example.com[m
+) too.
+

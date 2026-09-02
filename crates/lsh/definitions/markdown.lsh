@@ -169,28 +169,31 @@ pub fn markdown() {
                             yield other;
                         }
                     }
-                } else if /[^\]]*/ {
-                    // Anything inside [...] is link text, colored like a string.
-                    yield string;
-                }
 
-                // Now look for the link target in parentheses.
-                if /\]\(/ {
-                    yield other;
-                    if /[^\s\)]+/ {
-                        yield markup.link;
+                    if /\]/ {
+                        yield other;
+                        markdown_link_target();
                     }
-
-                    if /\s+/ {
-                    }
-
-                    // The link may have a title in quotes.
-                    yield other;
-                    if /"/ {
-                        if /[^"]+/ {
+                } else {
+                    // Anything inside [...] is link text, colored like a
+                    // string. It may wrap onto following lines, but never past
+                    // a blank line -- that bound keeps an unclosed "[" from
+                    // swallowing the rest of the document.
+                    loop {
+                        if /([^\]]*)\]/ {
+                            yield $1 as string;
+                            yield other;
+                            markdown_link_target();
+                            break;
                         }
-                        if /"/ {
-                            yield string;
+
+                        if /.*/ {
+                        }
+                        yield string;
+                        await input;
+
+                        if /\s*$/ {
+                            break;
                         }
                     }
                 }
@@ -307,6 +310,29 @@ pub fn markdown() {
             }
 
             yield other;
+        }
+    }
+}
+
+// The "(url)" half of a link, with an optional quoted title.
+fn markdown_link_target() {
+    if /\(/ {
+        yield other;
+        if /[^\s\)]+/ {
+            yield markup.link;
+        }
+
+        if /\s+/ {
+        }
+
+        // The link may have a title in quotes.
+        yield other;
+        if /"/ {
+            if /[^"]+/ {
+            }
+            if /"/ {
+                yield string;
+            }
         }
     }
 }
