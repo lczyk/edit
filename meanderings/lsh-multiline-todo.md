@@ -91,23 +91,52 @@ the `until` but inside an enclosing `loop` is fine.
       recommends `until /$/` without mentioning that an await inside it
       is dead.
 
-## gaps, not instances of the idiom
+## backlog
 
-turned up by the same sweep. separate work.
+feature gaps the same sweep turned up. none are instances of the idiom;
+all the idiom sites are fixed and the compiler now rejects new ones.
+ranked by how often a real file hits it.
 
-- `ruby.lsh` -- no heredoc handling at all
-- `shellscript.lsh:55` -- heredoc delimiter hardcoded to `EOF|END|HEREDOC`
-  (already a TODO in the code)
-- `sed.lsh:72` -- `a\` `i\` `c\` text blocks
-- `makefile.lsh:16` -- `define` / `endef` bodies
-- `lsh.lsh:38` -- declares `block_comment` attributes, never implements
-  `/* */`
-- `toml.lsh:18` -- no multi-line arrays
-- `dockerfile.lsh:9` -- no `\` line continuation
-- `yaml.lsh:65`, `slice_yaml_value()` -- no quote tracking for `'...'` /
-  `"..."` scalars
-- `markdown.lsh:277-282` -- code-span handlers are `until /$/` with no
-  await
+- [ ] **toml multi-line arrays** -- `toml.lsh:18` has no bracket-depth
+      tracking, so `key = [` followed by one element per line is scanned
+      per line. every `Cargo.toml` in this workspace has one.
+- [ ] **shellscript heredoc delimiters** -- `shellscript.lsh:55` only
+      recognises `EOF|END|HEREDOC`; `<<'SH'`, `<<-EOT`, `<<__END__` all
+      miss. already a TODO in the code. needs the delimiter-capture
+      primitive below.
+- [ ] **dockerfile `\` continuation** -- `dockerfile.lsh:9` has no
+      handling for a trailing backslash, and nearly every `RUN` continues.
+      same `if /\\$/ { await input; }` arm as the next item, so they
+      could land together.
+- [ ] **backslash-newline continuation in c, objc, glsl, javascript,
+      python** -- legal in all five, currently renders acceptably by
+      accident (the next line's closing quote reopens a string). the
+      explicit arm keeps today's containment for a plain unterminated
+      quote and makes the continuation case honest.
+- [ ] **ruby heredocs** -- `ruby.lsh` has none at all, and `<<~SQL` is
+      everywhere in real ruby. needs the delimiter-capture primitive.
+- [ ] **markdown code spans** -- `markdown.lsh:277-282` are `until /$/`
+      with no await, so a `` `code` `` span wrapped across a line break in
+      prose loses its colour at the break.
+- [ ] **yaml quoted scalars** -- `yaml.lsh:65` and `slice_yaml_value()`
+      have no quote tracking; `'...'` / `"..."` fall through to the
+      generic gobble, so a `#` inside one becomes a comment.
+- [ ] **make `define` / `endef`** -- `makefile.lsh:16` recognises the
+      keywords and nothing else; the body is lexed as recipe lines.
+- [ ] **lsh block comments** -- `lsh.lsh:38` declares the
+      `block_comment` attributes and never implements `/* */`.
+- [ ] **sed `a\` `i\` `c\` text blocks** -- `sed.lsh:72`; the
+      backslash-newline-continued text is lexed as commands.
+
+### shared root cause: no delimiter capture
+
+the shell and ruby heredoc items are one piece of compiler work plus two
+definition changes. the DSL can capture a group into a register but can
+only compare registers against `off` and literals, so a definition has no
+way to remember `SQL` at `<<~SQL` and test for it at the closing line. a
+`match $1` (or "compare the input at `off` against the captured span")
+instruction in the runtime would unlock both. scope before starting; it
+touches `regex.rs` captures, the IR, the backend and the runtime.
 
 ## checked, nothing wrong
 
