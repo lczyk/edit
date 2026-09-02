@@ -100,10 +100,11 @@ ranked by how often a real file hits it.
 - [x] **toml multi-line arrays** -- `toml.lsh:18` has no bracket-depth
       tracking, so `key = [` followed by one element per line is scanned
       per line. every `Cargo.toml` in this workspace has one.
-- [ ] **shellscript heredoc delimiters** -- `shellscript.lsh:55` only
-      recognises `EOF|END|HEREDOC`; `<<'SH'`, `<<-EOT`, `<<__END__` all
-      miss. already a TODO in the code. needs the delimiter-capture
-      primitive below.
+- [x] **shellscript heredoc delimiters** -- `shellscript.lsh:55` only
+      recognised `EOF|END|HEREDOC`; `<<'SH'`, `<<-EOT`, `<<__END__` all
+      missed. now `save $1` at the opener and `if $saved` at the close.
+      here-strings (`<<<`) need their own branch ahead of it, or the
+      loop steps one char and `<< "hello` opens a heredoc named hello.
 - [ ] **dockerfile `\` continuation** -- `dockerfile.lsh:9` has no
       handling for a trailing backslash, and nearly every `RUN` continues.
       same `if /\\$/ { await input; }` arm as the next item, so they
@@ -113,8 +114,11 @@ ranked by how often a real file hits it.
       accident (the next line's closing quote reopens a string). the
       explicit arm keeps today's containment for a plain unterminated
       quote and makes the continuation case honest.
-- [ ] **ruby heredocs** -- `ruby.lsh` has none at all, and `<<~SQL` is
-      everywhere in real ruby. needs the delimiter-capture primitive.
+- [x] **ruby heredocs** -- `ruby.lsh` had none at all. `<<~`, `<<-`,
+      plain, and quoted forms; the rest of the opener line stays code and
+      a `heredoc` flag runs the body loop once the line ends. the
+      delimiter must start with an uppercase letter or `_`, which keeps
+      the shovel operator (`a <<b`) out.
 - [ ] **markdown code spans** -- `markdown.lsh:277-282` are `until /$/`
       with no await, so a `` `code` `` span wrapped across a line break in
       prose loses its colour at the break.
@@ -128,15 +132,16 @@ ranked by how often a real file hits it.
 - [ ] **sed `a\` `i\` `c\` text blocks** -- `sed.lsh:72`; the
       backslash-newline-continued text is lexed as commands.
 
-### shared root cause: no delimiter capture
+### shared root cause: no delimiter capture -- landed
 
-the shell and ruby heredoc items are one piece of compiler work plus two
-definition changes. the DSL can capture a group into a register but can
-only compare registers against `off` and literals, so a definition has no
-way to remember `SQL` at `<<~SQL` and test for it at the closing line. a
-`match $1` (or "compare the input at `off` against the captured span")
-instruction in the runtime would unlock both. scope before starting; it
-touches `regex.rs` captures, the IR, the backend and the runtime.
+the DSL could capture a group into a register but only compare registers
+against `off` and literals, so nothing could remember `SQL` at `<<~SQL`
+and test for it at the close. `save $N;` now copies the captured bytes
+into a small buffer on the runtime (part of the snapshot the editor keeps
+per line), and `if $saved` tests for them as a prefix at the current
+position. two instructions, one IR node, one condition; the optimizer's
+dead-store pass and the backend's liveness both had to learn that
+`SaveSpan` reads its registers.
 
 ## checked, nothing wrong
 
