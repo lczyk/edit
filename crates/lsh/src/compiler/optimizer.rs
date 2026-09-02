@@ -128,6 +128,10 @@ fn optimize_redundant_offset_backup_restore<'a>(compiler: &mut Compiler<'a>) {
                     used_vregs.insert(lhs.borrow().id);
                     used_vregs.insert(rhs.borrow().id);
                 }
+                IRI::SaveSpan { start, end } => {
+                    used_vregs.insert(start.borrow().id);
+                    used_vregs.insert(end.borrow().id);
+                }
                 _ => {}
             }
         }

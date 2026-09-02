@@ -341,6 +341,10 @@ impl<'a> Backend<'a> {
                                 let tgt = self.dst_by_node(then) as u32;
                                 self.push_instruction(JumpIfMatchPrefixInsensitive { idx, tgt });
                             }
+                            Condition::Saved => {
+                                let tgt = self.dst_by_node(then) as u32;
+                                self.push_instruction(JumpIfMatchSaved { tgt });
+                            }
                         }
                     }
                     IRI::Call { name } => {
@@ -359,6 +363,11 @@ impl<'a> Backend<'a> {
                     }
                     IRI::Halt { result } => {
                         self.push_instruction(Halt { result });
+                    }
+                    IRI::SaveSpan { start, end } => {
+                        let start = start.borrow().physical.unwrap();
+                        let end = end.borrow().physical.unwrap();
+                        self.push_instruction(SaveSpan { start, end });
                     }
                 }
 
@@ -594,6 +603,14 @@ impl<'a> LivenessAnalysis<'a> {
                     vreg_cells.insert(kind.borrow().id, kind);
                 }
             }
+            IRI::SaveSpan { start, end } => {
+                if start.borrow().physical.is_none() {
+                    vreg_cells.insert(start.borrow().id, start);
+                }
+                if end.borrow().physical.is_none() {
+                    vreg_cells.insert(end.borrow().id, end);
+                }
+            }
             _ => {}
         }
 
@@ -743,6 +760,16 @@ impl<'a> LivenessAnalysis<'a> {
                 let kind_reg = kind.borrow();
                 if kind_reg.physical.is_none() {
                     use_set.insert(kind_reg.id);
+                }
+            }
+            IRI::SaveSpan { start, end } => {
+                let start_reg = start.borrow();
+                if start_reg.physical.is_none() {
+                    use_set.insert(start_reg.id);
+                }
+                let end_reg = end.borrow();
+                if end_reg.physical.is_none() {
+                    use_set.insert(end_reg.id);
                 }
             }
             _ => {}

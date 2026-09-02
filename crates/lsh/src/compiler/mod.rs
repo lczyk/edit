@@ -192,6 +192,8 @@ impl<'a> Compiler<'a> {
                             }
                         }
                     }
+                    // Whatever was saved is only known at runtime.
+                    Condition::Saved => return Charset::yes(),
                 },
                 // A callee's matchers count too. Functions are collected in
                 // source order, so one defined further down is unknown here;
@@ -291,6 +293,7 @@ impl<'a> Compiler<'a> {
                             },
                             Condition::Prefix(s) => write!(output, "match: {s}"),
                             Condition::PrefixInsensitive(s) => write!(output, "imatch: {s}"),
+                            Condition::Saved => write!(output, "match: $saved"),
                         };
                         _ = writeln!(output, "\"}}");
                         _ = writeln!(output, "    {} -->|yes| {}", node, then.borrow());
@@ -311,6 +314,11 @@ impl<'a> Compiler<'a> {
                     }
                     IRI::Halt { result } => {
                         _ = write!(output, "[{offset}: halt {result}]");
+                    }
+                    IRI::SaveSpan { start, end } => {
+                        let start = start.borrow();
+                        let end = end.borrow();
+                        _ = write!(output, "[\"{offset}: save {start:?}..{end:?}\"]");
                     }
                 }
 
@@ -468,16 +476,42 @@ type IRCell<'a> = &'a RefCell<IR<'a>>;
 #[derive(Debug, Clone, Copy)]
 enum IRI<'a> {
     Noop,
-    Mov { dst: IRRegCell<'a>, src: IRRegCell<'a> },
-    MovImm { dst: IRRegCell<'a>, imm: u32 },
-    MovKind { dst: IRRegCell<'a>, kind: u32 },
-    AddImm { dst: IRRegCell<'a>, imm: u32 },
-    If { condition: Condition<'a>, then: IRCell<'a> },
-    Call { name: &'a str },
+    Mov {
+        dst: IRRegCell<'a>,
+        src: IRRegCell<'a>,
+    },
+    MovImm {
+        dst: IRRegCell<'a>,
+        imm: u32,
+    },
+    MovKind {
+        dst: IRRegCell<'a>,
+        kind: u32,
+    },
+    AddImm {
+        dst: IRRegCell<'a>,
+        imm: u32,
+    },
+    If {
+        condition: Condition<'a>,
+        then: IRCell<'a>,
+    },
+    Call {
+        name: &'a str,
+    },
     Return,
-    Flush { kind: IRRegCell<'a> },
+    Flush {
+        kind: IRRegCell<'a>,
+    },
     AwaitInput,
-    Halt { result: u32 },
+    Halt {
+        result: u32,
+    },
+    /// Remember the input between two capture registers across lines.
+    SaveSpan {
+        start: IRRegCell<'a>,
+        end: IRRegCell<'a>,
+    },
 }
 
 #[derive(Default)]
@@ -552,11 +586,21 @@ enum ComparisonOp {
 
 #[derive(Debug, Clone, Copy)]
 enum Condition<'a> {
-    Cmp { lhs: IRRegCell<'a>, rhs: IRRegCell<'a>, op: ComparisonOp },
+    Cmp {
+        lhs: IRRegCell<'a>,
+        rhs: IRRegCell<'a>,
+        op: ComparisonOp,
+    },
     EndOfLine,
-    Charset { cs: &'a Charset, min: u32, max: u32 },
+    Charset {
+        cs: &'a Charset,
+        min: u32,
+        max: u32,
+    },
     Prefix(&'a str),
     PrefixInsensitive(&'a str),
+    /// The span remembered by `SaveSpan` is a prefix of the input here.
+    Saved,
 }
 
 impl<'a> IR<'a> {

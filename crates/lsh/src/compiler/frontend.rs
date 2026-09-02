@@ -175,6 +175,8 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             self.parse_await()
         } else if self.is_keyword("yield") {
             self.parse_yield()
+        } else if self.is_keyword("save") {
+            self.parse_save()
         } else if self.peek().is_some_and(Self::is_ident_start) {
             self.parse_identifier_stmt()
         } else {
@@ -339,9 +341,22 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
 
         if self.peek() == Some('/') {
             self.parse_if_regex_chain()
+        } else if self.peek() == Some('$') {
+            self.parse_if_saved()
         } else {
             self.parse_if_comparison()
         }
+    }
+
+    /// `if $saved { ... }`: the span remembered by `save $N` is a prefix of
+    /// the input at the current position. Consumes it on success.
+    fn parse_if_saved(&mut self) -> CompileResult<IRSpan<'a>> {
+        self.expect('$')?;
+        let name = self.read_identifier()?;
+        if name != "saved" {
+            raise!(self, "expected `$saved`");
+        }
+        self.parse_if_tail(Condition::Saved)
     }
 
     fn parse_if_regex_chain(&mut self) -> CompileResult<IRSpan<'a>> {
@@ -463,14 +478,16 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
         let rhs_name = self.read_identifier()?;
         let rhs_vreg = self.get_variable(rhs_name)?;
 
+        self.parse_if_tail(Condition::Cmp { lhs: lhs_vreg, rhs: rhs_vreg, op })
+    }
+
+    /// The block and optional `else` of a non-regex `if`, hung off `condition`.
+    fn parse_if_tail(&mut self, condition: Condition<'a>) -> CompileResult<IRSpan<'a>> {
         let dst_good = self.compiler.alloc_noop();
         let dst_bad = self.compiler.alloc_noop();
         let cmp = self.compiler.alloc_ir(IR {
             next: Some(dst_bad),
-            instr: IRI::If {
-                condition: Condition::Cmp { lhs: lhs_vreg, rhs: rhs_vreg, op },
-                then: dst_good,
-            },
+            instr: IRI::If { condition, then: dst_good },
             offset: usize::MAX,
         });
 
@@ -596,17 +613,7 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             let kind = self.compiler.intern_highlight_kind(color).value;
             self.expect(';')?;
 
-            let (start_vreg, end_vreg) = match self.context.last() {
-                Some(ctx) if capture_index < ctx.capture_groups.len() => {
-                    ctx.capture_groups[capture_index]
-                }
-                Some(_) => raise!(
-                    self,
-                    "capture group ${} not found in current context",
-                    capture_index + 1
-                ),
-                None => raise!(self, "no regex context available for capture group reference"),
-            };
+            let (start_vreg, end_vreg) = self.capture_group(capture_index)?;
 
             let hs_preg = self.compiler.get_reg(Register::HighlightStart);
             let off_preg = self.compiler.get_reg(Register::InputOffset);
@@ -644,6 +651,31 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
                 .build();
             Ok(span)
         }
+    }
+
+    /// The `(start, end)` registers of capture group `index` (zero-based) in
+    /// the innermost regex context.
+    fn capture_group(&self, index: usize) -> CompileResult<(IRRegCell<'a>, IRRegCell<'a>)> {
+        match self.context.last() {
+            Some(ctx) if index < ctx.capture_groups.len() => Ok(ctx.capture_groups[index]),
+            Some(_) => raise!(self, "capture group ${} not found in current context", index + 1),
+            None => raise!(self, "no regex context available for capture group reference"),
+        }
+    }
+
+    /// `save $N;`: remember capture group N so a later line can test for it
+    /// with `if $saved`.
+    fn parse_save(&mut self) -> CompileResult<IRSpan<'a>> {
+        self.expect_keyword("save")?;
+        if self.peek() != Some('$') {
+            raise!(self, "expected a capture group reference after save");
+        }
+        self.pos += 1;
+        let capture_index = self.read_integer()? as usize - 1;
+        self.expect(';')?;
+
+        let (start, end) = self.capture_group(capture_index)?;
+        Ok(IRSpan::single(self.compiler.alloc_iri(IRI::SaveSpan { start, end })))
     }
 
     fn parse_var_declaration(&mut self) -> CompileResult<IRSpan<'a>> {
@@ -948,6 +980,21 @@ mod tests {
     fn a_nested_if_does_not_launder_the_await() {
         let err = compile("until /$/ { if /a/ { await input; } }\n").unwrap_err();
         assert!(err.contains("can never suspend"), "{err}");
+    }
+
+    #[test]
+    fn save_needs_a_capture_in_scope() {
+        let err = compile("save $1;\n").unwrap_err();
+        assert!(err.contains("no regex context"), "{err}");
+        let err = compile("if /a/ { save $1; }\n").unwrap_err();
+        assert!(err.contains("not found"), "{err}");
+    }
+
+    #[test]
+    fn if_saved_is_the_only_dollar_condition() {
+        let err = compile("if $other { }\n").unwrap_err();
+        assert!(err.contains("$saved"), "{err}");
+        compile("if /(a)/ { save $1; } if $saved { }\n").unwrap();
     }
 
     /// An inner `loop` does re-open the door: its own guard is what counts.

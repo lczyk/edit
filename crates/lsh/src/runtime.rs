@@ -138,6 +138,7 @@ pub struct Runtime<'pa, 'ps, 'pc> {
     entrypoint: u32,
     stack: Vec<u32>,
     registers: Registers,
+    saved: SavedSpan,
 }
 
 /// Snapshot of the runtime state for incremental re-highlighting.
@@ -145,6 +146,37 @@ pub struct Runtime<'pa, 'ps, 'pc> {
 pub struct RuntimeState {
     stack: Vec<u32>,
     registers: Registers,
+    saved: SavedSpan,
+}
+
+/// Bytes a definition asked to remember with `save $N`, so a later line can
+/// test for them with `if $saved` -- a heredoc delimiter, typically. Lives
+/// outside the registers because it is text, not a number, and outlives the
+/// line it was captured from. Inline and fixed-size so snapshots stay cheap;
+/// anything longer than the buffer is cut, and a cut span never matches.
+#[derive(Clone, Copy, Default)]
+pub struct SavedSpan {
+    len: u8,
+    cut: bool,
+    bytes: [u8; Self::CAPACITY],
+}
+
+impl SavedSpan {
+    const CAPACITY: usize = 30;
+
+    fn set(&mut self, line: &[u8], start: u32, end: u32) {
+        let start = (start as usize).min(line.len());
+        let end = (end as usize).clamp(start, line.len());
+        let span = &line[start..end];
+        let len = span.len().min(Self::CAPACITY);
+        self.bytes[..len].copy_from_slice(&span[..len]);
+        self.len = len as u8;
+        self.cut = span.len() > Self::CAPACITY;
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        if self.cut { &[] } else { &self.bytes[..self.len as usize] }
+    }
 }
 
 impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
@@ -161,6 +193,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
             entrypoint,
             stack: Default::default(),
             registers: Registers { pc: entrypoint, ..Default::default() },
+            saved: Default::default(),
         }
     }
 
@@ -184,6 +217,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         let saved_stack = mem::take(&mut self.stack);
         let saved_registers = self.registers;
         let saved_entrypoint = self.entrypoint;
+        let saved_span = self.saved;
 
         self.entrypoint = detect_entrypoint;
         self.registers = Registers { pc: detect_entrypoint, ..Default::default() };
@@ -334,6 +368,19 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                         decided = true;
                         break 'outer;
                     }
+                    SaveSpan { start, end } => {
+                        let s = self.registers.get(start);
+                        let e = self.registers.get(end);
+                        self.saved.set(line, s, e);
+                    }
+                    JumpIfMatchSaved { tgt } => {
+                        let off = self.registers.off as usize;
+                        let n = self.saved.as_bytes().len();
+                        if n != 0 && Self::inlined_memcmp(line, off, self.saved.as_bytes()) {
+                            self.registers.off = (off + n) as u32;
+                            self.registers.pc = tgt;
+                        }
+                    }
 
                     _ => unreachable!(),
                 });
@@ -343,17 +390,19 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         self.stack = saved_stack;
         self.registers = saved_registers;
         self.entrypoint = saved_entrypoint;
+        self.saved = saved_span;
 
         if decided { verdict } else { false }
     }
 
     pub fn snapshot(&self) -> RuntimeState {
-        RuntimeState { stack: self.stack.clone(), registers: self.registers }
+        RuntimeState { stack: self.stack.clone(), registers: self.registers, saved: self.saved }
     }
 
     pub fn restore(&mut self, state: &RuntimeState) {
         self.stack = state.stack.clone();
         self.registers = state.registers;
+        self.saved = state.saved;
     }
 
     /// Set the current line number, readable from the DSL as `ln`.
@@ -539,6 +588,19 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     // (mirrors empty-stack Return), preventing runaway loops.
                     self.registers = Registers { pc: self.entrypoint, ..Default::default() };
                     break;
+                }
+                SaveSpan { start, end } => {
+                    let s = self.registers.get(start);
+                    let e = self.registers.get(end);
+                    self.saved.set(line, s, e);
+                }
+                JumpIfMatchSaved { tgt } => {
+                    let off = self.registers.off as usize;
+                    let n = self.saved.as_bytes().len();
+                    if n != 0 && Self::inlined_memcmp(line, off, self.saved.as_bytes()) {
+                        self.registers.off = (off + n) as u32;
+                        self.registers.pc = tgt;
+                    }
                 }
 
                 _ => unreachable!(),
@@ -812,6 +874,13 @@ pub enum Instruction {
     // Only used by `fn detect()` bodies. The runtime's `detect()` driver
     // breaks its line loop on this opcode and surfaces `result` as a bool.
     Halt { result: u32 },
+
+    // Remembers `line[start..end]` across lines. See [`SavedSpan`].
+    SaveSpan { start: Register, end: Register },
+
+    // Jumps to `tgt` if the remembered span is a non-empty prefix of the
+    // input at `off`, consuming it.
+    JumpIfMatchSaved { tgt: u32 },
 }
 
 macro_rules! instruction_decode {
@@ -842,6 +911,9 @@ macro_rules! instruction_decode {
         FlushHighlight { $flush_kind:ident } => $flush_handler:block
         AwaitInput => $await_handler:block
         Halt { $halt_result:ident } => $halt_handler:block
+
+        SaveSpan { $ss_start:ident, $ss_end:ident } => $ss_handler:block
+        JumpIfMatchSaved { $jms_tgt:ident } => $jms_handler:block
 
         _ => $bad_opcode:expr $(,)?
     }) => {{
@@ -1019,6 +1091,18 @@ macro_rules! instruction_decode {
                 let $halt_result = dec_u32(__asm, __off + 1);
                 $halt_handler
             }
+            21 => {
+                // SaveSpan
+                $pc += 2;
+                let ($ss_start, $ss_end) = dec_reg_pair(__asm, __off + 1);
+                $ss_handler
+            }
+            22 => {
+                // JumpIfMatchSaved
+                $pc += 5;
+                let $jms_tgt = dec_u32(__asm, __off + 1);
+                $jms_handler
+            }
 
             _ => $bad_opcode,
         }
@@ -1051,6 +1135,8 @@ impl Instruction {
             Instruction::JumpIfMatchCharset { .. } => Some(1 + 3 * 4), // opcode + idx + min + max
             Instruction::JumpIfMatchPrefix { .. }
             | Instruction::JumpIfMatchPrefixInsensitive { .. } => Some(1 + 4), // opcode + idx
+
+            Instruction::JumpIfMatchSaved { .. } => Some(1), // opcode
 
             _ => None,
         }
@@ -1124,6 +1210,12 @@ impl Instruction {
             Instruction::Halt { result } => {
                 bytes.extend_from_slice(arena, &enc_u32(result));
             }
+            Instruction::SaveSpan { start, end } => {
+                bytes.push(arena, enc_reg_pair(start, end));
+            }
+            Instruction::JumpIfMatchSaved { tgt } => {
+                bytes.extend_from_slice(arena, &enc_u32(tgt));
+            }
         }
 
         bytes
@@ -1194,6 +1286,12 @@ impl Instruction {
             }
             Halt { result } => {
                 Instruction::Halt { result }
+            }
+            SaveSpan { start, end } => {
+                Instruction::SaveSpan { start, end }
+            }
+            JumpIfMatchSaved { tgt } => {
+                Instruction::JumpIfMatchSaved { tgt }
             }
             _ => return (None, 1),
         });
@@ -1310,6 +1408,12 @@ impl Instruction {
             }
             Instruction::Halt { result } => {
                 arena_write_fmt!(arena, str, "{_i}halt{i_}   {_n}{result}{n_}");
+            }
+            Instruction::SaveSpan { start, end } => {
+                arena_write_fmt!(arena, str, "{_i}save{i_}   {_r}{start}{r_}, {_r}{end}{r_}");
+            }
+            Instruction::JumpIfMatchSaved { tgt } => {
+                arena_write_fmt!(arena, str, "{_i}jsv{i_}    {_a}{tgt}{a_}");
             }
         }
 
@@ -1489,6 +1593,85 @@ mod tests {
                 ("comment".to_string(), "#".to_string()),
             ]
         );
+    }
+
+    /// `save $N` remembers a capture and `if $saved` tests for it on a later
+    /// line -- the heredoc shape, where the delimiter is only known at the
+    /// opener. The closing test consumes the span; anything else stays body.
+    #[test]
+    fn a_saved_capture_closes_a_block_on_a_later_line() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       if /<<(\\w+)/ {\n\
+                           save $1;\n\
+                           yield keyword;\n\
+                           loop {\n\
+                               await input;\n\
+                               if $saved {\n\
+                                   if /$/ { yield keyword; break; }\n\
+                               }\n\
+                               if /.*/ {}\n\
+                               yield string;\n\
+                           }\n\
+                       }\n\
+                       if /.*/ { yield other; }\n\
+                   }\n";
+
+        let spans = highlight(src, &["<<SQL", "select EOF", "SQLx", "SQL", "after"]);
+        assert_eq!(spans[0], [("keyword".to_string(), "<<SQL".to_string())]);
+        assert_eq!(spans[1], [("string".to_string(), "select EOF".to_string())]);
+        // Starts with the delimiter but does not end there: still body.
+        assert_eq!(spans[2], [("string".to_string(), "SQLx".to_string())]);
+        assert_eq!(spans[3], [("keyword".to_string(), "SQL".to_string())]);
+        assert_eq!(spans[4], [("other".to_string(), "after".to_string())]);
+    }
+
+    /// The remembered span survives a snapshot and restore, since the editor
+    /// re-highlights from a cached line state and a heredoc body must still
+    /// know its delimiter afterwards.
+    #[test]
+    fn a_saved_capture_survives_snapshot_and_restore() {
+        let _ = stdext::arena::init(16 * 1024 * 1024);
+        let arena = scratch_arena(None);
+        let mut compiler = Compiler::new(&arena);
+        compiler
+            .parse(
+                "test.lsh",
+                "#[display_name = \"T\"]\n\
+                 #[path = \"**/*.t\"]\n\
+                 pub fn t() {\n\
+                     if /<<(\\w+)/ { save $1; }\n\
+                     if /.*/ {}\n\
+                     loop {\n\
+                         await input;\n\
+                         if $saved { yield keyword; break; }\n\
+                         if /.*/ { yield string; }\n\
+                     }\n\
+                 }\n",
+            )
+            .unwrap();
+        let assembly = compiler.assemble().unwrap();
+        let charsets: Vec<SerializedCharset> =
+            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+        let entry = assembly.entrypoints[0].address as u32;
+        let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
+
+        runtime.parse_next_line::<u32>(&arena, b"<<END");
+        let state = runtime.snapshot();
+
+        // A fresh runtime restored from the snapshot must still close on END.
+        let mut resumed = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
+        resumed.restore(&state);
+        let body = resumed.parse_next_line::<u32>(&arena, b"body");
+        let close = resumed.parse_next_line::<u32>(&arena, b"END");
+
+        let kind_of = |hs: &BVec<'_, Highlight<u32>>| hs[0].kind;
+        let keyword =
+            assembly.highlight_kinds.iter().find(|hk| hk.identifier == "keyword").unwrap();
+        let string = assembly.highlight_kinds.iter().find(|hk| hk.identifier == "string").unwrap();
+        assert_eq!(kind_of(&body), string.value);
+        assert_eq!(kind_of(&close), keyword.value);
     }
 
     /// Resuming from an `await input` lands on whatever follows it. When that
