@@ -1674,6 +1674,31 @@ mod tests {
         assert_eq!(kind_of(&close), keyword.value);
     }
 
+    /// `name = value;` writes the declared register rather than binding the
+    /// name to a fresh one, so a flag raised inside a loop is what the test
+    /// after the loop sees -- and a reset there is what the next iteration
+    /// sees. Under the old rebinding both reads went to a register nothing
+    /// wrote any more.
+    #[test]
+    fn a_flag_assigned_in_a_loop_is_visible_outside_it() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       var one = 1;\n\
+                       var seen = 0;\n\
+                       until /$/ {\n\
+                           if /x/ { seen = 1; }\n\
+                           if /.*/ {}\n\
+                       }\n\
+                       if seen == one { yield keyword; } else { yield string; }\n\
+                   }\n";
+
+        let spans = highlight(src, &["ab", "xb", "ab"]);
+        assert_eq!(spans[0], [("string".to_string(), "ab".to_string())]);
+        assert_eq!(spans[1], [("keyword".to_string(), "xb".to_string())]);
+        assert_eq!(spans[2], [("string".to_string(), "ab".to_string())]);
+    }
+
     /// Resuming from an `await input` lands on whatever follows it. When that
     /// is an already-serialized call, the generator has to jump to it: an
     /// inlined copy falls through into the code that happens to sit after it.

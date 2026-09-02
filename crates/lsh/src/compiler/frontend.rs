@@ -709,6 +709,31 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             // foo = expr;
             Some('=') if !self.is_str("==") => {
                 self.pos += 1;
+
+                // A declared variable is written in place, so a value set
+                // inside a loop is what the code after the loop reads. Only
+                // an undeclared name binds fresh.
+                let existing = self.variables.get(name).copied();
+                if let Some(dst) = existing
+                    && dst.borrow().physical.is_none()
+                {
+                    self.mark();
+                    let ir = match self.peek() {
+                        Some('0'..='9') => {
+                            let imm = self.read_integer()?;
+                            IRI::MovImm { dst, imm }
+                        }
+                        Some(c) if Self::is_ident_start(c) => {
+                            let src_name = self.read_identifier()?;
+                            let src = self.get_variable(src_name)?;
+                            IRI::Mov { dst, src }
+                        }
+                        _ => raise!(self, "expected integer or identifier in expression"),
+                    };
+                    self.expect(';')?;
+                    return Ok(IRSpan::single(self.compiler.alloc_iri(ir)));
+                }
+
                 let (expr, vreg) = self.parse_expression()?;
                 self.expect(';')?;
                 self.variables.insert(name, vreg);
@@ -980,6 +1005,11 @@ mod tests {
     fn a_nested_if_does_not_launder_the_await() {
         let err = compile("until /$/ { if /a/ { await input; } }\n").unwrap_err();
         assert!(err.contains("can never suspend"), "{err}");
+    }
+
+    #[test]
+    fn assigning_an_undeclared_name_still_declares_it() {
+        compile("flag = 1;\nif flag == flag { }\n").unwrap();
     }
 
     #[test]
