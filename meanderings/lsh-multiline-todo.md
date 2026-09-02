@@ -78,12 +78,12 @@ the `until` but inside an enclosing `loop` is fine.
       verified against `node` and the go compiler rather than assumed.
       backslash-newline continuation already renders acceptably; adding
       `if /\\$/ { await input; }` is a separate, optional improvement.
-- [ ] **lsh-bin render** picks the first glob match and never runs the
+- [x] **lsh-bin render** picks the first glob match and never runs the
       content detector, so every `.yaml` renders as `slice_yaml` while
       `detect`, the editor and `golden.rs` all disambiguate properly.
       `.yml` is the only honest channel for testing plain yaml until
       this is fixed.
-- [ ] **compile-time guard** -- `nullable(&Regex)` over the AST that
+- [x] **compile-time guard** -- `nullable(&Regex)` over the AST that
       `compiler/regex.rs` already builds, a flag on `Context`, and an
       error in `parse_await` when the nearest enclosing loop is an
       `until` with a nullable guard. fires on exactly the 36 sites and
