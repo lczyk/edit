@@ -11,6 +11,27 @@ pub fn makefile() {
         return;
     }
 
+    if /(?:(?:override|export)\s+)?define\>/ {
+        // The body is verbatim text up to a line starting with endef.
+        yield keyword.control;
+        if /\s+([A-Za-z_][\w.-]*)/ {
+            yield $1 as variable;
+        }
+        if /.*/ {
+            yield other;
+        }
+        loop {
+            await input;
+            if /\s*endef\>/ {
+                yield keyword.control;
+                break;
+            }
+            if /.*/ {}
+            yield string;
+        }
+        return;
+    }
+
     if /(?:-|s)?include\>/ {
         yield keyword.control;
     } else if /(?:ifdef|ifndef|ifeq|ifneq|else|endif|define|endef|override|export|unexport|vpath|undefine|private)\>/ {

@@ -53,3 +53,17 @@
 {"line":23,"kind":"keyword.control","text":"endif"}
 {"line":25,"kind":"keyword.control","text":"include"}
 {"line":25,"kind":"other","text":" config.mk"}
+{"line":27,"kind":"comment","text":"# define bodies are verbatim text up to endef."}
+{"line":28,"kind":"keyword.control","text":"define "}
+{"line":28,"kind":"variable","text":"GREETING"}
+{"line":29,"kind":"string","text":"echo hello: world"}
+{"line":30,"kind":"string","text":"echo \"another # not a comment\""}
+{"line":31,"kind":"keyword.control","text":"endef"}
+{"line":33,"kind":"keyword.control","text":"override define "}
+{"line":33,"kind":"variable","text":"LOUD"}
+{"line":33,"kind":"other","text":" ="}
+{"line":34,"kind":"string","text":"\t@echo $(1) | tr a-z A-Z"}
+{"line":35,"kind":"keyword.control","text":"endef"}
+{"line":37,"kind":"method","text":"all"}
+{"line":37,"kind":"other","text":": "}
+{"line":37,"kind":"variable","text":"$(GREETING)"}

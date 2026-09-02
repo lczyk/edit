@@ -23,3 +23,15 @@ CFLAGS += -g
 endif
 
 include config.mk
+
+# define bodies are verbatim text up to endef.
+define GREETING
+echo hello: world
+echo "another # not a comment"
+endef
+
+override define LOUD =
+	@echo $(1) | tr a-z A-Z
+endef
+
+all: $(GREETING)
