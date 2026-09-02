@@ -97,7 +97,7 @@ feature gaps the same sweep turned up. none are instances of the idiom;
 all the idiom sites are fixed and the compiler now rejects new ones.
 ranked by how often a real file hits it.
 
-- [ ] **toml multi-line arrays** -- `toml.lsh:18` has no bracket-depth
+- [x] **toml multi-line arrays** -- `toml.lsh:18` has no bracket-depth
       tracking, so `key = [` followed by one element per line is scanned
       per line. every `Cargo.toml` in this workspace has one.
 - [ ] **shellscript heredoc delimiters** -- `shellscript.lsh:55` only
