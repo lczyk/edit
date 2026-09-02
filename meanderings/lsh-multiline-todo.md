@@ -105,15 +105,18 @@ ranked by how often a real file hits it.
       missed. now `save $1` at the opener and `if $saved` at the close.
       here-strings (`<<<`) need their own branch ahead of it, or the
       loop steps one char and `<< "hello` opens a heredoc named hello.
-- [ ] **dockerfile `\` continuation** -- `dockerfile.lsh:9` has no
-      handling for a trailing backslash, and nearly every `RUN` continues.
-      same `if /\\$/ { await input; }` arm as the next item, so they
-      could land together.
-- [ ] **backslash-newline continuation in c, objc, glsl, javascript,
-      python** -- legal in all five, currently renders acceptably by
-      accident (the next line's closing quote reopens a string). the
-      explicit arm keeps today's containment for a plain unterminated
-      quote and makes the continuation case honest.
+- [x] **dockerfile `\` continuation** -- the body sits in a `loop`; a
+      trailing backslash raises a flag, and once the line ends the loop
+      awaits and goes round without re-running the instruction dispatch,
+      so a leading word on a continuation line is never an instruction.
+      `KEY=value` names moved into the value loop so every pair under
+      `ENV` / `LABEL` / `ARG` is a variable, not just the first.
+- [x] **backslash-newline continuation in c, objc, glsl, javascript,
+      python** -- `if /\\$/ { await input; } else { break; }` in each
+      string loop. a bare unterminated quote still stops at the line end.
+      found on the way: `name = value;` used to rebind the name to a fresh
+      register, so a flag set in a loop was invisible after it. fixed in
+      the frontend; assignment writes the declared register now.
 - [x] **ruby heredocs** -- `ruby.lsh` had none at all. `<<~`, `<<-`,
       plain, and quoted forms; the rest of the opener line stays code and
       a `heredoc` flag runs the body loop once the line ends. the
