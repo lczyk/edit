@@ -159,3 +159,12 @@ x = [92m1[m
 [93mint[m([91m"42"[m)
 [91m"hello"[m.[93mupper[m()
 
+[32m# A backslash-newline continues a string literal; a bare unterminated one[m
+[32m# stops at the line end.[m
+continued = [91m'one \[m
+[91mtwo'[m
+also_continued = [91m"three \[m
+[91mfour"[m
+broken = [91m"unterminated[m
+after_broken = [92m1[m
+

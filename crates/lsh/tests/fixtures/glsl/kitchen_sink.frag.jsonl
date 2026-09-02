@@ -54,3 +54,9 @@
 {"line":15,"kind":"constant.numeric","text":"1.0f"}
 {"line":15,"kind":"other","text":");"}
 {"line":16,"kind":"other","text":"}"}
+{"line":17,"kind":"comment","text":"// A backslash-newline continues a string literal."}
+{"line":18,"kind":"keyword.other","text":"const"}
+{"line":18,"kind":"other","text":" char continued[] = "}
+{"line":18,"kind":"string","text":"\"one \\"}
+{"line":19,"kind":"string","text":"two\""}
+{"line":19,"kind":"other","text":";"}

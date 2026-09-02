@@ -31,3 +31,7 @@
 
 [94m@end[m
 
+[32m// A backslash-newline continues a string literal.[m
+NSString *continued = [91m@"one \[m
+[91mtwo"[m;
+

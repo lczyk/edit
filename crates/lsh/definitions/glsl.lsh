@@ -33,10 +33,17 @@ pub fn glsl() {
             }
         } else if /"/ {
             yield string;
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
-                if /\\./ {}
+                if /\\$/ {
+                    // Backslash-newline continues the literal; anything else
+                    // left open stops at the line end, as the language does.
+                    await input;
+                }
+                else if /\\./ {}
                 else if /"/ { yield string; break; }
+                else { break; }
             }
         } else if /#\s*(?:version|include|extension|define|undef|ifdef|ifndef|if|elif|else|endif|pragma|error|line)\>/ {
             yield keyword.other;

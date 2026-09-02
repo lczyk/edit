@@ -115,3 +115,12 @@ Math.max(1, 2);
 [1, 2, 3].map(x => x * 2);
 greet("world");
 parseInt("42");
+
+// A backslash-newline continues a string literal; a bare unterminated one
+// stops at the line end.
+const continued = 'one \
+two';
+const alsoContinued = "three \
+four";
+const broken = "unterminated
+let afterBroken = 1;

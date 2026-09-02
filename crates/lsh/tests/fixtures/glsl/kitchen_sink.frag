@@ -14,3 +14,6 @@ void main() {
     // with a log map that keeps the dense cores' internal gradient (no flat clipping).
     color = vec4(density_alpha, 0.0f, 0.0f, 1.0f);
 }
+// A backslash-newline continues a string literal.
+const char continued[] = "one \
+two";

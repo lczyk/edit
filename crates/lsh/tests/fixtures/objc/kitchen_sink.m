@@ -30,3 +30,7 @@
 }
 
 @end
+
+// A backslash-newline continues a string literal.
+NSString *continued = @"one \
+two";

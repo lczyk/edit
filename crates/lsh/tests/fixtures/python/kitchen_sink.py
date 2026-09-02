@@ -158,3 +158,12 @@ list(range(10))
 greet("world")
 int("42")
 "hello".upper()
+
+# A backslash-newline continues a string literal; a bare unterminated one
+# stops at the line end.
+continued = 'one \
+two'
+also_continued = "three \
+four"
+broken = "unterminated
+after_broken = 1

@@ -93,3 +93,8 @@
 {"line":29,"kind":"other","text":".value, done, msg);"}
 {"line":30,"kind":"other","text":"}"}
 {"line":32,"kind":"keyword.other","text":"@end"}
+{"line":34,"kind":"comment","text":"// A backslash-newline continues a string literal."}
+{"line":35,"kind":"other","text":"NSString *continued = "}
+{"line":35,"kind":"string","text":"@\"one \\"}
+{"line":36,"kind":"string","text":"two\""}
+{"line":36,"kind":"other","text":";"}

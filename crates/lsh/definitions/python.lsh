@@ -56,16 +56,30 @@ pub fn python() {
                 }
             }
         } else if /'/ {
-            until /$/ {
+            loop {
+                if /[^'\\]+/ {}
                 yield string;
-                if /\\./ {}
+                if /\\$/ {
+                    // Backslash-newline continues the literal; anything else
+                    // left open stops at the line end, as the language does.
+                    await input;
+                }
+                else if /\\./ {}
                 else if /'/ { yield string; break; }
+                else { break; }
             }
         } else if /"/ {
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
-                if /\\./ {}
+                if /\\$/ {
+                    // Backslash-newline continues the literal; anything else
+                    // left open stops at the line end, as the language does.
+                    await input;
+                }
+                else if /\\./ {}
                 else if /"/ { yield string; break; }
+                else { break; }
             }
         } else if /==|!=|<=|>=/ {
             // Comparison operators -- not assignment.

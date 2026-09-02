@@ -116,3 +116,12 @@ Math.[93mmax[m([92m1[m, [92m2[m);
 [93mgreet[m([91m"world"[m);
 [93mparseInt[m([91m"42"[m);
 
+[32m// A backslash-newline continues a string literal; a bare unterminated one[m
+[32m// stops at the line end.[m
+[94mconst[m continued = [91m'one \[m
+[91mtwo'[m;
+[94mconst[m alsoContinued = [91m"three \[m
+[91mfour"[m;
+[94mconst[m broken = [91m"unterminated[m
+[94mlet[m afterBroken = [92m1[m;
+

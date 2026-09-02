@@ -332,3 +332,15 @@
 {"line":160,"kind":"other","text":"."}
 {"line":160,"kind":"method","text":"upper"}
 {"line":160,"kind":"other","text":"()"}
+{"line":162,"kind":"comment","text":"# A backslash-newline continues a string literal; a bare unterminated one"}
+{"line":163,"kind":"comment","text":"# stops at the line end."}
+{"line":164,"kind":"other","text":"continued = "}
+{"line":164,"kind":"string","text":"'one \\"}
+{"line":165,"kind":"string","text":"two'"}
+{"line":166,"kind":"other","text":"also_continued = "}
+{"line":166,"kind":"string","text":"\"three \\"}
+{"line":167,"kind":"string","text":"four\""}
+{"line":168,"kind":"other","text":"broken = "}
+{"line":168,"kind":"string","text":"\"unterminated"}
+{"line":169,"kind":"other","text":"after_broken = "}
+{"line":169,"kind":"constant.numeric","text":"1"}

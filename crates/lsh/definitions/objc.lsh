@@ -40,10 +40,17 @@ pub fn objc() {
             }
         } else if /@?(?:L|u8|u|U)?"/ {
             yield string;
-            until /$/ {
+            loop {
+                if /[^"\\]+/ {}
                 yield string;
-                if /\\./ {}
+                if /\\$/ {
+                    // Backslash-newline continues the literal; anything else
+                    // left open stops at the line end, as the language does.
+                    await input;
+                }
+                else if /\\./ {}
                 else if /"/ { yield string; break; }
+                else { break; }
             }
         } else if /(?:L|u|U)?'(?:\\(?:[xuU][\da-fA-F]+|[0-7]+|.)|[^'\\])'/ {
             yield string;

@@ -101,3 +101,10 @@ end:
 
 [94m#endif[m [32m// KITCHEN_SINK_H_[m
 
+[32m/* A backslash-newline continues a string literal; a bare unterminated one[m
+[32m   stops at the line end. */[m
+[94mstatic[m [94mconst[m [36mchar[m *continued = [91m"one \[m
+[91mtwo"[m;
+[94mstatic[m [94mconst[m [36mchar[m *broken = [91m"unterminated[m
+[36mint[m after_broken;
+

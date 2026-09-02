@@ -14,3 +14,7 @@
     [32m// with a log map that keeps the dense cores' internal gradient (no flat clipping).[m
     color = [36mvec4[m(density_alpha, [92m0.0f[m, [92m0.0f[m, [92m1.0f[m);
 }
+[32m// A backslash-newline continues a string literal.[m
+[94mconst[m char continued[] = [91m"one \[m
+[91mtwo"[m;
+

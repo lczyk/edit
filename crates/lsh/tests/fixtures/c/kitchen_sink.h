@@ -100,3 +100,10 @@ end:
 }
 
 #endif // KITCHEN_SINK_H_
+
+/* A backslash-newline continues a string literal; a bare unterminated one
+   stops at the line end. */
+static const char *continued = "one \
+two";
+static const char *broken = "unterminated
+int after_broken;
