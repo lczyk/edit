@@ -1,5 +1,5 @@
 ---
-status: open
+status: implemented
 date: 2026-09-01
 description: audit of multi-line constructs across every lsh definition -- the `until /$/ { await input; }` idiom that can never suspend, plus the feature gaps the sweep turned up
 ---
@@ -91,11 +91,14 @@ the `until` but inside an enclosing `loop` is fine.
       recommends `until /$/` without mentioning that an await inside it
       is dead.
 
-## backlog
+## backlog -- all landed
 
 feature gaps the same sweep turned up. none are instances of the idiom;
 all the idiom sites are fixed and the compiler now rejects new ones.
-ranked by how often a real file hits it.
+ranked by how often a real file hits it. every one of these has landed,
+along with the four compiler bugs they flushed out (a loop's fast-skip
+charset ignoring callees, a `+=` counter dead to the allocator, `=`
+rebinding instead of assigning, and the missing delimiter capture).
 
 - [x] **toml multi-line arrays** -- `toml.lsh:18` has no bracket-depth
       tracking, so `key = [` followed by one element per line is scanned
@@ -122,9 +125,11 @@ ranked by how often a real file hits it.
       a `heredoc` flag runs the body loop once the line ends. the
       delimiter must start with an uppercase letter or `_`, which keeps
       the shovel operator (`a <<b`) out.
-- [ ] **markdown code spans** -- `markdown.lsh:277-282` are `until /$/`
-      with no await, so a `` `code` `` span wrapped across a line break in
-      prose loses its colour at the break.
+- [x] **markdown code spans** -- the double and triple backtick spans
+      use the same loop as the single one, so a span wrapped across a
+      line break keeps its colour. a blank line ends the paragraph and
+      with it any span still open, so an unterminated one cannot bleed
+      into the next paragraph.
 - [x] **yaml quoted scalars** -- `'...'` / `"..."` get their own loops
       in both `yaml.lsh` and `slice_yaml_value()`: a `#` inside is text,
       `''` is an escaped quote, and the scalar may span lines.
