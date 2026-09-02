@@ -125,15 +125,17 @@ ranked by how often a real file hits it.
 - [ ] **markdown code spans** -- `markdown.lsh:277-282` are `until /$/`
       with no await, so a `` `code` `` span wrapped across a line break in
       prose loses its colour at the break.
-- [ ] **yaml quoted scalars** -- `yaml.lsh:65` and `slice_yaml_value()`
-      have no quote tracking; `'...'` / `"..."` fall through to the
-      generic gobble, so a `#` inside one becomes a comment.
-- [ ] **make `define` / `endef`** -- `makefile.lsh:16` recognises the
-      keywords and nothing else; the body is lexed as recipe lines.
-- [ ] **lsh block comments** -- `lsh.lsh:38` declares the
-      `block_comment` attributes and never implements `/* */`.
-- [ ] **sed `a\` `i\` `c\` text blocks** -- `sed.lsh:72`; the
-      backslash-newline-continued text is lexed as commands.
+- [x] **yaml quoted scalars** -- `'...'` / `"..."` get their own loops
+      in both `yaml.lsh` and `slice_yaml_value()`: a `#` inside is text,
+      `''` is an escaped quote, and the scalar may span lines.
+- [x] **make `define` / `endef`** -- the body is verbatim text up to a
+      line starting with `endef`; the name after `define` is a variable.
+      `override define` and `export define` too.
+- [x] **lsh block comments** -- `/* */` implemented, so the attributes
+      finally tell the truth.
+- [x] **sed `a\` `i\` `c\` text blocks** -- each text line but the last
+      ends in a backslash; the GNU one-line form (`i text`) is covered
+      too.
 
 ### shared root cause: no delimiter capture -- landed
 
