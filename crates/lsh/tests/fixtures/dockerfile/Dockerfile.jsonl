@@ -5,11 +5,13 @@
 {"line":2,"kind":"other","text":" "}
 {"line":2,"kind":"keyword.other","text":"AS"}
 {"line":2,"kind":"other","text":" builder"}
-{"line":4,"kind":"keyword.control","text":"ARG "}
+{"line":4,"kind":"keyword.control","text":"ARG"}
+{"line":4,"kind":"other","text":" "}
 {"line":4,"kind":"variable","text":"VERSION"}
 {"line":4,"kind":"other","text":"="}
 {"line":4,"kind":"constant.numeric","text":"1.0"}
-{"line":5,"kind":"keyword.control","text":"ENV "}
+{"line":5,"kind":"keyword.control","text":"ENV"}
+{"line":5,"kind":"other","text":" "}
 {"line":5,"kind":"variable","text":"APP_HOME"}
 {"line":5,"kind":"other","text":"=/srv/app"}
 {"line":6,"kind":"keyword.control","text":"WORKDIR"}
@@ -28,7 +30,8 @@
 {"line":15,"kind":"comment","text":"# Runtime stage"}
 {"line":16,"kind":"keyword.control","text":"FROM"}
 {"line":16,"kind":"other","text":" debian:bookworm-slim"}
-{"line":17,"kind":"keyword.control","text":"LABEL "}
+{"line":17,"kind":"keyword.control","text":"LABEL"}
+{"line":17,"kind":"other","text":" "}
 {"line":17,"kind":"variable","text":"org.opencontainers.image.version"}
 {"line":17,"kind":"other","text":"="}
 {"line":17,"kind":"string","text":"\""}
@@ -59,3 +62,29 @@
 {"line":22,"kind":"other","text":" ["}
 {"line":22,"kind":"string","text":"\"--serve\""}
 {"line":22,"kind":"other","text":"]"}
+{"line":24,"kind":"comment","text":"# A trailing backslash continues the instruction onto the next line."}
+{"line":25,"kind":"keyword.control","text":"ENV"}
+{"line":25,"kind":"other","text":" "}
+{"line":25,"kind":"variable","text":"FOO"}
+{"line":25,"kind":"other","text":"=bar \\"}
+{"line":26,"kind":"other","text":"    "}
+{"line":26,"kind":"variable","text":"BAZ"}
+{"line":26,"kind":"other","text":"=qux"}
+{"line":27,"kind":"keyword.control","text":"RUN"}
+{"line":27,"kind":"other","text":" mkdir -p /opt/app && \\"}
+{"line":28,"kind":"other","text":"    ENV=not-an-instruction cp -r src /opt/app \\"}
+{"line":29,"kind":"other","text":"    "}
+{"line":29,"kind":"comment","text":"# a comment inside a continued RUN"}
+{"line":30,"kind":"other","text":"    && chmod "}
+{"line":30,"kind":"constant.numeric","text":"755"}
+{"line":30,"kind":"other","text":" /opt/app"}
+{"line":31,"kind":"keyword.control","text":"LABEL"}
+{"line":31,"kind":"other","text":" "}
+{"line":31,"kind":"variable","text":"org.opencontainers.image.title"}
+{"line":31,"kind":"other","text":"="}
+{"line":31,"kind":"string","text":"\"edit\""}
+{"line":31,"kind":"other","text":" \\"}
+{"line":32,"kind":"other","text":"      "}
+{"line":32,"kind":"variable","text":"org.opencontainers.image.source"}
+{"line":32,"kind":"other","text":"="}
+{"line":32,"kind":"string","text":"\"https://example.invalid\""}
