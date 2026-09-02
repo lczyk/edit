@@ -104,6 +104,12 @@ One important detail: if you want the remainder of the current line to stay high
 
 `until /$/ { ... }` is the usual way to say "keep processing until end-of-line."
 
+The guard is tested *before* each iteration, so a loop whose guard can match
+the empty string exits the moment the position reaches end of line. An `await
+input` inside one can therefore never suspend, and the compiler rejects it --
+reach for `loop` and gobble up to the delimiter instead, as in the next
+section.
+
 ## Capture groups
 
 Regexes can have capture groups.
