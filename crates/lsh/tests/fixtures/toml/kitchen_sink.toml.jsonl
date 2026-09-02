@@ -44,3 +44,27 @@
 {"line":23,"kind":"string","text":"line one"}
 {"line":24,"kind":"string","text":"line two"}
 {"line":25,"kind":"string","text":"\"\"\""}
+{"line":27,"kind":"comment","text":"# Arrays span lines, nest, and carry comments. A nested `[` on its own line"}
+{"line":28,"kind":"comment","text":"# is not a table header."}
+{"line":29,"kind":"variable","text":"matrix"}
+{"line":29,"kind":"other","text":" = ["}
+{"line":30,"kind":"other","text":"  ["}
+{"line":30,"kind":"constant.numeric","text":"1"}
+{"line":30,"kind":"other","text":", "}
+{"line":30,"kind":"constant.numeric","text":"2"}
+{"line":30,"kind":"other","text":"],"}
+{"line":31,"kind":"other","text":"  ["}
+{"line":31,"kind":"constant.numeric","text":"3"}
+{"line":31,"kind":"other","text":", "}
+{"line":31,"kind":"constant.numeric","text":"4"}
+{"line":31,"kind":"other","text":"],  "}
+{"line":31,"kind":"comment","text":"# second row"}
+{"line":33,"kind":"other","text":"  ["}
+{"line":33,"kind":"string","text":"\"a\""}
+{"line":33,"kind":"other","text":", "}
+{"line":33,"kind":"string","text":"\"b\""}
+{"line":33,"kind":"other","text":"],"}
+{"line":34,"kind":"other","text":"]"}
+{"line":35,"kind":"variable","text":"after_matrix"}
+{"line":35,"kind":"other","text":" = "}
+{"line":35,"kind":"constant.numeric","text":"42"}

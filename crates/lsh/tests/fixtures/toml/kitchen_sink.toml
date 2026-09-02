@@ -23,3 +23,13 @@ multiline = """
 line one
 line two
 """
+
+# Arrays span lines, nest, and carry comments. A nested `[` on its own line
+# is not a table header.
+matrix = [
+  [1, 2],
+  [3, 4],  # second row
+
+  ["a", "b"],
+]
+after_matrix = 42

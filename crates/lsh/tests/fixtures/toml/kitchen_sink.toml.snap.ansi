@@ -24,3 +24,13 @@
 [91mline two[m
 [91m"""[m
 
+[32m# Arrays span lines, nest, and carry comments. A nested `[` on its own line[m
+[32m# is not a table header.[m
+[96mmatrix[m = [
+  [[92m1[m, [92m2[m],
+  [[92m3[m, [92m4[m],  [32m# second row[m
+
+  [[91m"a"[m, [91m"b"[m],
+]
+[96mafter_matrix[m = [92m42[m
+

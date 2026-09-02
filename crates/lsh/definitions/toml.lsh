@@ -36,41 +36,81 @@ pub fn toml() {
 
         if /#.*/ {
             yield comment;
-        } else if /"""/ {
-            triple_double_string();
-        } else if /'''/ {
-            triple_single_string();
-        } else if /"/ {
-            double_quote_string();
-        } else if /'/ {
-            single_quote_string();
-        } else if /true|false/ {
-            if /\w+/ {
-                // Not a keyword after all.
-            } else {
-                yield constant.language;
-            }
-        } else if /\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?/ {
-            yield constant.numeric;
-        } else if /\d{2}:\d{2}:\d{2}(?:\.\d+)?/ {
-            yield constant.numeric;
-        } else if /[+-]?(?:inf|nan)/ {
-            if /\w+/ {
-                // Not a keyword after all.
-            } else {
-                yield constant.numeric;
-            }
-        } else if /[+-]?(?:0x[0-9A-Fa-f_]+|0o[0-7_]+|0b[01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d[\d_]*)?)/ {
-            if /\w+/ {
-                // Not a number after all.
-            } else {
-                yield constant.numeric;
-            }
-        } else if /\w+/ {
-            // Bare word, skip.
+        } else if /\[/ {
+            toml_array();
+        } else {
+            toml_scalar();
         }
 
         yield other;
+    }
+}
+
+// One scalar at the current position, or nothing if there isn't one.
+fn toml_scalar() {
+    if /"""/ {
+        triple_double_string();
+    } else if /'''/ {
+        triple_single_string();
+    } else if /"/ {
+        double_quote_string();
+    } else if /'/ {
+        single_quote_string();
+    } else if /true|false/ {
+        if /\w+/ {
+            // Not a keyword after all.
+        } else {
+            yield constant.language;
+        }
+    } else if /\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?/ {
+        yield constant.numeric;
+    } else if /\d{2}:\d{2}:\d{2}(?:\.\d+)?/ {
+        yield constant.numeric;
+    } else if /[+-]?(?:inf|nan)/ {
+        if /\w+/ {
+            // Not a keyword after all.
+        } else {
+            yield constant.numeric;
+        }
+    } else if /[+-]?(?:0x[0-9A-Fa-f_]+|0o[0-7_]+|0b[01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d[\d_]*)?)/ {
+        if /\w+/ {
+            // Not a number after all.
+        } else {
+            yield constant.numeric;
+        }
+    } else if /\w+/ {
+        // Bare word, skip.
+    }
+}
+
+// The body of an array, entered just past its `[`. Arrays may span lines, so
+// a nested `[` on a continuation line must not look like a table header.
+// Depth is two counters because the DSL has `+=` but no decrement.
+fn toml_array() {
+    var opens = 1;
+    var closes = 0;
+
+    loop {
+        if /\s+/ {
+        }
+        yield other;
+
+        if /#.*/ {
+            yield comment;
+        } else if /\[/ {
+            opens += 1;
+        } else if /\]/ {
+            closes += 1;
+            if opens == closes {
+                yield other;
+                break;
+            }
+        } else if /,/ {
+        } else if /$/ {
+            await input;
+        } else {
+            toml_scalar();
+        }
     }
 }
 
