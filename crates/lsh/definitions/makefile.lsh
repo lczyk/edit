@@ -1,8 +1,11 @@
 #[display_name = "Makefile"]
 #[line_comment = "#"]
 #[path = "**/Makefile"]
+#[path = "**/Makefile.*"]
 #[path = "**/makefile"]
+#[path = "**/makefile.*"]
 #[path = "**/GNUmakefile"]
+#[path = "**/GNUmakefile.*"]
 #[path = "**/*.mk"]
 #[path = "**/*.make"]
 pub fn makefile() {
