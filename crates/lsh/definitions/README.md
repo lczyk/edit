@@ -35,7 +35,10 @@ pub fn diff() {
 ```
 
 `#[display_name]` sets the human-readable name.
-`#[path]` is a glob pattern; you can have as many as you need.
+`#[path]` is a glob pattern; you can have as many as you need. It understands
+`*` (any run of non-separator characters), `**` (any run at all) and `[...]`
+character classes with ranges and `!`/`^` negation. Matching is
+case-insensitive.
 Functions without `pub` are private helpers that can be called from other definitions.
 
 ## How execution works
