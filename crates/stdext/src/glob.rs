@@ -4,6 +4,12 @@
 //! - `*` matches any characters except for path separators, including an empty string.
 //! - `**` matches any characters, including an empty string.
 //!   For convenience, `/**/` also matches `/`.
+//! - `[abc]` matches one character from the set, `[a-z]` one from the range,
+//!   and a leading `!` or `^` negates. A `]` in first position is a literal,
+//!   as is a `-` in first or last position. A class never matches a path
+//!   separator; an unterminated `[` is a literal.
+//!
+//! Matching is ASCII-case-insensitive throughout.
 
 use std::path::is_separator;
 
@@ -52,7 +58,7 @@ fn fast_path(pattern: &[u8], name: &[u8]) -> Option<bool> {
 }
 
 fn contains_magic(pattern: &[u8]) -> bool {
-    pattern.contains(&b'*')
+    pattern.iter().any(|&b| b == b'*' || b == b'[')
 }
 
 fn match_path_suffix(path: &[u8], suffix: &[u8]) -> bool {
@@ -65,65 +71,107 @@ fn match_path_suffix(path: &[u8], suffix: &[u8]) -> bool {
     path.eq_ignore_ascii_case(suffix)
 }
 
-// This code is based on https://research.swtch.com/glob.go
-// It's not particularly fast, but it doesn't need to be. It doesn't run often.
-#[cold]
-fn slow_path(pattern: &[u8], name: &[u8]) -> bool {
-    let mut px = 0;
-    let mut nx = 0;
-    let mut next_px = 0;
-    let mut next_nx = 0;
-    let mut is_double_star = false;
-
-    while px < pattern.len() || nx < name.len() {
-        if px < pattern.len() {
-            match pattern[px] {
-                b'*' => {
-                    // Try to match at nx. If that doesn't work out, restart at nx+1 next.
-                    next_px = px;
-                    next_nx = nx + 1;
-                    px += 1;
-                    is_double_star = false;
-
-                    if px < pattern.len() && pattern[px] == b'*' {
-                        px += 1;
-                        is_double_star = true;
-
-                        // For convenience, /**/ also matches /
-                        if px >= 3
-                            && px < pattern.len()
-                            && pattern[px] == b'/'
-                            && pattern[px - 3] == b'/'
-                        {
-                            px += 1;
-                        }
-                    }
-                    continue;
-                }
-                c => {
-                    if nx < name.len() && name[nx].eq_ignore_ascii_case(&c) {
-                        px += 1;
-                        nx += 1;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        // Mismatch. Maybe restart.
-        if next_nx > 0
-            && next_nx <= name.len()
-            && (is_double_star || !is_separator(name[next_nx - 1] as char))
-        {
-            px = next_px;
-            nx = next_nx;
-            continue;
-        }
-
-        return false;
+/// Match `c` against the bracket class starting at `pat[0] == b'['`, returning
+/// the verdict and the class's length in pattern bytes. `None` means the class
+/// has no closing `]`, which callers treat as a literal `[`.
+fn class_match(pat: &[u8], c: Option<u8>) -> Option<(bool, usize)> {
+    let mut i = 1;
+    let negated = matches!(pat.get(i), Some(b'!' | b'^'));
+    if negated {
+        i += 1;
     }
 
-    true
+    let mut hit = false;
+    let opening = i;
+    loop {
+        match pat.get(i) {
+            None => return None,
+            // A ']' in first position is a literal, not the terminator.
+            Some(b']') if i > opening => break,
+            Some(_) => {}
+        }
+
+        let lo = pat[i];
+        i += 1;
+        // A '-' before the terminator opens a range; elsewhere it's a literal.
+        if pat.get(i) == Some(&b'-') && pat.get(i + 1).is_some_and(|&b| b != b']') {
+            let hi = pat[i + 1];
+            i += 2;
+            hit |= c.is_some_and(|c| in_range(lo, hi, c));
+        } else {
+            hit |= c.is_some_and(|c| lo.eq_ignore_ascii_case(&c));
+        }
+    }
+
+    let matched = hit != negated && c.is_some_and(|c| !is_separator(c as char));
+    Some((matched, i + 1))
+}
+
+fn in_range(lo: u8, hi: u8, c: u8) -> bool {
+    let (lo, hi) = if lo <= hi { (lo, hi) } else { (hi, lo) };
+    (lo..=hi).contains(&c)
+        || (lo..=hi).contains(&c.to_ascii_lowercase())
+        || (lo..=hi).contains(&c.to_ascii_uppercase())
+}
+
+// Backtracking matcher. It's not particularly fast, but it doesn't need to be.
+// It doesn't run often, and only for patterns the fast path can't reduce to a
+// suffix compare.
+#[cold]
+fn slow_path(pattern: &[u8], name: &[u8]) -> bool {
+    match_from(pattern, 0, name, 0)
+}
+
+fn match_from(pat: &[u8], mut px: usize, name: &[u8], mut nx: usize) -> bool {
+    while px < pat.len() {
+        match pat[px] {
+            b'*' => {
+                if pat.get(px + 1) == Some(&b'*') {
+                    let rest = px + 2;
+                    // For convenience, "/**/" also matches "/", and so does a
+                    // leading "**/".
+                    if pat.get(rest) == Some(&b'/')
+                        && (px == 0 || pat[px - 1] == b'/')
+                        && match_from(pat, rest + 1, name, nx)
+                    {
+                        return true;
+                    }
+                    return (nx..=name.len()).any(|i| match_from(pat, rest, name, i));
+                }
+                // A single star stops at the first separator.
+                for i in nx..=name.len() {
+                    if match_from(pat, px + 1, name, i) {
+                        return true;
+                    }
+                    if name.get(i).is_some_and(|&b| is_separator(b as char)) {
+                        break;
+                    }
+                }
+                return false;
+            }
+            b'[' => match class_match(&pat[px..], name.get(nx).copied()) {
+                Some((true, len)) => {
+                    px += len;
+                    nx += 1;
+                }
+                Some((false, _)) => return false,
+                None if name.get(nx) == Some(&b'[') => {
+                    px += 1;
+                    nx += 1;
+                }
+                None => return false,
+            },
+            c => {
+                if !name.get(nx).is_some_and(|b| b.eq_ignore_ascii_case(&c)) {
+                    return false;
+                }
+                px += 1;
+                nx += 1;
+            }
+        }
+    }
+
+    nx == name.len()
 }
 
 #[cfg(test)]
@@ -246,6 +294,54 @@ mod tests {
             ("**/Cargo.toml", "dir/sub/Cargo.toml", true),
             ("**/Cargo.toml", "Cargo.lock", false),
             ("**/Cargo.toml", "dir/Cargo.lock", false),
+            // Character classes
+            ("[abc]", "a", true),
+            ("[abc]", "c", true),
+            ("[abc]", "d", false),
+            ("[abc]", "", false),
+            ("[abc]", "ab", false),
+            ("a[bc]d", "abd", true),
+            ("a[bc]d", "acd", true),
+            ("a[bc]d", "add", false),
+            // - Ranges
+            ("[a-c]", "b", true),
+            ("[a-c]", "d", false),
+            ("[0-9]", "5", true),
+            ("[0-9]", "x", false),
+            ("[a-cx-z]", "y", true),
+            ("[a-cx-z]", "m", false),
+            // - Negation
+            ("[!abc]", "d", true),
+            ("[!abc]", "a", false),
+            ("[^a-c]", "d", true),
+            ("[^a-c]", "b", false),
+            // - Case insensitivity, matching the rest of the engine
+            ("[a-z]", "Q", true),
+            ("[A-Z]", "q", true),
+            ("[abc]", "B", true),
+            // - Literals in the corner positions
+            ("[]a]", "]", true),
+            ("[]a]", "a", true),
+            ("[!]a]", "b", true),
+            ("[!]a]", "]", false),
+            ("[-a]", "-", true),
+            ("[a-]", "-", true),
+            ("[a-]", "a", true),
+            // - Never crosses a path separator
+            ("[!a]", "/", false),
+            ("a[!x]c", "a/c", false),
+            // - Unterminated class is a literal '['
+            ("[abc", "[abc", true),
+            ("[abc", "a", false),
+            ("a[", "a[", true),
+            // - Combined with stars, and the man-page glob that motivated this
+            ("**/*.[1-9]", "foo.1", true),
+            ("**/*.[1-9]", "dir/foo.8", true),
+            ("**/*.[1-9]", "foo.0", false),
+            ("**/*.[1-9]", "foo.10", false),
+            ("**/*.[1-9]", "foo.rs", false),
+            ("*[0-9]*", "a5b", true),
+            ("*[0-9]*", "abc", false),
         ];
 
         for (pattern, name, expected) in tests {
