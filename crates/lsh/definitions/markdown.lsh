@@ -148,7 +148,18 @@ pub fn markdown() {
         until /$/ {
             yield other;
 
-            if /\[/ {
+            if /<!--/ {
+                // An HTML comment runs to "-->" no matter how many lines or
+                // blank lines lie between, per the HTML block rules.
+                loop {
+                    yield comment;
+                    await input;
+                    if /-->/ {
+                        yield comment;
+                        break;
+                    }
+                }
+            } else if /\[/ {
                 // A [text](url) link, or a [![alt](img)](url) linked image.
                 yield other;
 

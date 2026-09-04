@@ -1,0 +1,10 @@
+{"line":1,"kind":"markup.heading","text":"# heading"}
+{"line":3,"kind":"comment","text":"<!-- AI AGENTS: guidance is in AGENTS.md -->"}
+{"line":5,"kind":"other","text":"text with an "}
+{"line":5,"kind":"comment","text":"<!-- inline -->"}
+{"line":5,"kind":"other","text":" comment in it."}
+{"line":7,"kind":"comment","text":"<!--"}
+{"line":8,"kind":"comment","text":"a comment spanning"}
+{"line":9,"kind":"comment","text":"several *lines* with [markup] inside"}
+{"line":10,"kind":"comment","text":"-->"}
+{"line":12,"kind":"other","text":"back to normal."}

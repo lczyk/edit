@@ -1,0 +1,13 @@
+[94m# heading[m
+
+[32m<!-- AI AGENTS: guidance is in AGENTS.md -->[m
+
+text with an [32m<!-- inline -->[m comment in it.
+
+[32m<!--[m
+[32ma comment spanning[m
+[32mseveral *lines* with [markup] inside[m
+[32m-->[m
+
+back to normal.
+
