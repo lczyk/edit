@@ -240,19 +240,6 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             instr: IRI::AddImm { dst: self.compiler.get_reg(Register::InputOffset), imm: 1 },
             offset: usize::MAX,
         });
-        let advance_check = self.compiler.alloc_ir(IR {
-            next: Some(first),
-            instr: IRI::If {
-                condition: Condition::Cmp {
-                    lhs: self.compiler.get_reg(Register::InputOffset),
-                    rhs: saved_offset,
-                    op: ComparisonOp::Eq,
-                },
-                then: advance,
-            },
-            offset: usize::MAX,
-        });
-
         // NOTE: It's crucial that we connect the block with the loop before calling collect_interesting_charset,
         // as the until statement's regex is not part of the loop but still counts as an "interesting charset",
         // for the purpose of skipping uninteresting characters.
@@ -263,26 +250,42 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
         //   if /.*?/ {}
         let interesting = self.compiler.collect_interesting_charset(loop_start);
         let fast_skip = if interesting.covers_all() {
-            advance_check
+            advance
         } else {
             let mut skip_charset = interesting.clone();
             skip_charset.invert();
             let skip_charset = self.compiler.intern_charset(&skip_charset);
 
             self.compiler.alloc_ir(IR {
-                next: Some(advance_check),
+                next: Some(advance),
                 instr: IRI::If {
                     condition: Condition::Charset { cs: skip_charset, min: 1, max: u32::MAX },
-                    then: advance_check,
+                    then: first,
                 },
                 offset: usize::MAX,
             })
         };
 
+        // Both the skip and the forced advance are stuck-loop recovery: an iteration that
+        // did consume input may have stopped on a character a statement after the loop
+        // still has to see, so swallowing it here would misattribute it.
+        let advance_check = self.compiler.alloc_ir(IR {
+            next: Some(first),
+            instr: IRI::If {
+                condition: Condition::Cmp {
+                    lhs: self.compiler.get_reg(Register::InputOffset),
+                    rhs: saved_offset,
+                    op: ComparisonOp::Eq,
+                },
+                then: fast_skip,
+            },
+            offset: usize::MAX,
+        });
+
         if let mut block_last = block.last.borrow_mut()
             && block_last.wants_next()
         {
-            block_last.set_next(fast_skip);
+            block_last.set_next(advance_check);
         }
 
         Ok(IRSpan { first, last: loop_exit })

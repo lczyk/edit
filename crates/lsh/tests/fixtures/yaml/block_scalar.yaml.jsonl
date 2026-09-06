@@ -1,0 +1,20 @@
+{"line":1,"kind":"other","text":"name: "}
+{"line":1,"kind":"string","text":"rust"}
+{"line":2,"kind":"other","text":"description: |"}
+{"line":3,"kind":"string","text":"  Rust is a memory-safe systems language."}
+{"line":5,"kind":"string","text":"  It has a second paragraph."}
+{"line":7,"kind":"comment","text":"# a comment right after the block scalar"}
+{"line":8,"kind":"comment","text":"# and a second one"}
+{"line":9,"kind":"other","text":"summary: >-"}
+{"line":10,"kind":"string","text":"  folded scalar"}
+{"line":11,"kind":"string","text":"\"quoted key\": value"}
+{"line":12,"kind":"other","text":"nested:"}
+{"line":13,"kind":"other","text":"  body: |"}
+{"line":14,"kind":"string","text":"    indented block"}
+{"line":15,"kind":"other","text":"  sibling: "}
+{"line":15,"kind":"string","text":"after"}
+{"line":16,"kind":"other","text":"list:"}
+{"line":17,"kind":"other","text":"  - |"}
+{"line":18,"kind":"string","text":"    block in a list item"}
+{"line":19,"kind":"other","text":"  - "}
+{"line":19,"kind":"string","text":"plain"}

@@ -1,0 +1,19 @@
+name: rust
+description: |
+  Rust is a memory-safe systems language.
+
+  It has a second paragraph.
+
+# a comment right after the block scalar
+# and a second one
+summary: >-
+  folded scalar
+"quoted key": value
+nested:
+  body: |
+    indented block
+  sibling: after
+list:
+  - |
+    block in a list item
+  - plain
