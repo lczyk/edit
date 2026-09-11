@@ -1,9 +1,9 @@
-[32m# A hash inside quotes is text, and a quoted scalar may span lines.[m
-title: [91m"issue #42: the # sign"[m
-note: [91m'it''s quoted, with a # inside'[m
-long: [91m"first line[m
-[91m  second line # still string"[m
-also: [91m'first[m
-[91m  second'[m
-after: [92m1[m [32m# a real comment[m
+\x1b[32m# A hash inside quotes is text, and a quoted scalar may span lines.\x1b[m
+title: \x1b[91m"issue #42: the # sign"\x1b[m
+note: \x1b[91m'it''s quoted, with a # inside'\x1b[m
+long: \x1b[91m"first line\x1b[m
+\x1b[91m  second line # still string"\x1b[m
+also: \x1b[91m'first\x1b[m
+\x1b[91m  second'\x1b[m
+after: \x1b[92m1\x1b[m \x1b[32m# a real comment\x1b[m
 

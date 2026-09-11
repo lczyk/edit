@@ -1,40 +1,40 @@
-<?[94mxml[m [96mversion[m=[91m"1.0"[m [96mencoding[m=[91m"UTF-8"[m [96mstandalone[m=[91m"yes"[m?>
+<?\x1b[94mxml\x1b[m \x1b[96mversion\x1b[m=\x1b[91m"1.0"\x1b[m \x1b[96mencoding\x1b[m=\x1b[91m"UTF-8"\x1b[m \x1b[96mstandalone\x1b[m=\x1b[91m"yes"\x1b[m?>
 <!DOCTYPE root [
   <!ENTITY custom "Custom Entity">
 ]>
-[32m<!-- Root comment with special chars: <>&"' -->[m
-<?[94mprocessing-instruction[m [96mtarget[m=[91m"value"[m?>
-<[94mroot[m [96mxmlns[m=[91m"http://default.namespace"[m [96mxmlns:ns[m=[91m"http://custom.namespace"[m>
-  [32m<!-- Elements and attributes -->[m
-  <[94melement[m [96mattribute[m=[91m"value"[m [96mns:attr[m=[91m'single-quoted'[m [96mempty-attr[m=[91m""[m>
-    <[94mself-closing[m [96mid[m=[91m"123"[m />
-    <[94mnested[m>Text [92m&amp;[m [92m&lt;[m [92m&gt;[m [92m&quot;[m [92m&apos;[m content</[94mnested[m>
-    <[94mentity[m>[92m&custom;[m</[94mentity[m>
-  </[94melement[m>
+\x1b[32m<!-- Root comment with special chars: <>&"' -->\x1b[m
+<?\x1b[94mprocessing-instruction\x1b[m \x1b[96mtarget\x1b[m=\x1b[91m"value"\x1b[m?>
+<\x1b[94mroot\x1b[m \x1b[96mxmlns\x1b[m=\x1b[91m"http://default.namespace"\x1b[m \x1b[96mxmlns:ns\x1b[m=\x1b[91m"http://custom.namespace"\x1b[m>
+  \x1b[32m<!-- Elements and attributes -->\x1b[m
+  <\x1b[94melement\x1b[m \x1b[96mattribute\x1b[m=\x1b[91m"value"\x1b[m \x1b[96mns:attr\x1b[m=\x1b[91m'single-quoted'\x1b[m \x1b[96mempty-attr\x1b[m=\x1b[91m""\x1b[m>
+    <\x1b[94mself-closing\x1b[m \x1b[96mid\x1b[m=\x1b[91m"123"\x1b[m />
+    <\x1b[94mnested\x1b[m>Text \x1b[92m&amp;\x1b[m \x1b[92m&lt;\x1b[m \x1b[92m&gt;\x1b[m \x1b[92m&quot;\x1b[m \x1b[92m&apos;\x1b[m content</\x1b[94mnested\x1b[m>
+    <\x1b[94mentity\x1b[m>\x1b[92m&custom;\x1b[m</\x1b[94mentity\x1b[m>
+  </\x1b[94melement\x1b[m>
 
-  [32m<!-- CDATA section -->[m
-  <[94mscript[m>[91m<![CDATA[[m
-[91m    function test() {[m
-[91m      return x < 10 && y > 5;[m
-[91m    }[m
-[91m  ]]>[m</[94mscript[m>
+  \x1b[32m<!-- CDATA section -->\x1b[m
+  <\x1b[94mscript\x1b[m>\x1b[91m<![CDATA[\x1b[m
+\x1b[91m    function test() {\x1b[m
+\x1b[91m      return x < 10 && y > 5;\x1b[m
+\x1b[91m    }\x1b[m
+\x1b[91m  ]]>\x1b[m</\x1b[94mscript\x1b[m>
 
-  [32m<!-- Mixed content -->[m
-  <[94mmixed[m>Text before <[94mtag[m>inline</[94mtag[m> text after</[94mmixed[m>
+  \x1b[32m<!-- Mixed content -->\x1b[m
+  <\x1b[94mmixed\x1b[m>Text before <\x1b[94mtag\x1b[m>inline</\x1b[94mtag\x1b[m> text after</\x1b[94mmixed\x1b[m>
 
-  [32m<!-- Numeric character references -->[m
-  <[94mchars[m>[92m&#65;[m [92m&#x41;[m [92m&#x1F600;[m</[94mchars[m>
+  \x1b[32m<!-- Numeric character references -->\x1b[m
+  <\x1b[94mchars\x1b[m>\x1b[92m&#65;\x1b[m \x1b[92m&#x41;\x1b[m \x1b[92m&#x1F600;\x1b[m</\x1b[94mchars\x1b[m>
 
-  [32m<!-- Edge cases -->[m
-  <[94medge-cases[m>
-    <[94mempty[m></[94mempty[m>
-    <[94mwhitespace[m>   </[94mwhitespace[m>
-    <[94mspecial-chars[m>!@#$%^*()_+-={}[]|\:;"'[92m&lt;[m[92m&gt;[m,.</[94mspecial-chars[m>
-  </[94medge-cases[m>
+  \x1b[32m<!-- Edge cases -->\x1b[m
+  <\x1b[94medge-cases\x1b[m>
+    <\x1b[94mempty\x1b[m></\x1b[94mempty\x1b[m>
+    <\x1b[94mwhitespace\x1b[m>   </\x1b[94mwhitespace\x1b[m>
+    <\x1b[94mspecial-chars\x1b[m>!@#$%^*()_+-={}[]|\:;"'\x1b[92m&lt;\x1b[m\x1b[92m&gt;\x1b[m,.</\x1b[94mspecial-chars\x1b[m>
+  </\x1b[94medge-cases\x1b[m>
 
-  [32m<!-- Nested namespaces -->[m
-  <[94mns:custom[m [96mns:id[m=[91m"namespaced"[m>
-    <[94mns:child[m />
-  </[94mns:custom[m>
-</[94mroot[m>
+  \x1b[32m<!-- Nested namespaces -->\x1b[m
+  <\x1b[94mns:custom\x1b[m \x1b[96mns:id\x1b[m=\x1b[91m"namespaced"\x1b[m>
+    <\x1b[94mns:child\x1b[m />
+  </\x1b[94mns:custom\x1b[m>
+</\x1b[94mroot\x1b[m>
 

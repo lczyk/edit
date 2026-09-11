@@ -1,167 +1,167 @@
-[32m#!/bin/bash[m
+\x1b[32m#!/bin/bash\x1b[m
 
-[32m# Numbers[m
-[92m42[m
-[92m3.14[m
-[92m-7[m
-[92m0xFF[m
-[92m0777[m
-[92m2[m[32m#1010[m
+\x1b[32m# Numbers\x1b[m
+\x1b[92m42\x1b[m
+\x1b[92m3.14\x1b[m
+\x1b[92m-7\x1b[m
+\x1b[92m0xFF\x1b[m
+\x1b[92m0777\x1b[m
+\x1b[92m2\x1b[m\x1b[32m#1010\x1b[m
 
-[32m# Constants[m
-[94mtrue[m
-[94mfalse[m
+\x1b[32m# Constants\x1b[m
+\x1b[94mtrue\x1b[m
+\x1b[94mfalse\x1b[m
 
-[32m# Single-quoted strings[m
-echo [91m'hello world'[m
-echo [91m'it'[m\'[91m's a trap'[m
+\x1b[32m# Single-quoted strings\x1b[m
+echo \x1b[91m'hello world'\x1b[m
+echo \x1b[91m'it'\x1b[m\'\x1b[91m's a trap'\x1b[m
 
-[32m# Double-quoted strings[m
-echo [91m"hello [m[96m$USER[m[91m"[m
-echo [91m"home is [m[96m${HOME}[m[91m"[m
-echo [91m"escaped \$ and \" and \\"[m
-echo [91m"subshell: [m[96m$(whoami)[m[91m"[m
-echo [91m"arithmetic: [m[96m$((1 + 2))[m[91m"[m
-echo [91m"positional: [m[96m$1[m[91m [m[96m$#[m[91m [m[96m$?[m[91m [m[96m$![m[91m [m[96m$@[m[91m [m[96m$0[m[91m [m[96m$$[m[91m [m[96m$-[m[91m"[m
+\x1b[32m# Double-quoted strings\x1b[m
+echo \x1b[91m"hello \x1b[m\x1b[96m$USER\x1b[m\x1b[91m"\x1b[m
+echo \x1b[91m"home is \x1b[m\x1b[96m${HOME}\x1b[m\x1b[91m"\x1b[m
+echo \x1b[91m"escaped \$ and \" and \\"\x1b[m
+echo \x1b[91m"subshell: \x1b[m\x1b[96m$(whoami)\x1b[m\x1b[91m"\x1b[m
+echo \x1b[91m"arithmetic: \x1b[m\x1b[96m$((1 + 2))\x1b[m\x1b[91m"\x1b[m
+echo \x1b[91m"positional: \x1b[m\x1b[96m$1\x1b[m\x1b[91m \x1b[m\x1b[96m$#\x1b[m\x1b[91m \x1b[m\x1b[96m$?\x1b[m\x1b[91m \x1b[m\x1b[96m$!\x1b[m\x1b[91m \x1b[m\x1b[96m$@\x1b[m\x1b[91m \x1b[m\x1b[96m$0\x1b[m\x1b[91m \x1b[m\x1b[96m$$\x1b[m\x1b[91m \x1b[m\x1b[96m$-\x1b[m\x1b[91m"\x1b[m
 
-[32m# ANSI-C quoting[m
-echo [91m$'tab:\there\nnewline'[m
-echo [91m$'escape sequences: \a \b \e \f \r \t \v \\\\ \''[m
+\x1b[32m# ANSI-C quoting\x1b[m
+echo \x1b[91m$'tab:\there\nnewline'\x1b[m
+echo \x1b[91m$'escape sequences: \a \b \e \f \r \t \v \\\\ \''\x1b[m
 
-[32m# Backtick interpolation[m
-echo [91m"today is `date +%Y-%m-%d`"[m
+\x1b[32m# Backtick interpolation\x1b[m
+echo \x1b[91m"today is `date +%Y-%m-%d`"\x1b[m
 
-[32m# Control flow[m
-[95mif[m [ -f /etc/passwd ]; [95mthen[m
-    echo [91m"exists"[m
-[95melif[m [ -d /tmp ]; [95mthen[m
-    echo [91m"tmp exists"[m
-[95melse[m
-    echo [91m"neither"[m
-[95mfi[m
+\x1b[32m# Control flow\x1b[m
+\x1b[95mif\x1b[m [ -f /etc/passwd ]; \x1b[95mthen\x1b[m
+    echo \x1b[91m"exists"\x1b[m
+\x1b[95melif\x1b[m [ -d /tmp ]; \x1b[95mthen\x1b[m
+    echo \x1b[91m"tmp exists"\x1b[m
+\x1b[95melse\x1b[m
+    echo \x1b[91m"neither"\x1b[m
+\x1b[95mfi\x1b[m
 
-[95mfor[m i [95min[m [92m1[m [92m2[m [92m3[m; [95mdo[m
-    echo [91m"[m[96m$i[m[91m"[m
-    [95mcontinue[m
-[95mdone[m
+\x1b[95mfor\x1b[m i \x1b[95min\x1b[m \x1b[92m1\x1b[m \x1b[92m2\x1b[m \x1b[92m3\x1b[m; \x1b[95mdo\x1b[m
+    echo \x1b[91m"\x1b[m\x1b[96m$i\x1b[m\x1b[91m"\x1b[m
+    \x1b[95mcontinue\x1b[m
+\x1b[95mdone\x1b[m
 
-[95mfor[m ((i = [92m0[m; i < [92m3[m; i++)); [95mdo[m
-    [95mbreak[m
-[95mdone[m
+\x1b[95mfor\x1b[m ((i = \x1b[92m0\x1b[m; i < \x1b[92m3\x1b[m; i++)); \x1b[95mdo\x1b[m
+    \x1b[95mbreak\x1b[m
+\x1b[95mdone\x1b[m
 
-[95mwhile[m [94mtrue[m; [95mdo[m
-    [95mbreak[m
-[95mdone[m
+\x1b[95mwhile\x1b[m \x1b[94mtrue\x1b[m; \x1b[95mdo\x1b[m
+    \x1b[95mbreak\x1b[m
+\x1b[95mdone\x1b[m
 
-[95muntil[m [94mfalse[m; [95mdo[m
-    [95mbreak[m
-[95mdone[m
+\x1b[95muntil\x1b[m \x1b[94mfalse\x1b[m; \x1b[95mdo\x1b[m
+    \x1b[95mbreak\x1b[m
+\x1b[95mdone\x1b[m
 
-[95mcase[m [91m"[m[96m$1[m[91m"[m [95min[m
-    start) echo [91m"starting"[m ;;
-    stop)  echo [91m"stopping"[m ;;
-    *)     echo [91m"unknown"[m  ;;
-[95mesac[m
+\x1b[95mcase\x1b[m \x1b[91m"\x1b[m\x1b[96m$1\x1b[m\x1b[91m"\x1b[m \x1b[95min\x1b[m
+    start) echo \x1b[91m"starting"\x1b[m ;;
+    stop)  echo \x1b[91m"stopping"\x1b[m ;;
+    *)     echo \x1b[91m"unknown"\x1b[m  ;;
+\x1b[95mesac\x1b[m
 
-[95mselect[m opt [95min[m [91m"yes"[m [91m"no"[m [91m"quit"[m; [95mdo[m
-    echo [91m"[m[96m$opt[m[91m"[m
-    [95mbreak[m
-[95mdone[m
+\x1b[95mselect\x1b[m opt \x1b[95min\x1b[m \x1b[91m"yes"\x1b[m \x1b[91m"no"\x1b[m \x1b[91m"quit"\x1b[m; \x1b[95mdo\x1b[m
+    echo \x1b[91m"\x1b[m\x1b[96m$opt\x1b[m\x1b[91m"\x1b[m
+    \x1b[95mbreak\x1b[m
+\x1b[95mdone\x1b[m
 
-[95mtime[m ls -la
+\x1b[95mtime\x1b[m ls -la
 
-[32m# Test expressions[m
+\x1b[32m# Test expressions\x1b[m
 [ -f /etc/passwd ]
 [ -d /tmp ]
-[ -z [91m"[m[96m$var[m[91m"[m ]
-[ -n [91m"[m[96m$var[m[91m"[m ]
-[ [91m"[m[96m$a[m[91m"[m = [91m"[m[96m$b[m[91m"[m ]
-[ [91m"[m[96m$a[m[91m"[m != [91m"[m[96m$b[m[91m"[m ]
-[ [91m"[m[96m$a[m[91m"[m -eq [92m1[m ]
-[ [91m"[m[96m$a[m[91m"[m -ne [92m2[m ]
-[ [91m"[m[96m$a[m[91m"[m -lt [92m3[m ]
-[ [91m"[m[96m$a[m[91m"[m -gt [92m4[m ]
-[ [91m"[m[96m$a[m[91m"[m -le [92m5[m ]
-[ [91m"[m[96m$a[m[91m"[m -ge [92m6[m ]
-[[ [91m"[m[96m$name[m[91m"[m == *.txt ]]
-[[ [91m"[m[96m$name[m[91m"[m =~ ^[[92m0[m[92m-9[m]+$ ]]
+[ -z \x1b[91m"\x1b[m\x1b[96m$var\x1b[m\x1b[91m"\x1b[m ]
+[ -n \x1b[91m"\x1b[m\x1b[96m$var\x1b[m\x1b[91m"\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m = \x1b[91m"\x1b[m\x1b[96m$b\x1b[m\x1b[91m"\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m != \x1b[91m"\x1b[m\x1b[96m$b\x1b[m\x1b[91m"\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m -eq \x1b[92m1\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m -ne \x1b[92m2\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m -lt \x1b[92m3\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m -gt \x1b[92m4\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m -le \x1b[92m5\x1b[m ]
+[ \x1b[91m"\x1b[m\x1b[96m$a\x1b[m\x1b[91m"\x1b[m -ge \x1b[92m6\x1b[m ]
+[[ \x1b[91m"\x1b[m\x1b[96m$name\x1b[m\x1b[91m"\x1b[m == *.txt ]]
+[[ \x1b[91m"\x1b[m\x1b[96m$name\x1b[m\x1b[91m"\x1b[m =~ ^[\x1b[92m0\x1b[m\x1b[92m-9\x1b[m]+$ ]]
 [[ -f /etc/passwd && -d /tmp ]]
 [[ -f /etc/passwd || -d /tmp ]]
 
-[32m# Heredocs[m
+\x1b[32m# Heredocs\x1b[m
 cat <<EOF
-[91mHello $USER[m
-[91mYour shell is $SHELL[m
+\x1b[91mHello $USER\x1b[m
+\x1b[91mYour shell is $SHELL\x1b[m
 EOF
 
 cat <<'EOF'
-[91mNo $interpolation here[m
+\x1b[91mNo $interpolation here\x1b[m
 EOF
 
 cat <<-EOF
-[91m	Indented heredoc (tabs stripped)[m
+\x1b[91m	Indented heredoc (tabs stripped)\x1b[m
 EOF
 
-[32m# Herestrings[m
-cat <<< [91m"hello world"[m
-cat <<< [91m'no interpolation'[m
-cat <<< [96m$name[m
+\x1b[32m# Herestrings\x1b[m
+cat <<< \x1b[91m"hello world"\x1b[m
+cat <<< \x1b[91m'no interpolation'\x1b[m
+cat <<< \x1b[96m$name\x1b[m
 
-[32m# Variables[m
-name=[91m"world"[m
-echo [96m$name[m
-echo [96m${name}[m
-echo [96m${name:-default}[m
-echo [96m${name:=fallback}[m
-echo [96m${name:+alternate}[m
-echo [96m${name:?error}[m
-echo [96m${#name}[m
-echo [96m${name%.*}[m
-echo [96m${name%%.*}[m
-echo [96m${name#*/}[m
-echo [96m${name##*/}[m
-echo [96m${name/old/new}[m
-echo [96m${name//old/new}[m
+\x1b[32m# Variables\x1b[m
+name=\x1b[91m"world"\x1b[m
+echo \x1b[96m$name\x1b[m
+echo \x1b[96m${name}\x1b[m
+echo \x1b[96m${name:-default}\x1b[m
+echo \x1b[96m${name:=fallback}\x1b[m
+echo \x1b[96m${name:+alternate}\x1b[m
+echo \x1b[96m${name:?error}\x1b[m
+echo \x1b[96m${#name}\x1b[m
+echo \x1b[96m${name%.*}\x1b[m
+echo \x1b[96m${name%%.*}\x1b[m
+echo \x1b[96m${name#*/}\x1b[m
+echo \x1b[96m${name##*/}\x1b[m
+echo \x1b[96m${name/old/new}\x1b[m
+echo \x1b[96m${name//old/new}\x1b[m
 array=(one two three)
-echo [96m${array[0]}[m
-echo [96m${array[@]}[m
-echo [96m${!array[@]}[m
-echo [96m${#array[@]}[m
+echo \x1b[96m${array[0]}\x1b[m
+echo \x1b[96m${array[@]}\x1b[m
+echo \x1b[96m${!array[@]}\x1b[m
+echo \x1b[96m${#array[@]}\x1b[m
 
-[32m# Arithmetic[m
-echo [96m$((2 + 3))[m
-echo [96m$((a * b))[m
+\x1b[32m# Arithmetic\x1b[m
+echo \x1b[96m$((2 + 3))\x1b[m
+echo \x1b[96m$((a * b))\x1b[m
 (( count++ ))
-(( x = [92m5[m, y = [92m10[m ))
-(( x <<= [92m2[m ))
-(( x >>= [92m1[m ))
-(( x &= [92m0xFF[m ))
+(( x = \x1b[92m5\x1b[m, y = \x1b[92m10\x1b[m ))
+(( x <<= \x1b[92m2\x1b[m ))
+(( x >>= \x1b[92m1\x1b[m ))
+(( x &= \x1b[92m0xFF\x1b[m ))
 
-[32m# Redirections[m
-echo [91m"out"[m > /dev/null
-echo [91m"append"[m >> /tmp/log
+\x1b[32m# Redirections\x1b[m
+echo \x1b[91m"out"\x1b[m > /dev/null
+echo \x1b[91m"append"\x1b[m >> /tmp/log
 cat < /etc/passwd
-echo [91m"stderr"[m [92m2[m> /dev/null
-echo [91m"both"[m &> /dev/null
-echo [91m"dup"[m [92m2[m>&[92m1[m
-exec [92m3[m<> /tmp/fd3
+echo \x1b[91m"stderr"\x1b[m \x1b[92m2\x1b[m> /dev/null
+echo \x1b[91m"both"\x1b[m &> /dev/null
+echo \x1b[91m"dup"\x1b[m \x1b[92m2\x1b[m>&\x1b[92m1\x1b[m
+exec \x1b[92m3\x1b[m<> /tmp/fd3
 
-[32m# Process substitution[m
+\x1b[32m# Process substitution\x1b[m
 diff <(ls /bin) <(ls /usr/bin)
 tee >(grep error > errors.log) > /dev/null
 
-[32m# Pipelines and logical operators[m
+\x1b[32m# Pipelines and logical operators\x1b[m
 echo hello | cat
 echo hello |& cat
 ls && echo ok
 ls || echo fail
-sleep [92m10[m &
+sleep \x1b[92m10\x1b[m &
 
-[32m# Subshells and group commands[m
+\x1b[32m# Subshells and group commands\x1b[m
 (cd /tmp && ls)
 { echo one; echo two; }
 
-[32m# Extended globbing[m
+\x1b[32m# Extended globbing\x1b[m
 shopt -s extglob
 ls *.txt
 ls ?(a|b)
@@ -171,59 +171,59 @@ ls @(a|b)
 ls !(a|b)
 echo ~
 
-[32m# Other keywords[m
-[94mexport[m PATH=[91m"/usr/local/bin:[m[96m$PATH[m[91m"[m
-[94mlocal[m count=[92m0[m
-[94mreadonly[m PI=[92m3[m
-[94mdeclare[m -a arr=([92m1[m [92m2[m [92m3[m)
-[94mdeclare[m -A map=([key]=value)
-[94mtypeset[m -i num=[92m42[m
-[94malias[m ll=[91m'ls -la'[m
-[94msource[m /dev/null
+\x1b[32m# Other keywords\x1b[m
+\x1b[94mexport\x1b[m PATH=\x1b[91m"/usr/local/bin:\x1b[m\x1b[96m$PATH\x1b[m\x1b[91m"\x1b[m
+\x1b[94mlocal\x1b[m count=\x1b[92m0\x1b[m
+\x1b[94mreadonly\x1b[m PI=\x1b[92m3\x1b[m
+\x1b[94mdeclare\x1b[m -a arr=(\x1b[92m1\x1b[m \x1b[92m2\x1b[m \x1b[92m3\x1b[m)
+\x1b[94mdeclare\x1b[m -A map=([key]=value)
+\x1b[94mtypeset\x1b[m -i num=\x1b[92m42\x1b[m
+\x1b[94malias\x1b[m ll=\x1b[91m'ls -la'\x1b[m
+\x1b[94msource\x1b[m /dev/null
 . /dev/null
 
-[32m# Builtins[m
-eval [91m'echo hello'[m
+\x1b[32m# Builtins\x1b[m
+eval \x1b[91m'echo hello'\x1b[m
 exec /bin/bash
-trap [91m'echo bye'[m EXIT
+trap \x1b[91m'echo bye'\x1b[m EXIT
 test -f /etc/passwd
 read -r line
-printf [91m"%s\n"[m [91m"hello"[m
-wait [96m$![m
-kill [92m-9[m [96m$$[m
+printf \x1b[91m"%s\n"\x1b[m \x1b[91m"hello"\x1b[m
+wait \x1b[96m$!\x1b[m
+kill \x1b[92m-9\x1b[m \x1b[96m$$\x1b[m
 jobs -l
-fg %[92m1[m
-bg %[92m1[m
+fg %\x1b[92m1\x1b[m
+bg %\x1b[92m1\x1b[m
 cd /tmp
 pwd
 set -euo pipefail
 unset name
 shift
-getopts [91m"ab:"[m opt
+getopts \x1b[91m"ab:"\x1b[m opt
 command ls
 builtin echo
 type ls
 hash -r
 ulimit -n
-umask [92m022[m
+umask \x1b[92m022\x1b[m
 dirs
 pushd /tmp
 popd
-disown %[92m1[m
-let [91m"x = 1 + 2"[m
-exit [92m0[m
+disown %\x1b[92m1\x1b[m
+let \x1b[91m"x = 1 + 2"\x1b[m
+exit \x1b[92m0\x1b[m
 
-[32m# Functions[m
-[94mfunction [m[93mgreet[m() {
-    [94mlocal[m who=[91m"[m[96m${1:-world}[m[91m"[m
-    echo [91m"Hello, [m[96m$who[m[91m"[m
-    [95mreturn[m [92m0[m
+\x1b[32m# Functions\x1b[m
+\x1b[94mfunction \x1b[m\x1b[93mgreet\x1b[m() {
+    \x1b[94mlocal\x1b[m who=\x1b[91m"\x1b[m\x1b[96m${1:-world}\x1b[m\x1b[91m"\x1b[m
+    echo \x1b[91m"Hello, \x1b[m\x1b[96m$who\x1b[m\x1b[91m"\x1b[m
+    \x1b[95mreturn\x1b[m \x1b[92m0\x1b[m
 }
 
-[93mcleanup[m() {
-    echo [91m"done"[m
+\x1b[93mcleanup\x1b[m() {
+    echo \x1b[91m"done"\x1b[m
 }
 
-greet [91m"shell"[m
+greet \x1b[91m"shell"\x1b[m
 cleanup
 

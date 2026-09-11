@@ -1,124 +1,124 @@
-[32m//// Module doc comment: four slashes, distinct from the doc comment below.[m
+\x1b[32m//// Module doc comment: four slashes, distinct from the doc comment below.\x1b[m
 
-[94mimport[m gleam/int
-[94mimport[m gleam/list
-[94mimport[m gleam/string
+\x1b[94mimport\x1b[m gleam/int
+\x1b[94mimport\x1b[m gleam/list
+\x1b[94mimport\x1b[m gleam/string
 
-[32m/// Doc comment: three slashes.[m
-[32m/// Spans several lines.[m
-[32m// Plain line comment.[m
+\x1b[32m/// Doc comment: three slashes.\x1b[m
+\x1b[32m/// Spans several lines.\x1b[m
+\x1b[32m// Plain line comment.\x1b[m
 
-[94mpub[m [94mtype[m [96mShape[m {
-  [96mCircle[m(radius: [36mFloat[m)
-  [96mRectangle[m(width: [36mFloat[m, height: [36mFloat[m)
+\x1b[94mpub\x1b[m \x1b[94mtype\x1b[m \x1b[96mShape\x1b[m {
+  \x1b[96mCircle\x1b[m(radius: \x1b[36mFloat\x1b[m)
+  \x1b[96mRectangle\x1b[m(width: \x1b[36mFloat\x1b[m, height: \x1b[36mFloat\x1b[m)
 }
 
-[94mpub[m [94mopaque[m [94mtype[m [96mCounter[m {
-  [96mCounter[m(count: [36mInt[m)
+\x1b[94mpub\x1b[m \x1b[94mopaque\x1b[m \x1b[94mtype\x1b[m \x1b[96mCounter\x1b[m {
+  \x1b[96mCounter\x1b[m(count: \x1b[36mInt\x1b[m)
 }
 
-[94mpub[m [94mconst[m greeting: [36mString[m = [91m"hello"[m
+\x1b[94mpub\x1b[m \x1b[94mconst\x1b[m greeting: \x1b[36mString\x1b[m = \x1b[91m"hello"\x1b[m
 
-[94mconst[m limit = [92m100[m
+\x1b[94mconst\x1b[m limit = \x1b[92m100\x1b[m
 
-[4m@external[m(erlang, [91m"lists"[m, [91m"reverse"[m)
-[4m@deprecated[m([91m"use list.reverse instead"[m)
-[94mpub[m [94mfn[m [93mreverse[m(items: [36mList[m(a)) -> [36mList[m(a)
+\x1b[4m@external\x1b[m(erlang, \x1b[91m"lists"\x1b[m, \x1b[91m"reverse"\x1b[m)
+\x1b[4m@deprecated\x1b[m(\x1b[91m"use list.reverse instead"\x1b[m)
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mreverse\x1b[m(items: \x1b[36mList\x1b[m(a)) -> \x1b[36mList\x1b[m(a)
 
-[4m@target[m(javascript)
-[94mpub[m [94mfn[m [93marea[m(shape: [96mShape[m) -> [36mFloat[m {
-  [95mcase[m shape {
-    [96mCircle[m(radius) -> [92m3.14159[m *. radius *. radius
-    [96mRectangle[m(width, height) -> width *. height
+\x1b[4m@target\x1b[m(javascript)
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93marea\x1b[m(shape: \x1b[96mShape\x1b[m) -> \x1b[36mFloat\x1b[m {
+  \x1b[95mcase\x1b[m shape {
+    \x1b[96mCircle\x1b[m(radius) -> \x1b[92m3.14159\x1b[m *. radius *. radius
+    \x1b[96mRectangle\x1b[m(width, height) -> width *. height
   }
 }
 
-[94mpub[m [94mfn[m [93mclassify[m(n: [36mInt[m) -> [36mResult[m([36mString[m, [36mString[m) {
-  [95mcase[m n {
-    [92m0[m -> [94mOk[m([91m"zero"[m)
-    [96m_[m [95mif[m n < [92m0[m -> [94mError[m([91m"negative"[m)
-    [96m_[m -> [94mOk[m([91m"positive"[m)
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mclassify\x1b[m(n: \x1b[36mInt\x1b[m) -> \x1b[36mResult\x1b[m(\x1b[36mString\x1b[m, \x1b[36mString\x1b[m) {
+  \x1b[95mcase\x1b[m n {
+    \x1b[92m0\x1b[m -> \x1b[94mOk\x1b[m(\x1b[91m"zero"\x1b[m)
+    \x1b[96m_\x1b[m \x1b[95mif\x1b[m n < \x1b[92m0\x1b[m -> \x1b[94mError\x1b[m(\x1b[91m"negative"\x1b[m)
+    \x1b[96m_\x1b[m -> \x1b[94mOk\x1b[m(\x1b[91m"positive"\x1b[m)
   }
 }
 
-[94mpub[m [94mfn[m [93mescapes[m() -> [36mString[m {
-  [94mlet[m quoted = [91m"a \"quoted\" word"[m
-  [94mlet[m escaped = [91m"tab:\t newline:\n return:\r formfeed:\f backslash:\\"[m
-  [94mlet[m codepoint = [91m"snowman \u{2603} and \u{1F600}"[m
-  [94mlet[m unknown = [91m"not a real escape: \q"[m
-  string.[93mconcat[m([quoted, escaped, codepoint, unknown])
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mescapes\x1b[m() -> \x1b[36mString\x1b[m {
+  \x1b[94mlet\x1b[m quoted = \x1b[91m"a \"quoted\" word"\x1b[m
+  \x1b[94mlet\x1b[m escaped = \x1b[91m"tab:\t newline:\n return:\r formfeed:\f backslash:\\"\x1b[m
+  \x1b[94mlet\x1b[m codepoint = \x1b[91m"snowman \u{2603} and \u{1F600}"\x1b[m
+  \x1b[94mlet\x1b[m unknown = \x1b[91m"not a real escape: \q"\x1b[m
+  string.\x1b[93mconcat\x1b[m([quoted, escaped, codepoint, unknown])
 }
 
-[94mpub[m [94mfn[m [93mnumbers[m() -> [36mList[m([36mInt[m) {
-  [94mlet[m hex = [92m0xDEADbeef[m
-  [94mlet[m octal = [92m0o755[m
-  [94mlet[m binary = [92m0b1010_1010[m
-  [94mlet[m decimal = [92m1_000_000[m
-  [94mlet[m negative = [92m-42[m
-  [94mlet[m float = [92m3.14[m
-  [94mlet[m exponent = [92m6.022e23[m
-  [94mlet[m small = [92m1.6e-19[m
-  [32m// Digits immediately followed by word characters are not a valid[m
-  [32m// literal, so they must not highlight as numeric.[m
-  [94mlet[m invalid = 123abc
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mnumbers\x1b[m() -> \x1b[36mList\x1b[m(\x1b[36mInt\x1b[m) {
+  \x1b[94mlet\x1b[m hex = \x1b[92m0xDEADbeef\x1b[m
+  \x1b[94mlet\x1b[m octal = \x1b[92m0o755\x1b[m
+  \x1b[94mlet\x1b[m binary = \x1b[92m0b1010_1010\x1b[m
+  \x1b[94mlet\x1b[m decimal = \x1b[92m1_000_000\x1b[m
+  \x1b[94mlet\x1b[m negative = \x1b[92m-42\x1b[m
+  \x1b[94mlet\x1b[m float = \x1b[92m3.14\x1b[m
+  \x1b[94mlet\x1b[m exponent = \x1b[92m6.022e23\x1b[m
+  \x1b[94mlet\x1b[m small = \x1b[92m1.6e-19\x1b[m
+  \x1b[32m// Digits immediately followed by word characters are not a valid\x1b[m
+  \x1b[32m// literal, so they must not highlight as numeric.\x1b[m
+  \x1b[94mlet\x1b[m invalid = 123abc
   [hex, octal, binary, decimal, negative]
 }
 
-[94mpub[m [94mfn[m [93mdiscards[m() -> [94mNil[m {
-  [94mlet[m [96m_[m = [91m"wholly discarded"[m
-  [94mlet[m [96m_unused[m = [92m1[m
-  [94mlet[m assert [94mOk[m(value) = [93mclassify[m([92m1[m)
-  [95mecho[m value
-  [94mNil[m
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mdiscards\x1b[m() -> \x1b[94mNil\x1b[m {
+  \x1b[94mlet\x1b[m \x1b[96m_\x1b[m = \x1b[91m"wholly discarded"\x1b[m
+  \x1b[94mlet\x1b[m \x1b[96m_unused\x1b[m = \x1b[92m1\x1b[m
+  \x1b[94mlet\x1b[m assert \x1b[94mOk\x1b[m(value) = \x1b[93mclassify\x1b[m(\x1b[92m1\x1b[m)
+  \x1b[95mecho\x1b[m value
+  \x1b[94mNil\x1b[m
 }
 
-[94mpub[m [94mfn[m [93mbooleans[m() -> [36mBool[m {
-  [94mlet[m yes = [94mTrue[m
-  [94mlet[m no = [94mFalse[m
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mbooleans\x1b[m() -> \x1b[36mBool\x1b[m {
+  \x1b[94mlet\x1b[m yes = \x1b[94mTrue\x1b[m
+  \x1b[94mlet\x1b[m no = \x1b[94mFalse\x1b[m
   yes && !no
 }
 
-[94mpub[m [94mfn[m [93mtypes[m() -> [94mNil[m {
-  [94mlet[m a: [36mInt[m = [92m1[m
-  [94mlet[m b: [36mFloat[m = [92m2.0[m
-  [94mlet[m c: [36mString[m = [91m"three"[m
-  [94mlet[m d: [36mBool[m = [94mTrue[m
-  [94mlet[m e: [36mList[m([36mInt[m) = [[92m1[m, [92m2[m, [92m3[m]
-  [94mlet[m f: [36mResult[m([36mInt[m, [94mNil[m) = [94mOk[m([92m1[m)
-  [94mlet[m g: [36mBitArray[m = <<[92m1[m, [92m2[m, [92m3[m>>
-  [94mlet[m h: [36mDynamic[m = dynamic.[93mfrom[m([92m1[m)
-  [94mlet[m i: [36mUtfCodepoint[m = codepoint
-  [94mNil[m
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mtypes\x1b[m() -> \x1b[94mNil\x1b[m {
+  \x1b[94mlet\x1b[m a: \x1b[36mInt\x1b[m = \x1b[92m1\x1b[m
+  \x1b[94mlet\x1b[m b: \x1b[36mFloat\x1b[m = \x1b[92m2.0\x1b[m
+  \x1b[94mlet\x1b[m c: \x1b[36mString\x1b[m = \x1b[91m"three"\x1b[m
+  \x1b[94mlet\x1b[m d: \x1b[36mBool\x1b[m = \x1b[94mTrue\x1b[m
+  \x1b[94mlet\x1b[m e: \x1b[36mList\x1b[m(\x1b[36mInt\x1b[m) = [\x1b[92m1\x1b[m, \x1b[92m2\x1b[m, \x1b[92m3\x1b[m]
+  \x1b[94mlet\x1b[m f: \x1b[36mResult\x1b[m(\x1b[36mInt\x1b[m, \x1b[94mNil\x1b[m) = \x1b[94mOk\x1b[m(\x1b[92m1\x1b[m)
+  \x1b[94mlet\x1b[m g: \x1b[36mBitArray\x1b[m = <<\x1b[92m1\x1b[m, \x1b[92m2\x1b[m, \x1b[92m3\x1b[m>>
+  \x1b[94mlet\x1b[m h: \x1b[36mDynamic\x1b[m = dynamic.\x1b[93mfrom\x1b[m(\x1b[92m1\x1b[m)
+  \x1b[94mlet\x1b[m i: \x1b[36mUtfCodepoint\x1b[m = codepoint
+  \x1b[94mNil\x1b[m
 }
 
-[94mpub[m [94mfn[m [93mcontrol[m(items: [36mList[m([36mInt[m)) -> [36mInt[m {
-  [95muse[m item <- list.[93mmap[m(items)
-  [95mcase[m item {
-    [92m0[m -> [95mpanic[m [95mas[m [91m"zero is not allowed"[m
-    [92m1[m -> [95mtodo[m [95mas[m [91m"not implemented yet"[m
-    [96m_[m -> item
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mcontrol\x1b[m(items: \x1b[36mList\x1b[m(\x1b[36mInt\x1b[m)) -> \x1b[36mInt\x1b[m {
+  \x1b[95muse\x1b[m item <- list.\x1b[93mmap\x1b[m(items)
+  \x1b[95mcase\x1b[m item {
+    \x1b[92m0\x1b[m -> \x1b[95mpanic\x1b[m \x1b[95mas\x1b[m \x1b[91m"zero is not allowed"\x1b[m
+    \x1b[92m1\x1b[m -> \x1b[95mtodo\x1b[m \x1b[95mas\x1b[m \x1b[91m"not implemented yet"\x1b[m
+    \x1b[96m_\x1b[m -> item
   }
 }
 
-[94mpub[m [94mtype[m [96mAnimal[m {
-  [96mDog[m
-  [96mCat[m
+\x1b[94mpub\x1b[m \x1b[94mtype\x1b[m \x1b[96mAnimal\x1b[m {
+  \x1b[96mDog\x1b[m
+  \x1b[96mCat\x1b[m
 }
 
-[94mpub[m [94mfn[m [93msound[m(animal: [96mAnimal[m) -> [36mString[m {
-  [95mcase[m animal {
-    [96mDog[m -> [91m"woof"[m
-    [96mCat[m -> [91m"meow"[m
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93msound\x1b[m(animal: \x1b[96mAnimal\x1b[m) -> \x1b[36mString\x1b[m {
+  \x1b[95mcase\x1b[m animal {
+    \x1b[96mDog\x1b[m -> \x1b[91m"woof"\x1b[m
+    \x1b[96mCat\x1b[m -> \x1b[91m"meow"\x1b[m
   }
 }
 
-[94mpub[m [94mfn[m [93mmain[m() {
-  [94mlet[m shapes = [[96mCircle[m([92m1.0[m), [96mRectangle[m([92m2.0[m, [92m3.0[m)]
-  list.[93mmap[m(shapes, area)
-  |> list.[93meach[m(io.debug)
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mmain\x1b[m() {
+  \x1b[94mlet\x1b[m shapes = [\x1b[96mCircle\x1b[m(\x1b[92m1.0\x1b[m), \x1b[96mRectangle\x1b[m(\x1b[92m2.0\x1b[m, \x1b[92m3.0\x1b[m)]
+  list.\x1b[93mmap\x1b[m(shapes, area)
+  |> list.\x1b[93meach\x1b[m(io.debug)
 }
 
-[32m// A string literal may carry a raw newline.[m
-[94mconst[m span = [91m"line one[m
-[91mline two"[m
+\x1b[32m// A string literal may carry a raw newline.\x1b[m
+\x1b[94mconst\x1b[m span = \x1b[91m"line one\x1b[m
+\x1b[91mline two"\x1b[m
 

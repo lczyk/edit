@@ -1,35 +1,35 @@
-[32m# terragrunt config -- exercises blocks, attrs, strings, interpolation[m
-[32m// alt line comment[m
-[32m/* block[m
-[32m   comment */[m
+\x1b[32m# terragrunt config -- exercises blocks, attrs, strings, interpolation\x1b[m
+\x1b[32m// alt line comment\x1b[m
+\x1b[32m/* block\x1b[m
+\x1b[32m   comment */\x1b[m
 
-[95minclude[m [91m"root"[m {
-  [96mpath[m = [93mfind_in_parent_folders[m()
+\x1b[95minclude\x1b[m \x1b[91m"root"\x1b[m {
+  \x1b[96mpath\x1b[m = \x1b[93mfind_in_parent_folders\x1b[m()
 }
 
-[95mterraform[m {
-  [96msource[m = [91m"git::git@github.com:org/modules.git//curl-rock?ref=v1.2.3"[m
+\x1b[95mterraform\x1b[m {
+  \x1b[96msource\x1b[m = \x1b[91m"git::git@github.com:org/modules.git//curl-rock?ref=v1.2.3"\x1b[m
 }
 
-[95mdependency[m [91m"vpc"[m {
-  [96mconfig_path[m = [91m"../vpc"[m
+\x1b[95mdependency\x1b[m \x1b[91m"vpc"\x1b[m {
+  \x1b[96mconfig_path\x1b[m = \x1b[91m"../vpc"\x1b[m
 }
 
-[95mlocals[m {
-  [96mregion[m   = [91m"eu-west-2"[m
-  [96mreplicas[m = [92m3[m
-  [96menabled[m  = [94mtrue[m
-  [96mfallback[m = [94mnull[m
-  [96mtags[m     = [93mmerge[m([96mlocal.[mcommon_tags, { Name = [91m"curl-rock"[m })
+\x1b[95mlocals\x1b[m {
+  \x1b[96mregion\x1b[m   = \x1b[91m"eu-west-2"\x1b[m
+  \x1b[96mreplicas\x1b[m = \x1b[92m3\x1b[m
+  \x1b[96menabled\x1b[m  = \x1b[94mtrue\x1b[m
+  \x1b[96mfallback\x1b[m = \x1b[94mnull\x1b[m
+  \x1b[96mtags\x1b[m     = \x1b[93mmerge\x1b[m(\x1b[96mlocal.\x1b[mcommon_tags, { Name = \x1b[91m"curl-rock"\x1b[m })
 }
 
-[96minputs[m = {
-  [96mname[m        = [91m"curl-[m[96m${local.region}[m[91m"[m
-  [96mvpc_id[m      = [96mdependency.[mvpc.outputs.vpc_id
-  [96muser_data[m   = [91m<<-EOT[m
-[91m    #!/bin/bash[m
-[91m    echo "hello ${local.region}"[m
-[91m  EOT[m
-  [96mcidr_blocks[m = [[95mfor[m s [95min[m [96mvar.[msubnets : s.cidr [95mif[m s.public]
+\x1b[96minputs\x1b[m = {
+  \x1b[96mname\x1b[m        = \x1b[91m"curl-\x1b[m\x1b[96m${local.region}\x1b[m\x1b[91m"\x1b[m
+  \x1b[96mvpc_id\x1b[m      = \x1b[96mdependency.\x1b[mvpc.outputs.vpc_id
+  \x1b[96muser_data\x1b[m   = \x1b[91m<<-EOT\x1b[m
+\x1b[91m    #!/bin/bash\x1b[m
+\x1b[91m    echo "hello ${local.region}"\x1b[m
+\x1b[91m  EOT\x1b[m
+  \x1b[96mcidr_blocks\x1b[m = [\x1b[95mfor\x1b[m s \x1b[95min\x1b[m \x1b[96mvar.\x1b[msubnets : s.cidr \x1b[95mif\x1b[m s.public]
 }
 

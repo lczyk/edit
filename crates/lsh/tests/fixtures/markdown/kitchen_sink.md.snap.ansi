@@ -1,90 +1,90 @@
-[94m# H1[m
+\x1b[94m# H1\x1b[m
 
-[94m## H2[m
+\x1b[94m## H2\x1b[m
 
-[94m### H3[m
+\x1b[94m### H3\x1b[m
 
-[94m#### H4[m
+\x1b[94m#### H4\x1b[m
 
-[94m##### H5[m
+\x1b[94m##### H5\x1b[m
 
-[94m###### H6[m
+\x1b[94m###### H6\x1b[m
 
 regular
-[3m*italic*[m
-[3m_italic_[m
-[1m**bold**[m
-[1m__bold__[m
-[1m***bold italic**[m*
-[1m**_bold italic_**[m
-[1m__*bold italic*__[m
-[9m~~strikethrough~~[m
-[91m`inline code`[m
-[91m`multi[m
-[91mline`[m
-[91m`` `literal` ``[m
+\x1b[3m*italic*\x1b[m
+\x1b[3m_italic_\x1b[m
+\x1b[1m**bold**\x1b[m
+\x1b[1m__bold__\x1b[m
+\x1b[1m***bold italic**\x1b[m*
+\x1b[1m**_bold italic_**\x1b[m
+\x1b[1m__*bold italic*__\x1b[m
+\x1b[9m~~strikethrough~~\x1b[m
+\x1b[91m`inline code`\x1b[m
+\x1b[91m`multi\x1b[m
+\x1b[91mline`\x1b[m
+\x1b[91m`` `literal` ``\x1b[m
 \*not\* \_italic\_ # not a heading
 
-[94m* [mUnordered item
-  [94m- [mNested item
-[94m    * [mThird level
-[94m* [mTask list:
-  [94m* [m[[91m [m] To do
-  [94m* [m[[91mx[m] Done
-  [94m* [m[[91m [m] [3m*Mixed*[m [1m**formatting**[m with [91m`code`[m
+\x1b[94m* \x1b[mUnordered item
+  \x1b[94m- \x1b[mNested item
+\x1b[94m    * \x1b[mThird level
+\x1b[94m* \x1b[mTask list:
+  \x1b[94m* \x1b[m[\x1b[91m \x1b[m] To do
+  \x1b[94m* \x1b[m[\x1b[91mx\x1b[m] Done
+  \x1b[94m* \x1b[m[\x1b[91m \x1b[m] \x1b[3m*Mixed*\x1b[m \x1b[1m**formatting**\x1b[m with \x1b[91m`code`\x1b[m
 1. Ordered can start anywhere
-2. …like here (intentional)
+2. \xe2\x80\xa6like here (intentional)
    1. Nested ordered
    2. Multiple paragraphs within a list item:
       Still the same item.
 
-[32m> A single-level quote[m
-[32m>[m
-[32m> > A nested quote with **bold** and `code`[m
-[32m>[m
-[32m> * List in a quote[m
-[32m> * [Link in quote](#links)[m
+\x1b[32m> A single-level quote\x1b[m
+\x1b[32m>\x1b[m
+\x1b[32m> > A nested quote with **bold** and `code`\x1b[m
+\x1b[32m>\x1b[m
+\x1b[32m> * List in a quote\x1b[m
+\x1b[32m> * [Link in quote](#links)\x1b[m
 
-Inline: [[91mExample[m]([4mhttps://example.com[m [91m"Example Title"[m)
-Reference: [[91mRef Link[m][[91mref[m] and [[91mAnother[m][[91manother-ref[m]
-Relative: [[91mThis section[m]([4m#tables[m)
-Footnote: [[91m^note[m]
-[[91mref[m]: https://example.com
-[[91manother-ref[m]: https://github.com
-[[91m^note[m]: This is a footnote with [1m**formatting**[m and a [[91mlink[m]([4mhttps://github.com[m).
+Inline: [\x1b[91mExample\x1b[m](\x1b[4mhttps://example.com\x1b[m \x1b[91m"Example Title"\x1b[m)
+Reference: [\x1b[91mRef Link\x1b[m][\x1b[91mref\x1b[m] and [\x1b[91mAnother\x1b[m][\x1b[91manother-ref\x1b[m]
+Relative: [\x1b[91mThis section\x1b[m](\x1b[4m#tables\x1b[m)
+Footnote: [\x1b[91m^note\x1b[m]
+[\x1b[91mref\x1b[m]: https://example.com
+[\x1b[91manother-ref\x1b[m]: https://github.com
+[\x1b[91m^note\x1b[m]: This is a footnote with \x1b[1m**formatting**\x1b[m and a [\x1b[91mlink\x1b[m](\x1b[4mhttps://github.com\x1b[m).
 
-Inline: ![[91mAlt text[m]([4mhttps://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png[m [91m"GitHub Mark"[m)
-Reference: ![[91mLogo[m][[91mlogo-ref[m]
-[[91mlogo-ref[m]: https://github.githubassets.com/images/modules/logos_page/GitHub-Logo.png "GitHub Logo"
-Badge: [![[91mUbuntu[m]([4mhttps://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white[m)]([4m#[m)
+Inline: ![\x1b[91mAlt text\x1b[m](\x1b[4mhttps://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\x1b[m \x1b[91m"GitHub Mark"\x1b[m)
+Reference: ![\x1b[91mLogo\x1b[m][\x1b[91mlogo-ref\x1b[m]
+[\x1b[91mlogo-ref\x1b[m]: https://github.githubassets.com/images/modules/logos_page/GitHub-Logo.png "GitHub Logo"
+Badge: [![\x1b[91mUbuntu\x1b[m](\x1b[4mhttps://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white\x1b[m)](\x1b[4m#\x1b[m)
 
 | Left        |   Center   | Right |
 | :---------- | :--------: | ----: |
-| [3m*italic*[m    |   [91m`code`[m   |   123 |
-| [1m**bold**[m    | [9m~~strike~~[m |  4.56 |
-| [[91mlink[m][[91mref[m] |   :tada:   | [91m`end`[m |
+| \x1b[3m*italic*\x1b[m    |   \x1b[91m`code`\x1b[m   |   123 |
+| \x1b[1m**bold**\x1b[m    | \x1b[9m~~strike~~\x1b[m |  4.56 |
+| [\x1b[91mlink\x1b[m][\x1b[91mref\x1b[m] |   :tada:   | \x1b[91m`end`\x1b[m |
 
 ```bash
-[32m# Shell[m
-echo [91m"Hello, world"[m | tr a-z A-Z
+\x1b[32m# Shell\x1b[m
+echo \x1b[91m"Hello, world"\x1b[m | tr a-z A-Z
 ```
 
 ```javascript
-[94mexport[m [94mfunction[m [93mgreet[m(name) {
-  [95mreturn[m [91m`hello ${name}`[m;
+\x1b[94mexport\x1b[m \x1b[94mfunction\x1b[m \x1b[93mgreet\x1b[m(name) {
+  \x1b[95mreturn\x1b[m \x1b[91m`hello ${name}`\x1b[m;
 }
 ```
 
 ```json
 {
-  [91m"name"[m: [91m"gfm-kitchen-sink"[m,
-  [91m"private"[m: [94mtrue[m,
-  [91m"scripts"[m: { [91m"test"[m: [91m"echo ok"[m }
+  \x1b[91m"name"\x1b[m: \x1b[91m"gfm-kitchen-sink"\x1b[m,
+  \x1b[91m"private"\x1b[m: \x1b[94mtrue\x1b[m,
+  \x1b[91m"scripts"\x1b[m: { \x1b[91m"test"\x1b[m: \x1b[91m"echo ok"\x1b[m }
 }
 ```
 
 ```python
-[94mdef[m [93mgreet[m(name: str) -> str:
-    [95mreturn[m f[91m"hello {name}"[m
+\x1b[94mdef\x1b[m \x1b[93mgreet\x1b[m(name: str) -> str:
+    \x1b[95mreturn\x1b[m f\x1b[91m"hello {name}"\x1b[m
 ```
 

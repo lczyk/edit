@@ -1,13 +1,13 @@
-[94m# Code spans[m
+\x1b[94m# Code spans\x1b[m
 
-A double-backtick span [91m``with a ` inside``[m and one that wraps [91m``across[m
-[91mthe line break``[m before more prose.
+A double-backtick span \x1b[91m``with a ` inside``\x1b[m and one that wraps \x1b[91m``across\x1b[m
+\x1b[91mthe line break``\x1b[m before more prose.
 
-A triple-backtick span [91m```wraps[m
-[91mtoo```[m and a single one [91m`also[m
-[91mwraps`[m.
+A triple-backtick span \x1b[91m```wraps\x1b[m
+\x1b[91mtoo```\x1b[m and a single one \x1b[91m`also\x1b[m
+\x1b[91mwraps`\x1b[m.
 
-An unterminated [91m``span stops at the blank line[m
+An unterminated \x1b[91m``span stops at the blank line\x1b[m
 
 so this paragraph is prose again.
 

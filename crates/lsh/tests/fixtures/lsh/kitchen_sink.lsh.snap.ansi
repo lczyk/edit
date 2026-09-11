@@ -1,23 +1,23 @@
-[32m// LSH definition example[m
-#[display_name = [91m"Demo"[m]
-#[line_comment = [91m"#"[m]
-#[path = [91m"**/*.demo"[m]
-[94mpub[m [94mfn[m demo() {
-    [95muntil[m [91m/$/[m {
-        [94myield[m [4mother[m;
+\x1b[32m// LSH definition example\x1b[m
+#[display_name = \x1b[91m"Demo"\x1b[m]
+#[line_comment = \x1b[91m"#"\x1b[m]
+#[path = \x1b[91m"**/*.demo"\x1b[m]
+\x1b[94mpub\x1b[m \x1b[94mfn\x1b[m demo() {
+    \x1b[95muntil\x1b[m \x1b[91m/$/\x1b[m {
+        \x1b[94myield\x1b[m \x1b[4mother\x1b[m;
 
-        [95mif[m [91m/#.*/[m {
-            [94myield[m [4mcomment[m;
-        } [95melse[m [95mif[m [91m/\d+/[m {
-            [94myield[m [4mconstant.numeric[m;
+        \x1b[95mif\x1b[m \x1b[91m/#.*/\x1b[m {
+            \x1b[94myield\x1b[m \x1b[4mcomment\x1b[m;
+        } \x1b[95melse\x1b[m \x1b[95mif\x1b[m \x1b[91m/\d+/\x1b[m {
+            \x1b[94myield\x1b[m \x1b[4mconstant.numeric\x1b[m;
         }
     }
 }
 
-[32m/* A block comment mentions a /path and some[m
-[32m   yield keyword.other; that is not code,[m
-[32m   and ends here. */[m
-[94mfn[m after_comment() {
-    [95mif[m [91m/x/[m { [94myield[m [4mstring[m; }
+\x1b[32m/* A block comment mentions a /path and some\x1b[m
+\x1b[32m   yield keyword.other; that is not code,\x1b[m
+\x1b[32m   and ends here. */\x1b[m
+\x1b[94mfn\x1b[m after_comment() {
+    \x1b[95mif\x1b[m \x1b[91m/x/\x1b[m { \x1b[94myield\x1b[m \x1b[4mstring\x1b[m; }
 }
 

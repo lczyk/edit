@@ -1,53 +1,53 @@
-[32m#!/usr/bin/sed -nf[m
-[32m# kitchen-sink sed fixture for lsh highlighting[m
+\x1b[32m#!/usr/bin/sed -nf\x1b[m
+\x1b[32m# kitchen-sink sed fixture for lsh highlighting\x1b[m
 
-[32m# strip leading whitespace[m
-[94ms[m[91m/^[ \t]*[m//
+\x1b[32m# strip leading whitespace\x1b[m
+\x1b[94ms\x1b[m\x1b[91m/^[ \t]*\x1b[m//
 
-[32m# normalise tabs to two spaces, globally[m
-[94ms[m[91m/\t[m/[91m  [m/[94mg[m
+\x1b[32m# normalise tabs to two spaces, globally\x1b[m
+\x1b[94ms\x1b[m\x1b[91m/\t\x1b[m/\x1b[91m  \x1b[m/\x1b[94mg\x1b[m
 
-[32m# print only lines matching FOO, then keep going[m
-[91m/FOO/[m[94mp[m
+\x1b[32m# print only lines matching FOO, then keep going\x1b[m
+\x1b[91m/FOO/\x1b[m\x1b[94mp\x1b[m
 
-[32m# delete blank lines[m
-[91m/^$/[m[94md[m
+\x1b[32m# delete blank lines\x1b[m
+\x1b[91m/^$/\x1b[m\x1b[94md\x1b[m
 
-[32m# range: from a marker to end-of-file[m
-[91m/BEGIN/[m,[96m$[m [94m{[m
-    [94ms[m[91m/old[m/[91mnew[m/[94m2gI[m
-    s|alt-delim|won'[94mt[m be highlighted|[94mg[m
-[94m}[m
+\x1b[32m# range: from a marker to end-of-file\x1b[m
+\x1b[91m/BEGIN/\x1b[m,\x1b[96m$\x1b[m \x1b[94m{\x1b[m
+    \x1b[94ms\x1b[m\x1b[91m/old\x1b[m/\x1b[91mnew\x1b[m/\x1b[94m2gI\x1b[m
+    s|alt-delim|won'\x1b[94mt\x1b[m be highlighted|\x1b[94mg\x1b[m
+\x1b[94m}\x1b[m
 
-[32m# transliterate vowels to uppercase via y command[m
-[94my[m[91m/aeiou[m/[91mAEIOU[m/
+\x1b[32m# transliterate vowels to uppercase via y command\x1b[m
+\x1b[94my\x1b[m\x1b[91m/aeiou\x1b[m/\x1b[91mAEIOU\x1b[m/
 
-[32m# numeric address + last-line[m
-[92m1[m,[96m$[m [94m{[m
-    [94m=[m
-    [94mp[m
-[94m}[m
+\x1b[32m# numeric address + last-line\x1b[m
+\x1b[92m1\x1b[m,\x1b[96m$\x1b[m \x1b[94m{\x1b[m
+    \x1b[94m=\x1b[m
+    \x1b[94mp\x1b[m
+\x1b[94m}\x1b[m
 
-[32m# label + branch[m
-[94m:[mloop
-[94mN[m
-[94ms[m[91m/\n[m/[91m, [m/[94mg[m
-[94mt[m loop
+\x1b[32m# label + branch\x1b[m
+\x1b[94m:\x1b[mloop
+\x1b[94mN\x1b[m
+\x1b[94ms\x1b[m\x1b[91m/\n\x1b[m/\x1b[91m, \x1b[m/\x1b[94mg\x1b[m
+\x1b[94mt\x1b[m loop
 
-[32m# backreferences in replacement[m
-[94ms[m[91m/\(foo\)\(bar\)[m/[91m\2-\1[m/
-[94ms[m[91m/whole[m/[91m[&][m/[94mg[m
+\x1b[32m# backreferences in replacement\x1b[m
+\x1b[94ms\x1b[m\x1b[91m/\(foo\)\(bar\)\x1b[m/\x1b[91m\2-\1\x1b[m/
+\x1b[94ms\x1b[m\x1b[91m/whole\x1b[m/\x1b[91m[&]\x1b[m/\x1b[94mg\x1b[m
 
-[32m# write the result to a file, then quit[m
-[94mw[m out.txt
-[94mq[m
+\x1b[32m# write the result to a file, then quit\x1b[m
+\x1b[94mw\x1b[m out.txt
+\x1b[94mq\x1b[m
 
-[32m# a\ i\ c\ take a text block; each line but the last ends in a backslash.[m
-[94ma[m\
-[91m# not a comment, this is text\[m
-[91m123 s/x/y/ is text too[m
-[94mi[m [91mtext on one line, GNU style[m
-[91m/start/[m[94mc[m\
-[91mreplaced[m
-[94mp[m
+\x1b[32m# a\ i\ c\ take a text block; each line but the last ends in a backslash.\x1b[m
+\x1b[94ma\x1b[m\
+\x1b[91m# not a comment, this is text\\x1b[m
+\x1b[91m123 s/x/y/ is text too\x1b[m
+\x1b[94mi\x1b[m \x1b[91mtext on one line, GNU style\x1b[m
+\x1b[91m/start/\x1b[m\x1b[94mc\x1b[m\
+\x1b[91mreplaced\x1b[m
+\x1b[94mp\x1b[m
 

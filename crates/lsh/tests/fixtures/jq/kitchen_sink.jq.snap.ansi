@@ -1,54 +1,54 @@
-[32m# kitchen-sink jq fixture for lsh highlighting[m
+\x1b[32m# kitchen-sink jq fixture for lsh highlighting\x1b[m
 
-[32m# numbers, strings, constants[m
-[95mdef[m pi: [92m3.14159[m;
-[95mdef[m hex: [92m0xFF[m;
-[95mdef[m truthy: [94mtrue[m;
-[95mdef[m maybe: [94mnull[m;
+\x1b[32m# numbers, strings, constants\x1b[m
+\x1b[95mdef\x1b[m pi: \x1b[92m3.14159\x1b[m;
+\x1b[95mdef\x1b[m hex: \x1b[92m0xFF\x1b[m;
+\x1b[95mdef\x1b[m truthy: \x1b[94mtrue\x1b[m;
+\x1b[95mdef\x1b[m maybe: \x1b[94mnull\x1b[m;
 
-[32m# string interpolation, format strings[m
-[95mdef[m [93mgreet[m([96m$who[m): [91m"hello, [m\($who[91m)!"[m | [33m@text[m;
-[95mdef[m csv_row: [[96m.a[m, [96m.b[m, [96m.c[m] | [33m@csv[m;
+\x1b[32m# string interpolation, format strings\x1b[m
+\x1b[95mdef\x1b[m \x1b[93mgreet\x1b[m(\x1b[96m$who\x1b[m): \x1b[91m"hello, \x1b[m\($who\x1b[91m)!"\x1b[m | \x1b[33m@text\x1b[m;
+\x1b[95mdef\x1b[m csv_row: [\x1b[96m.a\x1b[m, \x1b[96m.b\x1b[m, \x1b[96m.c\x1b[m] | \x1b[33m@csv\x1b[m;
 
-[32m# control flow[m
-[95mdef[m [93mclassify[m(n):
-  [95mif[m n < [92m0[m [95mthen[m [91m"negative"[m
-  [95melif[m n == [92m0[m [95mthen[m [91m"zero"[m
-  [95melse[m [91m"positive"[m
-  [95mend[m;
+\x1b[32m# control flow\x1b[m
+\x1b[95mdef\x1b[m \x1b[93mclassify\x1b[m(n):
+  \x1b[95mif\x1b[m n < \x1b[92m0\x1b[m \x1b[95mthen\x1b[m \x1b[91m"negative"\x1b[m
+  \x1b[95melif\x1b[m n == \x1b[92m0\x1b[m \x1b[95mthen\x1b[m \x1b[91m"zero"\x1b[m
+  \x1b[95melse\x1b[m \x1b[91m"positive"\x1b[m
+  \x1b[95mend\x1b[m;
 
-[32m# comprehension via reduce + map[m
-[95mdef[m sum_evens: [95mreduce[m .[] [95mas[m [96m$x[m ([92m0[m; [95mif[m [96m$x[m % [92m2[m == [92m0[m [95mthen[m . + [96m$x[m [95melse[m . [95mend[m);
+\x1b[32m# comprehension via reduce + map\x1b[m
+\x1b[95mdef\x1b[m sum_evens: \x1b[95mreduce\x1b[m .[] \x1b[95mas\x1b[m \x1b[96m$x\x1b[m (\x1b[92m0\x1b[m; \x1b[95mif\x1b[m \x1b[96m$x\x1b[m % \x1b[92m2\x1b[m == \x1b[92m0\x1b[m \x1b[95mthen\x1b[m . + \x1b[96m$x\x1b[m \x1b[95melse\x1b[m . \x1b[95mend\x1b[m);
 
-[32m# pipeline + builtins[m
-[96m.users[m
-| [33mmap[m([33mselect[m([96m.active[m))
-| [33msort_by[m([96m.name[m)
-| [33mgroup_by[m([96m.team[m)
-| [33mmap[m({team: .[[92m0[m][96m.team[m, count: [33mlength[m, names: [33mmap[m([96m.name[m)})
+\x1b[32m# pipeline + builtins\x1b[m
+\x1b[96m.users\x1b[m
+| \x1b[33mmap\x1b[m(\x1b[33mselect\x1b[m(\x1b[96m.active\x1b[m))
+| \x1b[33msort_by\x1b[m(\x1b[96m.name\x1b[m)
+| \x1b[33mgroup_by\x1b[m(\x1b[96m.team\x1b[m)
+| \x1b[33mmap\x1b[m({team: .[\x1b[92m0\x1b[m]\x1b[96m.team\x1b[m, count: \x1b[33mlength\x1b[m, names: \x1b[33mmap\x1b[m(\x1b[96m.name\x1b[m)})
 
-[32m# field access, optional, slice, iterator[m
-[96m.foo[m[96m.bar[m?
-| .[[92m2[m:[92m5[m]
+\x1b[32m# field access, optional, slice, iterator\x1b[m
+\x1b[96m.foo\x1b[m\x1b[96m.bar\x1b[m?
+| .[\x1b[92m2\x1b[m:\x1b[92m5\x1b[m]
 | .[]
 
-[32m# update assignments + alternative[m
-[96m.score[m //= [92m0[m
-| [96m.score[m += [92m1[m
-| [96m.name[m |= [33mascii_upcase[m
+\x1b[32m# update assignments + alternative\x1b[m
+\x1b[96m.score\x1b[m //= \x1b[92m0\x1b[m
+| \x1b[96m.score\x1b[m += \x1b[92m1\x1b[m
+| \x1b[96m.name\x1b[m |= \x1b[33mascii_upcase\x1b[m
 
-[32m# variables[m
-[96m.items[m [95mas[m [96m$all[m
-| [96m$all[m | [33mlength[m
+\x1b[32m# variables\x1b[m
+\x1b[96m.items\x1b[m \x1b[95mas\x1b[m \x1b[96m$all\x1b[m
+| \x1b[96m$all\x1b[m | \x1b[33mlength\x1b[m
 
-[32m# try/catch[m
-[95mtry[m ([96m.bad[m | [33mtonumber[m) [95mcatch[m [91m"n/a"[m
+\x1b[32m# try/catch\x1b[m
+\x1b[95mtry\x1b[m (\x1b[96m.bad\x1b[m | \x1b[33mtonumber\x1b[m) \x1b[95mcatch\x1b[m \x1b[91m"n/a"\x1b[m
 
-[32m# regex builtins[m
-[33msplit[m([91m","[m) | [33mmap[m([33mtest[m([91m"^[0-9]+$"[m))
+\x1b[32m# regex builtins\x1b[m
+\x1b[33msplit\x1b[m(\x1b[91m","\x1b[m) | \x1b[33mmap\x1b[m(\x1b[33mtest\x1b[m(\x1b[91m"^[0-9]+$"\x1b[m))
 
-[32m# Strings carry raw newlines, interpolation included.[m
-| [91m"line one[m
-[91mline two [m\(.field
-+ 1[91m) tail"[m
+\x1b[32m# Strings carry raw newlines, interpolation included.\x1b[m
+| \x1b[91m"line one\x1b[m
+\x1b[91mline two \x1b[m\(.field
++ 1\x1b[91m) tail"\x1b[m
 

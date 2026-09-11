@@ -1,20 +1,20 @@
-name: [91mrust[m
-description: [91m|[m
-  [91mRust is a memory-safe systems language.[m
+name: \x1b[91mrust\x1b[m
+description: \x1b[91m|\x1b[m
+  \x1b[91mRust is a memory-safe systems language.\x1b[m
 
-  [91mIt has a second paragraph.[m
+  \x1b[91mIt has a second paragraph.\x1b[m
 
-[32m# a comment right after the block scalar[m
-[32m# and a second one[m
-summary: [91m>-[m
-  [91mfolded scalar[m
-[91m"quoted key": value[m
+\x1b[32m# a comment right after the block scalar\x1b[m
+\x1b[32m# and a second one\x1b[m
+summary: \x1b[91m>-\x1b[m
+  \x1b[91mfolded scalar\x1b[m
+\x1b[91m"quoted key": value\x1b[m
 nested:
-  body: [91m|[m
-    [91mindented block[m
-  sibling: [91mafter[m
+  body: \x1b[91m|\x1b[m
+    \x1b[91mindented block\x1b[m
+  sibling: \x1b[91mafter\x1b[m
 list:
-  - [91m|[m
-    [91mblock in a list item[m
-  - [91mplain[m
+  - \x1b[91m|\x1b[m
+    \x1b[91mblock in a list item\x1b[m
+  - \x1b[91mplain\x1b[m
 

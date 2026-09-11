@@ -1,25 +1,25 @@
-[94mmodule[m github.com/example/project
+\x1b[94mmodule\x1b[m github.com/example/project
 
-[94mgo[m [92m1.22[m
+\x1b[94mgo\x1b[m \x1b[92m1.22\x1b[m
 
-[94mtoolchain[m [92mgo1.22.3[m
+\x1b[94mtoolchain\x1b[m \x1b[92mgo1.22.3\x1b[m
 
-[94mrequire[m (
-	github.com/spf13/cobra [92mv1.8.0[m
-	golang.org/x/sync [92mv0.7.0[m [32m// indirect[m
-	gopkg.in/yaml.v3 [92mv3.0.1[m
+\x1b[94mrequire\x1b[m (
+	github.com/spf13/cobra \x1b[92mv1.8.0\x1b[m
+	golang.org/x/sync \x1b[92mv0.7.0\x1b[m \x1b[32m// indirect\x1b[m
+	gopkg.in/yaml.v3 \x1b[92mv3.0.1\x1b[m
 )
 
-[94mrequire[m github.com/stretchr/testify [92mv1.9.0[m
+\x1b[94mrequire\x1b[m github.com/stretchr/testify \x1b[92mv1.9.0\x1b[m
 
-[94mreplace[m github.com/old/pkg [94m=>[m github.com/new/pkg [92mv1.2.3[m
+\x1b[94mreplace\x1b[m github.com/old/pkg \x1b[94m=>\x1b[m github.com/new/pkg \x1b[92mv1.2.3\x1b[m
 
-[94mexclude[m github.com/bad/pkg [92mv0.1.0[m
+\x1b[94mexclude\x1b[m github.com/bad/pkg \x1b[92mv0.1.0\x1b[m
 
-[94mretract[m [92mv1.0.1[m [32m// published by mistake[m
+\x1b[94mretract\x1b[m \x1b[92mv1.0.1\x1b[m \x1b[32m// published by mistake\x1b[m
 
-[94mretract[m (
-	[92mv1.0.2[m
-	[[92mv1.1.0[m, [92mv1.2.0[m] [32m// bad range[m
+\x1b[94mretract\x1b[m (
+	\x1b[92mv1.0.2\x1b[m
+	[\x1b[92mv1.1.0\x1b[m, \x1b[92mv1.2.0\x1b[m] \x1b[32m// bad range\x1b[m
 )
 

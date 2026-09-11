@@ -1,7 +1,7 @@
-[94m# fenced[m
+\x1b[94m# fenced\x1b[m
 
 ```python
-[94mdef[m [93mgreet[m(name):
-    [95mreturn[m name
+\x1b[94mdef\x1b[m \x1b[93mgreet\x1b[m(name):
+    \x1b[95mreturn\x1b[m name
 ```
 

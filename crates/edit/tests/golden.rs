@@ -1,9 +1,10 @@
 //! Golden snapshot tests for eat -- ANSI-highlighted output.
 //!
 //! Reuses lsh test fixtures by path. Each fixture is syntax-highlighted
-//! through eat's rendering path; the result (raw bytes including ANSI escapes)
-//! is compared against a sibling `<fixture>.snap.ansi`. `UPDATE_GOLDEN=1`
-//! refreshes snapshots.
+//! through eat's rendering path; the result is compared against a sibling
+//! `<fixture>.snap.ansi`. Snapshots are plain ASCII: the escape byte and
+//! anything outside printable ASCII is written as `\xNN`, so they diff and
+//! commit like text. `UPDATE_GOLDEN=1` refreshes snapshots.
 
 use std::env;
 use std::fs;
@@ -25,6 +26,21 @@ fn snap_path(fixture: &Path) -> PathBuf {
     let mut name = fixture.file_name().unwrap().to_os_string();
     name.push(SNAP_SUFFIX);
     fixture.with_file_name(name)
+}
+
+/// Escape bytes and anything outside printable ASCII become `\xNN`, so a
+/// snapshot is plain text: readable in a diff and acceptable to an
+/// ASCII-only commit guard. Never decoded, so a literal backslash in the
+/// fixture text needs no escaping of its own.
+fn ascii_armour(raw: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(raw.len() + raw.len() / 8);
+    for &b in raw {
+        match b {
+            b'\n' | b'\t' | 0x20..=0x7e => out.push(b),
+            _ => out.extend_from_slice(format!("\\x{b:02x}").as_bytes()),
+        }
+    }
+    out
 }
 
 fn lsh_fixtures_root() -> PathBuf {
@@ -106,6 +122,7 @@ fn golden() {
             }
             snap.push(b'\n');
         }
+        let snap = ascii_armour(&snap);
 
         let snap_file = snap_path(fixture);
         if update {

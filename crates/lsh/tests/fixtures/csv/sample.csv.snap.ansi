@@ -1,7 +1,7 @@
-[93mname[m,[96mage[m,[95mcity[m,[92mnotes[m
-[93malice[m,[96m30[m,[95m"portland, or"[m,[92m"said ""hi"""[m,[94mextra[m
-,,[95mempty[m,,[94mtrailing[m,
-[93mone[m,[96mtwo[m,[95mthree[m,[92mfour[m,[94mfive[m,[91msix[m,[93mseven[m,[96meight[m
-[93m"unterminated quote, rest of line[m
-[93mplain[m
+\x1b[93mname\x1b[m,\x1b[96mage\x1b[m,\x1b[95mcity\x1b[m,\x1b[92mnotes\x1b[m
+\x1b[93malice\x1b[m,\x1b[96m30\x1b[m,\x1b[95m"portland, or"\x1b[m,\x1b[92m"said ""hi"""\x1b[m,\x1b[94mextra\x1b[m
+,,\x1b[95mempty\x1b[m,,\x1b[94mtrailing\x1b[m,
+\x1b[93mone\x1b[m,\x1b[96mtwo\x1b[m,\x1b[95mthree\x1b[m,\x1b[92mfour\x1b[m,\x1b[94mfive\x1b[m,\x1b[91msix\x1b[m,\x1b[93mseven\x1b[m,\x1b[96meight\x1b[m
+\x1b[93m"unterminated quote, rest of line\x1b[m
+\x1b[93mplain\x1b[m
 

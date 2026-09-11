@@ -1,110 +1,110 @@
-[32m// Line comment[m
-[32m/* Single-line block comment */[m
-[32m/* Multi-line[m
-[32m   block comment[m
-[32m   continues here */[m
+\x1b[32m// Line comment\x1b[m
+\x1b[32m/* Single-line block comment */\x1b[m
+\x1b[32m/* Multi-line\x1b[m
+\x1b[32m   block comment\x1b[m
+\x1b[32m   continues here */\x1b[m
 
-[94m#ifndef[m KITCHEN_SINK_H_
-[94m#define[m KITCHEN_SINK_H_
+\x1b[94m#ifndef\x1b[m KITCHEN_SINK_H_
+\x1b[94m#define\x1b[m KITCHEN_SINK_H_
 
-[94m#include[m <stdio.h>
-[94m#include[m <stdint.h>
-[94m#include[m <stdbool.h>
-[94m#include[m [91m"local_header.h"[m
+\x1b[94m#include\x1b[m <stdio.h>
+\x1b[94m#include\x1b[m <stdint.h>
+\x1b[94m#include\x1b[m <stdbool.h>
+\x1b[94m#include\x1b[m \x1b[91m"local_header.h"\x1b[m
 
-[94m#ifdef[m _WIN32
-[94m#  include[m <windows.h>
-[94m#endif[m
+\x1b[94m#ifdef\x1b[m _WIN32
+\x1b[94m#  include\x1b[m <windows.h>
+\x1b[94m#endif\x1b[m
 
-[94m#if[m [94mdefined[m(__GNUC__) || [94mdefined[m(__clang__)
-[94m#  define[m [93mNOB_PRINTF_FORMAT[m(a, b) [93m__attribute__[m(([93mformat[m(printf, a, b)))
-[94m#else[m
-[94m#  define[m [93mNOB_PRINTF_FORMAT[m(a, b)
-[94m#endif[m
+\x1b[94m#if\x1b[m \x1b[94mdefined\x1b[m(__GNUC__) || \x1b[94mdefined\x1b[m(__clang__)
+\x1b[94m#  define\x1b[m \x1b[93mNOB_PRINTF_FORMAT\x1b[m(a, b) \x1b[93m__attribute__\x1b[m((\x1b[93mformat\x1b[m(printf, a, b)))
+\x1b[94m#else\x1b[m
+\x1b[94m#  define\x1b[m \x1b[93mNOB_PRINTF_FORMAT\x1b[m(a, b)
+\x1b[94m#endif\x1b[m
 
-[94m#define[m [93mNOB_ARRAY_LEN[m(arr) ([94msizeof[m(arr) / [94msizeof[m((arr)[[92m0[m]))
-[94m#define[m [93mNOB_UNUSED[m(x)      (([36mvoid[m)(x))
-[94m#define[m NOB_ASSERT         assert
-[94m#define[m [93mNOB_VA[m(...)        [94m__VA_ARGS__[m
+\x1b[94m#define\x1b[m \x1b[93mNOB_ARRAY_LEN\x1b[m(arr) (\x1b[94msizeof\x1b[m(arr) / \x1b[94msizeof\x1b[m((arr)[\x1b[92m0\x1b[m]))
+\x1b[94m#define\x1b[m \x1b[93mNOB_UNUSED\x1b[m(x)      ((\x1b[36mvoid\x1b[m)(x))
+\x1b[94m#define\x1b[m NOB_ASSERT         assert
+\x1b[94m#define\x1b[m \x1b[93mNOB_VA\x1b[m(...)        \x1b[94m__VA_ARGS__\x1b[m
 
-[32m// Numeric literals[m
-[36mint[m dec       = [92m42[m;
-[36mint[m hex       = [92m0xFF[m;
-[36mint[m oct       = [92m0755[m;
-[36mint[m bin       = [92m0b1010[m;
-[94munsigned[m [36mlong[m big = [92m1000000000UL[m;
-[36mfloat[m pi      = [92m3.14f[m;
-[36mdouble[m avo    = [92m6.022e23[m;
-[36mdouble[m hexf   = [92m0x1.8p+1[m;
+\x1b[32m// Numeric literals\x1b[m
+\x1b[36mint\x1b[m dec       = \x1b[92m42\x1b[m;
+\x1b[36mint\x1b[m hex       = \x1b[92m0xFF\x1b[m;
+\x1b[36mint\x1b[m oct       = \x1b[92m0755\x1b[m;
+\x1b[36mint\x1b[m bin       = \x1b[92m0b1010\x1b[m;
+\x1b[94munsigned\x1b[m \x1b[36mlong\x1b[m big = \x1b[92m1000000000UL\x1b[m;
+\x1b[36mfloat\x1b[m pi      = \x1b[92m3.14f\x1b[m;
+\x1b[36mdouble\x1b[m avo    = \x1b[92m6.022e23\x1b[m;
+\x1b[36mdouble\x1b[m hexf   = \x1b[92m0x1.8p+1\x1b[m;
 
-[32m// Char literals[m
-[36mchar[m a    = [91m'a'[m;
-[36mchar[m nl   = [91m'\n'[m;
-[36mchar[m zero = [91m'\0'[m;
-[36mchar[m hex_c = [91m'\x1b'[m;
-[36mchar[m esc  = [91m'\\'[m;
+\x1b[32m// Char literals\x1b[m
+\x1b[36mchar\x1b[m a    = \x1b[91m'a'\x1b[m;
+\x1b[36mchar\x1b[m nl   = \x1b[91m'\n'\x1b[m;
+\x1b[36mchar\x1b[m zero = \x1b[91m'\0'\x1b[m;
+\x1b[36mchar\x1b[m hex_c = \x1b[91m'\x1b'\x1b[m;
+\x1b[36mchar\x1b[m esc  = \x1b[91m'\\'\x1b[m;
 
-[32m// String literals (with prefixes)[m
-[94mconst[m [36mchar[m     *s     = [91m"hello, world"[m;
-[94mconst[m [36mchar[m     *multi = [91m"line\nbreak \"escaped\""[m;
-[94mconst[m [36mwchar_t[m  *w     = [91mL"wide"[m;
-[94mconst[m [36mchar[m     *u8s   = [91mu8"utf-8"[m;
-[94mconst[m char16_t *u16s  = [91mu"utf-16"[m;
-[94mconst[m char32_t *u32s  = [91mU"utf-32"[m;
+\x1b[32m// String literals (with prefixes)\x1b[m
+\x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *s     = \x1b[91m"hello, world"\x1b[m;
+\x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *multi = \x1b[91m"line\nbreak \"escaped\""\x1b[m;
+\x1b[94mconst\x1b[m \x1b[36mwchar_t\x1b[m  *w     = \x1b[91mL"wide"\x1b[m;
+\x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *u8s   = \x1b[91mu8"utf-8"\x1b[m;
+\x1b[94mconst\x1b[m char16_t *u16s  = \x1b[91mu"utf-16"\x1b[m;
+\x1b[94mconst\x1b[m char32_t *u32s  = \x1b[91mU"utf-32"\x1b[m;
 
-[32m// Char literals (with prefixes and longer escapes)[m
-[36mchar[m esc_x   = [91m'\x1b'[m;
-[36mchar[m esc_oct = [91m'\012'[m;
-[36mwchar_t[m wc   = [91mL'\xFF'[m;
+\x1b[32m// Char literals (with prefixes and longer escapes)\x1b[m
+\x1b[36mchar\x1b[m esc_x   = \x1b[91m'\x1b'\x1b[m;
+\x1b[36mchar\x1b[m esc_oct = \x1b[91m'\012'\x1b[m;
+\x1b[36mwchar_t\x1b[m wc   = \x1b[91mL'\xFF'\x1b[m;
 
-[32m// Types and qualifiers[m
-[94mtypedef[m [94mstruct[m Nob_Cmd {
-    [94mconst[m [36mchar[m **items;
-    [36msize_t[m       count;
-    [36msize_t[m       capacity;
+\x1b[32m// Types and qualifiers\x1b[m
+\x1b[94mtypedef\x1b[m \x1b[94mstruct\x1b[m Nob_Cmd {
+    \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m **items;
+    \x1b[36msize_t\x1b[m       count;
+    \x1b[36msize_t\x1b[m       capacity;
 } Nob_Cmd;
 
-[94mtypedef[m [94menum[m {
-    NOB_INFO = [92m0[m,
+\x1b[94mtypedef\x1b[m \x1b[94menum\x1b[m {
+    NOB_INFO = \x1b[92m0\x1b[m,
     NOB_WARNING,
     NOB_ERROR,
 } Nob_Log_Level;
 
-[32m// Function declaration with attribute[m
-[93m__attribute__[m((deprecated))
-[94mstatic[m [94minline[m [36mint[m [93mnob_cmd_run[m(Nob_Cmd *cmd, [36mbool[m async) {
-    [95mif[m (cmd == [94mNULL[m) [95mreturn[m [92m-1[m;
-    [95mfor[m ([36msize_t[m i = [92m0[m; i < cmd->count; ++i) {
-        [93mprintf[m([91m"%s "[m, cmd->items[i]);
+\x1b[32m// Function declaration with attribute\x1b[m
+\x1b[93m__attribute__\x1b[m((deprecated))
+\x1b[94mstatic\x1b[m \x1b[94minline\x1b[m \x1b[36mint\x1b[m \x1b[93mnob_cmd_run\x1b[m(Nob_Cmd *cmd, \x1b[36mbool\x1b[m async) {
+    \x1b[95mif\x1b[m (cmd == \x1b[94mNULL\x1b[m) \x1b[95mreturn\x1b[m \x1b[92m-1\x1b[m;
+    \x1b[95mfor\x1b[m (\x1b[36msize_t\x1b[m i = \x1b[92m0\x1b[m; i < cmd->count; ++i) {
+        \x1b[93mprintf\x1b[m(\x1b[91m"%s "\x1b[m, cmd->items[i]);
     }
-    [95mreturn[m [92m0[m;
+    \x1b[95mreturn\x1b[m \x1b[92m0\x1b[m;
 }
 
-[32m// Compound literal (C99)[m
-Nob_Cmd empty_cmd = (Nob_Cmd){[92m0[m};
+\x1b[32m// Compound literal (C99)\x1b[m
+Nob_Cmd empty_cmd = (Nob_Cmd){\x1b[92m0\x1b[m};
 
-[32m// Control flow[m
-[36mvoid[m [93mdemo[m([36mint[m x) {
-    [95mswitch[m (x) {
-        [95mcase[m [92m1[m:  [95mbreak[m;
-        [95mcase[m [92m2[m:  [95mgoto[m end;
-        [95mdefault[m: x = [92m-1[m;
+\x1b[32m// Control flow\x1b[m
+\x1b[36mvoid\x1b[m \x1b[93mdemo\x1b[m(\x1b[36mint\x1b[m x) {
+    \x1b[95mswitch\x1b[m (x) {
+        \x1b[95mcase\x1b[m \x1b[92m1\x1b[m:  \x1b[95mbreak\x1b[m;
+        \x1b[95mcase\x1b[m \x1b[92m2\x1b[m:  \x1b[95mgoto\x1b[m end;
+        \x1b[95mdefault\x1b[m: x = \x1b[92m-1\x1b[m;
     }
-    [95mdo[m { x++; } [95mwhile[m (x < [92m10[m);
-    [95mfor[m ([36mint[m i = [92m0[m; i < [92m10[m; ++i) {
-        [95mif[m (i == [92m5[m) [95mcontinue[m;
-        [95mif[m (i == [92m8[m) [95mreturn[m;
+    \x1b[95mdo\x1b[m { x++; } \x1b[95mwhile\x1b[m (x < \x1b[92m10\x1b[m);
+    \x1b[95mfor\x1b[m (\x1b[36mint\x1b[m i = \x1b[92m0\x1b[m; i < \x1b[92m10\x1b[m; ++i) {
+        \x1b[95mif\x1b[m (i == \x1b[92m5\x1b[m) \x1b[95mcontinue\x1b[m;
+        \x1b[95mif\x1b[m (i == \x1b[92m8\x1b[m) \x1b[95mreturn\x1b[m;
     }
 end:
-    [95mreturn[m;
+    \x1b[95mreturn\x1b[m;
 }
 
-[94m#endif[m [32m// KITCHEN_SINK_H_[m
+\x1b[94m#endif\x1b[m \x1b[32m// KITCHEN_SINK_H_\x1b[m
 
-[32m/* A backslash-newline continues a string literal; a bare unterminated one[m
-[32m   stops at the line end. */[m
-[94mstatic[m [94mconst[m [36mchar[m *continued = [91m"one \[m
-[91mtwo"[m;
-[94mstatic[m [94mconst[m [36mchar[m *broken = [91m"unterminated[m
-[36mint[m after_broken;
+\x1b[32m/* A backslash-newline continues a string literal; a bare unterminated one\x1b[m
+\x1b[32m   stops at the line end. */\x1b[m
+\x1b[94mstatic\x1b[m \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m *continued = \x1b[91m"one \\x1b[m
+\x1b[91mtwo"\x1b[m;
+\x1b[94mstatic\x1b[m \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m *broken = \x1b[91m"unterminated\x1b[m
+\x1b[36mint\x1b[m after_broken;
 

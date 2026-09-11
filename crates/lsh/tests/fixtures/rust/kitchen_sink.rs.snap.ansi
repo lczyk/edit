@@ -1,38 +1,38 @@
-[32m// Line comment[m
-[32m//! Inner doc[m
-[32m/// Outer doc[m
-[32m/* block comment */[m
+\x1b[32m// Line comment\x1b[m
+\x1b[32m//! Inner doc\x1b[m
+\x1b[32m/// Outer doc\x1b[m
+\x1b[32m/* block comment */\x1b[m
 
-[94muse[m std::collections::[96mHashMap[m;
+\x1b[94muse\x1b[m std::collections::\x1b[96mHashMap\x1b[m;
 
-[94mconst[m [96mMAX[m: [96mu32[m = [92m42[m;
+\x1b[94mconst\x1b[m \x1b[96mMAX\x1b[m: \x1b[96mu32\x1b[m = \x1b[92m42\x1b[m;
 
-[4m#[derive(Clone, Debug)][m
-[94mpub[m [94mstruct[m [96mPoint[m<[94m'a[m> {
-    [94mpub[m name: &[94m'a[m [96mstr[m,
-    [94mpub[m value: [96mf64[m,
+\x1b[4m#[derive(Clone, Debug)]\x1b[m
+\x1b[94mpub\x1b[m \x1b[94mstruct\x1b[m \x1b[96mPoint\x1b[m<\x1b[94m'a\x1b[m> {
+    \x1b[94mpub\x1b[m name: &\x1b[94m'a\x1b[m \x1b[96mstr\x1b[m,
+    \x1b[94mpub\x1b[m value: \x1b[96mf64\x1b[m,
 }
 
-[94mfn[m [93mmain[m() {
-    [94mlet[m s = [91m"hello"[m;
-    [94mlet[m raw = [91mr#"raw"#[m;
-    [94mlet[m c = [91m'x'[m;
-    [94mlet[m n: [96mi64[m = [92m0xff_u32[m [95mas[m [96mi64[m;
-    [94mlet[m v = [93mvec[m![[92m1[m, [92m2[m, [92m3[m];
+\x1b[94mfn\x1b[m \x1b[93mmain\x1b[m() {
+    \x1b[94mlet\x1b[m s = \x1b[91m"hello"\x1b[m;
+    \x1b[94mlet\x1b[m raw = \x1b[91mr#"raw"#\x1b[m;
+    \x1b[94mlet\x1b[m c = \x1b[91m'x'\x1b[m;
+    \x1b[94mlet\x1b[m n: \x1b[96mi64\x1b[m = \x1b[92m0xff_u32\x1b[m \x1b[95mas\x1b[m \x1b[96mi64\x1b[m;
+    \x1b[94mlet\x1b[m v = \x1b[93mvec\x1b[m![\x1b[92m1\x1b[m, \x1b[92m2\x1b[m, \x1b[92m3\x1b[m];
 
-    [95mif[m [94mlet[m [94mSome[m(x) = v.[93mfirst[m() {
-        [93mprintln[m!([91m"{}"[m, x);
-    } [95melse[m {
-        [95mreturn[m;
+    \x1b[95mif\x1b[m \x1b[94mlet\x1b[m \x1b[94mSome\x1b[m(x) = v.\x1b[93mfirst\x1b[m() {
+        \x1b[93mprintln\x1b[m!(\x1b[91m"{}"\x1b[m, x);
+    } \x1b[95melse\x1b[m {
+        \x1b[95mreturn\x1b[m;
     }
 
-    [95mmatch[m n {
-        [92m0[m => (),
-        [92m_[m => [93munreachable[m!(),
+    \x1b[95mmatch\x1b[m n {
+        \x1b[92m0\x1b[m => (),
+        \x1b[92m_\x1b[m => \x1b[93munreachable\x1b[m!(),
     }
 }
 
-[32m// A string literal may carry a raw newline.[m
-[94mconst[m [96mSPAN[m: &[96mstr[m = [91m"line one[m
-[91mline two"[m;
+\x1b[32m// A string literal may carry a raw newline.\x1b[m
+\x1b[94mconst\x1b[m \x1b[96mSPAN\x1b[m: &\x1b[96mstr\x1b[m = \x1b[91m"line one\x1b[m
+\x1b[91mline two"\x1b[m;
 

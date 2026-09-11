@@ -1,4 +1,4 @@
-[32m// objc header -- routed to objc (not C) by content detection[m
+\x1b[32m// objc header -- routed to objc (not C) by content detection\x1b[m
 #import <Foundation/Foundation.h>
 
 @protocol Greeter <NSObject>
@@ -6,8 +6,8 @@
 @end
 
 @interface Person : NSObject <Greeter>
-@[93mproperty[m (nonatomic, copy) NSString *name;
-@[93mproperty[m (nonatomic, assign) NSInteger age;
+@\x1b[93mproperty\x1b[m (nonatomic, copy) NSString *name;
+@\x1b[93mproperty\x1b[m (nonatomic, assign) NSInteger age;
 - (instancetype)initWithName:(NSString *)name age:(NSInteger)age;
 @end
 

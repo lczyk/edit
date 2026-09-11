@@ -1,48 +1,48 @@
-[32m# This is a comment[m
+\x1b[32m# This is a comment\x1b[m
 ---
-string: [91m"Hello, world!"[m
-plain: [91mplainValue[m
+string: \x1b[91m"Hello, world!"\x1b[m
+plain: \x1b[91mplainValue\x1b[m
 multiline: |
-[91m  This is a[m
-[91m  true[m
-[91m  multiline string.[m
+\x1b[91m  This is a\x1b[m
+\x1b[91m  true\x1b[m
+\x1b[91m  multiline string.\x1b[m
 folded: >
-[91m  This is a[m
-[91m  true[m
-[91m  folded string.[m
-number_int: [92m42[m
-number_float: [92m3.1415[m
-number_scientific: [92m1.23e45[m
-number_negative: [92m-7[m
-boolean_true: [94mtrue[m
-boolean_false: [94mfalse[m
-null_value: [94mnull[m
-explicit_null: [94m~[m
-date: [91m2024-06-01[m
-timestamp: [91m2024-06-01T12:34:56Z[m
-confusable_string_number: [91m1.23e45 1.23e45 [m[32m# This is a comment[m
+\x1b[91m  This is a\x1b[m
+\x1b[91m  true\x1b[m
+\x1b[91m  folded string.\x1b[m
+number_int: \x1b[92m42\x1b[m
+number_float: \x1b[92m3.1415\x1b[m
+number_scientific: \x1b[92m1.23e45\x1b[m
+number_negative: \x1b[92m-7\x1b[m
+boolean_true: \x1b[94mtrue\x1b[m
+boolean_false: \x1b[94mfalse\x1b[m
+null_value: \x1b[94mnull\x1b[m
+explicit_null: \x1b[94m~\x1b[m
+date: \x1b[91m2024-06-01\x1b[m
+timestamp: \x1b[91m2024-06-01T12:34:56Z\x1b[m
+confusable_string_number: \x1b[91m1.23e45 1.23e45 \x1b[m\x1b[32m# This is a comment\x1b[m
 sequence:
-  - [91mitem1[m
-  - [91mitem2[m
-  - [92m3[m
-  - [94mtrue[m
+  - \x1b[91mitem1\x1b[m
+  - \x1b[91mitem2\x1b[m
+  - \x1b[92m3\x1b[m
+  - \x1b[94mtrue\x1b[m
 mapping:
-  key1: [91mvalue1[m
-  key2: [91mvalue2[m
+  key1: \x1b[91mvalue1\x1b[m
+  key2: \x1b[91mvalue2\x1b[m
 nested:
-  - name: [91mAlice[m
-    age: [92m30[m
-    married: [94mfalse[m
-  - name: [91mBob[m
-    age: [92m25[m
-    married: [94mtrue[m
-empty_sequence: [91m[foo, 123, bar][m
-empty_mapping: [91m{ foo: bar }[m
-literal_colon: [91m"value:with:colons"[m
+  - name: \x1b[91mAlice\x1b[m
+    age: \x1b[92m30\x1b[m
+    married: \x1b[94mfalse\x1b[m
+  - name: \x1b[91mBob\x1b[m
+    age: \x1b[92m25\x1b[m
+    married: \x1b[94mtrue\x1b[m
+empty_sequence: \x1b[91m[foo, 123, bar]\x1b[m
+empty_mapping: \x1b[91m{ foo: bar }\x1b[m
+literal_colon: \x1b[91m"value:with:colons"\x1b[m
 versioned-1.9_libs:
-  - [91msome_item[m
+  - \x1b[91msome_item\x1b[m
 /usr/bin/cargo-1.93:
-  symlink: [91m../lib/rust-1.93/bin/cargo[m
-literal_dash: [91m"-not-a-sequence"[m
-special_chars: [91m"Tab:\t Newline:\n Unicode:\u2713"[m
+  symlink: \x1b[91m../lib/rust-1.93/bin/cargo\x1b[m
+literal_dash: \x1b[91m"-not-a-sequence"\x1b[m
+special_chars: \x1b[91m"Tab:\t Newline:\n Unicode:\u2713"\x1b[m
 

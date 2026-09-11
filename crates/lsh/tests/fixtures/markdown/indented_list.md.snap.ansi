@@ -1,8 +1,8 @@
-[94m- [mtop
+\x1b[94m- \x1b[mtop
 
-[94m- [mouter
-[94m    - [m[1m**xboldindent4x**[m
+\x1b[94m- \x1b[mouter
+\x1b[94m    - \x1b[m\x1b[1m**xboldindent4x**\x1b[m
 
-[94m- [mouter
-[94m        - [m[1m**xboldindent8x**[m
+\x1b[94m- \x1b[mouter
+\x1b[94m        - \x1b[m\x1b[1m**xboldindent8x**\x1b[m
 

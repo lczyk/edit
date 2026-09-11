@@ -1,170 +1,170 @@
-[32m# Comments[m
-[32m# Single-line comment[m
+\x1b[32m# Comments\x1b[m
+\x1b[32m# Single-line comment\x1b[m
 
-[32m# Numbers[m
-[92m42[m
-[92m3.14[m
-[92m.5[m
-[92m1e10[m
-[92m1.5e-3[m
-[92m0xff[m
-[92m0xFF[m
-[92m0b1010[m
-[92m0o77[m
-[92m1_000_000[m
-[92m3.14j[m
+\x1b[32m# Numbers\x1b[m
+\x1b[92m42\x1b[m
+\x1b[92m3.14\x1b[m
+\x1b[92m.5\x1b[m
+\x1b[92m1e10\x1b[m
+\x1b[92m1.5e-3\x1b[m
+\x1b[92m0xff\x1b[m
+\x1b[92m0xFF\x1b[m
+\x1b[92m0b1010\x1b[m
+\x1b[92m0o77\x1b[m
+\x1b[92m1_000_000\x1b[m
+\x1b[92m3.14j\x1b[m
 
-[32m# Constants[m
-[94mTrue[m
-[94mFalse[m
-[94mNone[m
+\x1b[32m# Constants\x1b[m
+\x1b[94mTrue\x1b[m
+\x1b[94mFalse\x1b[m
+\x1b[94mNone\x1b[m
 
-[32m# Strings[m
-[91m'single quotes: \' \n \t \\'[m
-[91m"double quotes: \" \n \t \\"[m
+\x1b[32m# Strings\x1b[m
+\x1b[91m'single quotes: \' \n \t \\'\x1b[m
+\x1b[91m"double quotes: \" \n \t \\"\x1b[m
 
-[32m# Control flow keywords[m
-[95mif[m [94mTrue[m:
-    [95mpass[m
-[95melif[m [94mFalse[m:
-    [95mpass[m
-[95melse[m:
-    [95mpass[m
+\x1b[32m# Control flow keywords\x1b[m
+\x1b[95mif\x1b[m \x1b[94mTrue\x1b[m:
+    \x1b[95mpass\x1b[m
+\x1b[95melif\x1b[m \x1b[94mFalse\x1b[m:
+    \x1b[95mpass\x1b[m
+\x1b[95melse\x1b[m:
+    \x1b[95mpass\x1b[m
 
-[95mfor[m i [94min[m [93mrange[m([92m10[m):
-    [95mif[m i == [92m5[m:
-        [95mcontinue[m
-    [95mif[m i == [92m8[m:
-        [95mbreak[m
+\x1b[95mfor\x1b[m i \x1b[94min\x1b[m \x1b[93mrange\x1b[m(\x1b[92m10\x1b[m):
+    \x1b[95mif\x1b[m i == \x1b[92m5\x1b[m:
+        \x1b[95mcontinue\x1b[m
+    \x1b[95mif\x1b[m i == \x1b[92m8\x1b[m:
+        \x1b[95mbreak\x1b[m
 
-[95mwhile[m [94mFalse[m:
-    [95mpass[m
+\x1b[95mwhile\x1b[m \x1b[94mFalse\x1b[m:
+    \x1b[95mpass\x1b[m
 
-[95mmatch[m [92m42[m:
-    [95mcase[m [92m1[m:
-        [95mpass[m
-    [95mcase[m [92m_[m:
-        [95mpass[m
+\x1b[95mmatch\x1b[m \x1b[92m42\x1b[m:
+    \x1b[95mcase\x1b[m \x1b[92m1\x1b[m:
+        \x1b[95mpass\x1b[m
+    \x1b[95mcase\x1b[m \x1b[92m_\x1b[m:
+        \x1b[95mpass\x1b[m
 
-[95mtry[m:
-    [95mraise[m [93mValueError[m([91m"oops"[m)
-[95mexcept[m ValueError [94mas[m e:
-    [95mpass[m
-[95mfinally[m:
-    [95mpass[m
+\x1b[95mtry\x1b[m:
+    \x1b[95mraise\x1b[m \x1b[93mValueError\x1b[m(\x1b[91m"oops"\x1b[m)
+\x1b[95mexcept\x1b[m ValueError \x1b[94mas\x1b[m e:
+    \x1b[95mpass\x1b[m
+\x1b[95mfinally\x1b[m:
+    \x1b[95mpass\x1b[m
 
-[95mwith[m [93mopen[m([91m"/dev/null"[m) [94mas[m f:
-    [95mpass[m
+\x1b[95mwith\x1b[m \x1b[93mopen\x1b[m(\x1b[91m"/dev/null"\x1b[m) \x1b[94mas\x1b[m f:
+    \x1b[95mpass\x1b[m
 
-[95mreturn[m  [32m# (only valid inside a function)[m
+\x1b[95mreturn\x1b[m  \x1b[32m# (only valid inside a function)\x1b[m
 
-[32m# Triple-quoted strings[m
-[32m"""[m
-[32mMulti-line[m
-[32mdocstring (double quotes)[m
-[32m"""[m
+\x1b[32m# Triple-quoted strings\x1b[m
+\x1b[32m"""\x1b[m
+\x1b[32mMulti-line\x1b[m
+\x1b[32mdocstring (double quotes)\x1b[m
+\x1b[32m"""\x1b[m
 
-[32m'''[m
-[32mMulti-line[m
-[32mstring (single quotes)[m
-[32m'''[m
+\x1b[32m'''\x1b[m
+\x1b[32mMulti-line\x1b[m
+\x1b[32mstring (single quotes)\x1b[m
+\x1b[32m'''\x1b[m
 
-[32m# Assigned triple-quoted strings (colored as strings, not docstrings)[m
-_doc = [91m"""[m
-[91massigned multi-line (double quotes)[m
-[91m"""[m
+\x1b[32m# Assigned triple-quoted strings (colored as strings, not docstrings)\x1b[m
+_doc = \x1b[91m"""\x1b[m
+\x1b[91massigned multi-line (double quotes)\x1b[m
+\x1b[91m"""\x1b[m
 
-_doc2 = [91m'''[m
-[91massigned multi-line (single quotes)[m
-[91m'''[m
+_doc2 = \x1b[91m'''\x1b[m
+\x1b[91massigned multi-line (single quotes)\x1b[m
+\x1b[91m'''\x1b[m
 
-[32m# Prefixed triple-quoted strings (colored as strings)[m
-[91mf"""f-prefixed triple-quoted"""[m
-[91mr'''r-prefixed triple-quoted'''[m
-[91mb"""b-prefixed triple-quoted"""[m
+\x1b[32m# Prefixed triple-quoted strings (colored as strings)\x1b[m
+\x1b[91mf"""f-prefixed triple-quoted"""\x1b[m
+\x1b[91mr'''r-prefixed triple-quoted'''\x1b[m
+\x1b[91mb"""b-prefixed triple-quoted"""\x1b[m
 
-[32m# Triple-quoted strings inside function calls (colored as strings)[m
-[93mprint[m([91m"""inside a function call"""[m)
-[93mgreet[m([91m'''inside a function call'''[m)
+\x1b[32m# Triple-quoted strings inside function calls (colored as strings)\x1b[m
+\x1b[93mprint\x1b[m(\x1b[91m"""inside a function call"""\x1b[m)
+\x1b[93mgreet\x1b[m(\x1b[91m'''inside a function call'''\x1b[m)
 
-[32m# Prefixed strings (f, r, b)[m
-f[91m"f-string: {1 + 2}"[m
-r[91m"raw string: \n is literal"[m
-b[91m"byte string"[m
+\x1b[32m# Prefixed strings (f, r, b)\x1b[m
+f\x1b[91m"f-string: {1 + 2}"\x1b[m
+r\x1b[91m"raw string: \n is literal"\x1b[m
+b\x1b[91m"byte string"\x1b[m
 
-[32m# Decorators[m
-[4m@staticmethod[m
-[94mdef[m [93mhelper[m():
-    [95mpass[m
+\x1b[32m# Decorators\x1b[m
+\x1b[4m@staticmethod\x1b[m
+\x1b[94mdef\x1b[m \x1b[93mhelper\x1b[m():
+    \x1b[95mpass\x1b[m
 
-[4m@property[m
-[94mdef[m [93mname[m(self):
-    [95mreturn[m self._name
+\x1b[4m@property\x1b[m
+\x1b[94mdef\x1b[m \x1b[93mname\x1b[m(self):
+    \x1b[95mreturn\x1b[m self._name
 
-[4m@custom_decorator[m
-[94mdef[m [93mdecorated[m():
-    [95mpass[m
+\x1b[4m@custom_decorator\x1b[m
+\x1b[94mdef\x1b[m \x1b[93mdecorated\x1b[m():
+    \x1b[95mpass\x1b[m
 
-[32m# Other keywords (some are contextually reserved)[m
-[94mimport[m os
-[94mfrom[m os [94mimport[m path
-[94mimport[m sys [94mas[m system
+\x1b[32m# Other keywords (some are contextually reserved)\x1b[m
+\x1b[94mimport\x1b[m os
+\x1b[94mfrom\x1b[m os \x1b[94mimport\x1b[m path
+\x1b[94mimport\x1b[m sys \x1b[94mas\x1b[m system
 
-[94mdef[m [93mgreet[m(name):
-    [95mreturn[m [91m"Hello, "[m + name
+\x1b[94mdef\x1b[m \x1b[93mgreet\x1b[m(name):
+    \x1b[95mreturn\x1b[m \x1b[91m"Hello, "\x1b[m + name
 
-[94masync[m [94mdef[m [93mfetch_data[m():
-    result = [94mawait[m [93msome_coroutine[m()
-    [95mreturn[m result
+\x1b[94masync\x1b[m \x1b[94mdef\x1b[m \x1b[93mfetch_data\x1b[m():
+    result = \x1b[94mawait\x1b[m \x1b[93msome_coroutine\x1b[m()
+    \x1b[95mreturn\x1b[m result
 
-[94mclass[m Animal:
-    count = [92m0[m
+\x1b[94mclass\x1b[m Animal:
+    count = \x1b[92m0\x1b[m
 
-    [94mdef[m __init__(self, name):
+    \x1b[94mdef\x1b[m __init__(self, name):
         self.name = name
-        Animal.count += [92m1[m
+        Animal.count += \x1b[92m1\x1b[m
 
-    [94mdef[m [93mspeak[m(self):
-        [95mreturn[m f[91m"{self.name} speaks"[m
+    \x1b[94mdef\x1b[m \x1b[93mspeak\x1b[m(self):
+        \x1b[95mreturn\x1b[m f\x1b[91m"{self.name} speaks"\x1b[m
 
-[94mclass[m [93mDog[m(Animal):
-    [95mpass[m
+\x1b[94mclass\x1b[m \x1b[93mDog\x1b[m(Animal):
+    \x1b[95mpass\x1b[m
 
-[94mlambda[m x: x + [92m1[m
+\x1b[94mlambda\x1b[m x: x + \x1b[92m1\x1b[m
 
-x = [92m1[m
-[94mdel[m x
-[94massert[m [94mTrue[m
-[94mnot[m [94mFalse[m
-[94mTrue[m [94mand[m [94mFalse[m
-[94mTrue[m [94mor[m [94mFalse[m
-[92m1[m [94mis[m [92m1[m
-[92m1[m [94mis[m [94mnot[m [92m2[m
-[92m1[m [94min[m [[92m1[m, [92m2[m]
+x = \x1b[92m1\x1b[m
+\x1b[94mdel\x1b[m x
+\x1b[94massert\x1b[m \x1b[94mTrue\x1b[m
+\x1b[94mnot\x1b[m \x1b[94mFalse\x1b[m
+\x1b[94mTrue\x1b[m \x1b[94mand\x1b[m \x1b[94mFalse\x1b[m
+\x1b[94mTrue\x1b[m \x1b[94mor\x1b[m \x1b[94mFalse\x1b[m
+\x1b[92m1\x1b[m \x1b[94mis\x1b[m \x1b[92m1\x1b[m
+\x1b[92m1\x1b[m \x1b[94mis\x1b[m \x1b[94mnot\x1b[m \x1b[92m2\x1b[m
+\x1b[92m1\x1b[m \x1b[94min\x1b[m [\x1b[92m1\x1b[m, \x1b[92m2\x1b[m]
 
-[94mglobal[m _g
-[94mnonlocal[m  [32m# (only valid inside nested function)[m
+\x1b[94mglobal\x1b[m _g
+\x1b[94mnonlocal\x1b[m  \x1b[32m# (only valid inside nested function)\x1b[m
 
-[94mdef[m [93mgen[m():
-    [94myield[m [92m1[m
-    [94myield[m [94mfrom[m [[92m2[m, [92m3[m]
+\x1b[94mdef\x1b[m \x1b[93mgen\x1b[m():
+    \x1b[94myield\x1b[m \x1b[92m1\x1b[m
+    \x1b[94myield\x1b[m \x1b[94mfrom\x1b[m [\x1b[92m2\x1b[m, \x1b[92m3\x1b[m]
 
-[94mtype[m Alias = int
+\x1b[94mtype\x1b[m Alias = int
 
-[32m# Function calls[m
-[93mprint[m([91m"hello"[m)
-[93mlen[m([[92m1[m, [92m2[m, [92m3[m])
-[93mlist[m([93mrange[m([92m10[m))
-[93mgreet[m([91m"world"[m)
-[93mint[m([91m"42"[m)
-[91m"hello"[m.[93mupper[m()
+\x1b[32m# Function calls\x1b[m
+\x1b[93mprint\x1b[m(\x1b[91m"hello"\x1b[m)
+\x1b[93mlen\x1b[m([\x1b[92m1\x1b[m, \x1b[92m2\x1b[m, \x1b[92m3\x1b[m])
+\x1b[93mlist\x1b[m(\x1b[93mrange\x1b[m(\x1b[92m10\x1b[m))
+\x1b[93mgreet\x1b[m(\x1b[91m"world"\x1b[m)
+\x1b[93mint\x1b[m(\x1b[91m"42"\x1b[m)
+\x1b[91m"hello"\x1b[m.\x1b[93mupper\x1b[m()
 
-[32m# A backslash-newline continues a string literal; a bare unterminated one[m
-[32m# stops at the line end.[m
-continued = [91m'one \[m
-[91mtwo'[m
-also_continued = [91m"three \[m
-[91mfour"[m
-broken = [91m"unterminated[m
-after_broken = [92m1[m
+\x1b[32m# A backslash-newline continues a string literal; a bare unterminated one\x1b[m
+\x1b[32m# stops at the line end.\x1b[m
+continued = \x1b[91m'one \\x1b[m
+\x1b[91mtwo'\x1b[m
+also_continued = \x1b[91m"three \\x1b[m
+\x1b[91mfour"\x1b[m
+broken = \x1b[91m"unterminated\x1b[m
+after_broken = \x1b[92m1\x1b[m
 

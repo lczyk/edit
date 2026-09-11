@@ -1,33 +1,33 @@
-[94mEAT(1)                      General Commands Manual                     EAT(1)[m
+\x1b[94mEAT(1)                      General Commands Manual                     EAT(1)\x1b[m
 
-[94mNAME[m
+\x1b[94mNAME\x1b[m
        eat - a syntax-highlighting cat
 
-[94mSYNOPSIS[m
+\x1b[94mSYNOPSIS\x1b[m
        eat [OPTIONS] [FILE]...
 
-[94mDESCRIPTION[m
-       eat prints the highlighted contents of FILEs. See also [33mcat(1)[m and
-       [33mprintf(3p)[m for related tools.
+\x1b[94mDESCRIPTION\x1b[m
+       eat prints the highlighted contents of FILEs. See also \x1b[33mcat(1)\x1b[m and
+       \x1b[33mprintf(3p)\x1b[m for related tools.
 
-[94mOPTIONS[m
-       -A, [94m--show-all[m
+\x1b[94mOPTIONS\x1b[m
+       -A, \x1b[94m--show-all\x1b[m
               Show non-printable characters.
 
-       -l, [94m--language[m <LANG>
+       -l, \x1b[94m--language\x1b[m <LANG>
               Override syntax detection.
 
-       -p, [94m--plain[m
+       -p, \x1b[94m--plain\x1b[m
               Disable highlighting and decorations.
 
-[94mENVIRONMENT VARIABLES[m
+\x1b[94mENVIRONMENT VARIABLES\x1b[m
        EAT_PAGER
-              The pager binary; falls back to [96m$PAGER[m, then less.
+              The pager binary; falls back to \x1b[96m$PAGER\x1b[m, then less.
 
-[94mEXAMPLES[m
+\x1b[94mEXAMPLES\x1b[m
        eat -l rust src/main.rs
-       printf [91m'hello'[m | eat -l shellscript
+       printf \x1b[91m'hello'\x1b[m | eat -l shellscript
 
-[94mSEE ALSO[m
-       [33mbat(1)[m, [33mcat(1)[m, [33mless(1)[m
+\x1b[94mSEE ALSO\x1b[m
+       \x1b[33mbat(1)\x1b[m, \x1b[33mcat(1)\x1b[m, \x1b[33mless(1)\x1b[m
 

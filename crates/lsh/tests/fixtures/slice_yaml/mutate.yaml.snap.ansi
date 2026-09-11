@@ -1,29 +1,29 @@
-[94mpackage: [m[91mterminfo[m
+\x1b[94mpackage: \x1b[m\x1b[91mterminfo\x1b[m
 
-[94mslices:[m
-  [93mbins[m:
-    [94mcontents:[m
+\x1b[94mslices:\x1b[m
+  \x1b[93mbins\x1b[m:
+    \x1b[94mcontents:\x1b[m
       /usr/bin/tic:
 
-  [93mdb[m:
-    [94messential:[m
+  \x1b[93mdb\x1b[m:
+    \x1b[94messential:\x1b[m
       terminfo_bins:
-    [94mcontents:[m
+    \x1b[94mcontents:\x1b[m
       /etc/terminfo/:
-    [94mmutate: [m|
-[91m      # A hash inside the body is script, not a yaml comment.[m
-[91m      src = content.read("/etc/terminfo/chiseltest.src")[m
+    \x1b[94mmutate: \x1b[m|
+\x1b[91m      # A hash inside the body is script, not a yaml comment.\x1b[m
+\x1b[91m      src = content.read("/etc/terminfo/chiseltest.src")\x1b[m
 
-[91m      content.write("/etc/terminfo/c/chiseltest", src)[m
-[94m    hint: [m[91mrebuilt from source[m
+\x1b[91m      content.write("/etc/terminfo/c/chiseltest", src)\x1b[m
+\x1b[94m    hint: \x1b[m\x1b[91mrebuilt from source\x1b[m
 
-  [93mcopyright[m:
-    [94mcontents:[m
+  \x1b[93mcopyright\x1b[m:
+    \x1b[94mcontents:\x1b[m
       /usr/share/doc/terminfo/copyright:
 
-  [93mquoted[m:
-    [94mcontents:[m
+  \x1b[93mquoted\x1b[m:
+    \x1b[94mcontents:\x1b[m
       /usr/share/quoted:
-    [94mhint: [m[91m"issue #42: the # sign is text[m
-[91m      across a second line"[m
+    \x1b[94mhint: \x1b[m\x1b[91m"issue #42: the # sign is text\x1b[m
+\x1b[91m      across a second line"\x1b[m
 

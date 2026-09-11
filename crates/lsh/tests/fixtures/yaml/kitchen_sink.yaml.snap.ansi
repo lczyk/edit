@@ -1,10 +1,10 @@
-version: [92m2[m
+version: \x1b[92m2\x1b[m
 jobs:
   build:
-    runs-on: [91mubuntu-latest[m
+    runs-on: \x1b[91mubuntu-latest\x1b[m
     steps:
-      - uses: [91mactions/checkout@v4[m
-      - run: [91mecho "hi"[m
+      - uses: \x1b[91mactions/checkout@v4\x1b[m
+      - run: \x1b[91mecho "hi"\x1b[m
 defaults:
-  shell: [91mbash[m
+  shell: \x1b[91mbash\x1b[m
 

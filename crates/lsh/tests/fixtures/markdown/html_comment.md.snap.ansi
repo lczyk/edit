@@ -1,13 +1,13 @@
-[94m# heading[m
+\x1b[94m# heading\x1b[m
 
-[32m<!-- AI AGENTS: guidance is in AGENTS.md -->[m
+\x1b[32m<!-- AI AGENTS: guidance is in AGENTS.md -->\x1b[m
 
-text with an [32m<!-- inline -->[m comment in it.
+text with an \x1b[32m<!-- inline -->\x1b[m comment in it.
 
-[32m<!--[m
-[32ma comment spanning[m
-[32mseveral *lines* with [markup] inside[m
-[32m-->[m
+\x1b[32m<!--\x1b[m
+\x1b[32ma comment spanning\x1b[m
+\x1b[32mseveral *lines* with [markup] inside\x1b[m
+\x1b[32m-->\x1b[m
 
 back to normal.
 

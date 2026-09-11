@@ -1,36 +1,36 @@
-[32m# Single-line comment[m
+\x1b[32m# Single-line comment\x1b[m
 
-[96mtitle[m = [91m"TOML Example"[m
-[96menabled[m = [94mtrue[m
-[96mcount[m = [92m42[m
-[96mpi[m = [92m3.14[m
-[96mhex[m = [92m0xff[m
-[96mwhen[m = [92m1979-05-27T07:32:00Z[m
+\x1b[96mtitle\x1b[m = \x1b[91m"TOML Example"\x1b[m
+\x1b[96menabled\x1b[m = \x1b[94mtrue\x1b[m
+\x1b[96mcount\x1b[m = \x1b[92m42\x1b[m
+\x1b[96mpi\x1b[m = \x1b[92m3.14\x1b[m
+\x1b[96mhex\x1b[m = \x1b[92m0xff\x1b[m
+\x1b[96mwhen\x1b[m = \x1b[92m1979-05-27T07:32:00Z\x1b[m
 
-[94m[owner][m
-[96mname[m = [91m"Tom"[m
-[96mdob[m = [92m1979-05-27[m
+\x1b[94m[owner]\x1b[m
+\x1b[96mname\x1b[m = \x1b[91m"Tom"\x1b[m
+\x1b[96mdob\x1b[m = \x1b[92m1979-05-27\x1b[m
 
-[94m[[servers]][m
-[96mip[m = [91m"10.0.0.1"[m
-[96mrole[m = [91m"frontend"[m
+\x1b[94m[[servers]]\x1b[m
+\x1b[96mip\x1b[m = \x1b[91m"10.0.0.1"\x1b[m
+\x1b[96mrole\x1b[m = \x1b[91m"frontend"\x1b[m
 
-[94m[[servers]][m
-[96mip[m = [91m"10.0.0.2"[m
-[96mrole[m = [91m"backend"[m
+\x1b[94m[[servers]]\x1b[m
+\x1b[96mip\x1b[m = \x1b[91m"10.0.0.2"\x1b[m
+\x1b[96mrole\x1b[m = \x1b[91m"backend"\x1b[m
 
-[96mmultiline[m = [91m"""[m
-[91mline one[m
-[91mline two[m
-[91m"""[m
+\x1b[96mmultiline\x1b[m = \x1b[91m"""\x1b[m
+\x1b[91mline one\x1b[m
+\x1b[91mline two\x1b[m
+\x1b[91m"""\x1b[m
 
-[32m# Arrays span lines, nest, and carry comments. A nested `[` on its own line[m
-[32m# is not a table header.[m
-[96mmatrix[m = [
-  [[92m1[m, [92m2[m],
-  [[92m3[m, [92m4[m],  [32m# second row[m
+\x1b[32m# Arrays span lines, nest, and carry comments. A nested `[` on its own line\x1b[m
+\x1b[32m# is not a table header.\x1b[m
+\x1b[96mmatrix\x1b[m = [
+  [\x1b[92m1\x1b[m, \x1b[92m2\x1b[m],
+  [\x1b[92m3\x1b[m, \x1b[92m4\x1b[m],  \x1b[32m# second row\x1b[m
 
-  [[91m"a"[m, [91m"b"[m],
+  [\x1b[91m"a"\x1b[m, \x1b[91m"b"\x1b[m],
 ]
-[96mafter_matrix[m = [92m42[m
+\x1b[96mafter_matrix\x1b[m = \x1b[92m42\x1b[m
 

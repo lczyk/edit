@@ -1,94 +1,94 @@
-[94mdiff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs[m
+\x1b[94mdiff --git a/src/lsh/definitions.rs b/src/lsh/definitions.rs\x1b[m
 index a1b2c3d..d4c3b2a 100644
-[94m--- a/src/lsh/definitions.rs[m
-[94m+++ b/src/lsh/definitions.rs[m
+\x1b[94m--- a/src/lsh/definitions.rs\x1b[m
+\x1b[94m+++ b/src/lsh/definitions.rs\x1b[m
 @@ -12,9 +12,11 @@ // context line 12
  // context line 13
-[91m-// old placeholder logic A[m
-[91m-const LEGACY_FLAG: bool = true;[m
-[91m-// end legacy block[m
-[92m+// updated placeholder logic A[m
-[92m+const LEGACY_FLAG: bool = false; // flipped for test[m
-[92m+// added note: migration in progress[m
-[92m+// end legacy block[m
+\x1b[91m-// old placeholder logic A\x1b[m
+\x1b[91m-const LEGACY_FLAG: bool = true;\x1b[m
+\x1b[91m-// end legacy block\x1b[m
+\x1b[92m+// updated placeholder logic A\x1b[m
+\x1b[92m+const LEGACY_FLAG: bool = false; // flipped for test\x1b[m
+\x1b[92m+// added note: migration in progress\x1b[m
+\x1b[92m+// end legacy block\x1b[m
  // context line 19
  // context line 20
 @@ -42,7 +44,12 @@ // context line 42
  // context line 43
-[91m-    do_placeholder_action(alpha, beta);[m
-[92m+    // Split actions for clarity[m
-[92m+    do_placeholder_prepare(alpha);[m
-[92m+    do_placeholder_action(alpha, beta);[m
-[92m+    if (enable_extra()) {[m
-[92m+        do_placeholder_followup(beta);[m
-[92m+    }[m
+\x1b[91m-    do_placeholder_action(alpha, beta);\x1b[m
+\x1b[92m+    // Split actions for clarity\x1b[m
+\x1b[92m+    do_placeholder_prepare(alpha);\x1b[m
+\x1b[92m+    do_placeholder_action(alpha, beta);\x1b[m
+\x1b[92m+    if (enable_extra()) {\x1b[m
+\x1b[92m+        do_placeholder_followup(beta);\x1b[m
+\x1b[92m+    }\x1b[m
  // context line 50
  // context line 51
  // context line 52
 @@ -90,6 +97,15 @@ // context line 90
  // context line 91
  // context line 92
-[92m+/// Added lightweight fake helper[m
-[92m+fn enable_extra() -> bool {[m
-[92m+    // Pretend this consults a config value[m
-[92m+    true[m
-[92m+}[m
-[92m+[m
-[92m+// Temporary debug instrumentation (to be removed)[m
-[92m+const _DEBUG_HOOK: &str = "lsh:extra";[m
-[92m+[m
+\x1b[92m+/// Added lightweight fake helper\x1b[m
+\x1b[92m+fn enable_extra() -> bool {\x1b[m
+\x1b[92m+    // Pretend this consults a config value\x1b[m
+\x1b[92m+    true\x1b[m
+\x1b[92m+}\x1b[m
+\x1b[92m+\x1b[m
+\x1b[92m+// Temporary debug instrumentation (to be removed)\x1b[m
+\x1b[92m+const _DEBUG_HOOK: &str = "lsh:extra";\x1b[m
+\x1b[92m+\x1b[m
  // context line 93
  // context line 94
  // context line 95
 
-[94mdiff --git a/src/tui.rs b/src/tui.rs[m
+\x1b[94mdiff --git a/src/tui.rs b/src/tui.rs\x1b[m
 index 1122334..5566778 100644
-[94m--- a/src/tui.rs[m
-[94m+++ b/src/tui.rs[m
+\x1b[94m--- a/src/tui.rs\x1b[m
+\x1b[94m+++ b/src/tui.rs\x1b[m
 @@ -5,8 +5,13 @@ // context line 5
  // context line 6
  // context line 7
-[91m-// previous rendering stub[m
-[91m-render_placeholder(frame);[m
-[92m+// refined rendering sequence[m
-[92m+begin_frame(frame);[m
-[92m+render_header(frame);[m
-[92m+render_body(frame);[m
-[92m+render_footer(frame);[m
-[92m+end_frame(frame);[m
-[92m+[m
+\x1b[91m-// previous rendering stub\x1b[m
+\x1b[91m-render_placeholder(frame);\x1b[m
+\x1b[92m+// refined rendering sequence\x1b[m
+\x1b[92m+begin_frame(frame);\x1b[m
+\x1b[92m+render_header(frame);\x1b[m
+\x1b[92m+render_body(frame);\x1b[m
+\x1b[92m+render_footer(frame);\x1b[m
+\x1b[92m+end_frame(frame);\x1b[m
+\x1b[92m+\x1b[m
  // context line 14
  // context line 15
  // context line 16
 
-[94mdiff --git a/README.md b/README.md[m
+\x1b[94mdiff --git a/README.md b/README.md\x1b[m
 index 9aa9aa9..1bb1bb1 100644
-[94m--- a/README.md[m
-[94m+++ b/README.md[m
+\x1b[94m--- a/README.md\x1b[m
+\x1b[94m+++ b/README.md\x1b[m
 @@ -1,6 +1,11 @@
  # Project Title
-[91m-Some brief description here.[m
-[92m+Some brief description here (updated).[m
-[92m+[m
-[92m+Experimental notes:[m
-[92m+- Added fake diff example[m
-[92m+- Demonstrates multi-hunk & multi-file patch[m
-[92m+[m
+\x1b[91m-Some brief description here.\x1b[m
+\x1b[92m+Some brief description here (updated).\x1b[m
+\x1b[92m+\x1b[m
+\x1b[92m+Experimental notes:\x1b[m
+\x1b[92m+- Added fake diff example\x1b[m
+\x1b[92m+- Demonstrates multi-hunk & multi-file patch\x1b[m
+\x1b[92m+\x1b[m
  ## Usage
  Run the binary as needed.
 
-[94mdiff --git a/Cargo.toml b/Cargo.toml[m
+\x1b[94mdiff --git a/Cargo.toml b/Cargo.toml\x1b[m
 index cafe123..fade321 100644
-[94m--- a/Cargo.toml[m
-[94m+++ b/Cargo.toml[m
+\x1b[94m--- a/Cargo.toml\x1b[m
+\x1b[94m+++ b/Cargo.toml\x1b[m
 @@ -8,7 +8,10 @@ edition = "2021"
  # context
  [features]
-[91m-default = [][m
-[92m+default = ["experimental-preview"][m
-[92m+experimental-preview = [][m
-[92m+[m
-[92m+# NOTE: Above feature is placeholder & fake[m
+\x1b[91m-default = []\x1b[m
+\x1b[92m+default = ["experimental-preview"]\x1b[m
+\x1b[92m+experimental-preview = []\x1b[m
+\x1b[92m+\x1b[m
+\x1b[92m+# NOTE: Above feature is placeholder & fake\x1b[m
 
  [dependencies]
  # context
@@ -96,48 +96,48 @@ index cafe123..fade321 100644
  # context
  # instrumentation (fake addition)
  tracing = "0.1"
-[92m+tracing-subscriber = "0.3"[m
+\x1b[92m+tracing-subscriber = "0.3"\x1b[m
 
-[94mdiff --git a/src/feature/experimental.rs b/src/feature/experimental.rs[m
+\x1b[94mdiff --git a/src/feature/experimental.rs b/src/feature/experimental.rs\x1b[m
 new file mode 100644
 index 0000000..abc1234
-[94m--- /dev/null[m
-[94m+++ b/src/feature/experimental.rs[m
+\x1b[94m--- /dev/null\x1b[m
+\x1b[94m+++ b/src/feature/experimental.rs\x1b[m
 @@ -0,0 +1,24 @@
-[92m+//! Placeholder experimental module (fake content).[m
-[92m+//! This file exists only to demonstrate a multi-file diff.[m
-[92m+#![allow(dead_code)][m
-[92m+[m
-[92m+pub struct ExperimentalToggle {[m
-[92m+    enabled: bool,[m
-[92m+}[m
-[92m+[m
-[92m+impl ExperimentalToggle {[m
-[92m+    pub fn new() -> Self {[m
-[92m+        Self { enabled: true }[m
-[92m+    }[m
-[92m+    pub fn enabled(&self) -> bool {[m
-[92m+        self.enabled[m
-[92m+    }[m
-[92m+}[m
-[92m+[m
-[92m+pub fn run_experimental_path() {[m
-[92m+    if ExperimentalToggle::new().enabled() {[m
-[92m+        // Fake behavior[m
-[92m+        eprintln!("(fake) running experimental path");[m
-[92m+    }[m
-[92m+}[m
-[92m+[m
+\x1b[92m+//! Placeholder experimental module (fake content).\x1b[m
+\x1b[92m+//! This file exists only to demonstrate a multi-file diff.\x1b[m
+\x1b[92m+#![allow(dead_code)]\x1b[m
+\x1b[92m+\x1b[m
+\x1b[92m+pub struct ExperimentalToggle {\x1b[m
+\x1b[92m+    enabled: bool,\x1b[m
+\x1b[92m+}\x1b[m
+\x1b[92m+\x1b[m
+\x1b[92m+impl ExperimentalToggle {\x1b[m
+\x1b[92m+    pub fn new() -> Self {\x1b[m
+\x1b[92m+        Self { enabled: true }\x1b[m
+\x1b[92m+    }\x1b[m
+\x1b[92m+    pub fn enabled(&self) -> bool {\x1b[m
+\x1b[92m+        self.enabled\x1b[m
+\x1b[92m+    }\x1b[m
+\x1b[92m+}\x1b[m
+\x1b[92m+\x1b[m
+\x1b[92m+pub fn run_experimental_path() {\x1b[m
+\x1b[92m+    if ExperimentalToggle::new().enabled() {\x1b[m
+\x1b[92m+        // Fake behavior\x1b[m
+\x1b[92m+        eprintln!("(fake) running experimental path");\x1b[m
+\x1b[92m+    }\x1b[m
+\x1b[92m+}\x1b[m
+\x1b[92m+\x1b[m
 
-[94mdiff --git a/assets/old_logo.svg b/assets/old_logo.svg[m
+\x1b[94mdiff --git a/assets/old_logo.svg b/assets/old_logo.svg\x1b[m
 deleted file mode 100644
 index 55aa55a..0000000
-[94m--- a/assets/old_logo.svg[m
-[94m+++ /dev/null[m
+\x1b[94m--- a/assets/old_logo.svg\x1b[m
+\x1b[94m+++ /dev/null\x1b[m
 @@ -1,5 +0,0 @@
-[91m-<!-- Fake removed asset -->[m
-[91m-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">[m
-[91m-  <rect width="10" height="10" fill="#FF00FF"/>[m
-[91m-  <text x="1" y="9" font-size="3">X</text>[m
-[91m-</svg>[m
+\x1b[91m-<!-- Fake removed asset -->\x1b[m
+\x1b[91m-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">\x1b[m
+\x1b[91m-  <rect width="10" height="10" fill="#FF00FF"/>\x1b[m
+\x1b[91m-  <text x="1" y="9" font-size="3">X</text>\x1b[m
+\x1b[91m-</svg>\x1b[m
 

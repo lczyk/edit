@@ -1,47 +1,47 @@
-[32m#!/usr/bin/env bash[m
-[32m# Quoted strings that span more than one line.[m
+\x1b[32m#!/usr/bin/env bash\x1b[m
+\x1b[32m# Quoted strings that span more than one line.\x1b[m
 
-single=[91m'first[m
-[91msecond'[m
+single=\x1b[91m'first\x1b[m
+\x1b[91msecond'\x1b[m
 
-ansi_c=[91m$'first\ttab[m
-[91msecond'[m
+ansi_c=\x1b[91m$'first\ttab\x1b[m
+\x1b[91msecond'\x1b[m
 
-double=[91m"first [m[96m$USER[m
-[91msecond [m[96m${HOME}[m[91m"[m
+double=\x1b[91m"first \x1b[m\x1b[96m$USER\x1b[m
+\x1b[91msecond \x1b[m\x1b[96m${HOME}\x1b[m\x1b[91m"\x1b[m
 
-backtick=[91m`uname -s[m
-[91muname -r`[m
+backtick=\x1b[91m`uname -s\x1b[m
+\x1b[91muname -r`\x1b[m
 
-[32m# A jq program passed as a multi-line single-quoted argument.[m
-jq [91m"[m[96m$FILTER[m[91m"[m[91m'[m
-[91m    delpaths([ $prev[] | [.] ])[m
-[91m    | . + ($base | slice($prev))[m
-[91m    | . + $overlay'[m --argjson prev [91m"[m[96m$prev[m[91m"[m [91m"[m[96m$cfg[m[91m"[m
+\x1b[32m# A jq program passed as a multi-line single-quoted argument.\x1b[m
+jq \x1b[91m"\x1b[m\x1b[96m$FILTER\x1b[m\x1b[91m"\x1b[m\x1b[91m'\x1b[m
+\x1b[91m    delpaths([ $prev[] | [.] ])\x1b[m
+\x1b[91m    | . + ($base | slice($prev))\x1b[m
+\x1b[91m    | . + $overlay'\x1b[m --argjson prev \x1b[91m"\x1b[m\x1b[96m$prev\x1b[m\x1b[91m"\x1b[m \x1b[91m"\x1b[m\x1b[96m$cfg\x1b[m\x1b[91m"\x1b[m
 
-[32m# A backslash-escaped quote outside any string does not open one.[m
-echo [91m'it'[m\'[91m's a trap'[m
+\x1b[32m# A backslash-escaped quote outside any string does not open one.\x1b[m
+echo \x1b[91m'it'\x1b[m\'\x1b[91m's a trap'\x1b[m
 
-[32m# Quotes inside a heredoc body are inert.[m
+\x1b[32m# Quotes inside a heredoc body are inert.\x1b[m
 cat <<'EOF'
-[91mdon't panic[m
+\x1b[91mdon't panic\x1b[m
 EOF
 
-echo [95mdone[m
+echo \x1b[95mdone\x1b[m
 
-[32m# Heredocs name their own terminator; `<<-` lets it hide behind tabs.[m
+\x1b[32m# Heredocs name their own terminator; `<<-` lets it hide behind tabs.\x1b[m
 cat <<'SH'
-[91mdon't panic, and SH mid-line is body[m
-[91mSHx is body too[m
+\x1b[91mdon't panic, and SH mid-line is body\x1b[m
+\x1b[91mSHx is body too\x1b[m
 SH
 cat <<-EOT | sort
-[91m	indented body[m
+\x1b[91m	indented body\x1b[m
 	EOT
 cat <<__END__
 __END__
 echo after heredocs
 
-[32m# An unterminated quote runs to the end of the file.[m
-echo [91m"no closing quote[m
-[91mstill inside the string[m
+\x1b[32m# An unterminated quote runs to the end of the file.\x1b[m
+echo \x1b[91m"no closing quote\x1b[m
+\x1b[91mstill inside the string\x1b[m
 

@@ -1,37 +1,37 @@
-[32m// kitchen sink for objective-c highlighting[m
-[94m#import[m <Foundation/Foundation.h>
-[94m#define[m MAX_COUNT [92m10[m
+\x1b[32m// kitchen sink for objective-c highlighting\x1b[m
+\x1b[94m#import\x1b[m <Foundation/Foundation.h>
+\x1b[94m#define\x1b[m MAX_COUNT \x1b[92m10\x1b[m
 
-[94m@interface[m Counter : NSObject
-[94m@property[m ([94mnonatomic[m, [94massign[m) [36mNSInteger[m value;
-- ([36minstancetype[m)initWithValue:([36mNSInteger[m)v;
-- ([36mvoid[m)increment;
-[94m@end[m
+\x1b[94m@interface\x1b[m Counter : NSObject
+\x1b[94m@property\x1b[m (\x1b[94mnonatomic\x1b[m, \x1b[94massign\x1b[m) \x1b[36mNSInteger\x1b[m value;
+- (\x1b[36minstancetype\x1b[m)initWithValue:(\x1b[36mNSInteger\x1b[m)v;
+- (\x1b[36mvoid\x1b[m)increment;
+\x1b[94m@end\x1b[m
 
-[94m@implementation[m Counter
+\x1b[94m@implementation\x1b[m Counter
 
-- ([36minstancetype[m)initWithValue:([36mNSInteger[m)v {
-    [94mself[m = [[94msuper[m init];
-    [95mif[m ([94mself[m) {
+- (\x1b[36minstancetype\x1b[m)initWithValue:(\x1b[36mNSInteger\x1b[m)v {
+    \x1b[94mself\x1b[m = [\x1b[94msuper\x1b[m init];
+    \x1b[95mif\x1b[m (\x1b[94mself\x1b[m) {
         _value = v;
     }
-    [95mreturn[m [94mself[m;
+    \x1b[95mreturn\x1b[m \x1b[94mself\x1b[m;
 }
 
-- ([36mvoid[m)increment {
-    [95mfor[m ([36mNSInteger[m i = [92m0[m; i < MAX_COUNT; i++) {
-        [94mself[m.value += [92m1[m;
+- (\x1b[36mvoid\x1b[m)increment {
+    \x1b[95mfor\x1b[m (\x1b[36mNSInteger\x1b[m i = \x1b[92m0\x1b[m; i < MAX_COUNT; i++) {
+        \x1b[94mself\x1b[m.value += \x1b[92m1\x1b[m;
     }
-    [36mBOOL[m done = [94mYES[m;
-    [36mid[m obj = [94mnil[m;
-    NSString *msg = [91m@"counted"[m;
-    [36mdouble[m ratio = [92m3.14e-2[m;
-    [93mNSLog[m([91m@"value=%ld done=%d %@"[m, ([36mlong[m)[94mself[m.value, done, msg);
+    \x1b[36mBOOL\x1b[m done = \x1b[94mYES\x1b[m;
+    \x1b[36mid\x1b[m obj = \x1b[94mnil\x1b[m;
+    NSString *msg = \x1b[91m@"counted"\x1b[m;
+    \x1b[36mdouble\x1b[m ratio = \x1b[92m3.14e-2\x1b[m;
+    \x1b[93mNSLog\x1b[m(\x1b[91m@"value=%ld done=%d %@"\x1b[m, (\x1b[36mlong\x1b[m)\x1b[94mself\x1b[m.value, done, msg);
 }
 
-[94m@end[m
+\x1b[94m@end\x1b[m
 
-[32m// A backslash-newline continues a string literal.[m
-NSString *continued = [91m@"one \[m
-[91mtwo"[m;
+\x1b[32m// A backslash-newline continues a string literal.\x1b[m
+NSString *continued = \x1b[91m@"one \\x1b[m
+\x1b[91mtwo"\x1b[m;
 

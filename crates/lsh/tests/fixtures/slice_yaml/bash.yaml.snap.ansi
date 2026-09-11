@@ -1,37 +1,37 @@
-[94mpackage: [m[91mbash[m
+\x1b[94mpackage: \x1b[m\x1b[91mbash\x1b[m
 
-[94messential:[m
+\x1b[94messential:\x1b[m
   bash_copyright:
 
-[94mslices:[m
-  [93mconfig[m:
-    [94mcontents:[m
+\x1b[94mslices:\x1b[m
+  \x1b[93mconfig\x1b[m:
+    \x1b[94mcontents:\x1b[m
       /etc/bash.bashrc:
       /etc/skel/.bash_logout:
       /etc/skel/.bashrc:
       /etc/skel/.profile:
 
-  [93mbins[m:
-    [94messential:[m
+  \x1b[93mbins\x1b[m:
+    \x1b[94messential:\x1b[m
       bash_config:
       libc6_libs:
       libtinfo6_libs:
-    [94mcontents:[m
-[32m      # user should manually link /bin/sh to /bin/bash[m
+    \x1b[94mcontents:\x1b[m
+\x1b[32m      # user should manually link /bin/sh to /bin/bash\x1b[m
       /usr/bin/bash:
       /usr/bin/clear_console:
       /usr/bin/rbash:
 
-  [93mscripts[m:
-    [94messential:[m
+  \x1b[93mscripts\x1b[m:
+    \x1b[94messential:\x1b[m
       bash_bashbug:
 
-[32m  # bashbug is a script to send bug reports to the bash maintainers.[m
-[32m  # in addition to stated essentials, it required $EDITOR to be set,[m
-[32m  # and a working mail system. The script searches for the email client at,[m
-[32m  # in order: /usr/lib/sendmail, /usr/sbin/sendmail, or rmail[m
-  [93mbashbug[m:
-    [94messential:[m
+\x1b[32m  # bashbug is a script to send bug reports to the bash maintainers.\x1b[m
+\x1b[32m  # in addition to stated essentials, it required $EDITOR to be set,\x1b[m
+\x1b[32m  # and a working mail system. The script searches for the email client at,\x1b[m
+\x1b[32m  # in order: /usr/lib/sendmail, /usr/sbin/sendmail, or rmail\x1b[m
+  \x1b[93mbashbug\x1b[m:
+    \x1b[94messential:\x1b[m
       base-files_bin:
       base-files_tmp:
       coreutils_cat:
@@ -44,10 +44,10 @@
       diffutils_cmp:
       grep_bins:
       sed_bins:
-    [94mcontents:[m
+    \x1b[94mcontents:\x1b[m
       /usr/bin/bashbug:
 
-  [93mcopyright[m:
-    [94mcontents:[m
+  \x1b[93mcopyright\x1b[m:
+    \x1b[94mcontents:\x1b[m
       /usr/share/doc/bash/copyright:
 

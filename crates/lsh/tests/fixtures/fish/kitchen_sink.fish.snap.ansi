@@ -1,189 +1,189 @@
-[32m#!/usr/bin/env fish[m
+\x1b[32m#!/usr/bin/env fish\x1b[m
 
-[32m# Comments[m
-[32m# This is a comment[m
+\x1b[32m# Comments\x1b[m
+\x1b[32m# This is a comment\x1b[m
 
-[32m# Numbers[m
-echo [92m42[m
-echo [92m3.14[m
-echo [92m-7[m
-echo [92m0xFF[m
-echo [92m0b1010[m
-echo [92m0o777[m
-echo [92m1.5e10[m
+\x1b[32m# Numbers\x1b[m
+echo \x1b[92m42\x1b[m
+echo \x1b[92m3.14\x1b[m
+echo \x1b[92m-7\x1b[m
+echo \x1b[92m0xFF\x1b[m
+echo \x1b[92m0b1010\x1b[m
+echo \x1b[92m0o777\x1b[m
+echo \x1b[92m1.5e10\x1b[m
 
-[32m# Constants[m
-[94mtrue[m
-[94mfalse[m
+\x1b[32m# Constants\x1b[m
+\x1b[94mtrue\x1b[m
+\x1b[94mfalse\x1b[m
 
-[32m# Single-quoted strings (no escapes, no interpolation)[m
-echo [91m'hello world'[m
-echo [91m'no $expansion here'[m
-echo [91m'no \n escapes either'[m
+\x1b[32m# Single-quoted strings (no escapes, no interpolation)\x1b[m
+echo \x1b[91m'hello world'\x1b[m
+echo \x1b[91m'no $expansion here'\x1b[m
+echo \x1b[91m'no \n escapes either'\x1b[m
 
-[32m# Double-quoted strings (variable expansion + escapes)[m
-echo [91m"hello [m[96m$USER[m[91m"[m
-echo [91m"escaped \" quote"[m
-echo [91m"escaped \\ backslash"[m
-echo [91m"tab\there"[m
-echo [91m"value: [m[96m$argv[m[91m"[m
+\x1b[32m# Double-quoted strings (variable expansion + escapes)\x1b[m
+echo \x1b[91m"hello \x1b[m\x1b[96m$USER\x1b[m\x1b[91m"\x1b[m
+echo \x1b[91m"escaped \" quote"\x1b[m
+echo \x1b[91m"escaped \\ backslash"\x1b[m
+echo \x1b[91m"tab\there"\x1b[m
+echo \x1b[91m"value: \x1b[m\x1b[96m$argv\x1b[m\x1b[91m"\x1b[m
 
-[32m# Variables[m
-[94mset[m name [91m"world"[m
-[94mset[m -l local_var [92m42[m
-[94mset[m -g global_var [91m"hello"[m
-[94mset[m -x EXPORTED [91m"visible"[m
-[94mset[m -e old_var
-[94mset[m -S name
-[94mset[m list one two three
-echo [96m$name[m
-echo [96m$list[1][m
-echo [96m$list[2..3][m
-echo [96m$PATH[m
+\x1b[32m# Variables\x1b[m
+\x1b[94mset\x1b[m name \x1b[91m"world"\x1b[m
+\x1b[94mset\x1b[m -l local_var \x1b[92m42\x1b[m
+\x1b[94mset\x1b[m -g global_var \x1b[91m"hello"\x1b[m
+\x1b[94mset\x1b[m -x EXPORTED \x1b[91m"visible"\x1b[m
+\x1b[94mset\x1b[m -e old_var
+\x1b[94mset\x1b[m -S name
+\x1b[94mset\x1b[m list one two three
+echo \x1b[96m$name\x1b[m
+echo \x1b[96m$list[1]\x1b[m
+echo \x1b[96m$list[2..3]\x1b[m
+echo \x1b[96m$PATH\x1b[m
 
-[32m# Control flow[m
-[95mif[m [94mtest[m -f /etc/passwd
-    echo [91m"exists"[m
-[95melse[m [95mif[m [94mtest[m -d /tmp
-    echo [91m"tmp exists"[m
-[95melse[m
-    echo [91m"neither"[m
-[95mend[m
+\x1b[32m# Control flow\x1b[m
+\x1b[95mif\x1b[m \x1b[94mtest\x1b[m -f /etc/passwd
+    echo \x1b[91m"exists"\x1b[m
+\x1b[95melse\x1b[m \x1b[95mif\x1b[m \x1b[94mtest\x1b[m -d /tmp
+    echo \x1b[91m"tmp exists"\x1b[m
+\x1b[95melse\x1b[m
+    echo \x1b[91m"neither"\x1b[m
+\x1b[95mend\x1b[m
 
-[95mfor[m i [95min[m [92m1[m [92m2[m [92m3[m
-    echo [96m$i[m
-    [95mcontinue[m
-[95mend[m
+\x1b[95mfor\x1b[m i \x1b[95min\x1b[m \x1b[92m1\x1b[m \x1b[92m2\x1b[m \x1b[92m3\x1b[m
+    echo \x1b[96m$i\x1b[m
+    \x1b[95mcontinue\x1b[m
+\x1b[95mend\x1b[m
 
-[95mwhile[m [94mtrue[m
-    [95mbreak[m
-[95mend[m
+\x1b[95mwhile\x1b[m \x1b[94mtrue\x1b[m
+    \x1b[95mbreak\x1b[m
+\x1b[95mend\x1b[m
 
-[95mswitch[m [96m$argv[1][m
-    [95mcase[m start
-        echo [91m"starting"[m
-    [95mcase[m stop
-        echo [91m"stopping"[m
-    [95mcase[m [91m'*'[m
-        echo [91m"unknown"[m
-[95mend[m
+\x1b[95mswitch\x1b[m \x1b[96m$argv[1]\x1b[m
+    \x1b[95mcase\x1b[m start
+        echo \x1b[91m"starting"\x1b[m
+    \x1b[95mcase\x1b[m stop
+        echo \x1b[91m"stopping"\x1b[m
+    \x1b[95mcase\x1b[m \x1b[91m'*'\x1b[m
+        echo \x1b[91m"unknown"\x1b[m
+\x1b[95mend\x1b[m
 
-[32m# Begin/end blocks[m
-[95mbegin[m
-    [94mset[m -l scoped [91m"only here"[m
-    echo [96m$scoped[m
-[95mend[m
+\x1b[32m# Begin/end blocks\x1b[m
+\x1b[95mbegin\x1b[m
+    \x1b[94mset\x1b[m -l scoped \x1b[91m"only here"\x1b[m
+    echo \x1b[96m$scoped\x1b[m
+\x1b[95mend\x1b[m
 
-[32m# Logical operators[m
-[94mtest[m -f /etc/passwd; [94mand[m echo [91m"yes"[m
-[94mtest[m -f /etc/passwd; [94mor[m echo [91m"no"[m
-[94mtest[m -f /etc/passwd && echo [91m"yes"[m
-[94mtest[m -f /etc/passwd || echo [91m"no"[m
-[94mnot[m [94mtest[m -f /nonexistent
+\x1b[32m# Logical operators\x1b[m
+\x1b[94mtest\x1b[m -f /etc/passwd; \x1b[94mand\x1b[m echo \x1b[91m"yes"\x1b[m
+\x1b[94mtest\x1b[m -f /etc/passwd; \x1b[94mor\x1b[m echo \x1b[91m"no"\x1b[m
+\x1b[94mtest\x1b[m -f /etc/passwd && echo \x1b[91m"yes"\x1b[m
+\x1b[94mtest\x1b[m -f /etc/passwd || echo \x1b[91m"no"\x1b[m
+\x1b[94mnot\x1b[m \x1b[94mtest\x1b[m -f /nonexistent
 
-[32m# Command substitution[m
-[94mset[m [93mfiles[m (ls /tmp)
-[94mset[m [93mtoday[m (date +%Y-%m-%d)
-echo [91m"today is "[m(date +%Y-%m-%d)
+\x1b[32m# Command substitution\x1b[m
+\x1b[94mset\x1b[m \x1b[93mfiles\x1b[m (ls /tmp)
+\x1b[94mset\x1b[m \x1b[93mtoday\x1b[m (date +%Y-%m-%d)
+echo \x1b[91m"today is "\x1b[m(date +%Y-%m-%d)
 
-[32m# Functions[m
-[94mfunction [m[93mgreet[m
-    echo [91m"Hello, [m[96m$argv[m[91m[1]"[m
-    [95mreturn[m [92m0[m
-[95mend[m
+\x1b[32m# Functions\x1b[m
+\x1b[94mfunction \x1b[m\x1b[93mgreet\x1b[m
+    echo \x1b[91m"Hello, \x1b[m\x1b[96m$argv\x1b[m\x1b[91m[1]"\x1b[m
+    \x1b[95mreturn\x1b[m \x1b[92m0\x1b[m
+\x1b[95mend\x1b[m
 
-[94mfunction [m[93mcleanup[m --on-event fish_exit
-    echo [91m"bye"[m
-[95mend[m
+\x1b[94mfunction \x1b[m\x1b[93mcleanup\x1b[m --on-event fish_exit
+    echo \x1b[91m"bye"\x1b[m
+\x1b[95mend\x1b[m
 
-[94mfunction [m[93m__fish_helper[m --description [91m"private helper"[m
-    echo [91m"internal"[m
-[95mend[m
+\x1b[94mfunction \x1b[m\x1b[93m__fish_helper\x1b[m --description \x1b[91m"private helper"\x1b[m
+    echo \x1b[91m"internal"\x1b[m
+\x1b[95mend\x1b[m
 
-greet [91m"fish"[m
+greet \x1b[91m"fish"\x1b[m
 cleanup
 
-[32m# Builtins[m
-abbr -a gco [91m'git checkout'[m
-alias ll [91m'ls -la'[m
+\x1b[32m# Builtins\x1b[m
+abbr -a gco \x1b[91m'git checkout'\x1b[m
+alias ll \x1b[91m'ls -la'\x1b[m
 cd /tmp
-echo [91m"hello"[m
-printf [91m"%s\n"[m [91m"hello"[m
-read -l -P [91m"name? "[m user_name
-[94msource[m /dev/null
-[94meval[m [91m'echo hi'[m
-[94mexec[m /bin/sh
-[94memit[m custom_event
-[94mbuiltin[m echo [91m"raw"[m
-[94mcommand[m ls
-[94mtest[m -f /etc/passwd
-[94mtime[m sleep [92m0[m
+echo \x1b[91m"hello"\x1b[m
+printf \x1b[91m"%s\n"\x1b[m \x1b[91m"hello"\x1b[m
+read -l -P \x1b[91m"name? "\x1b[m user_name
+\x1b[94msource\x1b[m /dev/null
+\x1b[94meval\x1b[m \x1b[91m'echo hi'\x1b[m
+\x1b[94mexec\x1b[m /bin/sh
+\x1b[94memit\x1b[m custom_event
+\x1b[94mbuiltin\x1b[m echo \x1b[91m"raw"\x1b[m
+\x1b[94mcommand\x1b[m ls
+\x1b[94mtest\x1b[m -f /etc/passwd
+\x1b[94mtime\x1b[m sleep \x1b[92m0\x1b[m
 
-[32m# Argument parsing[m
-[94mfunction [m[93mmy_cmd[m
-    [94margparse[m [91m'h/help'[m [91m'n/name='[m -- [96m$argv[m
-    [94mor[m [95mreturn[m
-    [95mif[m [94mset[m -q _flag_help
-        echo [91m"usage: my_cmd [-h] [-n NAME]"[m
-        [95mreturn[m [92m0[m
-    [95mend[m
-    echo [91m"name: [m[96m$_flag_name[m[91m"[m
-[95mend[m
+\x1b[32m# Argument parsing\x1b[m
+\x1b[94mfunction \x1b[m\x1b[93mmy_cmd\x1b[m
+    \x1b[94margparse\x1b[m \x1b[91m'h/help'\x1b[m \x1b[91m'n/name='\x1b[m -- \x1b[96m$argv\x1b[m
+    \x1b[94mor\x1b[m \x1b[95mreturn\x1b[m
+    \x1b[95mif\x1b[m \x1b[94mset\x1b[m -q _flag_help
+        echo \x1b[91m"usage: my_cmd [-h] [-n NAME]"\x1b[m
+        \x1b[95mreturn\x1b[m \x1b[92m0\x1b[m
+    \x1b[95mend\x1b[m
+    echo \x1b[91m"name: \x1b[m\x1b[96m$_flag_name\x1b[m\x1b[91m"\x1b[m
+\x1b[95mend\x1b[m
 
-[32m# String operations[m
-string match -r [91m'^\d+$'[m [91m"123"[m
-string replace -a old new [91m"old string old"[m
-string split , [91m"a,b,c"[m
+\x1b[32m# String operations\x1b[m
+string match -r \x1b[91m'^\d+$'\x1b[m \x1b[91m"123"\x1b[m
+string replace -a old new \x1b[91m"old string old"\x1b[m
+string split , \x1b[91m"a,b,c"\x1b[m
 string join \n one two three
-string length [91m"hello"[m
-string sub -s [92m2[m -l [92m3[m [91m"hello"[m
-string trim [91m"  hello  "[m
+string length \x1b[91m"hello"\x1b[m
+string sub -s \x1b[92m2\x1b[m -l \x1b[92m3\x1b[m \x1b[91m"hello"\x1b[m
+string trim \x1b[91m"  hello  "\x1b[m
 
-[32m# Math[m
-math [91m"2 + 3"[m
-math [91m"sqrt(144)"[m
+\x1b[32m# Math\x1b[m
+math \x1b[91m"2 + 3"\x1b[m
+math \x1b[91m"sqrt(144)"\x1b[m
 
-[32m# Status[m
+\x1b[32m# Status\x1b[m
 status is-interactive
 status filename
 
-[32m# Redirections[m
-echo [91m"out"[m > /dev/null
-echo [91m"append"[m >> /tmp/log
-echo [91m"stderr"[m [92m2[m>/dev/null
-echo [91m"both"[m &>/dev/null
+\x1b[32m# Redirections\x1b[m
+echo \x1b[91m"out"\x1b[m > /dev/null
+echo \x1b[91m"append"\x1b[m >> /tmp/log
+echo \x1b[91m"stderr"\x1b[m \x1b[92m2\x1b[m>/dev/null
+echo \x1b[91m"both"\x1b[m &>/dev/null
 
-[32m# Pipelines[m
+\x1b[32m# Pipelines\x1b[m
 echo hello | cat
-ls | string match [91m'*.txt'[m
+ls | string match \x1b[91m'*.txt'\x1b[m
 
-[32m# Path manipulation[m
+\x1b[32m# Path manipulation\x1b[m
 fish_add_path /usr/local/bin
-[94mset[m -a PATH /opt/bin
+\x1b[94mset\x1b[m -a PATH /opt/bin
 
-[32m# Completions[m
-complete -c my_cmd -s h -l help -d [91m"Show help"[m
-complete -c my_cmd -s n -l name -r -d [91m"Set name"[m
+\x1b[32m# Completions\x1b[m
+complete -c my_cmd -s h -l help -d \x1b[91m"Show help"\x1b[m
+complete -c my_cmd -s n -l name -r -d \x1b[91m"Set name"\x1b[m
 
-[32m# Event handlers[m
-[94mfunction [m[93mon_var_change[m --on-variable MY_VAR
-    echo [91m"MY_VAR changed to [m[96m$MY_VAR[m[91m"[m
-[95mend[m
+\x1b[32m# Event handlers\x1b[m
+\x1b[94mfunction \x1b[m\x1b[93mon_var_change\x1b[m --on-variable MY_VAR
+    echo \x1b[91m"MY_VAR changed to \x1b[m\x1b[96m$MY_VAR\x1b[m\x1b[91m"\x1b[m
+\x1b[95mend\x1b[m
 
-[32m# Jobs[m
-sleep [92m10[m &
+\x1b[32m# Jobs\x1b[m
+sleep \x1b[92m10\x1b[m &
 jobs
 fg
 bg
 wait
 disown
 
-[32m# Exit[m
-exit [92m0[m
+\x1b[32m# Exit\x1b[m
+exit \x1b[92m0\x1b[m
 
-[32m# Strings carry raw newlines, single- and double-quoted alike.[m
-[94mset[m raw [91m'line one[m
-[91mline two'[m
-[94mset[m interp [91m"line one [m[96m$USER[m
-[91mline two"[m
+\x1b[32m# Strings carry raw newlines, single- and double-quoted alike.\x1b[m
+\x1b[94mset\x1b[m raw \x1b[91m'line one\x1b[m
+\x1b[91mline two'\x1b[m
+\x1b[94mset\x1b[m interp \x1b[91m"line one \x1b[m\x1b[96m$USER\x1b[m
+\x1b[91mline two"\x1b[m
 

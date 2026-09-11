@@ -1,20 +1,20 @@
-[94m#version[m [92m330[m core
-[94mout[m [36mvec4[m color;
-[94muniform[m [36mfloat[m density_alpha;
+\x1b[94m#version\x1b[m \x1b[92m330\x1b[m core
+\x1b[94mout\x1b[m \x1b[36mvec4\x1b[m color;
+\x1b[94muniform\x1b[m \x1b[36mfloat\x1b[m density_alpha;
 
-[36mvoid[m [93mmain[m() {
-    [32m// Discard each point outside of the circle radius[m
-    [32m// https://stackoverflow.com/a/27099691/2531987[m
-    [36mvec2[m circCoord = [92m2.0[m * [96mgl_PointCoord[m - [92m1.0[m;
-    [95mif[m ([93mdot[m(circCoord, circCoord) > [92m1.0[m) { [95mdiscard[m; }
+\x1b[36mvoid\x1b[m \x1b[93mmain\x1b[m() {
+    \x1b[32m// Discard each point outside of the circle radius\x1b[m
+    \x1b[32m// https://stackoverflow.com/a/27099691/2531987\x1b[m
+    \x1b[36mvec2\x1b[m circCoord = \x1b[92m2.0\x1b[m * \x1b[96mgl_PointCoord\x1b[m - \x1b[92m1.0\x1b[m;
+    \x1b[95mif\x1b[m (\x1b[93mdot\x1b[m(circCoord, circCoord) > \x1b[92m1.0\x1b[m) { \x1b[95mdiscard\x1b[m; }
 
-    [32m// Additive accumulation (blended with GL_ONE,GL_ONE): each point adds density_alpha[m
-    [32m// to .r, so density grows UNBOUNDED instead of saturating at 1.0. Consumers tone-map[m
-    [32m// it on read -- the physics with 1-exp(-d) (~= the old saturating field), the screen[m
-    [32m// with a log map that keeps the dense cores' internal gradient (no flat clipping).[m
-    color = [36mvec4[m(density_alpha, [92m0.0f[m, [92m0.0f[m, [92m1.0f[m);
+    \x1b[32m// Additive accumulation (blended with GL_ONE,GL_ONE): each point adds density_alpha\x1b[m
+    \x1b[32m// to .r, so density grows UNBOUNDED instead of saturating at 1.0. Consumers tone-map\x1b[m
+    \x1b[32m// it on read -- the physics with 1-exp(-d) (~= the old saturating field), the screen\x1b[m
+    \x1b[32m// with a log map that keeps the dense cores' internal gradient (no flat clipping).\x1b[m
+    color = \x1b[36mvec4\x1b[m(density_alpha, \x1b[92m0.0f\x1b[m, \x1b[92m0.0f\x1b[m, \x1b[92m1.0f\x1b[m);
 }
-[32m// A backslash-newline continues a string literal.[m
-[94mconst[m char continued[] = [91m"one \[m
-[91mtwo"[m;
+\x1b[32m// A backslash-newline continues a string literal.\x1b[m
+\x1b[94mconst\x1b[m char continued[] = \x1b[91m"one \\x1b[m
+\x1b[91mtwo"\x1b[m;
 

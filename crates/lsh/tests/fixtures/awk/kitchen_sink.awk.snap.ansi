@@ -1,43 +1,43 @@
-[32m#!/usr/bin/awk -f[m
-[32m# kitchen-sink awk fixture for lsh highlighting[m
+\x1b[32m#!/usr/bin/awk -f\x1b[m
+\x1b[32m# kitchen-sink awk fixture for lsh highlighting\x1b[m
 
-[95mBEGIN[m {
-    [96mFS[m = [91m","[m
-    [96mOFS[m = [91m"\t"[m
-    count = [92m0[m
-    total = [92m0.0[m
-    pi = [92m3.14159[m
-    hex = [92m0xFF[m
-    sci = [92m1.5e-3[m
-    [94mprint[m [91m"starting"[m, [96mFILENAME[m
+\x1b[95mBEGIN\x1b[m {
+    \x1b[96mFS\x1b[m = \x1b[91m","\x1b[m
+    \x1b[96mOFS\x1b[m = \x1b[91m"\t"\x1b[m
+    count = \x1b[92m0\x1b[m
+    total = \x1b[92m0.0\x1b[m
+    pi = \x1b[92m3.14159\x1b[m
+    hex = \x1b[92m0xFF\x1b[m
+    sci = \x1b[92m1.5e-3\x1b[m
+    \x1b[94mprint\x1b[m \x1b[91m"starting"\x1b[m, \x1b[96mFILENAME\x1b[m
 }
 
-[94mfunction[m [93mfmt[m(n,    s) {
-    s = [33msprintf[m([91m"%.2f"[m, n)
-    [95mreturn[m s
+\x1b[94mfunction\x1b[m \x1b[93mfmt\x1b[m(n,    s) {
+    s = \x1b[33msprintf\x1b[m(\x1b[91m"%.2f"\x1b[m, n)
+    \x1b[95mreturn\x1b[m s
 }
 
-[32m# main loop -- one record per line[m
-/^[32m#/ { next }                       # skip comments[m
-[96mNF[m >= [92m3[m && [96m$2[m ~ /^[[92m0[m[92m-9[m]+$/ {
-    name = [96m$1[m
-    qty  = [96m$2[m + [92m0[m
-    cost = [96m$3[m + [92m0.0[m
+\x1b[32m# main loop -- one record per line\x1b[m
+/^\x1b[32m#/ { next }                       # skip comments\x1b[m
+\x1b[96mNF\x1b[m >= \x1b[92m3\x1b[m && \x1b[96m$2\x1b[m ~ /^[\x1b[92m0\x1b[m\x1b[92m-9\x1b[m]+$/ {
+    name = \x1b[96m$1\x1b[m
+    qty  = \x1b[96m$2\x1b[m + \x1b[92m0\x1b[m
+    cost = \x1b[96m$3\x1b[m + \x1b[92m0.0\x1b[m
     items[name] += qty
     total += qty * cost
     count++
-    [95mif[m (qty > [92m100[m) {
-        printf [91m"bulk: %s x%d @%s\n"[m, name, qty, [93mfmt[m(cost)
-    } [95melse[m {
-        printf [91m"%s\t%d\t%s\n"[m, name, qty, [93mfmt[m(cost)
+    \x1b[95mif\x1b[m (qty > \x1b[92m100\x1b[m) {
+        printf \x1b[91m"bulk: %s x%d @%s\n"\x1b[m, name, qty, \x1b[93mfmt\x1b[m(cost)
+    } \x1b[95melse\x1b[m {
+        printf \x1b[91m"%s\t%d\t%s\n"\x1b[m, name, qty, \x1b[93mfmt\x1b[m(cost)
     }
 }
 
-[95mEND[m {
-    [95mfor[m (k [95min[m items) {
-        [94mprint[m k, items[k]
+\x1b[95mEND\x1b[m {
+    \x1b[95mfor\x1b[m (k \x1b[95min\x1b[m items) {
+        \x1b[94mprint\x1b[m k, items[k]
     }
-    printf [91m"total %d records, sum=%s\n"[m, count, [93mfmt[m(total)
-    [95mif[m ([96mNR[m == [92m0[m) [95mexit[m [92m1[m
+    printf \x1b[91m"total %d records, sum=%s\n"\x1b[m, count, \x1b[93mfmt\x1b[m(total)
+    \x1b[95mif\x1b[m (\x1b[96mNR\x1b[m == \x1b[92m0\x1b[m) \x1b[95mexit\x1b[m \x1b[92m1\x1b[m
 }
 

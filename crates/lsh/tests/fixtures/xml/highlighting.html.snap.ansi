@@ -1,12 +1,12 @@
-<![94mDOCTYPE[m html>
-<[94mhtml[m [96mlang[m=[91m"en"[m>
+<!\x1b[94mDOCTYPE\x1b[m html>
+<\x1b[94mhtml\x1b[m \x1b[96mlang\x1b[m=\x1b[91m"en"\x1b[m>
 
-<[94mhead[m>
-    <[94mmeta[m [96mcharset[m=[91m"UTF-8"[m>
-    <[94mmeta[m [96mname[m=[91m"viewport"[m [96mcontent[m=[91m"width=device-width, initial-scale=1.0"[m>
-    <[94mtitle[m>HTML Syntax Test [92m&amp;[m Demo</[94mtitle[m>
-    [32m<!-- Comment with special chars: <>&"' -->[m
-    <[94mstyle[m>
+<\x1b[94mhead\x1b[m>
+    <\x1b[94mmeta\x1b[m \x1b[96mcharset\x1b[m=\x1b[91m"UTF-8"\x1b[m>
+    <\x1b[94mmeta\x1b[m \x1b[96mname\x1b[m=\x1b[91m"viewport"\x1b[m \x1b[96mcontent\x1b[m=\x1b[91m"width=device-width, initial-scale=1.0"\x1b[m>
+    <\x1b[94mtitle\x1b[m>HTML Syntax Test \x1b[92m&amp;\x1b[m Demo</\x1b[94mtitle\x1b[m>
+    \x1b[32m<!-- Comment with special chars: <>&"' -->\x1b[m
+    <\x1b[94mstyle\x1b[m>
         body {
             margin: 0;
             padding: 20px;
@@ -15,38 +15,38 @@
         .test {
             color: #ff0000;
         }
-    </[94mstyle[m>
-</[94mhead[m>
+    </\x1b[94mstyle\x1b[m>
+</\x1b[94mhead\x1b[m>
 
-<[94mbody[m>
-    <[94mh1[m [96mid[m=[91m"main"[m [96mclass[m=[91m'header'[m [96mdata-value[m=[91m"123"[m>Heading</[94mh1[m>
+<\x1b[94mbody\x1b[m>
+    <\x1b[94mh1\x1b[m \x1b[96mid\x1b[m=\x1b[91m"main"\x1b[m \x1b[96mclass\x1b[m=\x1b[91m'header'\x1b[m \x1b[96mdata-value\x1b[m=\x1b[91m"123"\x1b[m>Heading</\x1b[94mh1\x1b[m>
 
-    [32m<!-- Various elements -->[m
-    <[94mp[m>Text with [92m&lt;[m [92m&gt;[m [92m&amp;[m [92m&quot;[m [92m&apos;[m [92m&#65;[m [92m&#x41;[m entities</[94mp[m>
-    <[94mbr[m />
-    <[94mhr[m>
-    <[94mimg[m [96msrc[m=[91m"image.png"[m [96malt[m=[91m"Description"[m />
+    \x1b[32m<!-- Various elements -->\x1b[m
+    <\x1b[94mp\x1b[m>Text with \x1b[92m&lt;\x1b[m \x1b[92m&gt;\x1b[m \x1b[92m&amp;\x1b[m \x1b[92m&quot;\x1b[m \x1b[92m&apos;\x1b[m \x1b[92m&#65;\x1b[m \x1b[92m&#x41;\x1b[m entities</\x1b[94mp\x1b[m>
+    <\x1b[94mbr\x1b[m />
+    <\x1b[94mhr\x1b[m>
+    <\x1b[94mimg\x1b[m \x1b[96msrc\x1b[m=\x1b[91m"image.png"\x1b[m \x1b[96malt\x1b[m=\x1b[91m"Description"\x1b[m />
 
-    [32m<!-- Attributes -->[m
-    <[94minput[m [96mtype[m=[91m"text"[m disabled required [96mvalue[m=[91m""[m [96mdata-custom[m=[91m"attr"[m>
-    <[94mbutton[m [96monclick[m=[91m"test()"[m>Click</[94mbutton[m>
+    \x1b[32m<!-- Attributes -->\x1b[m
+    <\x1b[94minput\x1b[m \x1b[96mtype\x1b[m=\x1b[91m"text"\x1b[m disabled required \x1b[96mvalue\x1b[m=\x1b[91m""\x1b[m \x1b[96mdata-custom\x1b[m=\x1b[91m"attr"\x1b[m>
+    <\x1b[94mbutton\x1b[m \x1b[96monclick\x1b[m=\x1b[91m"test()"\x1b[m>Click</\x1b[94mbutton\x1b[m>
 
-    [32m<!-- Nested elements -->[m
-    <[94mdiv[m>
-        <[94mspan[m>Inline <[94mstrong[m>bold</[94mstrong[m> text</[94mspan[m>
-        <[94mul[m>
-            <[94mli[m>Item 1</[94mli[m>
-            <[94mli[m>Item 2</[94mli[m>
-        </[94mul[m>
-    </[94mdiv[m>
+    \x1b[32m<!-- Nested elements -->\x1b[m
+    <\x1b[94mdiv\x1b[m>
+        <\x1b[94mspan\x1b[m>Inline <\x1b[94mstrong\x1b[m>bold</\x1b[94mstrong\x1b[m> text</\x1b[94mspan\x1b[m>
+        <\x1b[94mul\x1b[m>
+            <\x1b[94mli\x1b[m>Item 1</\x1b[94mli\x1b[m>
+            <\x1b[94mli\x1b[m>Item 2</\x1b[94mli\x1b[m>
+        </\x1b[94mul\x1b[m>
+    </\x1b[94mdiv\x1b[m>
 
-    [32m<!-- Script -->[m
-    <[94mscript[m>
+    \x1b[32m<!-- Script -->\x1b[m
+    <\x1b[94mscript\x1b[m>
         function test() {
             return x < 10 && y > 5;
         }
-    </[94mscript[m>
-</[94mbody[m>
+    </\x1b[94mscript\x1b[m>
+</\x1b[94mbody\x1b[m>
 
-</[94mhtml[m>
+</\x1b[94mhtml\x1b[m>
 

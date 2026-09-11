@@ -1,16 +1,16 @@
-[32m# General Settings[m
+\x1b[32m# General Settings\x1b[m
 [General]
-[96menabled[m = true
-[96mdebug[m = false
-[96mlog_level[m = info
-[96mmax_connections[m = 1000
+\x1b[96menabled\x1b[m = true
+\x1b[96mdebug\x1b[m = false
+\x1b[96mlog_level\x1b[m = info
+\x1b[96mmax_connections\x1b[m = 1000
 
 [SSL]
-[96menabled[m = true
-[96mcert_file[m = /etc/ssl/certs/server.crt
-[96mkey_file[m = /etc/ssl/private/server.key
-[96mprotocols[m = TLSv1.2, TLSv1.3 [32m# Supported protocols: "TLSv1.2" and "TLSv1.3"[m
-[96mcipher_suite[m = [91m"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"[m
-[96mbanner[m = [91m"missing its closing quote[m
-[96mmotd[m = [91m'also missing[m
+\x1b[96menabled\x1b[m = true
+\x1b[96mcert_file\x1b[m = /etc/ssl/certs/server.crt
+\x1b[96mkey_file\x1b[m = /etc/ssl/private/server.key
+\x1b[96mprotocols\x1b[m = TLSv1.2, TLSv1.3 \x1b[32m# Supported protocols: "TLSv1.2" and "TLSv1.3"\x1b[m
+\x1b[96mcipher_suite\x1b[m = \x1b[91m"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"\x1b[m
+\x1b[96mbanner\x1b[m = \x1b[91m"missing its closing quote\x1b[m
+\x1b[96mmotd\x1b[m = \x1b[91m'also missing\x1b[m
 
