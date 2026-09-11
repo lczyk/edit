@@ -282,10 +282,15 @@ impl Context<'_, '_> {
             content.buffer.borrow_mut().copy_from_str(*text);
         }
 
+        // The offset this frame started at. The horizontal bound applies to
+        // advancing only, so a narrower row set can't drag the viewport back.
+        let mut scroll_x_before = content.scroll_offset.x;
+
         if let Some(node_prev) = self.tui.prev_node_map.get(node.id) {
             let node_prev = node_prev.borrow();
             if let NodeContent::Textarea(content_prev) = &node_prev.content {
                 content.scroll_offset = content_prev.scroll_offset;
+                scroll_x_before = content_prev.scroll_offset.x;
                 content.scroll_offset_y_drag_start = content_prev.scroll_offset_y_drag_start;
                 content.scroll_offset_x_max = content_prev.scroll_offset_x_max;
                 content.thumb_height = content_prev.thumb_height;
@@ -341,7 +346,7 @@ impl Context<'_, '_> {
             }
         }
 
-        self.textarea_adjust_scroll_offset(content);
+        self.textarea_adjust_scroll_offset(content, scroll_x_before);
 
         if single_line {
             node.attributes.fg = self.indexed(IndexedColor::Foreground);
@@ -993,12 +998,16 @@ impl Context<'_, '_> {
         tc.scroll_offset.y = scroll_y;
     }
 
-    fn textarea_adjust_scroll_offset(&self, tc: &mut TextareaContent) {
+    fn textarea_adjust_scroll_offset(&self, tc: &mut TextareaContent, scroll_x_before: CoordType) {
         let tb = tc.buffer.borrow();
         let mut scroll_x = tc.scroll_offset.x;
         let mut scroll_y = tc.scroll_offset.y;
 
-        scroll_x = scroll_x.min(tc.scroll_offset_x_max.max(tb.cursor_visual_pos().x) - 10);
+        // Keep the last columns of the widest visible row on screen. Bounds
+        // advancing only: scrolling onto shorter rows leaves the offset where
+        // the reader put it rather than yanking the text sideways.
+        let bound = tc.scroll_offset_x_max.max(tb.cursor_visual_pos().x) - 10;
+        scroll_x = scroll_x.min(bound.max(scroll_x_before));
         scroll_x = scroll_x.max(0);
         scroll_y = scroll_y.clamp(0, tb.visual_line_count() - 1);
 

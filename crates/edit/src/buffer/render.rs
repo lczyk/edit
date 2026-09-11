@@ -10,6 +10,11 @@
 
 use super::*;
 
+/// How far out a row's width is measured for the horizontal scroll bound
+/// (see [`TextareaLayout::visual_pos_x_max`]). One line can be the whole
+/// file, so the walk stops here and the width is reported as unknown.
+const MAX_MEASURED_COLUMN: CoordType = 4096;
+
 impl TextBuffer {
     /// Builds the per-row margin prefix (line numbers + separator,
     /// or wrap-marker dots) into `line` and returns the per-row
@@ -485,7 +490,9 @@ impl TextBuffer {
         let height = destination.height();
         let line_number_width = self.margin_width.max(3) as usize - 3;
         let text_width = width - self.margin_width;
+        let right_edge = origin.x + text_width;
         let mut visual_pos_x_max = 0;
+        let mut visual_pos_x_truncated = false;
         let mut gutter_paint: Vec<(CoordType, GutterMark)> = Vec::new();
         let mut deleted_below: Option<(usize, CoordType)> = None;
 
@@ -679,6 +686,31 @@ impl TextBuffer {
                 );
             }
 
+            // How wide this row's content actually is. `cursor_end` stops at
+            // the viewport's right edge, so a row that reaches it says nothing
+            // about where its text ends -- and a scroll bound derived from
+            // that is a function of the scroll offset rather than the content.
+            // The walk is bounded, because one line can be the whole file.
+            if self.word_wrap_column <= 0 {
+                let row_end_x = if cursor_end.visual_pos.x < right_edge {
+                    cursor_end.visual_pos.x
+                } else if right_edge >= MAX_MEASURED_COLUMN {
+                    MAX_MEASURED_COLUMN
+                } else {
+                    self.cursor_move_to_visual_internal(
+                        cursor_end,
+                        Point { x: MAX_MEASURED_COLUMN, y: visual_line },
+                    )
+                    .visual_pos
+                    .x
+                };
+                if row_end_x >= MAX_MEASURED_COLUMN {
+                    visual_pos_x_truncated = true;
+                } else {
+                    visual_pos_x_max = visual_pos_x_max.max(row_end_x);
+                }
+            }
+
             // Nothing to do if the entire line is empty.
             if cursor_beg.offset != cursor_end.offset {
                 let body_rects = self.build_body_text(
@@ -692,7 +724,6 @@ impl TextBuffer {
                 );
                 decor.whitespace_visualizers = body_rects.whitespace_visualizers;
                 decor.control_chars = body_rects.control_chars;
-                visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
             }
 
             // Compute per-row lsh markup rects, clipped to this visual
@@ -740,7 +771,11 @@ impl TextBuffer {
         Some(TextareaLayout {
             lines: decors,
             gutter_marks: gutter_paint,
-            visual_pos_x_max,
+            visual_pos_x_max: if visual_pos_x_truncated {
+                CoordType::MAX
+            } else {
+                visual_pos_x_max
+            },
             cursor_visual_render,
             selection_empty: selection_beg >= selection_end,
             highlight_logical_y_range: logical_y_beg..logical_y_end,

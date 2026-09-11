@@ -1,8 +1,10 @@
-"""Horizontal scroll in the eat viewers survives vertical movement.
+"""Horizontal scroll in the eat viewers.
 
-The follow view re-anchors on the tail whenever content arrives, and
-End does the same in both views. Neither may reset the columns the
-reader scrolled to: a tail snap only moves the vertical offset.
+The follow view re-anchors on the tail whenever content arrives, and End
+does the same in both views. Neither may reset the columns the reader
+scrolled to: a tail snap only moves the vertical offset. Scrolling right
+is bounded by the text's own width, so a fast flick crosses a wide line
+in one go and stops at its end.
 """
 
 import os
@@ -21,6 +23,9 @@ def _numbered_lines(n):
     # per-line tag, so a row that still shows its tag is one whose
     # horizontal offset was kept.
     return ["line %03d " % i + ("L%02d-" % i) * 30 for i in range(n)]
+
+
+WHEEL_RIGHT = b"\x1b[<67;10;5M"
 
 
 def _write(path, lines):
@@ -69,3 +74,54 @@ def end_keeps_columns_in_both_views():
                 expect(b"L29-L29" in frame, "End did not reach the tail")
                 expect(b"line 029" not in frame, "End reset the horizontal offset")
                 ed.send(b"q")
+
+
+def _wide_file(path):
+    """A wide line, a block of short ones, then a second wide line.
+
+    Column ~185 carries a distinct tag on each wide line, so what is on
+    screen says which columns the viewport is showing.
+    """
+    _write(path,
+           ["start " + "." * 180 + " END"]
+           + ["short %d" % i for i in range(20)]
+           + ["begin " + "-" * 180 + " TAIL"])
+
+
+@test
+def a_fast_flick_crosses_a_wide_line_in_one_go():
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "wide.txt")
+        _wide_file(path)
+        with Edit(["--eat", "--color", "never", "--wrap", "never", path],
+                  cols=40, rows=10) as ed:
+            mark = ed.mark()
+            # one write, as a trackpad flick arrives: the events queue up
+            # faster than frames are painted.
+            os.write(ed.fd, WHEEL_RIGHT * 80)
+            pause(1.2)
+            ed.drain()
+            frame = ed.plain_since(mark)
+            expect(b"END" in frame, "the flick stalled short of the line's end")
+
+
+@test
+def moving_down_onto_short_lines_keeps_the_columns():
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "wide.txt")
+        _wide_file(path)
+        with Edit(["--eat", "--color", "never", "--wrap", "never", path],
+                  cols=40, rows=10) as ed:
+            os.write(ed.fd, WHEEL_RIGHT * 80)
+            pause(1.2)
+            ed.drain()
+            expect(b"END" in ed.plain, "did not reach the right edge")
+            mark = ed.mark()
+            # down through the short block onto the second wide line: the
+            # short rows are all left of the viewport, and their width must
+            # not drag it back.
+            for _ in range(14):
+                ed.send(b"j")
+            frame = ed.plain_since(mark)
+            expect(b"TAIL" in frame, "moving down dragged the viewport back")
+            expect(b"begin" not in frame, "viewport landed at column 0")

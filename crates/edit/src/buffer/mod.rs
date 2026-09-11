@@ -3389,6 +3389,27 @@ mod tests {
     }
 
     #[test]
+    fn the_layout_measures_content_width_not_the_viewport_edge() {
+        // A row reaching the right edge is walked past it. Deriving the
+        // horizontal scroll bound from the viewport instead makes the bound a
+        // function of the scroll offset, which is how a fast flick ends up
+        // capped one screen in.
+        let mut tb = buf_with(&("x".repeat(200) + "\nshort\n"));
+        tb.set_width(40);
+        let at_left = tb.layout(Point { x: 0, y: 0 }, rect(40, 4), None).unwrap();
+        let scrolled = tb.layout(Point { x: 60, y: 0 }, rect(40, 4), None).unwrap();
+        assert_eq!((at_left.visual_pos_x_max, scrolled.visual_pos_x_max), (200, 200));
+    }
+
+    #[test]
+    fn a_row_wider_than_the_measurement_limit_reports_an_unknown_width() {
+        let mut tb = buf_with(&"x".repeat(8192));
+        tb.set_width(40);
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(40, 4), None).unwrap();
+        assert_eq!(l.visual_pos_x_max, CoordType::MAX);
+    }
+
+    #[test]
     fn every_row_of_a_merge_conflict_carries_the_conflict_mark() {
         // Marker lines, both sides and the blank line between them; the
         // diff marks on the first two lines are outranked.
