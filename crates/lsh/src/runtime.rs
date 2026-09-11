@@ -136,14 +136,20 @@ pub struct Runtime<'pa, 'ps, 'pc> {
     strings: &'ps [&'ps str],
     charsets: &'pc [[u16; 16]],
     entrypoint: u32,
-    stack: Vec<u32>,
-    registers: Registers,
-    saved: SavedSpan,
+    state: RuntimeState,
 }
 
-/// Snapshot of the runtime state for incremental re-highlighting.
-#[derive(Clone)]
+/// Everything a line leaves behind for the next one. Cloned whole for the
+/// snapshots edit's incremental re-highlighting keeps.
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct RuntimeState {
+    vm: VmState,
+}
+
+/// The interpreter's own state: the call stack, the registers, and the span
+/// a definition asked to remember.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct VmState {
     stack: Vec<u32>,
     registers: Registers,
     saved: SavedSpan,
@@ -154,7 +160,7 @@ pub struct RuntimeState {
 /// outside the registers because it is text, not a number, and outlives the
 /// line it was captured from. Inline and fixed-size so snapshots stay cheap;
 /// anything longer than the buffer is cut, and a cut span never matches.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct SavedSpan {
     len: u8,
     cut: bool,
@@ -186,15 +192,9 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         charsets: &'pc [[u16; 16]],
         entrypoint: u32,
     ) -> Self {
-        Runtime {
-            assembly,
-            strings,
-            charsets,
-            entrypoint,
-            stack: Default::default(),
-            registers: Registers { pc: entrypoint, ..Default::default() },
-            saved: Default::default(),
-        }
+        let mut state = RuntimeState::default();
+        state.vm.registers.pc = entrypoint;
+        Runtime { assembly, strings, charsets, entrypoint, state }
     }
 
     /// Run a `fn detect()` body against the head of a buffer and return its
@@ -214,13 +214,11 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         const MAX_BYTES: usize = 4096;
         const MAX_INSTRUCTIONS: usize = 200_000;
 
-        let saved_stack = mem::take(&mut self.stack);
-        let saved_registers = self.registers;
-        let saved_entrypoint = self.entrypoint;
-        let saved_span = self.saved;
+        let outer_vm = mem::take(&mut self.state.vm);
+        let outer_entrypoint = self.entrypoint;
 
         self.entrypoint = detect_entrypoint;
-        self.registers = Registers { pc: detect_entrypoint, ..Default::default() };
+        self.state.vm.registers.pc = detect_entrypoint;
 
         let head = &head[..head.len().min(MAX_BYTES)];
         let mut verdict = false;
@@ -233,8 +231,8 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
             }
             let line = line.strip_suffix(b"\r").unwrap_or(line);
 
-            self.registers.off = 0;
-            self.registers.hs = 0;
+            self.state.vm.registers.off = 0;
+            self.state.vm.registers.hs = 0;
 
             loop {
                 if instructions >= MAX_INSTRUCTIONS {
@@ -242,111 +240,111 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                 }
                 instructions += 1;
 
-                instruction_decode!(self.assembly, self.registers.pc, {
+                instruction_decode!(self.assembly, self.state.vm.registers.pc, {
                     Mov { dst, src } => {
-                        let s = self.registers.get(src);
-                        self.registers.set(dst, s);
+                        let s = self.state.vm.registers.get(src);
+                        self.state.vm.registers.set(dst, s);
                     }
                     Add { dst, src } => {
-                        let d = self.registers.get(dst);
-                        let s = self.registers.get(src);
-                        self.registers.set(dst, d.saturating_add(s));
+                        let d = self.state.vm.registers.get(dst);
+                        let s = self.state.vm.registers.get(src);
+                        self.state.vm.registers.set(dst, d.saturating_add(s));
                     }
                     Sub { dst, src } => {
-                        let d = self.registers.get(dst);
-                        let s = self.registers.get(src);
-                        self.registers.set(dst, d.saturating_sub(s));
+                        let d = self.state.vm.registers.get(dst);
+                        let s = self.state.vm.registers.get(src);
+                        self.state.vm.registers.set(dst, d.saturating_sub(s));
                     }
                     MovImm { dst, imm } => {
-                        self.registers.set(dst, imm);
+                        self.state.vm.registers.set(dst, imm);
                     }
                     AddImm { dst, imm } => {
-                        let d = self.registers.get(dst);
-                        self.registers.set(dst, d.saturating_add(imm));
+                        let d = self.state.vm.registers.get(dst);
+                        self.state.vm.registers.set(dst, d.saturating_add(imm));
                     }
                     SubImm { dst, imm } => {
-                        let d = self.registers.get(dst);
-                        self.registers.set(dst, d.saturating_sub(imm));
+                        let d = self.state.vm.registers.get(dst);
+                        self.state.vm.registers.set(dst, d.saturating_sub(imm));
                     }
 
                     Call { tgt } => {
-                        self.registers.save_registers(&mut self.stack);
-                        self.registers.pc = tgt;
+                        self.state.vm.registers.save_registers(&mut self.state.vm.stack);
+                        self.state.vm.registers.pc = tgt;
                     }
                     Return => {
-                        if !self.registers.load_registers(&mut self.stack) {
+                        if !self.state.vm.registers.load_registers(&mut self.state.vm.stack) {
                             // Empty stack on Return: detector reached the end of
                             // its body without committing to a verdict. Treat as
                             // "keep scanning subsequent lines".
-                            self.registers = Registers { pc: detect_entrypoint, ..Default::default() };
+                            self.state.vm.registers = Registers { pc: detect_entrypoint, ..Default::default() };
                             break;
                         }
                     }
 
                     JumpEQ { lhs, rhs, tgt } => {
-                        if self.registers.get(lhs) == self.registers.get(rhs) {
-                            self.registers.pc = tgt;
+                        if self.state.vm.registers.get(lhs) == self.state.vm.registers.get(rhs) {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpNE { lhs, rhs, tgt } => {
-                        if self.registers.get(lhs) != self.registers.get(rhs) {
-                            self.registers.pc = tgt;
+                        if self.state.vm.registers.get(lhs) != self.state.vm.registers.get(rhs) {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpLT { lhs, rhs, tgt } => {
-                        if self.registers.get(lhs) < self.registers.get(rhs) {
-                            self.registers.pc = tgt;
+                        if self.state.vm.registers.get(lhs) < self.state.vm.registers.get(rhs) {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpLE { lhs, rhs, tgt } => {
-                        if self.registers.get(lhs) <= self.registers.get(rhs) {
-                            self.registers.pc = tgt;
+                        if self.state.vm.registers.get(lhs) <= self.state.vm.registers.get(rhs) {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpGT { lhs, rhs, tgt } => {
-                        if self.registers.get(lhs) > self.registers.get(rhs) {
-                            self.registers.pc = tgt;
+                        if self.state.vm.registers.get(lhs) > self.state.vm.registers.get(rhs) {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpGE { lhs, rhs, tgt } => {
-                        if self.registers.get(lhs) >= self.registers.get(rhs) {
-                            self.registers.pc = tgt;
+                        if self.state.vm.registers.get(lhs) >= self.state.vm.registers.get(rhs) {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
 
                     JumpIfEndOfLine { tgt } => {
-                        if (self.registers.off as usize) >= line.len() {
-                            self.registers.pc = tgt;
+                        if (self.state.vm.registers.off as usize) >= line.len() {
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
 
                     JumpIfMatchCharset { idx, min, max, tgt } => {
-                        let off = self.registers.off as usize;
+                        let off = self.state.vm.registers.off as usize;
                         let cs = &self.charsets[idx as usize];
                         let min = min as usize;
                         let max = max as usize;
 
                         if let Some(off) = Self::charset_gobble(line, off, cs, min, max) {
-                            self.registers.off = off as u32;
-                            self.registers.pc = tgt;
+                            self.state.vm.registers.off = off as u32;
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpIfMatchPrefix { idx, tgt } => {
-                        let off = self.registers.off as usize;
+                        let off = self.state.vm.registers.off as usize;
                         let str = self.strings[idx as usize].as_bytes();
 
                         if Self::inlined_memcmp(line, off, str) {
-                            self.registers.off = (off + str.len()) as u32;
-                            self.registers.pc = tgt;
+                            self.state.vm.registers.off = (off + str.len()) as u32;
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
                     JumpIfMatchPrefixInsensitive { idx, tgt } => {
-                        let off = self.registers.off as usize;
+                        let off = self.state.vm.registers.off as usize;
                         let str = self.strings[idx as usize].as_bytes();
 
                         if Self::inlined_memicmp(line, off, str) {
-                            self.registers.off = (off + str.len()) as u32;
-                            self.registers.pc = tgt;
+                            self.state.vm.registers.off = (off + str.len()) as u32;
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
 
@@ -355,10 +353,10 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                         // a stray `yield` in a detect() body doesn't trip the
                         // runtime, though the frontend forbids it.
                         let _ = kind;
-                        self.registers.hs = self.registers.off;
+                        self.state.vm.registers.hs = self.state.vm.registers.off;
                     }
                     AwaitInput => {
-                        let off = self.registers.off as usize;
+                        let off = self.state.vm.registers.off as usize;
                         if off >= line.len() {
                             break;
                         }
@@ -369,16 +367,16 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                         break 'outer;
                     }
                     SaveSpan { start, end } => {
-                        let s = self.registers.get(start);
-                        let e = self.registers.get(end);
-                        self.saved.set(line, s, e);
+                        let s = self.state.vm.registers.get(start);
+                        let e = self.state.vm.registers.get(end);
+                        self.state.vm.saved.set(line, s, e);
                     }
                     JumpIfMatchSaved { tgt } => {
-                        let off = self.registers.off as usize;
-                        let n = self.saved.as_bytes().len();
-                        if n != 0 && Self::inlined_memcmp(line, off, self.saved.as_bytes()) {
-                            self.registers.off = (off + n) as u32;
-                            self.registers.pc = tgt;
+                        let off = self.state.vm.registers.off as usize;
+                        let n = self.state.vm.saved.as_bytes().len();
+                        if n != 0 && Self::inlined_memcmp(line, off, self.state.vm.saved.as_bytes()) {
+                            self.state.vm.registers.off = (off + n) as u32;
+                            self.state.vm.registers.pc = tgt;
                         }
                     }
 
@@ -387,22 +385,18 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
             }
         }
 
-        self.stack = saved_stack;
-        self.registers = saved_registers;
-        self.entrypoint = saved_entrypoint;
-        self.saved = saved_span;
+        self.state.vm = outer_vm;
+        self.entrypoint = outer_entrypoint;
 
         if decided { verdict } else { false }
     }
 
     pub fn snapshot(&self) -> RuntimeState {
-        RuntimeState { stack: self.stack.clone(), registers: self.registers, saved: self.saved }
+        self.state.clone()
     }
 
     pub fn restore(&mut self, state: &RuntimeState) {
-        self.stack = state.stack.clone();
-        self.registers = state.registers;
-        self.saved = state.saved;
+        self.state = state.clone();
     }
 
     /// Set the current line number, readable from the DSL as `ln`.
@@ -414,7 +408,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
     /// be set again for every line. Callers that don't set it leave `ln` at
     /// 0, which simply never matches a 1-based line guard.
     pub fn set_line_number(&mut self, line_number: u32) {
-        self.registers.set(Register::LINE_NUMBER, line_number);
+        self.state.vm.registers.set(Register::LINE_NUMBER, line_number);
     }
 
     /// Parse a single line and return highlight spans.
@@ -433,8 +427,8 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
     ) -> BVec<'a, Highlight<T>> {
         let mut res: BVec<'a, Highlight<T>> = BVec::empty();
 
-        self.registers.off = 0;
-        self.registers.hs = 0;
+        self.state.vm.registers.off = 0;
+        self.state.vm.registers.hs = 0;
 
         // By default, any line starts with HighlightKind::Other.
         // If the DSL yields anything, this will be overwritten.
@@ -452,124 +446,124 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     runtime_line_within_instruction_budget,
                     false,
                     "pc={} off={} line_len={} budget={budget}",
-                    self.registers.pc,
-                    self.registers.off,
+                    self.state.vm.registers.pc,
+                    self.state.vm.registers.off,
                     line.len()
                 );
-                self.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                self.state.vm.registers = Registers { pc: self.entrypoint, ..Default::default() };
                 break;
             }
 
-            instruction_decode!(self.assembly, self.registers.pc, {
+            instruction_decode!(self.assembly, self.state.vm.registers.pc, {
                 Mov { dst, src } => {
-                    let s = self.registers.get(src);
-                    self.registers.set(dst, s);
+                    let s = self.state.vm.registers.get(src);
+                    self.state.vm.registers.set(dst, s);
                 }
                 Add { dst, src } => {
-                    let d = self.registers.get(dst);
-                    let s = self.registers.get(src);
-                    self.registers.set(dst, d.saturating_add(s));
+                    let d = self.state.vm.registers.get(dst);
+                    let s = self.state.vm.registers.get(src);
+                    self.state.vm.registers.set(dst, d.saturating_add(s));
                 }
                 Sub { dst, src } => {
-                    let d = self.registers.get(dst);
-                    let s = self.registers.get(src);
-                    self.registers.set(dst, d.saturating_sub(s));
+                    let d = self.state.vm.registers.get(dst);
+                    let s = self.state.vm.registers.get(src);
+                    self.state.vm.registers.set(dst, d.saturating_sub(s));
                 }
                 MovImm { dst, imm } => {
-                    self.registers.set(dst, imm);
+                    self.state.vm.registers.set(dst, imm);
                 }
                 AddImm { dst, imm } => {
-                    let d = self.registers.get(dst);
-                    self.registers.set(dst, d.saturating_add(imm));
+                    let d = self.state.vm.registers.get(dst);
+                    self.state.vm.registers.set(dst, d.saturating_add(imm));
                 }
                 SubImm { dst, imm } => {
-                    let d = self.registers.get(dst);
-                    self.registers.set(dst, d.saturating_sub(imm));
+                    let d = self.state.vm.registers.get(dst);
+                    self.state.vm.registers.set(dst, d.saturating_sub(imm));
                 }
 
                 Call { tgt } => {
                     // PC already points to the next instruction (= return address)
-                    self.registers.save_registers(&mut self.stack);
-                    self.registers.pc = tgt;
+                    self.state.vm.registers.save_registers(&mut self.state.vm.stack);
+                    self.state.vm.registers.pc = tgt;
                 }
                 Return => {
-                    if !self.registers.load_registers(&mut self.stack) {
-                        self.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                    if !self.state.vm.registers.load_registers(&mut self.state.vm.stack) {
+                        self.state.vm.registers = Registers { pc: self.entrypoint, ..Default::default() };
                         break;
                     }
                 }
 
                 JumpEQ { lhs, rhs, tgt } => {
-                    if self.registers.get(lhs) == self.registers.get(rhs) {
-                        self.registers.pc = tgt;
+                    if self.state.vm.registers.get(lhs) == self.state.vm.registers.get(rhs) {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpNE { lhs, rhs, tgt } => {
-                    if self.registers.get(lhs) != self.registers.get(rhs) {
-                        self.registers.pc = tgt;
+                    if self.state.vm.registers.get(lhs) != self.state.vm.registers.get(rhs) {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpLT { lhs, rhs, tgt } => {
-                    if self.registers.get(lhs) < self.registers.get(rhs) {
-                        self.registers.pc = tgt;
+                    if self.state.vm.registers.get(lhs) < self.state.vm.registers.get(rhs) {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpLE { lhs, rhs, tgt } => {
-                    if self.registers.get(lhs) <= self.registers.get(rhs) {
-                        self.registers.pc = tgt;
+                    if self.state.vm.registers.get(lhs) <= self.state.vm.registers.get(rhs) {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpGT { lhs, rhs, tgt } => {
-                    if self.registers.get(lhs) > self.registers.get(rhs) {
-                        self.registers.pc = tgt;
+                    if self.state.vm.registers.get(lhs) > self.state.vm.registers.get(rhs) {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpGE { lhs, rhs, tgt } => {
-                    if self.registers.get(lhs) >= self.registers.get(rhs) {
-                        self.registers.pc = tgt;
+                    if self.state.vm.registers.get(lhs) >= self.state.vm.registers.get(rhs) {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
 
                 JumpIfEndOfLine { tgt } => {
-                    if (self.registers.off as usize) >= line.len() {
-                        self.registers.pc = tgt;
+                    if (self.state.vm.registers.off as usize) >= line.len() {
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
 
                 JumpIfMatchCharset { idx, min, max, tgt } => {
-                    let off = self.registers.off as usize;
+                    let off = self.state.vm.registers.off as usize;
                     let cs = &self.charsets[idx as usize];
                     let min = min as usize;
                     let max = max as usize;
 
                     if let Some(off) = Self::charset_gobble(line, off, cs, min, max) {
-                        self.registers.off = off as u32;
-                        self.registers.pc = tgt;
+                        self.state.vm.registers.off = off as u32;
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpIfMatchPrefix { idx, tgt } => {
-                    let off = self.registers.off as usize;
+                    let off = self.state.vm.registers.off as usize;
                     let str = self.strings[idx as usize].as_bytes();
 
                     if Self::inlined_memcmp(line, off, str) {
-                        self.registers.off = (off + str.len()) as u32;
-                        self.registers.pc = tgt;
+                        self.state.vm.registers.off = (off + str.len()) as u32;
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
                 JumpIfMatchPrefixInsensitive { idx, tgt } => {
-                    let off = self.registers.off as usize;
+                    let off = self.state.vm.registers.off as usize;
                     let str = self.strings[idx as usize].as_bytes();
 
                     if Self::inlined_memicmp(line, off, str) {
-                        self.registers.off = (off + str.len()) as u32;
-                        self.registers.pc = tgt;
+                        self.state.vm.registers.off = (off + str.len()) as u32;
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
 
                 FlushHighlight { kind } => {
-                    let kind = self.registers.get(kind);
+                    let kind = self.state.vm.registers.get(kind);
                     let kind = unsafe { kind.try_into().unwrap_unchecked() };
-                    let start = (self.registers.hs as usize).min(line.len());
+                    let start = (self.state.vm.registers.hs as usize).min(line.len());
 
                     // `hs` only ever moves forward, so spans come out ordered
                     // and consumers can treat them as tiling the line. A
@@ -593,10 +587,10 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                         res.push(arena, Highlight { start, kind });
                     }
 
-                    self.registers.hs = self.registers.off;
+                    self.state.vm.registers.hs = self.state.vm.registers.off;
                 }
                 AwaitInput => {
-                    let off = self.registers.off as usize;
+                    let off = self.state.vm.registers.off as usize;
                     if off >= line.len() {
                         break;
                     }
@@ -607,20 +601,20 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     // language definition emits one inside a highlighter
                     // entrypoint, treat it as a soft reset to the entrypoint
                     // (mirrors empty-stack Return), preventing runaway loops.
-                    self.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                    self.state.vm.registers = Registers { pc: self.entrypoint, ..Default::default() };
                     break;
                 }
                 SaveSpan { start, end } => {
-                    let s = self.registers.get(start);
-                    let e = self.registers.get(end);
-                    self.saved.set(line, s, e);
+                    let s = self.state.vm.registers.get(start);
+                    let e = self.state.vm.registers.get(end);
+                    self.state.vm.saved.set(line, s, e);
                 }
                 JumpIfMatchSaved { tgt } => {
-                    let off = self.registers.off as usize;
-                    let n = self.saved.as_bytes().len();
-                    if n != 0 && Self::inlined_memcmp(line, off, self.saved.as_bytes()) {
-                        self.registers.off = (off + n) as u32;
-                        self.registers.pc = tgt;
+                    let off = self.state.vm.registers.off as usize;
+                    let n = self.state.vm.saved.as_bytes().len();
+                    if n != 0 && Self::inlined_memcmp(line, off, self.state.vm.saved.as_bytes()) {
+                        self.state.vm.registers.off = (off + n) as u32;
+                        self.state.vm.registers.pc = tgt;
                     }
                 }
 
@@ -790,7 +784,7 @@ impl fmt::Display for Register {
 }
 
 #[repr(C)]
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub struct Registers {
     pub off: u32, // x0 = InputOffset
     pub hs: u32,  // x1 = HighlightStart
