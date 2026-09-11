@@ -1722,12 +1722,31 @@ mod tests {
     #[test]
     fn a_repeated_opener_restarts_the_block_from_the_fork() {
         use ConflictTag::*;
-        let parsed = kinds_and_tags(
+        // From each of the three in-block states in turn, with a construct
+        // left open just before the repeat.
+        let from_ours = kinds_and_tags(
             COMMENT_DEF,
             &["<<<<<<< HEAD", "/* open", "<<<<<<< HEAD", "x", "=======", "y", ">>>>>>> t"],
         );
-        assert_eq!(tags(&parsed), [Marker, Ours, Marker, Ours, Marker, Theirs, Marker]);
-        assert_eq!(kinds(&parsed)[3], ["keyword"]);
+        assert_eq!(tags(&from_ours), [Marker, Ours, Marker, Ours, Marker, Theirs, Marker]);
+        assert_eq!(kinds(&from_ours)[3], ["keyword"]);
+
+        let from_base = kinds_and_tags(
+            COMMENT_DEF,
+            &["<<<<<<< HEAD", "a", "||||||| b", "/* open", "<<<<<<< HEAD", "x", ">>>>>>> t"],
+        );
+        assert_eq!(tags(&from_base), [Marker, Ours, Marker, Base, Marker, Ours, Ours]);
+        assert_eq!(kinds(&from_base)[5], ["keyword"]);
+
+        let from_theirs = kinds_and_tags(
+            COMMENT_DEF,
+            &["<<<<<<< HEAD", "a", "=======", "/* open", "<<<<<<< HEAD", "x", "=======", "y"],
+        );
+        assert_eq!(
+            tags(&from_theirs),
+            [Marker, Ours, Marker, Theirs, Marker, Ours, Marker, Theirs]
+        );
+        assert_eq!(kinds(&from_theirs)[5], ["keyword"]);
     }
 
     #[test]
