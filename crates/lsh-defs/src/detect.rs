@@ -1,7 +1,8 @@
 //! Language detection -- path glob, shebang, content sniffing.
 //!
 //! Single shared impl for every consumer of the bundled lsh definitions.
-//! Three entry points the callers actually use:
+//! [`resolve`] runs the whole chain and ends in [`PLAIN`]; the pieces it
+//! is built from are public for callers that need one step on its own:
 //!
 //! - [`match_file_associations`] -- glob a path against an association table,
 //!   collect every unique candidate. Used together with [`disambiguate_language`]
@@ -19,7 +20,40 @@ use std::path::Path;
 use lsh::runtime::{Language, Runtime};
 use stdext::glob::glob_match;
 
-use crate::{ASSEMBLY, CHARSETS, LANGUAGES, STRINGS};
+use crate::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, LANGUAGES, PLAIN, STRINGS};
+
+/// For callers with no associations of their own.
+pub const NO_USER_ASSOCIATIONS: &[(&str, &Language)] = &[];
+
+/// Resolve the language of a buffer. In order: the user's own associations,
+/// the bundled globs (a glob several dialects share is settled by their
+/// detectors against the head), a shebang, a content sniff, and finally
+/// [`PLAIN`]. The one place that fallback is decided. `head` is the first
+/// few KiB of the buffer and is only fetched when the path alone does not
+/// decide.
+pub fn resolve<T: AsRef<[u8]>>(
+    path: Option<&Path>,
+    user_associations: &[(T, &'static Language)],
+    head: impl FnOnce() -> Vec<u8>,
+) -> &'static Language {
+    let mut candidates = Vec::new();
+    if let Some(path) = path {
+        candidates = match_file_associations(user_associations, path);
+        for cand in match_file_associations(FILE_ASSOCIATIONS, path) {
+            if !candidates.iter().any(|l| std::ptr::eq(*l, cand)) {
+                candidates.push(cand);
+            }
+        }
+    }
+    if let [only] = candidates.as_slice() {
+        return only;
+    }
+    let head = head();
+    if let Some(lang) = disambiguate_language(&candidates, &head) {
+        return lang;
+    }
+    language_from_shebang(&head).or_else(|| language_from_content(&head)).unwrap_or(PLAIN)
+}
 
 /// Walk an association table, return the first language whose glob matches.
 /// Single-match shortcut for callers that don't care about dialect ambiguity.
@@ -500,6 +534,38 @@ mod tests {
         assert_eq!(content_id(b"width = 800\nif [ -z \"$x\" ]; then\n"), None);
         // single kv is not enough.
         assert_eq!(content_id(b"width = 800\n"), None);
+    }
+
+    fn resolved(path: Option<&str>, head: &[u8]) -> &'static str {
+        resolve(path.map(Path::new), NO_USER_ASSOCIATIONS, || head.to_vec()).id
+    }
+
+    #[test]
+    fn resolve_walks_the_chain_and_ends_in_plain() {
+        // A single glob hit decides without reading the head.
+        let lang = resolve(Some(Path::new("src/main.rs")), NO_USER_ASSOCIATIONS, || {
+            panic!("head read for an unambiguous path")
+        });
+        assert_eq!(lang.id, "rust");
+        assert_eq!(resolved(Some("x.yaml"), b"key: value\n"), "yaml");
+        assert_eq!(resolved(Some("run"), b"#!/bin/sh\necho hi\n"), "shellscript");
+        assert_eq!(resolved(Some("NOTES"), b"# Title\n\n- one\n- two\n- three\n"), "markdown");
+        assert!(std::ptr::eq(
+            resolve(Some(Path::new("NOTES")), NO_USER_ASSOCIATIONS, || b"just prose\n".to_vec()),
+            PLAIN
+        ));
+        assert!(std::ptr::eq(
+            resolve(None, NO_USER_ASSOCIATIONS, || b"just prose\n".to_vec()),
+            PLAIN
+        ));
+    }
+
+    #[test]
+    fn a_user_association_wins_over_the_bundled_one() {
+        let python = find_language("python").unwrap();
+        let user = [("**/*.rs", python)];
+        let lang = resolve(Some(Path::new("src/main.rs")), &user, Vec::new);
+        assert_eq!(lang.id, "python");
     }
 
     #[test]
