@@ -1,4 +1,4 @@
-use lsh::runtime::Highlight;
+use lsh::runtime::{ConflictTag, ParsedLine};
 use stdext::arena::{Arena, scratch_arena};
 use stdext::collections::BVec;
 
@@ -34,13 +34,14 @@ impl HighlighterCache {
         self.checkpoints.truncate(Self::ceil_line_to_offset(line));
     }
 
-    /// Parse the given logical line. Returns the highlight spans.
+    /// Parse the given logical line. Past the end of the document the result
+    /// has no spans and no conflict tag.
     pub fn parse_line<'a>(
         &mut self,
         arena: &'a Arena,
         highlighter: &mut Highlighter,
         line: CoordType,
-    ) -> BVec<'a, Highlight<HighlightKind>> {
+    ) -> ParsedLine<'a, HighlightKind> {
         let seeked = line != highlighter.logical_pos_y();
 
         // Do we need to random seek?
@@ -72,30 +73,30 @@ impl HighlighterCache {
             }
         }
 
-        let spans = self.parse_line_impl(arena, highlighter);
+        let parsed = self.parse_line_impl(arena, highlighter);
 
         // Spans are half-open `[start, next.start)`, so a line's spans have to
         // step strictly forward. A duplicated or out-of-order start means the
         // compiler pipeline emitted overlapping tokens, which shows up only as
         // odd-looking colour.
         #[cfg(feature = "sanity")]
-        if let Some(bad) = spans.windows(2).position(|w| w[1].start <= w[0].start) {
+        if let Some(bad) = parsed.spans.windows(2).position(|w| w[1].start <= w[0].start) {
             crate::sanity_check!(
                 highlighter_spans_monotonic,
                 false,
                 "line {line}: span {} starts at {} after {}",
                 bad + 1,
-                spans[bad + 1].start,
-                spans[bad].start
+                parsed.spans[bad + 1].start,
+                parsed.spans[bad].start
             );
         }
 
         #[cfg(feature = "sanity")]
         if seeked {
-            self.verify_against_full_reparse(arena, highlighter, line, &spans);
+            self.verify_against_full_reparse(arena, highlighter, line, &parsed);
         }
 
-        spans
+        parsed
     }
 
     /// Compares a checkpoint-restored parse against parsing the file from the
@@ -108,7 +109,7 @@ impl HighlighterCache {
         arena: &Arena,
         highlighter: &Highlighter,
         line: CoordType,
-        spans: &[Highlight<HighlightKind>],
+        parsed: &ParsedLine<'_, HighlightKind>,
     ) {
         self.seeks = self.seeks.wrapping_add(1);
         if !self.seeks.is_multiple_of(VERIFY_EVERY) {
@@ -128,28 +129,36 @@ impl HighlighterCache {
             let inner = scratch_arena(Some(&scratch));
             _ = fresh.parse_next_line(&inner);
         }
-        let expected = fresh.parse_next_line(&scratch);
+        let expected = Self::past_the_end_or(fresh.parse_next_line(&scratch));
 
         crate::sanity_check!(
             highlighter_cache_coherent,
-            &expected[..] == spans,
-            "line {line}: cached {:?} != re-parsed {:?}",
-            spans,
-            &expected[..]
+            expected.spans[..] == parsed.spans[..] && expected.conflict == parsed.conflict,
+            "line {line}: cached {:?} {:?} != re-parsed {:?} {:?}",
+            &parsed.spans[..],
+            parsed.conflict,
+            &expected.spans[..],
+            expected.conflict
         );
+    }
+
+    fn past_the_end_or(
+        parsed: Option<ParsedLine<'_, HighlightKind>>,
+    ) -> ParsedLine<'_, HighlightKind> {
+        parsed.unwrap_or(ParsedLine { spans: BVec::empty(), conflict: ConflictTag::None })
     }
 
     fn parse_line_impl<'a>(
         &mut self,
         arena: &'a Arena,
         highlighter: &mut Highlighter,
-    ) -> BVec<'a, Highlight<HighlightKind>> {
+    ) -> ParsedLine<'a, HighlightKind> {
         // If we need to store a checkpoint for the start of the next line, do so now.
         if Self::floor_line_to_offset(highlighter.logical_pos_y()) == self.checkpoints.len() {
             self.checkpoints.push(highlighter.snapshot());
         }
 
-        highlighter.parse_next_line(arena)
+        Self::past_the_end_or(highlighter.parse_next_line(arena))
     }
 
     /// Since this line cache is super simplistic (no insertions, only append),

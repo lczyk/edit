@@ -684,7 +684,7 @@ impl TextBuffer {
                     let parsed =
                         self.highlighter_cache.parse_line(&scratch_hl, highlighter, logical_y);
                     hl_buf.clear();
-                    hl_buf.extend(parsed.iter().cloned());
+                    hl_buf.extend(parsed.spans.iter().cloned());
                     hl_logical_y = Some(logical_y);
                 }
                 let (fg_rects, attr_rects) = self.build_markup_row(
@@ -754,10 +754,10 @@ impl TextBuffer {
         let mut highlighter = Highlighter::new(&self.buffer, language);
         for slot in out.iter_mut() {
             let scratch = scratch_arena(None);
-            let highlights = highlighter.parse_next_line(&scratch);
+            let Some(parsed) = highlighter.parse_next_line(&scratch) else { break };
             // Tally byte coverage per kind across this line's spans.
             let mut tally: Vec<(HighlightKind, usize)> = Vec::new();
-            for w in highlights.windows(2) {
+            for w in parsed.spans.windows(2) {
                 let kind = w[0].kind;
                 if matches!(kind, HighlightKind::Other) {
                     continue;

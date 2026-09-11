@@ -63,7 +63,14 @@ impl<'doc> Highlighter<'doc> {
         self.runtime.restore(&snapshot.state);
     }
 
-    pub fn parse_next_line<'a>(&mut self, arena: &'a Arena) -> BVec<'a, Highlight<HighlightKind>> {
+    /// Parse the next logical line. `None` at end of input; a line past
+    /// `MAX_LINE_LEN` is `Some` with no spans, so a consumer can tell the
+    /// two apart. Calls past the end keep advancing `logical_pos_y`: the
+    /// editor's cache seeks by comparing it to a target line.
+    pub fn parse_next_line<'a>(
+        &mut self,
+        arena: &'a Arena,
+    ) -> Option<ParsedLine<'a, HighlightKind>> {
         let scratch = scratch_arena(Some(arena));
         let (line_off, line) = self.read_next_line(&scratch);
 
@@ -81,12 +88,17 @@ impl<'doc> Highlighter<'doc> {
             line.len()
         );
 
-        // Empty lines can be somewhat common.
-        //
-        // If the line is too long, we don't highlight it.
-        // This is to prevent performance issues with very long lines.
-        if line.is_empty() || line.len() >= MAX_LINE_LEN {
-            return BVec::empty();
+        if line.is_empty() {
+            return None;
+        }
+        // A very long line is skipped whole rather than highlighted; the vm
+        // never sees it, so it still belongs to whatever conflict region the
+        // previous line left open.
+        if line.len() >= MAX_LINE_LEN {
+            return Some(ParsedLine {
+                spans: BVec::empty(),
+                conflict: self.runtime.conflict_region(),
+            });
         }
 
         let line = strip_newline(line);
@@ -100,7 +112,7 @@ impl<'doc> Highlighter<'doc> {
             h.start = line_off + h.start.min(line.len());
         }
 
-        parsed.spans
+        Some(parsed)
     }
 
     fn read_next_line<'a>(&mut self, arena: &'a Arena) -> (usize, &'a [u8])
@@ -253,12 +265,8 @@ mod tests {
             }
         };
         let mut out = Vec::new();
-        loop {
-            let spans = h.parse_next_line(&arena);
-            if spans.is_empty() {
-                break;
-            }
-            for s in spans.iter() {
+        while let Some(parsed) = h.parse_next_line(&arena) {
+            for s in parsed.spans.iter() {
                 out.push((s.start, kind_name(s.kind)));
             }
         }
@@ -376,8 +384,38 @@ mod tests {
         let h_data = data.as_slice();
         let arena = Arena::new(8 * 1024 * 1024).unwrap();
         let mut h = Highlighter::new(&h_data, lang("markdown"));
-        let spans = h.parse_next_line(&arena);
-        assert!(spans.is_empty(), "expected long line to be skipped");
+        let parsed = h.parse_next_line(&arena).expect("a long line is not the end of input");
+        assert!(parsed.spans.is_empty(), "expected long line to be skipped");
+        assert!(h.parse_next_line(&arena).is_none(), "nothing follows the long line");
+    }
+
+    /// The cache seeks by comparing `logical_pos_y` with a target line and
+    /// would spin if the counter stopped at the end of input.
+    #[test]
+    fn the_line_counter_keeps_advancing_past_the_end() {
+        let src: &[u8] = b"one\ntwo\n";
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut h = Highlighter::new(&src, lang("markdown"));
+        for _ in 0..2 {
+            assert!(h.parse_next_line(&arena).is_some());
+        }
+        assert!(h.parse_next_line(&arena).is_none());
+        assert_eq!(h.logical_pos_y(), 3);
+        assert!(h.parse_next_line(&arena).is_none());
+        assert_eq!(h.logical_pos_y(), 4);
+    }
+
+    #[test]
+    fn conflict_tags_reach_the_highlighter() {
+        let src: &[u8] = b"a\n<<<<<<< x\nb\n=======\nc\n>>>>>>> y\nd\n";
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut h = Highlighter::new(&src, lang("markdown"));
+        let mut tags = Vec::new();
+        while let Some(parsed) = h.parse_next_line(&arena) {
+            tags.push(parsed.conflict);
+        }
+        use ConflictTag::*;
+        assert_eq!(tags, [None, Marker, Ours, Marker, Theirs, Marker, None]);
     }
 
     /// A line past `MAX_LINE_LEN` that arrives in several chunks is skipped
@@ -398,10 +436,10 @@ mod tests {
         let arena = Arena::new(8 * 1024 * 1024).unwrap();
         let mut h = Highlighter::new(&doc, lang("markdown"));
 
-        assert!(h.parse_next_line(&arena).is_empty(), "long line should be skipped");
+        assert!(h.parse_next_line(&arena).unwrap().spans.is_empty(), "long line should be skipped");
         assert_eq!(h.logical_pos_y(), 1);
 
-        let spans = h.parse_next_line(&arena);
+        let spans = h.parse_next_line(&arena).unwrap().spans;
         assert_eq!(h.logical_pos_y(), 2);
         assert!(
             spans.iter().all(|s| s.start >= marker_off),
