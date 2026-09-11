@@ -143,8 +143,10 @@ impl<'doc> Highlighter<'doc> {
             chunk = next_chunk;
         }
 
-        // Concatenate chunks until we get a full line.
-        while line_buf.len() < MAX_LINE_LEN {
+        // Concatenate chunks until we get a full line. Once the buffer is
+        // full we keep scanning without copying, so the offset still lands on
+        // the real start of the next line.
+        loop {
             let (off, line) = simd::lines_fwd(chunk, 0, 0, 1);
             self.offset += off;
 
