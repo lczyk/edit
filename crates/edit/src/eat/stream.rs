@@ -49,10 +49,8 @@ fn resolve_pager() -> Option<String> {
 }
 
 /// render the highlighted body bytes for a single line into `out`. no gutter
-/// prefix and no trailing newline -- the caller composes those. this is the
-/// shared core that `write_highlighted_line` (writes through to a stream)
-/// and the tui's `LineSink` (stores per-line for later composition) both
-/// build on.
+/// prefix and no trailing newline -- `write_highlighted_line` composes those
+/// around it.
 pub(crate) fn render_body(
     runtime: Option<&mut Runtime>,
     color_map: &[&str],
