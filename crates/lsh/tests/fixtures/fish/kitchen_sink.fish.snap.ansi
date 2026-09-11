@@ -19,13 +19,13 @@ echo \x1b[92m1.5e10\x1b[m
 \x1b[32m# Single-quoted strings (no escapes, no interpolation)\x1b[m
 echo \x1b[91m'hello world'\x1b[m
 echo \x1b[91m'no $expansion here'\x1b[m
-echo \x1b[91m'no \n escapes either'\x1b[m
+echo \x1b[91m'no \\n escapes either'\x1b[m
 
 \x1b[32m# Double-quoted strings (variable expansion + escapes)\x1b[m
 echo \x1b[91m"hello \x1b[m\x1b[96m$USER\x1b[m\x1b[91m"\x1b[m
-echo \x1b[91m"escaped \" quote"\x1b[m
-echo \x1b[91m"escaped \\ backslash"\x1b[m
-echo \x1b[91m"tab\there"\x1b[m
+echo \x1b[91m"escaped \\" quote"\x1b[m
+echo \x1b[91m"escaped \\\\ backslash"\x1b[m
+echo \x1b[91m"tab\\there"\x1b[m
 echo \x1b[91m"value: \x1b[m\x1b[96m$argv\x1b[m\x1b[91m"\x1b[m
 
 \x1b[32m# Variables\x1b[m
@@ -108,7 +108,7 @@ abbr -a gco \x1b[91m'git checkout'\x1b[m
 alias ll \x1b[91m'ls -la'\x1b[m
 cd /tmp
 echo \x1b[91m"hello"\x1b[m
-printf \x1b[91m"%s\n"\x1b[m \x1b[91m"hello"\x1b[m
+printf \x1b[91m"%s\\n"\x1b[m \x1b[91m"hello"\x1b[m
 read -l -P \x1b[91m"name? "\x1b[m user_name
 \x1b[94msource\x1b[m /dev/null
 \x1b[94meval\x1b[m \x1b[91m'echo hi'\x1b[m
@@ -131,10 +131,10 @@ read -l -P \x1b[91m"name? "\x1b[m user_name
 \x1b[95mend\x1b[m
 
 \x1b[32m# String operations\x1b[m
-string match -r \x1b[91m'^\d+$'\x1b[m \x1b[91m"123"\x1b[m
+string match -r \x1b[91m'^\\d+$'\x1b[m \x1b[91m"123"\x1b[m
 string replace -a old new \x1b[91m"old string old"\x1b[m
 string split , \x1b[91m"a,b,c"\x1b[m
-string join \n one two three
+string join \\n one two three
 string length \x1b[91m"hello"\x1b[m
 string sub -s \x1b[92m2\x1b[m -l \x1b[92m3\x1b[m \x1b[91m"hello"\x1b[m
 string trim \x1b[91m"  hello  "\x1b[m

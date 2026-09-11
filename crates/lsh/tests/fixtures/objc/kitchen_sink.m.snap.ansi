@@ -32,6 +32,6 @@
 \x1b[94m@end\x1b[m
 
 \x1b[32m// A backslash-newline continues a string literal.\x1b[m
-NSString *continued = \x1b[91m@"one \\x1b[m
+NSString *continued = \x1b[91m@"one \\\x1b[m
 \x1b[91mtwo"\x1b[m;
 

@@ -21,7 +21,7 @@
 \x1b[32m         This is a block comment\x1b[m
 \x1b[32m         inside JSONC.\x1b[m
 \x1b[32m    */\x1b[m
-    \x1b[96m"unicodeString"\x1b[m: \x1b[91m"Emoji: \x1b[m\x1b[33m\uD83D\x1b[m\x1b[33m\uDE03\x1b[m\x1b[91m"\x1b[m, \x1b[32m// Unicode escape\x1b[m
-    \x1b[96m"escapedChars"\x1b[m: \x1b[91m"Line1\x1b[m\x1b[33m\n\x1b[m\x1b[91mLine2\x1b[m\x1b[33m\t\x1b[m\x1b[91mTabbed\x1b[m\x1b[33m\\\x1b[m\x1b[91mBackslash\x1b[m\x1b[33m\"\x1b[m\x1b[91mQuote"\x1b[m \x1b[32m// Escaped characters\x1b[m
+    \x1b[96m"unicodeString"\x1b[m: \x1b[91m"Emoji: \x1b[m\x1b[33m\\uD83D\x1b[m\x1b[33m\\uDE03\x1b[m\x1b[91m"\x1b[m, \x1b[32m// Unicode escape\x1b[m
+    \x1b[96m"escapedChars"\x1b[m: \x1b[91m"Line1\x1b[m\x1b[33m\\n\x1b[m\x1b[91mLine2\x1b[m\x1b[33m\\t\x1b[m\x1b[91mTabbed\x1b[m\x1b[33m\\\\\x1b[m\x1b[91mBackslash\x1b[m\x1b[33m\\"\x1b[m\x1b[91mQuote"\x1b[m \x1b[32m// Escaped characters\x1b[m
 }
 

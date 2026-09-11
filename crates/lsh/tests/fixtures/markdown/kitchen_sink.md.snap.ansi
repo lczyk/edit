@@ -23,7 +23,7 @@ regular
 \x1b[91m`multi\x1b[m
 \x1b[91mline`\x1b[m
 \x1b[91m`` `literal` ``\x1b[m
-\*not\* \_italic\_ # not a heading
+\\*not\\* \\_italic\\_ # not a heading
 
 \x1b[94m* \x1b[mUnordered item
   \x1b[94m- \x1b[mNested item

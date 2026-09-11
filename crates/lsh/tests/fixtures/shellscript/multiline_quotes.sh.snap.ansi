@@ -4,7 +4,7 @@
 single=\x1b[91m'first\x1b[m
 \x1b[91msecond'\x1b[m
 
-ansi_c=\x1b[91m$'first\ttab\x1b[m
+ansi_c=\x1b[91m$'first\\ttab\x1b[m
 \x1b[91msecond'\x1b[m
 
 double=\x1b[91m"first \x1b[m\x1b[96m$USER\x1b[m
@@ -20,7 +20,7 @@ jq \x1b[91m"\x1b[m\x1b[96m$FILTER\x1b[m\x1b[91m"\x1b[m\x1b[91m'\x1b[m
 \x1b[91m    | . + $overlay'\x1b[m --argjson prev \x1b[91m"\x1b[m\x1b[96m$prev\x1b[m\x1b[91m"\x1b[m \x1b[91m"\x1b[m\x1b[96m$cfg\x1b[m\x1b[91m"\x1b[m
 
 \x1b[32m# A backslash-escaped quote outside any string does not open one.\x1b[m
-echo \x1b[91m'it'\x1b[m\'\x1b[91m's a trap'\x1b[m
+echo \x1b[91m'it'\x1b[m\\'\x1b[91m's a trap'\x1b[m
 
 \x1b[32m# Quotes inside a heredoc body are inert.\x1b[m
 cat <<'EOF'

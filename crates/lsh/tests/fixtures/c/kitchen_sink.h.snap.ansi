@@ -39,23 +39,23 @@
 
 \x1b[32m// Char literals\x1b[m
 \x1b[36mchar\x1b[m a    = \x1b[91m'a'\x1b[m;
-\x1b[36mchar\x1b[m nl   = \x1b[91m'\n'\x1b[m;
-\x1b[36mchar\x1b[m zero = \x1b[91m'\0'\x1b[m;
-\x1b[36mchar\x1b[m hex_c = \x1b[91m'\x1b'\x1b[m;
-\x1b[36mchar\x1b[m esc  = \x1b[91m'\\'\x1b[m;
+\x1b[36mchar\x1b[m nl   = \x1b[91m'\\n'\x1b[m;
+\x1b[36mchar\x1b[m zero = \x1b[91m'\\0'\x1b[m;
+\x1b[36mchar\x1b[m hex_c = \x1b[91m'\\x1b'\x1b[m;
+\x1b[36mchar\x1b[m esc  = \x1b[91m'\\\\'\x1b[m;
 
 \x1b[32m// String literals (with prefixes)\x1b[m
 \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *s     = \x1b[91m"hello, world"\x1b[m;
-\x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *multi = \x1b[91m"line\nbreak \"escaped\""\x1b[m;
+\x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *multi = \x1b[91m"line\\nbreak \\"escaped\\""\x1b[m;
 \x1b[94mconst\x1b[m \x1b[36mwchar_t\x1b[m  *w     = \x1b[91mL"wide"\x1b[m;
 \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m     *u8s   = \x1b[91mu8"utf-8"\x1b[m;
 \x1b[94mconst\x1b[m char16_t *u16s  = \x1b[91mu"utf-16"\x1b[m;
 \x1b[94mconst\x1b[m char32_t *u32s  = \x1b[91mU"utf-32"\x1b[m;
 
 \x1b[32m// Char literals (with prefixes and longer escapes)\x1b[m
-\x1b[36mchar\x1b[m esc_x   = \x1b[91m'\x1b'\x1b[m;
-\x1b[36mchar\x1b[m esc_oct = \x1b[91m'\012'\x1b[m;
-\x1b[36mwchar_t\x1b[m wc   = \x1b[91mL'\xFF'\x1b[m;
+\x1b[36mchar\x1b[m esc_x   = \x1b[91m'\\x1b'\x1b[m;
+\x1b[36mchar\x1b[m esc_oct = \x1b[91m'\\012'\x1b[m;
+\x1b[36mwchar_t\x1b[m wc   = \x1b[91mL'\\xFF'\x1b[m;
 
 \x1b[32m// Types and qualifiers\x1b[m
 \x1b[94mtypedef\x1b[m \x1b[94mstruct\x1b[m Nob_Cmd {
@@ -103,7 +103,7 @@ end:
 
 \x1b[32m/* A backslash-newline continues a string literal; a bare unterminated one\x1b[m
 \x1b[32m   stops at the line end. */\x1b[m
-\x1b[94mstatic\x1b[m \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m *continued = \x1b[91m"one \\x1b[m
+\x1b[94mstatic\x1b[m \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m *continued = \x1b[91m"one \\\x1b[m
 \x1b[91mtwo"\x1b[m;
 \x1b[94mstatic\x1b[m \x1b[94mconst\x1b[m \x1b[36mchar\x1b[m *broken = \x1b[91m"unterminated\x1b[m
 \x1b[36mint\x1b[m after_broken;

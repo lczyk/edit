@@ -28,8 +28,8 @@
 \x1b[94mString\x1b[m
 
 \x1b[32m# Strings\x1b[m
-\x1b[91m'single quotes with escape: \' \n \t \\'\x1b[m
-\x1b[91m"double quotes with escape: \" \n \t \\"\x1b[m
+\x1b[91m'single quotes with escape: \\' \\n \\t \\\\'\x1b[m
+\x1b[91m"double quotes with escape: \\" \\n \\t \\\\"\x1b[m
 \x1b[91m`echo shell command`\x1b[m
 
 \x1b[32m# Symbols and variables\x1b[m
@@ -121,12 +121,12 @@ str_Q = \x1b[91m%Q{interp}\x1b[m
 \x1b[32m# Character literals\x1b[m
 ch_a = \x1b[92m?a\x1b[m
 ch_z = \x1b[92m?Z\x1b[m
-ch_esc = \x1b[92m?\n\x1b[m
+ch_esc = \x1b[92m?\\n\x1b[m
 
 \x1b[32m# Strings carry raw newlines, single- and double-quoted alike.\x1b[m
 raw = \x1b[91m'line one\x1b[m
 \x1b[91mline two'\x1b[m
-esc = \x1b[91m"escaped \" quote\x1b[m
+esc = \x1b[91m"escaped \\" quote\x1b[m
 \x1b[91mline two"\x1b[m
 
 \x1b[32m# Heredocs: squiggly, dashed, quoted, and plain. The rest of the opener line\x1b[m

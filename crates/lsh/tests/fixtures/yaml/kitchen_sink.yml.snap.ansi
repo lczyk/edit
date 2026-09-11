@@ -44,5 +44,5 @@ versioned-1.9_libs:
 /usr/bin/cargo-1.93:
   symlink: \x1b[91m../lib/rust-1.93/bin/cargo\x1b[m
 literal_dash: \x1b[91m"-not-a-sequence"\x1b[m
-special_chars: \x1b[91m"Tab:\t Newline:\n Unicode:\u2713"\x1b[m
+special_chars: \x1b[91m"Tab:\\t Newline:\\n Unicode:\\u2713"\x1b[m
 

@@ -29,14 +29,15 @@ fn snap_path(fixture: &Path) -> PathBuf {
     fixture.with_file_name(name)
 }
 
-/// Escape bytes and anything outside printable ASCII become `\xNN`, so a
-/// snapshot is plain text: readable in a diff and acceptable to an
-/// ASCII-only commit guard. Never decoded, so a literal backslash in the
-/// fixture text needs no escaping of its own.
+/// Escape bytes and anything outside printable ASCII become `\xNN`, and a
+/// literal backslash doubles, so a snapshot is plain text (readable in a
+/// diff, acceptable to an ASCII-only commit guard) and no two byte strings
+/// armour alike.
 fn ascii_armour(raw: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(raw.len() + raw.len() / 8);
     for &b in raw {
         match b {
+            b'\\' => out.extend_from_slice(b"\\\\"),
             b'\n' | b'\t' | 0x20..=0x7e => out.push(b),
             _ => out.extend_from_slice(format!("\\x{b:02x}").as_bytes()),
         }

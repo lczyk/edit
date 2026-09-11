@@ -29,7 +29,7 @@
   <\x1b[94medge-cases\x1b[m>
     <\x1b[94mempty\x1b[m></\x1b[94mempty\x1b[m>
     <\x1b[94mwhitespace\x1b[m>   </\x1b[94mwhitespace\x1b[m>
-    <\x1b[94mspecial-chars\x1b[m>!@#$%^*()_+-={}[]|\:;"'\x1b[92m&lt;\x1b[m\x1b[92m&gt;\x1b[m,.</\x1b[94mspecial-chars\x1b[m>
+    <\x1b[94mspecial-chars\x1b[m>!@#$%^*()_+-={}[]|\\:;"'\x1b[92m&lt;\x1b[m\x1b[92m&gt;\x1b[m,.</\x1b[94mspecial-chars\x1b[m>
   </\x1b[94medge-cases\x1b[m>
 
   \x1b[32m<!-- Nested namespaces -->\x1b[m

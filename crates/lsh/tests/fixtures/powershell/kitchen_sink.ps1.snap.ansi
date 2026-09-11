@@ -18,7 +18,7 @@
     \x1b[96m$boolTrue\x1b[m = \x1b[94m$true\x1b[m
     \x1b[96m$boolFalse\x1b[m = \x1b[94m$false\x1b[m
 
-    \x1b[96m$regexMatch\x1b[m = \x1b[91m"abc123"\x1b[m -match \x1b[91m'\d+'\x1b[m \x1b[32m# Regex literal\x1b[m
+    \x1b[96m$regexMatch\x1b[m = \x1b[91m"abc123"\x1b[m -match \x1b[91m'\\d+'\x1b[m \x1b[32m# Regex literal\x1b[m
 
     \x1b[95mfor\x1b[m (\x1b[96m$i\x1b[m = \x1b[92m0\x1b[m; \x1b[96m$i\x1b[m -lt \x1b[96m$Count\x1b[m; \x1b[96m$i\x1b[m++) {
         \x1b[93mWrite-Host\x1b[m \x1b[91m"Hello, $Name! Iteration: $i"\x1b[m \x1b[32m# Variable interpolation, string\x1b[m

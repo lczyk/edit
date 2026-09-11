@@ -4,7 +4,7 @@ execute: |
 \x1b[91m  set -eu\x1b[m
 
 \x1b[91m  # A hash inside the body is script, not a yaml comment.\x1b[m
-\x1b[91m  printf 'cols#80, lines#24\n' > "$rootfs/terminfo.src"\x1b[m
+\x1b[91m  printf 'cols#80, lines#24\\n' > "$rootfs/terminfo.src"\x1b[m
 
 \x1b[91m  echo done\x1b[m
 

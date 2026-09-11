@@ -14,19 +14,19 @@
 
 \x1b[32m# Single-quoted strings\x1b[m
 echo \x1b[91m'hello world'\x1b[m
-echo \x1b[91m'it'\x1b[m\'\x1b[91m's a trap'\x1b[m
+echo \x1b[91m'it'\x1b[m\\'\x1b[91m's a trap'\x1b[m
 
 \x1b[32m# Double-quoted strings\x1b[m
 echo \x1b[91m"hello \x1b[m\x1b[96m$USER\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"home is \x1b[m\x1b[96m${HOME}\x1b[m\x1b[91m"\x1b[m
-echo \x1b[91m"escaped \$ and \" and \\"\x1b[m
+echo \x1b[91m"escaped \\$ and \\" and \\\\"\x1b[m
 echo \x1b[91m"subshell: \x1b[m\x1b[96m$(whoami)\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"arithmetic: \x1b[m\x1b[96m$((1 + 2))\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"positional: \x1b[m\x1b[96m$1\x1b[m\x1b[91m \x1b[m\x1b[96m$#\x1b[m\x1b[91m \x1b[m\x1b[96m$?\x1b[m\x1b[91m \x1b[m\x1b[96m$!\x1b[m\x1b[91m \x1b[m\x1b[96m$@\x1b[m\x1b[91m \x1b[m\x1b[96m$0\x1b[m\x1b[91m \x1b[m\x1b[96m$$\x1b[m\x1b[91m \x1b[m\x1b[96m$-\x1b[m\x1b[91m"\x1b[m
 
 \x1b[32m# ANSI-C quoting\x1b[m
-echo \x1b[91m$'tab:\there\nnewline'\x1b[m
-echo \x1b[91m$'escape sequences: \a \b \e \f \r \t \v \\\\ \''\x1b[m
+echo \x1b[91m$'tab:\\there\\nnewline'\x1b[m
+echo \x1b[91m$'escape sequences: \\a \\b \\e \\f \\r \\t \\v \\\\\\\\ \\''\x1b[m
 
 \x1b[32m# Backtick interpolation\x1b[m
 echo \x1b[91m"today is `date +%Y-%m-%d`"\x1b[m
@@ -188,7 +188,7 @@ exec /bin/bash
 trap \x1b[91m'echo bye'\x1b[m EXIT
 test -f /etc/passwd
 read -r line
-printf \x1b[91m"%s\n"\x1b[m \x1b[91m"hello"\x1b[m
+printf \x1b[91m"%s\\n"\x1b[m \x1b[91m"hello"\x1b[m
 wait \x1b[96m$!\x1b[m
 kill \x1b[92m-9\x1b[m \x1b[96m$$\x1b[m
 jobs -l

@@ -20,8 +20,8 @@
 \x1b[94mNone\x1b[m
 
 \x1b[32m# Strings\x1b[m
-\x1b[91m'single quotes: \' \n \t \\'\x1b[m
-\x1b[91m"double quotes: \" \n \t \\"\x1b[m
+\x1b[91m'single quotes: \\' \\n \\t \\\\'\x1b[m
+\x1b[91m"double quotes: \\" \\n \\t \\\\"\x1b[m
 
 \x1b[32m# Control flow keywords\x1b[m
 \x1b[95mif\x1b[m \x1b[94mTrue\x1b[m:
@@ -89,7 +89,7 @@ _doc2 = \x1b[91m'''\x1b[m
 
 \x1b[32m# Prefixed strings (f, r, b)\x1b[m
 f\x1b[91m"f-string: {1 + 2}"\x1b[m
-r\x1b[91m"raw string: \n is literal"\x1b[m
+r\x1b[91m"raw string: \\n is literal"\x1b[m
 b\x1b[91m"byte string"\x1b[m
 
 \x1b[32m# Decorators\x1b[m
@@ -161,9 +161,9 @@ x = \x1b[92m1\x1b[m
 
 \x1b[32m# A backslash-newline continues a string literal; a bare unterminated one\x1b[m
 \x1b[32m# stops at the line end.\x1b[m
-continued = \x1b[91m'one \\x1b[m
+continued = \x1b[91m'one \\\x1b[m
 \x1b[91mtwo'\x1b[m
-also_continued = \x1b[91m"three \\x1b[m
+also_continued = \x1b[91m"three \\\x1b[m
 \x1b[91mfour"\x1b[m
 broken = \x1b[91m"unterminated\x1b[m
 after_broken = \x1b[92m1\x1b[m

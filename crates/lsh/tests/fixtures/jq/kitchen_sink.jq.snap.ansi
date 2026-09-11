@@ -7,7 +7,7 @@
 \x1b[95mdef\x1b[m maybe: \x1b[94mnull\x1b[m;
 
 \x1b[32m# string interpolation, format strings\x1b[m
-\x1b[95mdef\x1b[m \x1b[93mgreet\x1b[m(\x1b[96m$who\x1b[m): \x1b[91m"hello, \x1b[m\($who\x1b[91m)!"\x1b[m | \x1b[33m@text\x1b[m;
+\x1b[95mdef\x1b[m \x1b[93mgreet\x1b[m(\x1b[96m$who\x1b[m): \x1b[91m"hello, \x1b[m\\($who\x1b[91m)!"\x1b[m | \x1b[33m@text\x1b[m;
 \x1b[95mdef\x1b[m csv_row: [\x1b[96m.a\x1b[m, \x1b[96m.b\x1b[m, \x1b[96m.c\x1b[m] | \x1b[33m@csv\x1b[m;
 
 \x1b[32m# control flow\x1b[m
@@ -49,6 +49,6 @@
 
 \x1b[32m# Strings carry raw newlines, interpolation included.\x1b[m
 | \x1b[91m"line one\x1b[m
-\x1b[91mline two \x1b[m\(.field
+\x1b[91mline two \x1b[m\\(.field
 + 1\x1b[91m) tail"\x1b[m
 

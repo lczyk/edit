@@ -42,10 +42,10 @@
 }
 
 \x1b[94mpub\x1b[m \x1b[94mfn\x1b[m \x1b[93mescapes\x1b[m() -> \x1b[36mString\x1b[m {
-  \x1b[94mlet\x1b[m quoted = \x1b[91m"a \"quoted\" word"\x1b[m
-  \x1b[94mlet\x1b[m escaped = \x1b[91m"tab:\t newline:\n return:\r formfeed:\f backslash:\\"\x1b[m
-  \x1b[94mlet\x1b[m codepoint = \x1b[91m"snowman \u{2603} and \u{1F600}"\x1b[m
-  \x1b[94mlet\x1b[m unknown = \x1b[91m"not a real escape: \q"\x1b[m
+  \x1b[94mlet\x1b[m quoted = \x1b[91m"a \\"quoted\\" word"\x1b[m
+  \x1b[94mlet\x1b[m escaped = \x1b[91m"tab:\\t newline:\\n return:\\r formfeed:\\f backslash:\\\\"\x1b[m
+  \x1b[94mlet\x1b[m codepoint = \x1b[91m"snowman \\u{2603} and \\u{1F600}"\x1b[m
+  \x1b[94mlet\x1b[m unknown = \x1b[91m"not a real escape: \\q"\x1b[m
   string.\x1b[93mconcat\x1b[m([quoted, escaped, codepoint, unknown])
 }
 

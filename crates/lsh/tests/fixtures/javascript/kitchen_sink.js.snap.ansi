@@ -28,8 +28,8 @@
 \x1b[94mInfinity\x1b[m;
 
 \x1b[32m// Strings\x1b[m
-\x1b[91m'single quotes with escape: \' \n \t \\'\x1b[m;
-\x1b[91m"double quotes with escape: \" \n \t \\"\x1b[m;
+\x1b[91m'single quotes with escape: \\' \\n \\t \\\\'\x1b[m;
+\x1b[91m"double quotes with escape: \\" \\n \\t \\\\"\x1b[m;
 
 \x1b[32m// Control flow keywords\x1b[m
 \x1b[95mif\x1b[m (\x1b[94mtrue\x1b[m) {
@@ -118,9 +118,9 @@ Math.\x1b[93mmax\x1b[m(\x1b[92m1\x1b[m, \x1b[92m2\x1b[m);
 
 \x1b[32m// A backslash-newline continues a string literal; a bare unterminated one\x1b[m
 \x1b[32m// stops at the line end.\x1b[m
-\x1b[94mconst\x1b[m continued = \x1b[91m'one \\x1b[m
+\x1b[94mconst\x1b[m continued = \x1b[91m'one \\\x1b[m
 \x1b[91mtwo'\x1b[m;
-\x1b[94mconst\x1b[m alsoContinued = \x1b[91m"three \\x1b[m
+\x1b[94mconst\x1b[m alsoContinued = \x1b[91m"three \\\x1b[m
 \x1b[91mfour"\x1b[m;
 \x1b[94mconst\x1b[m broken = \x1b[91m"unterminated\x1b[m
 \x1b[94mlet\x1b[m afterBroken = \x1b[92m1\x1b[m;

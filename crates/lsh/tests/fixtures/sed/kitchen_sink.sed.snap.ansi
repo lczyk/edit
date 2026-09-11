@@ -2,10 +2,10 @@
 \x1b[32m# kitchen-sink sed fixture for lsh highlighting\x1b[m
 
 \x1b[32m# strip leading whitespace\x1b[m
-\x1b[94ms\x1b[m\x1b[91m/^[ \t]*\x1b[m//
+\x1b[94ms\x1b[m\x1b[91m/^[ \\t]*\x1b[m//
 
 \x1b[32m# normalise tabs to two spaces, globally\x1b[m
-\x1b[94ms\x1b[m\x1b[91m/\t\x1b[m/\x1b[91m  \x1b[m/\x1b[94mg\x1b[m
+\x1b[94ms\x1b[m\x1b[91m/\\t\x1b[m/\x1b[91m  \x1b[m/\x1b[94mg\x1b[m
 
 \x1b[32m# print only lines matching FOO, then keep going\x1b[m
 \x1b[91m/FOO/\x1b[m\x1b[94mp\x1b[m
@@ -31,23 +31,23 @@
 \x1b[32m# label + branch\x1b[m
 \x1b[94m:\x1b[mloop
 \x1b[94mN\x1b[m
-\x1b[94ms\x1b[m\x1b[91m/\n\x1b[m/\x1b[91m, \x1b[m/\x1b[94mg\x1b[m
+\x1b[94ms\x1b[m\x1b[91m/\\n\x1b[m/\x1b[91m, \x1b[m/\x1b[94mg\x1b[m
 \x1b[94mt\x1b[m loop
 
 \x1b[32m# backreferences in replacement\x1b[m
-\x1b[94ms\x1b[m\x1b[91m/\(foo\)\(bar\)\x1b[m/\x1b[91m\2-\1\x1b[m/
+\x1b[94ms\x1b[m\x1b[91m/\\(foo\\)\\(bar\\)\x1b[m/\x1b[91m\\2-\\1\x1b[m/
 \x1b[94ms\x1b[m\x1b[91m/whole\x1b[m/\x1b[91m[&]\x1b[m/\x1b[94mg\x1b[m
 
 \x1b[32m# write the result to a file, then quit\x1b[m
 \x1b[94mw\x1b[m out.txt
 \x1b[94mq\x1b[m
 
-\x1b[32m# a\ i\ c\ take a text block; each line but the last ends in a backslash.\x1b[m
-\x1b[94ma\x1b[m\
-\x1b[91m# not a comment, this is text\\x1b[m
+\x1b[32m# a\\ i\\ c\\ take a text block; each line but the last ends in a backslash.\x1b[m
+\x1b[94ma\x1b[m\\
+\x1b[91m# not a comment, this is text\\\x1b[m
 \x1b[91m123 s/x/y/ is text too\x1b[m
 \x1b[94mi\x1b[m \x1b[91mtext on one line, GNU style\x1b[m
-\x1b[91m/start/\x1b[m\x1b[94mc\x1b[m\
+\x1b[91m/start/\x1b[m\x1b[94mc\x1b[m\\
 \x1b[91mreplaced\x1b[m
 \x1b[94mp\x1b[m
 

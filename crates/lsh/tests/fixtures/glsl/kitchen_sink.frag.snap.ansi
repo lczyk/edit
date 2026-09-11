@@ -15,6 +15,6 @@
     color = \x1b[36mvec4\x1b[m(density_alpha, \x1b[92m0.0f\x1b[m, \x1b[92m0.0f\x1b[m, \x1b[92m1.0f\x1b[m);
 }
 \x1b[32m// A backslash-newline continues a string literal.\x1b[m
-\x1b[94mconst\x1b[m char continued[] = \x1b[91m"one \\x1b[m
+\x1b[94mconst\x1b[m char continued[] = \x1b[91m"one \\\x1b[m
 \x1b[91mtwo"\x1b[m;
 

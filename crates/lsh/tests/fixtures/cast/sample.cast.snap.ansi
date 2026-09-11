@@ -1,7 +1,7 @@
 {\x1b[96m"version"\x1b[m:\x1b[92m3\x1b[m,\x1b[96m"term"\x1b[m:{\x1b[96m"cols"\x1b[m:\x1b[92m98\x1b[m,\x1b[96m"rows"\x1b[m:\x1b[92m24\x1b[m,\x1b[96m"type"\x1b[m:\x1b[91m"alacritty"\x1b[m},\x1b[96m"timestamp"\x1b[m:\x1b[92m1783502349\x1b[m,\x1b[96m"idle_time_limit"\x1b[m:\x1b[92m2.0\x1b[m,\x1b[96m"env"\x1b[m:{\x1b[96m"SHELL"\x1b[m:\x1b[91m"/bin/fish"\x1b[m}}
-[\x1b[92m0.018\x1b[m, "o", "\x1b[33m\u001b\x1b[m\x1b[91m[1;32muser@host\x1b[m\x1b[33m\u001b\x1b[m\x1b[91m[0m:~$ "\x1b[m]
+[\x1b[92m0.018\x1b[m, "o", "\x1b[33m\\u001b\x1b[m\x1b[91m[1;32muser@host\x1b[m\x1b[33m\\u001b\x1b[m\x1b[91m[0m:~$ "\x1b[m]
 [\x1b[92m0.950\x1b[m, "i", "\x1b[91me"\x1b[m]
-[\x1b[92m1.5e-3\x1b[m, "o", "\x1b[91mecho \x1b[m\x1b[33m\"\x1b[m\x1b[91mhi\x1b[m\x1b[33m\"\x1b[m\x1b[33m\r\x1b[m\x1b[33m\n\x1b[m\x1b[91m"\x1b[m]
+[\x1b[92m1.5e-3\x1b[m, "o", "\x1b[91mecho \x1b[m\x1b[33m\\"\x1b[m\x1b[91mhi\x1b[m\x1b[33m\\"\x1b[m\x1b[33m\\r\x1b[m\x1b[33m\\n\x1b[m\x1b[91m"\x1b[m]
 [\x1b[92m2.0\x1b[m, "r", "\x1b[91m80x24"\x1b[m]
 [\x1b[92m2.5\x1b[m, "m", "\x1b[91mchapter one"\x1b[m]
 [\x1b[92m3.0\x1b[m, "x", "\x1b[91m0"\x1b[m]
