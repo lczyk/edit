@@ -37,7 +37,7 @@ install: sync-version  ## Install the edit binary (debug build, sanity feature o
 # single-threaded program -- and the test harness runs tests on threads, where
 # it aborts with an arena OOM. So --all-features is not usable here; this list
 # is every other feature in the workspace. Keep it in step when adding one.
-FEATURES := edit/sanity,lsh/sanity,gutter/sanity,stdext/sanity
+FEATURES := edit/sanity,lsh/sanity,lsh-defs/sanity,gutter/sanity,stdext/sanity
 
 .PHONY: check
 check:  ## Fast type-check across the workspace

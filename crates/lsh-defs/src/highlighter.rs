@@ -67,6 +67,20 @@ impl<'doc> Highlighter<'doc> {
         let scratch = scratch_arena(Some(arena));
         let (line_off, line) = self.read_next_line(&scratch);
 
+        // Every consumer indexes by logical line, so the reader must park on
+        // a line boundary, never part-way through the line it just returned.
+        // Re-derived from the document bytes, not the reader's arithmetic.
+        stdext::sanity_check!(
+            highlighter_reader_lands_on_line_start,
+            self.offset == 0
+                || self.doc.read_backward(self.offset).last() == Some(&b'\n')
+                || self.doc.read_forward(self.offset).is_empty(),
+            "offset={} logical_pos_y={} line_len={}",
+            self.offset,
+            self.logical_pos_y,
+            line.len()
+        );
+
         // Empty lines can be somewhat common.
         //
         // If the line is too long, we don't highlight it.
@@ -361,5 +375,51 @@ mod tests {
         let mut h = Highlighter::new(&h_data, lang("markdown"));
         let spans = h.parse_next_line(&arena);
         assert!(spans.is_empty(), "expected long line to be skipped");
+    }
+
+    /// A line past `MAX_LINE_LEN` that arrives in several chunks is skipped
+    /// whole: the next parse must be the line after it, at its real offset,
+    /// not a tail fragment of the long line masquerading as line 2.
+    fn long_line_in_chunks() -> Vec<u8> {
+        let mut data = vec![b'x'; MAX_LINE_LEN + 8000];
+        data.push(b'\n');
+        data.extend_from_slice(b"MARKER\n");
+        data
+    }
+
+    #[test]
+    fn a_long_line_split_across_chunks_does_not_shift_the_lines_after_it() {
+        let data = long_line_in_chunks();
+        let marker_off = data.len() - b"MARKER\n".len();
+        let doc = ChunkedDoc { data: &data, chunk: Cell::new(4096) };
+        let arena = Arena::new(8 * 1024 * 1024).unwrap();
+        let mut h = Highlighter::new(&doc, lang("markdown"));
+
+        assert!(h.parse_next_line(&arena).is_empty(), "long line should be skipped");
+        assert_eq!(h.logical_pos_y(), 1);
+
+        let spans = h.parse_next_line(&arena);
+        assert_eq!(h.logical_pos_y(), 2);
+        assert!(
+            spans.iter().all(|s| s.start >= marker_off),
+            "line 2 must start at the MARKER line ({marker_off}), got {spans:?}"
+        );
+    }
+
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn the_reader_never_parks_inside_a_long_line() {
+        use stdext::sanity::capture;
+
+        let data = long_line_in_chunks();
+        let doc = ChunkedDoc { data: &data, chunk: Cell::new(4096) };
+        let arena = Arena::new(8 * 1024 * 1024).unwrap();
+        let (_, msgs) = capture::trips(|| {
+            let mut h = Highlighter::new(&doc, lang("markdown"));
+            for _ in 0..3 {
+                let _ = h.parse_next_line(&arena);
+            }
+        });
+        assert!(msgs.is_empty(), "{msgs:?}");
     }
 }

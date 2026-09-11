@@ -17,6 +17,7 @@ build = "build/main.rs"
 sanity = [
     "gutter/sanity",
     "lsh/sanity",
+    "lsh-defs/sanity",
     "stdext/sanity",
     #
 ]

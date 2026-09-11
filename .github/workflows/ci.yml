@@ -38,9 +38,9 @@ jobs:
       # arenas for a `static mut` pair, which the threaded test harness aborts
       # on. See the FEATURES comment in the Makefile.
       - name: Run tests
-        run: cargo test --workspace --all-targets --features edit/sanity,lsh/sanity,gutter/sanity,stdext/sanity
+        run: cargo test --workspace --all-targets --features edit/sanity,lsh/sanity,lsh-defs/sanity,gutter/sanity,stdext/sanity
       - name: Run clippy
-        run: cargo clippy --workspace --all-targets --features edit/sanity,lsh/sanity,gutter/sanity,stdext/sanity -- --no-deps --deny warnings
+        run: cargo clippy --workspace --all-targets --features edit/sanity,lsh/sanity,lsh-defs/sanity,gutter/sanity,stdext/sanity -- --no-deps --deny warnings
 
   pty:
     runs-on: ubuntu-latest
