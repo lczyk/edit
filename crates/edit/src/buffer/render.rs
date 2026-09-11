@@ -76,15 +76,16 @@ impl TextBuffer {
                     sep
                 );
             }
-            // Added/Modified colour the whole logical line's bar, and the
-            // boundary DeletedBelow flags sits under the line's last row --
-            // the caller walks it down. DeletedAbove is the one arrow that
-            // belongs to the first row alone.
+            // Added/Modified/Conflict colour the whole logical line's bar,
+            // and the boundary DeletedBelow flag sits under the line's last
+            // row -- the caller walks it down. DeletedAbove is the one arrow
+            // that belongs to the first row alone.
             let mark = match self.gutter_mark(cursor_beg.logical_pos.y) {
-                m @ (GutterMark::Added | GutterMark::Modified | GutterMark::DeletedBelow) => {
-                    Some(m)
-                }
-                _ => None,
+                m @ (GutterMark::Added
+                | GutterMark::Modified
+                | GutterMark::DeletedBelow
+                | GutterMark::Conflict) => Some(m),
+                GutterMark::DeletedAbove | GutterMark::None => None,
             };
             (mark, true)
         }

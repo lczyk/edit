@@ -15,6 +15,7 @@ const ANSI_DIM_GRAY: &str = "\x1b[38;5;240m";
 const ANSI_GREEN: &str = "\x1b[32m";
 const ANSI_YELLOW: &str = "\x1b[33m";
 const ANSI_RED: &str = "\x1b[31m";
+const ANSI_MAGENTA: &str = "\x1b[35m";
 const ANSI_RESET: &str = "\x1b[m";
 
 /// Per-line gutter context. Built once per file (or after each follow-tick
@@ -57,11 +58,11 @@ impl Gutter {
 ///
 /// Color/no-color split:
 ///   - color on: separator is U+2502 recoloured per mark (default = dim gray,
-///     Added = green, Modified = yellow, DeletedAbove/Below = red with the
-///     glyph swapped to U+25B4 / U+25BE).
+///     Added = green, Modified = yellow, Conflict = magenta, DeletedAbove/Below
+///     = red with the glyph swapped to U+25B4 / U+25BE).
 ///   - color off: separator is replaced with a distinct ascii char per mark
-///     (`|` for None; `+`/`~`/`^`/`v` for the rest), so the cue survives in
-///     non-tty pipes.
+///     (`|` for None; `+`/`~`/`^`/`v`/`!` for the rest), so the cue survives
+///     in non-tty pipes.
 pub fn write_prefix(
     writer: &mut dyn Write,
     line_no: usize,
@@ -85,6 +86,7 @@ fn sep_and_color(mark: GutterMark, use_color: bool) -> (&'static str, &'static s
             GutterMark::Modified => (SEP_UNICODE, ANSI_YELLOW),
             GutterMark::DeletedAbove => ("\u{25B4}", ANSI_RED), // small upward triangle
             GutterMark::DeletedBelow => ("\u{25BE}", ANSI_RED), // small downward triangle
+            GutterMark::Conflict => (SEP_UNICODE, ANSI_MAGENTA),
         }
     } else {
         let g = match mark {
@@ -93,6 +95,7 @@ fn sep_and_color(mark: GutterMark, use_color: bool) -> (&'static str, &'static s
             GutterMark::Modified => "~",
             GutterMark::DeletedAbove => "^",
             GutterMark::DeletedBelow => "v",
+            GutterMark::Conflict => "!",
         };
         (g, "")
     }
@@ -150,6 +153,7 @@ mod tests {
         assert_eq!(render(1, 1, GutterMark::Modified, false), "1 ~ ");
         assert_eq!(render(1, 1, GutterMark::DeletedAbove, false), "1 ^ ");
         assert_eq!(render(1, 1, GutterMark::DeletedBelow, false), "1 v ");
+        assert_eq!(render(1, 1, GutterMark::Conflict, false), "1 ! ");
     }
 
     #[test]

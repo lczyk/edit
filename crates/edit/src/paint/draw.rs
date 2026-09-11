@@ -415,6 +415,9 @@ pub fn gutter_marks(
             GutterMark::DeletedBelow => {
                 (fb.indexed(IndexedColor::BrightRed), Some(crate::glyphs::gutter_deleted_below()))
             }
+            GutterMark::Conflict => {
+                (fb.indexed(IndexedColor::BrightMagenta), if no_color { Some("!") } else { None })
+            }
             GutterMark::None => continue,
         };
         if let Some(g) = glyph {
@@ -653,6 +656,7 @@ mod tests {
             (2, GutterMark::DeletedAbove),
             (3, GutterMark::DeletedBelow),
             (4, GutterMark::None),
+            (5, GutterMark::Conflict),
         ];
         // Should run without panicking across all variants.
         gutter_marks(&mut fb(), 0, 6, &marks);
