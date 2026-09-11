@@ -127,9 +127,7 @@ pub fn run_snapshot(
                 ViewerKey::ToBottom => {
                     let mut b = buf.borrow_mut();
                     b.cursor_move_to_logical(Point::MAX);
-                    let x = b.cursor_visual_pos().x;
-                    b.set_preferred_column(x);
-                    b.make_cursor_visible();
+                    b.request_scroll_to_tail();
                 }
             }
         }
@@ -212,18 +210,12 @@ pub fn run_follow_mount(
 
     use crate::mount;
 
-    // tail-snap helper. `request_scroll_delta_y(visual_line_count)`
-    // lands at `visual_line_count - 1` after `textarea_adjust_scroll_offset`'s
-    // clamp -- last line at the **top** of the viewport, not the
-    // bottom. `cursor_move + make_cursor_visible` instead pipes through
-    // `textarea_make_cursor_visible`, which sets
-    // `scroll_y = cursor_y - viewport_height + 1` -- last line at the
-    // bottom edge, which is what a tail view wants.
+    // Tail snap: the last line lands on the bottom edge and the horizontal
+    // offset is left alone, so a reader scrolled right stays there as the
+    // file grows. The cursor rides along so a copy still takes the tail.
     fn snap_to_tail(b: &mut TextBuffer) {
         b.cursor_move_to_logical(Point::MAX);
-        let x = b.cursor_visual_pos().x;
-        b.set_preferred_column(x);
-        b.make_cursor_visible();
+        b.request_scroll_to_tail();
     }
 
     // initial load: full read via `read_file` so encoding / line-ending

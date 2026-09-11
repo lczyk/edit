@@ -412,6 +412,7 @@ pub struct TextBuffer {
     wants_cursor_visibility: bool,
     wants_scroll_delta_x: CoordType,
     wants_scroll_delta_y: CoordType,
+    wants_scroll_to_tail: bool,
 
     /// Indexed by logical line `y`. Empty means "no marks". May be shorter
     /// or longer than the current logical line count if a refresh is
@@ -498,6 +499,7 @@ impl TextBuffer {
             wants_cursor_visibility: false,
             wants_scroll_delta_x: 0,
             wants_scroll_delta_y: 0,
+            wants_scroll_to_tail: false,
 
             gutter_marks: Vec::new(),
             minimap_cells: Vec::new(),
@@ -830,6 +832,19 @@ impl TextBuffer {
     /// For the TUI code to retrieve a prior [`TextBuffer::request_scroll_delta_x()`] request.
     pub fn take_scroll_delta_x_request(&mut self) -> CoordType {
         mem::take(&mut self.wants_scroll_delta_x)
+    }
+
+    /// Ask the TUI system to put the last visual line on the bottom edge of
+    /// the viewport, leaving the horizontal offset alone. What a tail view
+    /// wants as the file grows: the reader keeps the columns they scrolled
+    /// to.
+    pub fn request_scroll_to_tail(&mut self) {
+        self.wants_scroll_to_tail = true;
+    }
+
+    /// For the TUI code to retrieve a prior [`TextBuffer::request_scroll_to_tail()`] request.
+    pub fn take_scroll_to_tail_request(&mut self) -> bool {
+        mem::take(&mut self.wants_scroll_to_tail)
     }
 
     /// Is word-wrap enabled?

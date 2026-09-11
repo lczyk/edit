@@ -305,19 +305,26 @@ impl Context<'_, '_> {
                 let mut make_cursor_visible;
                 let scroll_delta_x;
                 let scroll_delta_y;
+                let scroll_to_tail;
                 {
                     let mut tb = content.buffer.borrow_mut();
                     make_cursor_visible = tb.take_cursor_visibility_request();
                     make_cursor_visible |= tb.set_width(text_width);
                     scroll_delta_x = tb.take_scroll_delta_x_request();
                     scroll_delta_y = tb.take_scroll_delta_y_request();
+                    scroll_to_tail = tb.take_scroll_to_tail_request();
                 }
 
                 make_cursor_visible |= self.textarea_handle_input(content, &node_prev, single_line);
 
                 content.scroll_offset.x += scroll_delta_x;
                 content.scroll_offset.y += scroll_delta_y;
-                if scroll_delta_x == 0 && scroll_delta_y == 0 && make_cursor_visible {
+                if scroll_to_tail {
+                    // Last line on the bottom edge; the horizontal offset is
+                    // the reader's and stays put.
+                    let lines = content.buffer.borrow().visual_line_count();
+                    content.scroll_offset.y = (lines - node_prev.inner.height()).max(0);
+                } else if scroll_delta_x == 0 && scroll_delta_y == 0 && make_cursor_visible {
                     self.textarea_make_cursor_visible(content, &node_prev);
                 }
             } else {
