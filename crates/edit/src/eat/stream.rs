@@ -10,7 +10,8 @@ use std::io::{self, BufRead, BufReader, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use lsh::runtime::Runtime;
+use gutter::GutterMark;
+use lsh::runtime::{ConflictTag, Runtime};
 use lsh_defs::{ASSEMBLY, CHARSETS, STRINGS};
 use stdext::arena::scratch_arena;
 
@@ -50,17 +51,19 @@ fn resolve_pager() -> Option<String> {
 
 /// render the highlighted body bytes for a single line into `out`. no gutter
 /// prefix and no trailing newline -- `write_highlighted_line` composes those
-/// around it.
+/// around it. returns where the line sits relative to a merge conflict, for
+/// the gutter.
 pub(crate) fn render_body(
     runtime: &mut Runtime,
     color_map: &[&str],
     line: &str,
     use_color: bool,
     out: &mut Vec<u8>,
-) {
+) -> ConflictTag {
     use std::io::Write as _;
     let scratch = scratch_arena(None);
-    let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes()).spans;
+    let parsed = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
+    let highlights = parsed.spans;
     // NOTE: lsh emits byte indices that may not land on utf-8 char
     // boundaries, so slice via as_bytes() and write_all -- string
     // slicing would panic on multi-byte codepoints (e.g. man pages
@@ -85,13 +88,15 @@ pub(crate) fn render_body(
             out.extend_from_slice(text);
         }
     }
+    parsed.conflict
 }
 
 /// write one line to `writer`, optionally with a leading line number and ansi
 /// colour escapes from `color_map`. when `gutter` is `Some`, prepend the
 /// gutter prefix (right-aligned line number + separator) using mark
-/// information from it. used by the bulk path (`print_highlighted`) and the
-/// streaming follow path.
+/// information from it, with a line inside a merge conflict outranking the
+/// diff mark. used by the bulk path (`print_highlighted`) and the streaming
+/// follow path.
 pub(crate) fn write_highlighted_line(
     writer: &mut dyn Write,
     runtime: &mut Runtime,
@@ -101,14 +106,18 @@ pub(crate) fn write_highlighted_line(
     gutter: Option<&gutter_view::Gutter>,
     use_color: bool,
 ) -> io::Result<()> {
-    if let Some(g) = gutter {
-        gutter_view::write_prefix(writer, line_no, g.width, g.mark(line_no), use_color)?;
-    }
     // Position-sensitive constructs (a line-1 frontmatter fence) read the
     // line number from the vm, and a top-level return clears it.
     runtime.set_line_number(line_no as u32);
+    // The body is rendered first: the gutter needs to know whether the
+    // highlighter put this line inside a conflict.
     let mut body = Vec::with_capacity(line.len() + 16);
-    render_body(runtime, color_map, line, use_color, &mut body);
+    let conflict = render_body(runtime, color_map, line, use_color, &mut body);
+    if let Some(g) = gutter {
+        let mark =
+            if conflict != ConflictTag::None { GutterMark::Conflict } else { g.mark(line_no) };
+        gutter_view::write_prefix(writer, line_no, g.width, mark, use_color)?;
+    }
     writer.write_all(&body)?;
     writeln!(writer)?;
     Ok(())
@@ -383,4 +392,27 @@ pub(crate) fn run(
 enum EatInput {
     File(PathBuf),
     Stdin,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Lines inside a merge conflict get the conflict gutter mark even when
+    /// the diff has nothing to say about them; the line after it is back to
+    /// the diff's own mark.
+    #[test]
+    fn the_gutter_marks_every_line_of_a_conflict() {
+        let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lsh_defs::PLAIN.entrypoint);
+        let gutter = gutter_view::Gutter { width: 1, marks: vec![GutterMark::None; 6] };
+        let lines = ["a", "<<<<<<< HEAD", "ours", "=======", "theirs", ">>>>>>> b", "c"];
+        let mut out = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            write_highlighted_line(&mut out, &mut runtime, &[], i + 1, line, Some(&gutter), false)
+                .unwrap();
+        }
+        let text = String::from_utf8(out).unwrap();
+        let prefixes: Vec<&str> = text.lines().map(|l| &l[..4]).collect();
+        assert_eq!(prefixes, ["1 | ", "2 ! ", "3 ! ", "4 ! ", "5 ! ", "6 ! ", "7 | "]);
+    }
 }
