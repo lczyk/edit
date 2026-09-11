@@ -940,6 +940,29 @@ mod tests {
         assert!(got.contains("|") || got.contains("\u{2502}"));
     }
 
+    /// Conflict marks come from the runtime carried across ticks, so a block
+    /// split over two appends is still marked whole.
+    #[test]
+    fn conflict_lines_get_the_conflict_mark_across_ticks() {
+        use super::super::gutter_view::Gutter;
+        use gutter::GutterMark;
+
+        let mut src = MemSource::new();
+        let mut state = FollowState::new(20);
+        let mut rt = plain();
+        let g = Gutter { width: 1, marks: vec![GutterMark::None; 8] };
+        let mut out = Vec::new();
+
+        src.append(b"a\n<<<<<<< HEAD\nours\n");
+        tick(&mut state, &mut src, &mut rt, 0, &[], Some(&g), false, &mut out).unwrap();
+        src.append(b"=======\ntheirs\n>>>>>>> b\nc\n");
+        tick(&mut state, &mut src, &mut rt, 0, &[], Some(&g), false, &mut out).unwrap();
+
+        let text = s(&out);
+        let prefixes: Vec<&str> = text.lines().map(|l| &l[..4]).collect();
+        assert_eq!(prefixes, ["1 | ", "2 ! ", "3 ! ", "4 ! ", "5 ! ", "6 ! ", "7 | "]);
+    }
+
     /// The two follow checks fire on state that the classifier is supposed to
     /// rule out -- an offset past EOF, or numbering that rewinds without a
     /// rotation. Neither is reachable while `classify` is right, so what these
