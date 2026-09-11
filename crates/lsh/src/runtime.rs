@@ -168,6 +168,13 @@ pub struct VmState {
 }
 
 impl VmState {
+    /// Back to idle at `entrypoint`: no call frames, registers cleared. The
+    /// saved span stays, as it does across a top-level return.
+    fn reset_to(&mut self, entrypoint: u32) {
+        self.stack.clear();
+        self.registers = Registers { pc: entrypoint, ..Default::default() };
+    }
+
     /// Whether two states are inside the same construct: equal up to the
     /// per-line registers (off, hs, ln), which only say where on its last
     /// line each vm stopped.
@@ -470,6 +477,17 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         self.state.vm.registers.off = 0;
         self.state.vm.registers.hs = 0;
 
+        // Every reset that abandons a line must drop its call frames too, or
+        // the next top-level return pops a stale frame and jumps into the
+        // middle of whatever was abandoned.
+        stdext::sanity_check!(
+            runtime_call_frames_whole,
+            self.state.vm.stack.len().is_multiple_of(Registers::FRAME),
+            "stack len {} pc {}",
+            self.state.vm.stack.len(),
+            self.state.vm.registers.pc
+        );
+
         // By default, any line starts with HighlightKind::Other.
         // If the DSL yields anything, this will be overwritten.
         res.push(arena, Highlight { start: 0, kind: unsafe { mem::zeroed() } });
@@ -490,7 +508,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     self.state.vm.registers.off,
                     line.len()
                 );
-                self.state.vm.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                self.state.vm.reset_to(self.entrypoint);
                 break;
             }
 
@@ -528,7 +546,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                 }
                 Return => {
                     if !self.state.vm.registers.load_registers(&mut self.state.vm.stack) {
-                        self.state.vm.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                        self.state.vm.reset_to(self.entrypoint);
                         break;
                     }
                 }
@@ -641,7 +659,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                     // language definition emits one inside a highlighter
                     // entrypoint, treat it as a soft reset to the entrypoint
                     // (mirrors empty-stack Return), preventing runaway loops.
-                    self.state.vm.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                    self.state.vm.reset_to(self.entrypoint);
                     break;
                 }
                 SaveSpan { start, end } => {
@@ -845,6 +863,10 @@ pub struct Registers {
 }
 
 impl Registers {
+    /// Words a call frame occupies on the stack: pc and the caller-saved
+    /// registers x3..x15.
+    const FRAME: usize = 14;
+
     /// The registers that carry over between lines: pc and the user
     /// registers. off and hs restart every line; x3 (ln) is set by the
     /// caller.
@@ -869,21 +891,23 @@ impl Registers {
 
     #[inline(always)]
     fn save_registers(&self, vec: &mut Vec<u32>) {
-        const _: () = assert!(2 + 14 <= Register::COUNT);
-        unsafe { vec.extend_from_slice(std::slice::from_raw_parts(self.as_ptr().add(2), 14)) };
+        const _: () = assert!(2 + Registers::FRAME <= Register::COUNT);
+        unsafe {
+            vec.extend_from_slice(std::slice::from_raw_parts(self.as_ptr().add(2), Self::FRAME))
+        };
     }
 
     #[inline(always)]
     fn load_registers(&mut self, vec: &mut Vec<u32>) -> bool {
         unsafe {
-            if vec.len() < 14 {
+            if vec.len() < Self::FRAME {
                 return false;
             }
 
-            let src = vec.as_ptr().add(vec.len() - 14);
+            let src = vec.as_ptr().add(vec.len() - Self::FRAME);
             let dst = self.as_mut_ptr().add(2);
-            std::ptr::copy_nonoverlapping(src, dst, 14);
-            vec.truncate(vec.len() - 14);
+            std::ptr::copy_nonoverlapping(src, dst, Self::FRAME);
+            vec.truncate(vec.len() - Self::FRAME);
             true
         }
     }
@@ -1736,6 +1760,21 @@ mod tests {
         let theirs = resumed.parse_next_line::<u32>(&arena, b"c");
         assert_eq!(theirs.conflict, ConflictTag::Theirs);
         assert_eq!(theirs.spans[0].kind, keyword);
+    }
+
+    /// The abandoned line was inside a helper call. Its frame must go with
+    /// it, or the next top-level return pops the frame and resumes the loop
+    /// on a line that has nothing to do with it.
+    #[test]
+    fn a_cut_off_line_leaves_no_call_frame_behind() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() { if /\\[/ { until /\\]/ { helper(); } } }\n\
+                   fn helper() { yield keyword; }\n";
+        let (spans, _) = captured(|| highlight(src, &["[unix", "plain", "plain"]));
+        let kinds = |i: usize| spans[i].iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>();
+        assert_eq!(kinds(1), ["other"]);
+        assert_eq!(kinds(2), ["other"]);
     }
 
     /// Runs `f` with sanity trips captured. The notify handler and the dedup
