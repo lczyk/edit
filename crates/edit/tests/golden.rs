@@ -48,13 +48,22 @@ fn lsh_fixtures_root() -> PathBuf {
     eat_manifest.join("../lsh/tests/fixtures")
 }
 
+/// lsh's own golden test drops a `<fixture>.jsonl` next to every fixture.
+/// A `.jsonl` file is one of those only if the fixture it was derived from
+/// exists; otherwise it is a fixture in its own right (e.g. `sample.jsonl`).
+fn is_lsh_snap(p: &Path) -> bool {
+    let Some(s) = p.to_str() else { return false };
+    let Some(stem) = s.strip_suffix(".jsonl") else { return false };
+    Path::new(stem).exists()
+}
+
 fn discover_fixtures(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(root) else { return };
     for entry in entries.flatten() {
         let p = entry.path();
         if p.is_dir() {
             discover_fixtures(&p, out);
-        } else if !is_snap(&p) && p.extension().is_some_and(|e| e != "jsonl") {
+        } else if !is_snap(&p) && !is_lsh_snap(&p) {
             out.push(p);
         }
     }

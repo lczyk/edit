@@ -1,0 +1,4 @@
+{\x1b[96m"line"\x1b[m:\x1b[92m1\x1b[m,\x1b[96m"kind"\x1b[m:\x1b[91m"comment"\x1b[m,\x1b[96m"text"\x1b[m:\x1b[91m"// hi"\x1b[m}
+{\x1b[96m"line"\x1b[m:\x1b[92m2\x1b[m,\x1b[96m"value"\x1b[m:\x1b[92m42\x1b[m,\x1b[96m"flag"\x1b[m:\x1b[94mtrue\x1b[m,\x1b[96m"empty"\x1b[m:\x1b[94mnull\x1b[m}
+{\x1b[96m"line"\x1b[m:\x1b[92m3\x1b[m,\x1b[96m"text"\x1b[m:\x1b[91m"with \x1b[m\x1b[33m\"\x1b[m\x1b[91mescaped\x1b[m\x1b[33m\"\x1b[m\x1b[91m quotes"\x1b[m}
+

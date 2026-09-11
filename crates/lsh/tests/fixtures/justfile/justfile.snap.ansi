@@ -1,0 +1,61 @@
+\x1b[32m# Build configuration for the project\x1b[m
+\x1b[95mset\x1b[m \x1b[94mshell\x1b[m := [\x1b[91m"bash"\x1b[m, \x1b[91m"-uc"\x1b[m]
+\x1b[95mset\x1b[m dotenv-load
+
+\x1b[95mexport\x1b[m RUST_LOG := \x1b[91m"debug"\x1b[m
+
+\x1b[96mtarget\x1b[m := \x1b[91m"release"\x1b[m
+\x1b[96mfeatures\x1b[m := \x1b[91m"default"\x1b[m
+\x1b[96msrc_dir\x1b[m := justfile_directory() / \x1b[91m"src"\x1b[m
+
+\x1b[95malias\x1b[m b := build
+\x1b[95malias\x1b[m t := test
+
+\x1b[95mimport\x1b[m \x1b[91m'common.just'\x1b[m
+\x1b[95mimport?\x1b[m \x1b[91m'optional.just'\x1b[m
+\x1b[95mmod\x1b[m docs
+
+\x1b[32m# Default recipe runs the build\x1b[m
+\x1b[94m[group('main')]\x1b[m
+\x1b[94m[private]\x1b[m
+\x1b[93mdefault\x1b[m: build test
+
+\x1b[32m# Build the project\x1b[m
+\x1b[93mbuild target=target:\x1b[m
+    cargo build --\x1b[96m{{target}}\x1b[m
+    @echo \x1b[91m"built {{target}}"\x1b[m
+
+\x1b[32m# Run all tests with optional filter\x1b[m
+\x1b[93mtest filter='':\x1b[m
+    cargo test \x1b[96m{{filter}}\x1b[m
+
+\x1b[94m[confirm("Really clean?")]\x1b[m
+\x1b[93mclean:\x1b[m
+    rm -rf target/
+    rm -f *.tmp
+
+\x1b[32m# Recipe with multi-line shell\x1b[m
+\x1b[93mdeploy env:\x1b[m
+    \x1b[32m#!/usr/bin/env bash\x1b[m
+    set -euo pipefail
+    \x1b[95mif\x1b[m [ \x1b[91m"{{env}}"\x1b[m = \x1b[91m"prod"\x1b[m ]; then
+        echo \x1b[91m"deploying to prod"\x1b[m
+    \x1b[95melse\x1b[m
+        echo \x1b[91m"deploying to {{env}}"\x1b[m
+    fi
+
+\x1b[96mversion\x1b[m := \x1b[91m`git describe --tags --always`\x1b[m
+
+\x1b[96mgreeting\x1b[m := \x1b[95mif\x1b[m \x1b[94mos\x1b[m() == \x1b[91m"macos"\x1b[m { \x1b[91m"hi mac"\x1b[m } \x1b[95melse\x1b[m { \x1b[91m"hi "\x1b[m + \x1b[94mos\x1b[m() }
+
+\x1b[96mcount\x1b[m := \x1b[92m42\x1b[m
+\x1b[96mhex\x1b[m := \x1b[92m0xff\x1b[m
+
+\x1b[32m# Strings and backtick substitutions carry raw newlines.\x1b[m
+\x1b[96mspan\x1b[m := \x1b[91m"line one\x1b[m
+\x1b[91mline two"\x1b[m
+\x1b[96mraw\x1b[m := \x1b[91m'line one\x1b[m
+\x1b[91mline two'\x1b[m
+\x1b[96mshell\x1b[m := \x1b[91m`uname -s\x1b[m
+\x1b[91muname -r`\x1b[m
+

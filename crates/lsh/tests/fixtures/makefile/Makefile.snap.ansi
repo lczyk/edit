@@ -1,0 +1,38 @@
+\x1b[32m# Build configuration\x1b[m
+\x1b[96mCC\x1b[m := gcc
+\x1b[96mCFLAGS\x1b[m ?= -O2 -Wall
+\x1b[96mSRC\x1b[m := main.c util.c
+\x1b[96mOBJ\x1b[m := \x1b[96m$(\x1b[mSRC:.c=.o)
+\x1b[96mTARGET\x1b[m = app
+
+\x1b[93m.PHONY\x1b[m: all clean
+
+\x1b[93mall\x1b[m: \x1b[96m$(TARGET)\x1b[m
+
+\x1b[93m$(TARGET)\x1b[m: \x1b[96m$(OBJ)\x1b[m
+	\x1b[96m$(CC)\x1b[m \x1b[96m$(CFLAGS)\x1b[m -o \x1b[96m$@\x1b[m \x1b[96m$^\x1b[m
+
+\x1b[93m%.o\x1b[m: %.c
+	\x1b[96m$(CC)\x1b[m \x1b[96m$(CFLAGS)\x1b[m -c -o \x1b[96m$@\x1b[m \x1b[96m$<\x1b[m
+
+\x1b[93mclean:\x1b[m
+	rm -f \x1b[96m$(OBJ)\x1b[m \x1b[96m$(TARGET)\x1b[m
+
+\x1b[95mifeq\x1b[m (\x1b[96m$(DEBUG)\x1b[m,\x1b[92m1\x1b[m)
+\x1b[96mCFLAGS\x1b[m += -g
+\x1b[95mendif\x1b[m
+
+\x1b[95minclude\x1b[m config.mk
+
+\x1b[32m# define bodies are verbatim text up to endef.\x1b[m
+\x1b[95mdefine \x1b[m\x1b[96mGREETING\x1b[m
+\x1b[91mecho hello: world\x1b[m
+\x1b[91mecho "another # not a comment"\x1b[m
+\x1b[95mendef\x1b[m
+
+\x1b[95moverride define \x1b[m\x1b[96mLOUD\x1b[m =
+\x1b[91m	@echo $(1) | tr a-z A-Z\x1b[m
+\x1b[95mendef\x1b[m
+
+\x1b[93mall\x1b[m: \x1b[96m$(GREETING)\x1b[m
+

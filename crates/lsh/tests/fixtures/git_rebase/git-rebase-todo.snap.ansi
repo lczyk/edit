@@ -1,0 +1,55 @@
+\x1b[95mpick\x1b[m\x1b[92m 3f9d2ab\x1b[m\x1b[32m # chore(ci): add initial pipeline\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m e12c0ff\x1b[m\x1b[32m # feat(io): introduce streaming reader\x1b[m
+\x1b[95mreword\x1b[m\x1b[92m 7ac14d0\x1b[m\x1b[32m feat(io): add zero-copy buffered writer\x1b[m
+\x1b[95medit\x1b[m\x1b[92m 4d92b67\x1b[m\x1b[32m fix(io): handle partial UTF-8 sequences at buffer boundary\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m 8bb3a21\x1b[m\x1b[32m docs: expand README performance section\x1b[m
+\x1b[95msquash\x1b[m\x1b[92m 1c02f55\x1b[m\x1b[32m docs: tidy wording in performance section\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m 54ae91b\x1b[m\x1b[32m feat(cli): add --color=auto detection\x1b[m
+\x1b[95mfixup\x1b[m\x1b[92m 0b77c3e\x1b[m\x1b[32m feat(cli): typo in help text\x1b[m
+\x1b[95mfixup\x1b[m\x1b[92m -c\x1b[m\x1b[32m 2f4e8ab feat(cli): adjust arg parsing error message\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m 6d8e5f1\x1b[m\x1b[32m refactor(core): split large module into submodules\x1b[m
+\x1b[95mbreak\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m a41e9d3\x1b[m\x1b[32m test(core): add regression tests for issue #410\x1b[m
+\x1b[95mexec\x1b[m\x1b[32m cargo test --package edit --lib --quiet\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m c3bb921\x1b[m\x1b[32m perf(render): SIMD accelerate line diffing\x1b[m
+\x1b[95mdrop\x1b[m\x1b[92m 91d0f2e\x1b[m\x1b[32m debug(render): temporary logging (to be dropped)\x1b[m
+label pre-merge-split
+\x1b[95mpick\x1b[m\x1b[92m d2f7ac4\x1b[m\x1b[32m feat(ui): add mouse wheel smooth scrolling\x1b[m
+\x1b[95mpick\x1b[m\x1b[92m f1a4bd9\x1b[m\x1b[32m feat(ui): add high-DPI awareness\x1b[m
+label post-ui
+update-ref refs/heads/feature/ui-stack-post
+reset pre-merge-split
+merge -C 5ab77e3 post-ui # Merge UI feature stack
+\x1b[95mpick\x1b[m\x1b[92m d8c4b91\x1b[m\x1b[32m build: bump version to 0.9.0\x1b[m
+
+\x1b[32m# Rebase 3f9d2ab..d8c4b91 onto d8c4b91 (18 commands)\x1b[m
+\x1b[32m#\x1b[m
+\x1b[32m# Commands:\x1b[m
+\x1b[32m# p, pick <commit> = use commit\x1b[m
+\x1b[32m# r, reword <commit> = use commit, but edit the commit message\x1b[m
+\x1b[32m# e, edit <commit> = use commit, but stop for amending\x1b[m
+\x1b[32m# s, squash <commit> = use commit, but meld into previous commit\x1b[m
+\x1b[32m# f, fixup [-C | -c] <commit> = like "squash" but keep only the previous\x1b[m
+\x1b[32m#                    commit's log message, unless -C is used, in which case\x1b[m
+\x1b[32m#                    keep only this commit's message; -c is same as -C but\x1b[m
+\x1b[32m#                    opens the editor\x1b[m
+\x1b[32m# x, exec <command> = run command (the rest of the line) using shell\x1b[m
+\x1b[32m# b, break = stop here (continue rebase later with 'git rebase --continue')\x1b[m
+\x1b[32m# d, drop <commit> = remove commit\x1b[m
+\x1b[32m# l, label <label> = label current HEAD with a name\x1b[m
+\x1b[32m# t, reset <label> = reset HEAD to a label\x1b[m
+\x1b[32m# m, merge [-C <commit> | -c <commit>] <label> [# <oneline>]\x1b[m
+\x1b[32m#         create a merge commit using the original merge commit's\x1b[m
+\x1b[32m#         message (or the oneline, if no original merge commit was\x1b[m
+\x1b[32m#         specified); use -c <commit> to reword the commit message\x1b[m
+\x1b[32m# u, update-ref <ref> = track a placeholder for the <ref> to be updated\x1b[m
+\x1b[32m#                       to this position in the new commits. The <ref> is\x1b[m
+\x1b[32m#                       updated at the end of the rebase\x1b[m
+\x1b[32m#\x1b[m
+\x1b[32m# These lines can be re-ordered; they are executed from top to bottom.\x1b[m
+\x1b[32m#\x1b[m
+\x1b[32m# If you remove a line here THAT COMMIT WILL BE LOST.\x1b[m
+\x1b[32m#\x1b[m
+\x1b[32m# However, if you remove everything, the rebase will be aborted.\x1b[m
+\x1b[32m#\x1b[m
+

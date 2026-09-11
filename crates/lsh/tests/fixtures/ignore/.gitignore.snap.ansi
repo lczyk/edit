@@ -1,0 +1,14 @@
+\x1b[32m# Build artefacts\x1b[m
+target/
+*.o
+*.so
+
+\x1b[32m# Editor scratch\x1b[m
+.vscode/
+.idea/
+*.swp
+
+\x1b[32m# Logs\x1b[m
+*.log
+!important.log
+

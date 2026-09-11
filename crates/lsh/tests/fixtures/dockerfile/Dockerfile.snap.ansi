@@ -1,0 +1,33 @@
+\x1b[32m# Build stage\x1b[m
+\x1b[95mFROM\x1b[m ubuntu:\x1b[92m24.04\x1b[m \x1b[94mAS\x1b[m builder
+
+\x1b[95mARG\x1b[m \x1b[96mVERSION\x1b[m=\x1b[92m1.0\x1b[m
+\x1b[95mENV\x1b[m \x1b[96mAPP_HOME\x1b[m=/srv/app
+\x1b[95mWORKDIR\x1b[m \x1b[96m${APP_HOME}\x1b[m
+
+\x1b[95mRUN\x1b[m apt-get update \
+    && apt-get install -y \x1b[94m--no-install-recommends\x1b[m ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+\x1b[95mCOPY\x1b[m . .
+\x1b[95mRUN\x1b[m ./build.sh
+
+\x1b[32m# Runtime stage\x1b[m
+\x1b[95mFROM\x1b[m debian:bookworm-slim
+\x1b[95mLABEL\x1b[m \x1b[96morg.opencontainers.image.version\x1b[m=\x1b[91m"\x1b[m\x1b[96m${VERSION}\x1b[m\x1b[91m"\x1b[m
+\x1b[95mEXPOSE\x1b[m \x1b[92m8080\x1b[m
+\x1b[95mUSER\x1b[m \x1b[92m1000:1000\x1b[m
+\x1b[95mHEALTHCHECK\x1b[m \x1b[94m--interval\x1b[m=\x1b[92m30s\x1b[m \x1b[94mCMD\x1b[m curl -f http://localhost:\x1b[92m8080\x1b[m/ || exit \x1b[92m1\x1b[m
+\x1b[95mENTRYPOINT\x1b[m [\x1b[91m"/srv/app/run"\x1b[m]
+\x1b[95mCMD\x1b[m [\x1b[91m"--serve"\x1b[m]
+
+\x1b[32m# A trailing backslash continues the instruction onto the next line.\x1b[m
+\x1b[95mENV\x1b[m \x1b[96mFOO\x1b[m=bar \
+    \x1b[96mBAZ\x1b[m=qux
+\x1b[95mRUN\x1b[m mkdir -p /opt/app && \
+    ENV=not-an-instruction cp -r src /opt/app \
+    \x1b[32m# a comment inside a continued RUN\x1b[m
+    && chmod \x1b[92m755\x1b[m /opt/app
+\x1b[95mLABEL\x1b[m \x1b[96morg.opencontainers.image.title\x1b[m=\x1b[91m"edit"\x1b[m \
+      \x1b[96morg.opencontainers.image.source\x1b[m=\x1b[91m"https://example.invalid"\x1b[m
+
