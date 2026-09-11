@@ -43,8 +43,18 @@ than blocking on stdin. With piped stdin and no arguments, it reads stdin. Use
     --version
 ```
 
-Language detection order: `-l` override, then path/filename globs, then a
-shebang sniff of the first line.
+Language detection order: `-l` override, then path/filename globs (a glob
+several definitions share is settled by their content detectors), then a
+shebang sniff of the first line, then a content sniff, then Plain Text. The
+editor uses the same chain.
+
+### Merge conflicts
+
+Conflict-marker lines (`<<<<<<<`, `|||||||`, `=======`, `>>>>>>>`) are
+recognised in every file, Plain Text included, and drawn in magenta; each
+side of the conflict is highlighted as if it were the only one. With `-n`,
+every line of the block carries a magenta separator (`!` without colour)
+in place of the diff mark. The editor does the same in its margin.
 
 ### Colour
 

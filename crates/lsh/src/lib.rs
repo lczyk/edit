@@ -9,6 +9,10 @@
 //! → `backend` (regalloc + codegen) → bytecode
 //! → `runtime` (execute)
 //!
+//! One thing happens outside the bytecode: `conflict` classifies each line
+//! before the vm runs, so merge-conflict markers are handled once for every
+//! language, and the runtime emits their span from a builtin kind (`kind`).
+//!
 //! The IR is a graph of `RefCell<IR>` nodes. Each node has a `.next` pointer and `If` nodes
 //! in particular have a `.then` pointer. This makes CFG manipulation trivial but means you can't
 //! iterate in program order without linearization (see `backend::LivenessAnalysis`).

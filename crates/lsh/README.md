@@ -6,6 +6,7 @@ At a high level:
 * Language definitions live in `definitions/*.lsh`
 * The compiler lowers them into bytecode
 * The runtime executes the bytecode on the input text line by line
+* Merge-conflict marker lines are recognised by the runtime itself, ahead of the bytecode (`src/conflict.rs`), so every language gets them
 
 To understand the definition language itself, read [definitions/README.md](definitions/README.md).
 
@@ -27,4 +28,7 @@ cargo run -p lsh-bin -- render --input crates/lsh/tests/fixtures/xml/highlightin
 
 Golden snapshots for every definition live in [tests/fixtures/](tests/fixtures/),
 one directory per language; [tests/golden.rs](tests/golden.rs) drives them and
-[tests/detect.rs](tests/detect.rs) covers language detection.
+[tests/detect.rs](tests/detect.rs) covers language detection. A snapshot line
+inside a merge conflict carries a `"conflict"` field; the `plain/` fixtures
+exercise the markers on their own, and `plain` is the only language whose
+fixtures resolve without a glob.

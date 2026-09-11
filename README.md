@@ -14,8 +14,8 @@ or to any distro.
 ## What's in the box
 
 - **`edit FILE`** -- a single-file, single-buffer terminal editor with
-  VS Code-ish input controls, undo/redo, find/replace, a git diff gutter and a
-  minimap.
+  VS Code-ish input controls, undo/redo, find/replace, a git diff gutter, a
+  minimap, and merge-conflict markers highlighted in any file.
 - **`eat [FILES...]`** -- a `bat`-flavoured syntax-highlighting `cat`. Same
   binary, busybox-style: `make install` drops an `eat -> edit` symlink, and
   `edit --eat` works too. Handles paging, line ranges, line numbers, wrapping,

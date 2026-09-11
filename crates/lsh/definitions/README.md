@@ -66,6 +66,17 @@ Everything between the previous `yield` and the current position is coloured wit
 Highlight kinds are dotted identifiers such as `comment`, `string`, `keyword.control`, `constant.numeric`, and `markup.bold`.
 Kinds are interned at compile time. You can invent new ones, but the editor still needs to know what color to assign them.
 
+Two kinds exist without any definition yielding them: `other` and `markup.conflict.marker`.
+They are builtin (see `lsh::kind`), pinned to the first discriminants so the runtime can emit them itself.
+
+## Merge-conflict markers
+
+A definition never sees a git conflict-marker line (`<<<<<<<`, `|||||||`, `=======`, `>>>>>>>`).
+The runtime recognises them before running any bytecode, colours the whole line `markup.conflict.marker`, and lexes the ours, base and theirs sides as three continuations of the state at the opener, so a string or comment opened on one side does not leak into another.
+This also means the line numbers a definition sees through `ln` still count marker lines.
+
+[plain.lsh](plain.lsh) is deliberately empty: it is the language of files nothing else claims, and conflict markers are all the highlighting such a file gets.
+
 `yield other` switches back to the default, unhighlighted kind.
 Use it when you want to reset the current highlight between tokens. See [json.lsh](json.lsh) for a representative pattern.
 

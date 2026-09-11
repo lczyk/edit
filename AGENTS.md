@@ -127,10 +127,10 @@ Terminal issues: check `vt.rs`, `sys/unix.rs`, and `edit::term::setup` first.
 ## Crates
 
 - `edit` -- main binary and library. Includes `edit::eat` (busybox-style multicall: when invoked as `eat` via symlink, or with `--eat`, acts as a `bat`-like syntax-highlighting cat). User-facing surface documented in [doc/src/eat.md](doc/src/eat.md).
-- `lsh` -- syntax-highlighting compiler and runtime. Language definitions in [crates/lsh/definitions/](crates/lsh/definitions/). See [crates/lsh/README.md](crates/lsh/README.md).
+- `lsh` -- syntax-highlighting compiler and runtime. Language definitions in [crates/lsh/definitions/](crates/lsh/definitions/); `plain.lsh` is the empty fallback. `lsh::conflict` recognises merge-conflict markers ahead of the bytecode and forks the vm state per side; `lsh::kind` pins the builtin kinds the runtime emits itself. See [crates/lsh/README.md](crates/lsh/README.md).
 - `lsh-bin` -- CLI for debugging LSH output.
-- `lsh-defs` -- bundled lsh language defs codegen + detection helpers + ansi-16 colourmap. Shared by `edit` and `edit::eat`. The canonical highlight-kind colour table is `lsh::compiler::default_ansi16`; consumers map it via `Ansi16::sgr()` rather than transcribing it.
-- `gutter` -- per-line gutter mark computation + render (git-diff overlays).
+- `lsh-defs` -- bundled lsh language defs codegen + detection helpers + ansi-16 colourmap. Shared by `edit` and `edit::eat`. `detect::resolve` is the one detection chain (user associations, globs, shebang, content sniff, `PLAIN`); a buffer always has a language. The canonical highlight-kind colour table is `lsh::compiler::default_ansi16`; consumers map it via `Ansi16::sgr()` rather than transcribing it.
+- `gutter` -- per-line gutter mark computation + render (git-diff overlays). `GutterMark::Conflict` is the exception: it comes from the highlighter's per-line conflict tag, not the diff, and outranks it.
 - `stdext` -- shared utilities (arena allocator, collections, SIMD helpers, sys shims).
 - `unicode-gen` -- codegen for Unicode LUTs (only needed to regenerate tables; tables are checked in).
 
