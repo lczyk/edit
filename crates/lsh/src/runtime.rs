@@ -440,7 +440,26 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         // If the DSL yields anything, this will be overwritten.
         res.push(arena, Highlight { start: 0, kind: unsafe { mem::zeroed() } });
 
+        // A loop whose guard can never match on this line would spin forever.
+        // Generous: the busiest bundled fixture line needs about 4k.
+        let budget = 256u64.saturating_mul(line.len() as u64).saturating_add(8192);
+        let mut instructions = 0u64;
+
         loop {
+            instructions += 1;
+            if instructions > budget {
+                stdext::sanity_check!(
+                    runtime_line_within_instruction_budget,
+                    false,
+                    "pc={} off={} line_len={} budget={budget}",
+                    self.registers.pc,
+                    self.registers.off,
+                    line.len()
+                );
+                self.registers = Registers { pc: self.entrypoint, ..Default::default() };
+                break;
+            }
+
             instruction_decode!(self.assembly, self.registers.pc, {
                 Mov { dst, src } => {
                     let s = self.registers.get(src);
@@ -1491,6 +1510,20 @@ mod tests {
             .collect()
     }
 
+    /// Runs `f` with sanity trips captured. The notify handler and the dedup
+    /// window are process-wide, so a test that expects a check to fire must
+    /// not let it leak into a parallel test's capture.
+    fn captured<R>(f: impl FnOnce() -> R) -> (R, Vec<String>) {
+        #[cfg(feature = "sanity")]
+        {
+            stdext::sanity::capture::trips(f)
+        }
+        #[cfg(not(feature = "sanity"))]
+        {
+            (f(), Vec::new())
+        }
+    }
+
     /// A loop's no-progress check compares the offset against where the
     /// iteration started. Across an `await input` that baseline belongs to the
     /// previous line, and the check used to fire on the new line and force the
@@ -1741,8 +1774,54 @@ mod tests {
                    pub fn t() {\n\
                        if /(\\w+)\\s+(\\w+)/ { yield $2 as string; yield $1 as keyword; }\n\
                    }\n";
-        let spans = highlight(src, &["foo bar"]);
+        let (spans, _) = captured(|| highlight(src, &["foo bar"]));
         assert_eq!(spans[0].iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>(), ["foo ", "bar"]);
+    }
+
+    /// The justfile attribute bug: a loop guard that never matches and a
+    /// body that never reaches the end of the line. Before the budget this
+    /// test never returned.
+    const STUCK_LOOP: &str = "#[display_name = \"T\"]\n\
+                              #[path = \"**/*.t\"]\n\
+                              pub fn t() {\n\
+                                  if /\\[/ { until /\\]/ { yield keyword; } }\n\
+                              }\n";
+
+    #[test]
+    fn a_stuck_loop_is_cut_off_and_the_next_line_starts_fresh() {
+        let (spans, _) = captured(|| highlight(STUCK_LOOP, &["[unix", "[ok]"]));
+        assert_eq!(spans[1].iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(), ["keyword"]);
+    }
+
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn a_stuck_loop_trips_the_budget_check() {
+        let (_, msgs) = captured(|| highlight(STUCK_LOOP, &["[unix"]));
+        assert!(
+            stdext::sanity::capture::fired(&msgs, "runtime_line_within_instruction_budget"),
+            "{msgs:?}"
+        );
+    }
+
+    /// Long but legal lines stay well inside the budget: a check that fires
+    /// on awkward input is worse than none.
+    #[cfg(feature = "sanity")]
+    #[test]
+    fn awkward_but_legal_lines_do_not_trip_the_budget_check() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       until /$/ {\n\
+                           if /\"/ { until /$/ { if /\\\\./ {} else if /\"/ { yield string; break; } } }\n\
+                           else if /\\w+/ { yield keyword; }\n\
+                           else if /./ { yield other; }\n\
+                       }\n\
+                   }\n";
+        let quotes = "\"".repeat(20_000);
+        let words = "ab ".repeat(10_000);
+        let escapes = "\"\\\"".repeat(5_000);
+        let (_, msgs) = captured(|| highlight(src, &[&quotes, &words, &escapes]));
+        assert!(msgs.is_empty(), "{msgs:?}");
     }
 
     #[test]
