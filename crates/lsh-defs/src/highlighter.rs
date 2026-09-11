@@ -91,13 +91,13 @@ impl<'doc> Highlighter<'doc> {
         if line.is_empty() {
             return None;
         }
-        // A very long line is skipped whole rather than highlighted; the vm
-        // never sees it, so it still belongs to whatever conflict region the
-        // previous line left open.
+        // A very long line is skipped whole rather than highlighted, but the
+        // conflict state still sees it: a marker with a huge label is still a
+        // marker.
         if line.len() >= MAX_LINE_LEN {
             return Some(ParsedLine {
                 spans: BVec::empty(),
-                conflict: self.runtime.conflict_region(),
+                conflict: self.runtime.skip_line(strip_newline(line)),
             });
         }
 
@@ -403,6 +403,22 @@ mod tests {
         assert_eq!(h.logical_pos_y(), 3);
         assert!(h.parse_next_line(&arena).is_none());
         assert_eq!(h.logical_pos_y(), 4);
+    }
+
+    #[test]
+    fn an_over_long_marker_line_still_opens_the_block() {
+        let mut src = b"<<<<<<< ".to_vec();
+        src.resize(MAX_LINE_LEN + 100, b'x');
+        src.extend_from_slice(b"\nours\n=======\ntheirs\n");
+        let src: &[u8] = &src;
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut h = Highlighter::new(&src, lang("markdown"));
+        let mut tags = Vec::new();
+        while let Some(parsed) = h.parse_next_line(&arena) {
+            tags.push(parsed.conflict);
+        }
+        use ConflictTag::*;
+        assert_eq!(tags, [Marker, Ours, Marker, Theirs]);
     }
 
     #[test]

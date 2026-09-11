@@ -441,10 +441,20 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         self.state.vm.registers.set(Register::LINE_NUMBER, line_number);
     }
 
-    /// Where the last parsed line left the conflict state: the region a
-    /// line the caller did not hand to the vm still belongs to.
+    /// Where the last parsed line left the conflict state.
     pub fn conflict_region(&self) -> ConflictTag {
         self.state.conflict.region()
+    }
+
+    /// Account for a line the caller will not hand to the vm (too long to
+    /// highlight, say): a marker line still moves the conflict state, and
+    /// any other line keeps its region.
+    pub fn skip_line(&mut self, line: &[u8]) -> ConflictTag {
+        if self.state.conflict.step(line, &mut self.state.vm) {
+            ConflictTag::Marker
+        } else {
+            self.state.conflict.region()
+        }
     }
 
     /// Parse a single line and return highlight spans.
