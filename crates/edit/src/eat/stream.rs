@@ -98,21 +98,26 @@ pub(crate) fn render_body(
 
 /// write one line to `writer`, optionally with a leading line number and ansi
 /// colour escapes from `color_map`. when `runtime` is `None`, the line is
-/// emitted as-is (no highlighting). when `gutter` is `Some((g, n))`, prepend
-/// the gutter prefix (right-aligned line number + separator) using mark
-/// information from `g`. used by the bulk path (`print_highlighted`) and the
-/// streaming follow path; the tui follow path stores raw bodies and composes
-/// the prefix at render time so the gutter can update without re-rendering.
+/// emitted as-is (no highlighting). when `gutter` is `Some`, prepend the
+/// gutter prefix (right-aligned line number + separator) using mark
+/// information from it. used by the bulk path (`print_highlighted`) and the
+/// streaming follow path.
 pub(crate) fn write_highlighted_line(
     writer: &mut dyn Write,
-    runtime: Option<&mut Runtime>,
+    mut runtime: Option<&mut Runtime>,
     color_map: &[&str],
+    line_no: usize,
     line: &str,
-    gutter: Option<(&gutter_view::Gutter, usize)>,
+    gutter: Option<&gutter_view::Gutter>,
     use_color: bool,
 ) -> io::Result<()> {
-    if let Some((g, n)) = gutter {
-        gutter_view::write_prefix(writer, n, g.width, g.mark(n), use_color)?;
+    if let Some(g) = gutter {
+        gutter_view::write_prefix(writer, line_no, g.width, g.mark(line_no), use_color)?;
+    }
+    // Position-sensitive constructs (a line-1 frontmatter fence) read the
+    // line number from the vm, and a top-level return clears it.
+    if let Some(rt) = runtime.as_deref_mut() {
+        rt.set_line_number(line_no as u32);
     }
     let mut body = Vec::with_capacity(line.len() + 16);
     render_body(runtime, color_map, line, use_color, &mut body);
@@ -143,8 +148,8 @@ fn print_highlighted(
     }
 
     for (i, line) in lines.iter().enumerate() {
-        let g = if show_numbers { gutter.map(|g| (g, i + 1)) } else { None };
-        write_highlighted_line(writer, Some(runtime), color_map, line, g, use_color)?;
+        let g = if show_numbers { gutter } else { None };
+        write_highlighted_line(writer, Some(runtime), color_map, i + 1, line, g, use_color)?;
     }
 
     Ok(())

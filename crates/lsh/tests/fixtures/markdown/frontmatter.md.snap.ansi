@@ -1,0 +1,11 @@
+\x1b[94m---\x1b[m
+title: \x1b[91mfrontmatter\x1b[m
+tags: \x1b[91m[a, b]\x1b[m
+\x1b[94m---\x1b[m
+
+\x1b[94m# heading\x1b[m
+
+---
+
+text after a thematic break, not frontmatter.
+

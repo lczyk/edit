@@ -348,8 +348,15 @@ fn finish_tick<S: FollowSource>(
     // file's last line, not a mid-line append we should buffer. flush them.
     if read_offset == 0 && !state.partial.is_empty() {
         let cow = String::from_utf8_lossy(&state.partial);
-        let g = gutter.map(|g| (g, state.line_no));
-        write_highlighted_line(writer, runtime_ref.as_deref_mut(), color_map, &cow, g, use_color)?;
+        write_highlighted_line(
+            writer,
+            runtime_ref.as_deref_mut(),
+            color_map,
+            state.line_no,
+            &cow,
+            gutter,
+            use_color,
+        )?;
         state.line_no += 1;
         emitted += 1;
         state.partial.clear();
@@ -392,8 +399,15 @@ fn emit_lines(
                 end -= 1;
             }
             let cow = String::from_utf8_lossy(&all[start..end]);
-            let g = gutter.map(|g| (g, *line_no));
-            write_highlighted_line(writer, runtime.as_deref_mut(), color_map, &cow, g, use_color)?;
+            write_highlighted_line(
+                writer,
+                runtime.as_deref_mut(),
+                color_map,
+                *line_no,
+                &cow,
+                gutter,
+                use_color,
+            )?;
             *line_no += 1;
             emitted += 1;
             start = i + 1;

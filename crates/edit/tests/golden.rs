@@ -92,12 +92,13 @@ fn golden() {
         let src = fs::read(fixture).unwrap();
         let mut snap = Vec::new();
 
-        for line in src.split(|&b| b == b'\n') {
+        for (lineno, line) in src.split(|&b| b == b'\n').enumerate() {
             let line = match line.last() {
                 Some(b'\r') => &line[..line.len() - 1],
                 _ => line,
             };
             let scratch = scratch_arena(None);
+            runtime.set_line_number(lineno as u32 + 1);
             let highlights = runtime.parse_next_line::<u32>(&scratch, line);
 
             for w in highlights.windows(2) {

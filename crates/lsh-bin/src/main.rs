@@ -231,9 +231,10 @@ fn run_render(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Resul
     let reader = BufReader::with_capacity(128 * 1024, File::open(path)?);
     let mut stdout = BufWriter::with_capacity(128 * 1024, stdout());
 
-    for line in reader.lines() {
+    for (lineno, line) in reader.lines().enumerate() {
         let line = line?;
         let scratch = scratch_arena(None);
+        runtime.set_line_number(lineno as u32 + 1);
         let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
 
         for w in highlights.windows(2) {

@@ -1,0 +1,9 @@
+{"line":1,"kind":"meta.header","text":"---"}
+{"line":2,"kind":"other","text":"title: "}
+{"line":2,"kind":"string","text":"frontmatter"}
+{"line":3,"kind":"other","text":"tags: "}
+{"line":3,"kind":"string","text":"[a, b]"}
+{"line":4,"kind":"meta.header","text":"---"}
+{"line":6,"kind":"markup.heading","text":"# heading"}
+{"line":8,"kind":"other","text":"---"}
+{"line":10,"kind":"other","text":"text after a thematic break, not frontmatter."}
