@@ -108,7 +108,7 @@ fn golden() {
             };
             let scratch = scratch_arena(None);
             runtime.set_line_number(lineno as u32 + 1);
-            let highlights = runtime.parse_next_line::<u32>(&scratch, line);
+            let highlights = runtime.parse_next_line::<u32>(&scratch, line).spans;
 
             for w in highlights.windows(2) {
                 let curr = &w[0];

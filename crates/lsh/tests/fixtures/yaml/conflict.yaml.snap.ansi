@@ -1,0 +1,12 @@
+key: \x1b[91m|\x1b[m
+  \x1b[91mline one\x1b[m
+\x1b[35m<<<<<<< HEAD\x1b[m
+  \x1b[91mours line\x1b[m
+\x1b[35m||||||| ef303a3\x1b[m
+  \x1b[91mbase line\x1b[m
+\x1b[35m=======\x1b[m
+  \x1b[91mtheirs line\x1b[m
+\x1b[35m>>>>>>> lczyk/main\x1b[m
+  \x1b[91mstill the scalar\x1b[m
+other: \x1b[91mvalue\x1b[m
+

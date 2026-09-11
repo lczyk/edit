@@ -1,0 +1,20 @@
+{"line":1,"kind":"keyword.other","text":"fn"}
+{"line":1,"kind":"other","text":" "}
+{"line":1,"kind":"method","text":"main"}
+{"line":1,"kind":"other","text":"() {"}
+{"line":2,"kind":"markup.conflict.marker","text":"<<<<<<< HEAD","conflict":"marker"}
+{"line":3,"kind":"other","text":"    ","conflict":"ours"}
+{"line":3,"kind":"comment","text":"/* ours opens a comment","conflict":"ours"}
+{"line":4,"kind":"markup.conflict.marker","text":"=======","conflict":"marker"}
+{"line":5,"kind":"other","text":"    ","conflict":"theirs"}
+{"line":5,"kind":"keyword.other","text":"let","conflict":"theirs"}
+{"line":5,"kind":"other","text":" theirs = ","conflict":"theirs"}
+{"line":5,"kind":"constant.numeric","text":"1","conflict":"theirs"}
+{"line":5,"kind":"other","text":";","conflict":"theirs"}
+{"line":6,"kind":"markup.conflict.marker","text":">>>>>>> branch","conflict":"marker"}
+{"line":7,"kind":"other","text":"    "}
+{"line":7,"kind":"keyword.other","text":"let"}
+{"line":7,"kind":"other","text":" after = "}
+{"line":7,"kind":"constant.numeric","text":"2"}
+{"line":7,"kind":"other","text":";"}
+{"line":8,"kind":"other","text":"}"}

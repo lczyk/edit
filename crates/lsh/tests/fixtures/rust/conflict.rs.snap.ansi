@@ -1,0 +1,9 @@
+\x1b[94mfn\x1b[m \x1b[93mmain\x1b[m() {
+\x1b[35m<<<<<<< HEAD\x1b[m
+    \x1b[32m/* ours opens a comment\x1b[m
+\x1b[35m=======\x1b[m
+    \x1b[94mlet\x1b[m theirs = \x1b[92m1\x1b[m;
+\x1b[35m>>>>>>> branch\x1b[m
+    \x1b[94mlet\x1b[m after = \x1b[92m2\x1b[m;
+}
+

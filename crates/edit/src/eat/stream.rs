@@ -62,7 +62,7 @@ pub(crate) fn render_body(
     match runtime {
         Some(rt) => {
             let scratch = scratch_arena(None);
-            let highlights = rt.parse_next_line::<u32>(&scratch, line.as_bytes());
+            let highlights = rt.parse_next_line::<u32>(&scratch, line.as_bytes()).spans;
             // NOTE: lsh emits byte indices that may not land on utf-8 char
             // boundaries, so slice via as_bytes() and write_all -- string
             // slicing would panic on multi-byte codepoints (e.g. man pages

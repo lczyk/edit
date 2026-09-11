@@ -235,7 +235,7 @@ fn run_render(generator: lsh::compiler::Generator, path: &Path) -> anyhow::Resul
         let line = line?;
         let scratch = scratch_arena(None);
         runtime.set_line_number(lineno as u32 + 1);
-        let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
+        let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes()).spans;
 
         for w in highlights.windows(2) {
             let curr = &w[0];

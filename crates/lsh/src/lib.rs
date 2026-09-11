@@ -48,5 +48,6 @@
 #![allow(irrefutable_let_patterns, clippy::upper_case_acronyms)]
 
 pub mod compiler;
+pub mod conflict;
 pub mod kind;
 pub mod runtime;

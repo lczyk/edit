@@ -1,0 +1,11 @@
+key: |
+  line one
+<<<<<<< HEAD
+  ours line
+||||||| ef303a3
+  base line
+=======
+  theirs line
+>>>>>>> lczyk/main
+  still the scalar
+other: value

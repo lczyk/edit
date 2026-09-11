@@ -1,0 +1,12 @@
+{"line":1,"kind":"other","text":"key: |"}
+{"line":2,"kind":"string","text":"  line one"}
+{"line":3,"kind":"markup.conflict.marker","text":"<<<<<<< HEAD","conflict":"marker"}
+{"line":4,"kind":"string","text":"  ours line","conflict":"ours"}
+{"line":5,"kind":"markup.conflict.marker","text":"||||||| ef303a3","conflict":"marker"}
+{"line":6,"kind":"string","text":"  base line","conflict":"base"}
+{"line":7,"kind":"markup.conflict.marker","text":"=======","conflict":"marker"}
+{"line":8,"kind":"string","text":"  theirs line","conflict":"theirs"}
+{"line":9,"kind":"markup.conflict.marker","text":">>>>>>> lczyk/main","conflict":"marker"}
+{"line":10,"kind":"string","text":"  still the scalar"}
+{"line":11,"kind":"other","text":"other: "}
+{"line":11,"kind":"string","text":"value"}

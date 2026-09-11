@@ -26,6 +26,10 @@ use stdext::arena::Arena;
 use stdext::arena_write_fmt;
 use stdext::collections::{BString, BVec};
 
+use crate::conflict::ConflictState;
+pub use crate::conflict::ConflictTag;
+use crate::kind;
+
 /// ANSI-16 colour identifier. Used by [`HighlightKind::default_color`] (the
 /// generated method) to express the canonical default colour for each
 /// highlight kind, decoupled from any specific output format. Consumers map
@@ -144,6 +148,14 @@ pub struct Runtime<'pa, 'ps, 'pc> {
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct RuntimeState {
     vm: VmState,
+    conflict: ConflictState,
+}
+
+/// One parsed line: its highlight spans and where it sits relative to a
+/// merge conflict.
+pub struct ParsedLine<'a, T> {
+    pub spans: BVec<'a, Highlight<T>>,
+    pub conflict: ConflictTag,
 }
 
 /// The interpreter's own state: the call stack, the registers, and the span
@@ -153,6 +165,17 @@ pub struct VmState {
     stack: Vec<u32>,
     registers: Registers,
     saved: SavedSpan,
+}
+
+impl VmState {
+    /// Whether two states are inside the same construct: equal up to the
+    /// per-line registers (off, hs, ln), which only say where on its last
+    /// line each vm stopped.
+    pub fn same_construct(&self, other: &Self) -> bool {
+        self.stack == other.stack
+            && self.saved == other.saved
+            && self.registers.cross_line() == other.registers.cross_line()
+    }
 }
 
 /// Bytes a definition asked to remember with `save $N`, so a later line can
@@ -411,21 +434,38 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         self.state.vm.registers.set(Register::LINE_NUMBER, line_number);
     }
 
+    /// Where the last parsed line left the conflict state: the region a
+    /// line the caller did not hand to the vm still belongs to.
+    pub fn conflict_region(&self) -> ConflictTag {
+        self.state.conflict.region()
+    }
+
     /// Parse a single line and return highlight spans.
     ///
-    /// Executes bytecode until the line is fully consumed or a `Return` resets the VM.
-    /// The returned spans partition the line into highlighted regions.
+    /// A merge-conflict marker line never reaches the bytecode: it becomes
+    /// one [`kind::CONFLICT_MARKER`] span and forks or restores the vm state
+    /// (see [`crate::conflict`]). Otherwise, executes bytecode until the line
+    /// is fully consumed or a `Return` resets the VM. The returned spans
+    /// partition the line into highlighted regions.
     ///
     /// # Returns
-    /// A vector of [`Highlight`] spans. Always contains at least two spans:
-    /// one at offset 0 and one at `line.len()` as a sentinel. Starts never
-    /// decrease, so consumers may slice `[start, next.start)` unchecked.
+    /// The spans always contain at least two entries: one at offset 0 and
+    /// one at `line.len()` as a sentinel. Starts never decrease, so consumers
+    /// may slice `[start, next.start)` unchecked.
     pub fn parse_next_line<'a, T: PartialEq + TryFrom<u32>>(
         &mut self,
         arena: &'a Arena,
         line: &[u8],
-    ) -> BVec<'a, Highlight<T>> {
+    ) -> ParsedLine<'a, T> {
         let mut res: BVec<'a, Highlight<T>> = BVec::empty();
+
+        if self.state.conflict.step(line, &mut self.state.vm) {
+            let kind =
+                T::try_from(kind::CONFLICT_MARKER).unwrap_or_else(|_| unsafe { mem::zeroed() });
+            res.push(arena, Highlight { start: 0, kind });
+            res.push(arena, Highlight { start: line.len(), kind: unsafe { mem::zeroed() } });
+            return ParsedLine { spans: res, conflict: ConflictTag::Marker };
+        }
 
         self.state.vm.registers.off = 0;
         self.state.vm.registers.hs = 0;
@@ -627,7 +667,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
             res.push(arena, Highlight { start: line.len(), kind: unsafe { mem::zeroed() } });
         }
 
-        res
+        ParsedLine { spans: res, conflict: self.state.conflict.region() }
     }
 
     // TODO: http://0x80.pl/notesen/2018-10-18-simd-byte-lookup.html#alternative-implementation
@@ -805,6 +845,16 @@ pub struct Registers {
 }
 
 impl Registers {
+    /// The registers that carry over between lines: pc and the user
+    /// registers. off and hs restart every line; x3 (ln) is set by the
+    /// caller.
+    fn cross_line(&self) -> [u32; 13] {
+        [
+            self.pc, self.x4, self.x5, self.x6, self.x7, self.x8, self.x9, self.x10, self.x11,
+            self.x12, self.x13, self.x14, self.x15,
+        ]
+    }
+
     #[inline(always)]
     pub fn get(&self, reg: Register) -> u32 {
         debug_assert!((reg as usize) < Register::COUNT);
@@ -1491,7 +1541,7 @@ mod tests {
             .iter()
             .map(|line| {
                 let scratch = scratch_arena(Some(&arena));
-                let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
+                let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes()).spans;
                 highlights
                     .windows(2)
                     .filter(|w| w[0].start != w[1].start)
@@ -1502,6 +1552,190 @@ mod tests {
                     .collect()
             })
             .collect()
+    }
+
+    /// A block comment that swallows whole lines until `*/`, and words as
+    /// keywords: enough to see a construct leak (or not) across a conflict.
+    const COMMENT_DEF: &str = "#[display_name = \"T\"]\n\
+                               #[path = \"**/*.t\"]\n\
+                               pub fn t() {\n\
+                                   if /\\/\\*/ {\n\
+                                       loop {\n\
+                                           yield comment;\n\
+                                           await input;\n\
+                                           if /\\*\\// { yield comment; break; }\n\
+                                           if /.*/ {}\n\
+                                       }\n\
+                                       return;\n\
+                                   }\n\
+                                   if /\\w+/ { yield keyword; }\n\
+                               }\n";
+
+    /// Like `highlight`, keeping only each line's kinds plus its conflict tag.
+    fn kinds_and_tags(src: &str, lines: &[&str]) -> Vec<(Vec<String>, ConflictTag)> {
+        let _ = stdext::arena::init(16 * 1024 * 1024);
+        let arena = scratch_arena(None);
+        let mut compiler = Compiler::new(&arena);
+        compiler.parse("test.lsh", src).unwrap();
+        let assembly = compiler.assemble().unwrap();
+        let charsets: Vec<SerializedCharset> =
+            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+        let mut kind_names: Vec<&str> = vec![""; assembly.highlight_kinds.len()];
+        for hk in &assembly.highlight_kinds {
+            kind_names[hk.value as usize] = hk.identifier;
+        }
+        let entry = assembly.entrypoints[0].address as u32;
+        let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
+        lines
+            .iter()
+            .map(|line| {
+                let scratch = scratch_arena(Some(&arena));
+                let parsed = runtime.parse_next_line::<u32>(&scratch, line.as_bytes());
+                let kinds = parsed
+                    .spans
+                    .windows(2)
+                    .filter(|w| w[0].start != w[1].start)
+                    .map(|w| kind_names[w[0].kind as usize].to_string())
+                    .collect();
+                (kinds, parsed.conflict)
+            })
+            .collect()
+    }
+
+    fn kinds(parsed: &[(Vec<String>, ConflictTag)]) -> Vec<Vec<&str>> {
+        parsed.iter().map(|(k, _)| k.iter().map(String::as_str).collect()).collect()
+    }
+
+    fn tags(parsed: &[(Vec<String>, ConflictTag)]) -> Vec<ConflictTag> {
+        parsed.iter().map(|(_, t)| *t).collect()
+    }
+
+    #[test]
+    fn a_construct_opened_on_one_side_does_not_leak_into_the_other() {
+        use ConflictTag::*;
+        let parsed = kinds_and_tags(
+            COMMENT_DEF,
+            &[
+                "a",
+                "<<<<<<< HEAD",
+                "/* open",
+                "||||||| base",
+                "b",
+                "=======",
+                "c",
+                ">>>>>>> t",
+                "d",
+            ],
+        );
+        let m = "markup.conflict.marker";
+        assert_eq!(
+            kinds(&parsed),
+            [
+                vec!["keyword"],
+                vec![m],
+                vec!["comment"],
+                vec![m],
+                vec!["keyword"],
+                vec![m],
+                vec!["keyword"],
+                vec![m],
+                vec!["keyword"],
+            ]
+        );
+        assert_eq!(tags(&parsed), [None, Marker, Ours, Marker, Base, Marker, Theirs, Marker, None]);
+    }
+
+    #[test]
+    fn the_text_after_a_block_continues_from_the_side_that_closed_its_constructs() {
+        let ours_open = kinds_and_tags(
+            COMMENT_DEF,
+            &["<<<<<<< HEAD", "/* open", "=======", "x", ">>>>>>> t", "d"],
+        );
+        assert_eq!(kinds(&ours_open)[5], ["keyword"]);
+
+        let theirs_open = kinds_and_tags(
+            COMMENT_DEF,
+            &["<<<<<<< HEAD", "x", "=======", "/* open", ">>>>>>> t", "d"],
+        );
+        assert_eq!(kinds(&theirs_open)[5], ["keyword"]);
+
+        let both_open = kinds_and_tags(
+            COMMENT_DEF,
+            &["<<<<<<< HEAD", "/* a", "=======", "/* b", ">>>>>>> t", "d"],
+        );
+        assert_eq!(kinds(&both_open)[5], ["comment"]);
+    }
+
+    #[test]
+    fn markers_of_another_length_inside_a_block_are_text() {
+        use ConflictTag::*;
+        let parsed = kinds_and_tags(
+            COMMENT_DEF,
+            &[
+                "<<<<<<< HEAD",
+                "<<<<<<<<< inner",
+                "=========",
+                ">>>>>>>>> inner",
+                "=======",
+                "c",
+                ">>>>>>> t",
+            ],
+        );
+        assert_eq!(tags(&parsed), [Marker, Ours, Ours, Ours, Marker, Theirs, Marker]);
+        assert_eq!(kinds(&parsed)[1], ["other"]);
+    }
+
+    #[test]
+    fn a_repeated_opener_restarts_the_block_from_the_fork() {
+        use ConflictTag::*;
+        let parsed = kinds_and_tags(
+            COMMENT_DEF,
+            &["<<<<<<< HEAD", "/* open", "<<<<<<< HEAD", "x", "=======", "y", ">>>>>>> t"],
+        );
+        assert_eq!(tags(&parsed), [Marker, Ours, Marker, Ours, Marker, Theirs, Marker]);
+        assert_eq!(kinds(&parsed)[3], ["keyword"]);
+    }
+
+    #[test]
+    fn an_unterminated_block_stays_open_and_a_stray_separator_is_text() {
+        use ConflictTag::*;
+        let open = kinds_and_tags(COMMENT_DEF, &["<<<<<<< HEAD", "x", "y"]);
+        assert_eq!(tags(&open), [Marker, Ours, Ours]);
+        assert_eq!(kinds(&open)[2], ["keyword"]);
+
+        let stray = kinds_and_tags(COMMENT_DEF, &["=======", ">>>>>>> t", "x"]);
+        assert_eq!(tags(&stray), [None, None, None]);
+        assert_eq!(kinds(&stray)[0], ["other"]);
+    }
+
+    /// The editor re-highlights from cached states; a state taken inside a
+    /// block must still know the fork when it is restored elsewhere.
+    #[test]
+    fn a_snapshot_taken_inside_a_block_carries_the_fork() {
+        let _ = stdext::arena::init(16 * 1024 * 1024);
+        let arena = scratch_arena(None);
+        let mut compiler = Compiler::new(&arena);
+        compiler.parse("test.lsh", COMMENT_DEF).unwrap();
+        let assembly = compiler.assemble().unwrap();
+        let charsets: Vec<SerializedCharset> =
+            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+        let keyword =
+            assembly.highlight_kinds.iter().find(|hk| hk.identifier == "keyword").unwrap().value;
+        let entry = assembly.entrypoints[0].address as u32;
+        let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
+
+        runtime.parse_next_line::<u32>(&arena, b"<<<<<<< HEAD");
+        runtime.parse_next_line::<u32>(&arena, b"/* open");
+        let state = runtime.snapshot();
+
+        let mut resumed = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
+        resumed.restore(&state);
+        assert_eq!(resumed.conflict_region(), ConflictTag::Ours);
+        let sep = resumed.parse_next_line::<u32>(&arena, b"=======");
+        assert_eq!(sep.conflict, ConflictTag::Marker);
+        let theirs = resumed.parse_next_line::<u32>(&arena, b"c");
+        assert_eq!(theirs.conflict, ConflictTag::Theirs);
+        assert_eq!(theirs.spans[0].kind, keyword);
     }
 
     /// Runs `f` with sanity trips captured. The notify handler and the dedup
@@ -1692,8 +1926,8 @@ mod tests {
         // A fresh runtime restored from the snapshot must still close on END.
         let mut resumed = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
         resumed.restore(&state);
-        let body = resumed.parse_next_line::<u32>(&arena, b"body");
-        let close = resumed.parse_next_line::<u32>(&arena, b"END");
+        let body = resumed.parse_next_line::<u32>(&arena, b"body").spans;
+        let close = resumed.parse_next_line::<u32>(&arena, b"END").spans;
 
         let kind_of = |hs: &BVec<'_, Highlight<u32>>| hs[0].kind;
         let keyword =
@@ -1839,7 +2073,7 @@ mod tests {
         let entry = assembly.entrypoints[0].address as u32;
         let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
 
-        let spans = runtime.parse_next_line::<u32>(&arena, b"");
+        let spans = runtime.parse_next_line::<u32>(&arena, b"").spans;
         assert_eq!(spans.len(), 2);
         assert_eq!((spans[0].start, spans[1].start), (0, 0));
     }

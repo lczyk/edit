@@ -15,7 +15,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use lsh::compiler::{Generator, SerializedCharset};
-use lsh::runtime::Runtime;
+use lsh::runtime::{ConflictTag, Runtime};
 use stdext::arena::scratch_arena;
 use stdext::glob::glob_match;
 
@@ -134,11 +134,23 @@ fn json_str(out: &mut String, s: &[u8]) {
     out.push('"');
 }
 
-fn snap_line(out: &mut String, lineno: usize, kind: &str, text: &[u8]) {
+fn snap_line(out: &mut String, lineno: usize, kind: &str, text: &[u8], conflict: ConflictTag) {
     out.push_str(&format!("{{\"line\":{lineno},\"kind\":"));
     json_str(out, kind.as_bytes());
     out.push_str(",\"text\":");
     json_str(out, text);
+    // Only lines inside a merge conflict carry the field, so snapshots of
+    // conflict-free fixtures are unchanged by its existence.
+    let conflict = match conflict {
+        ConflictTag::None => None,
+        ConflictTag::Marker => Some("marker"),
+        ConflictTag::Ours => Some("ours"),
+        ConflictTag::Base => Some("base"),
+        ConflictTag::Theirs => Some("theirs"),
+    };
+    if let Some(conflict) = conflict {
+        out.push_str(&format!(",\"conflict\":\"{conflict}\""));
+    }
     out.push_str("}\n");
 }
 
@@ -247,8 +259,8 @@ fn golden() {
             };
             let scratch = scratch_arena(Some(&outer));
             runtime.set_line_number(lineno as u32 + 1);
-            let highlights = runtime.parse_next_line::<u32>(&scratch, line);
-            for w in highlights.windows(2) {
+            let parsed = runtime.parse_next_line::<u32>(&scratch, line);
+            for w in parsed.spans.windows(2) {
                 let curr = &w[0];
                 let next = &w[1];
                 let text = &line[curr.start..next.start];
@@ -256,7 +268,7 @@ fn golden() {
                     continue;
                 }
                 let kind = kind_names.get(curr.kind as usize).copied().unwrap_or("?");
-                snap_line(&mut snap, lineno + 1, kind, text);
+                snap_line(&mut snap, lineno + 1, kind, text, parsed.conflict);
             }
         }
 

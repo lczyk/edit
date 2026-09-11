@@ -93,14 +93,14 @@ impl<'doc> Highlighter<'doc> {
         // `logical_pos_y` was bumped to this line's 1-based index in
         // `read_next_line`; expose it to the DSL as `ln`.
         self.runtime.set_line_number(self.logical_pos_y as u32);
-        let mut res = self.runtime.parse_next_line(arena, line);
+        let mut parsed = self.runtime.parse_next_line(arena, line);
 
         // Adjust the range to account for the line offset.
-        for h in res.iter_mut() {
+        for h in parsed.spans.iter_mut() {
             h.start = line_off + h.start.min(line.len());
         }
 
-        res
+        parsed.spans
     }
 
     fn read_next_line<'a>(&mut self, arena: &'a Arena) -> (usize, &'a [u8])
