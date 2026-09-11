@@ -171,7 +171,9 @@ impl<'a> Generator<'a> {
         output.push_str("// This file is auto-generated. Do not edit it manually.\n\n");
         output.push_str("use lsh::runtime::Language;\n\n");
 
-        output.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum HighlightKind {\n");
+        output.push_str(
+            "#[repr(u8)]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum HighlightKind {\n",
+        );
         let members: Vec<_> = assembly
             .highlight_kinds
             .iter()
@@ -182,6 +184,9 @@ impl<'a> Generator<'a> {
             _ = writeln!(output, "    {member:<width$} // {}", hk.identifier);
         }
         output.push_str("}\n");
+        // TryFrom below transmutes a u8; the repr makes that a guarantee
+        // rather than a layout accident, and the count keeps it in range.
+        output.push_str("\nconst _: () = assert!(HighlightKind::COUNT <= 256);\n");
 
         if let Some(last) = assembly.highlight_kinds.last() {
             _ = write!(
@@ -464,6 +469,26 @@ mod tests {
         let mermaid = &body[..end];
         assert!(!mermaid.contains("/*"), "mermaid leaks a `/*`");
         assert!(!mermaid.contains("*/"), "mermaid leaks a `*/`");
+    }
+
+    #[test]
+    fn the_kind_enum_pins_its_layout() {
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut generator = Generator::new(&arena);
+        generator
+            .compiler
+            .parse(
+                "test.lsh",
+                "#[display_name = \"T\"]\n\
+                 #[path = \"**/*.t\"]\n\
+                 pub fn t() { if /x/ { yield keyword; } }\n",
+            )
+            .unwrap();
+        let rust = generator.generate_rust().unwrap();
+        assert!(rust.contains(
+            "#[repr(u8)]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum HighlightKind"
+        ));
+        assert!(rust.contains("const _: () = assert!(HighlightKind::COUNT <= 256);"));
     }
 
     #[test]
