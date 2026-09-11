@@ -88,8 +88,8 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
         keybindings::chord(Action::ToggleLineComment),
     ) {
         let lang = tb.language();
-        let line_tok = lang.and_then(|l| l.line_comment);
-        let block_tok = lang.and_then(|l| l.block_comment);
+        let line_tok = lang.line_comment;
+        let block_tok = lang.block_comment;
         if let Some(tok) =
             line_tok.or_else(|| document::fallback_line_comment(&state.document.path))
         {
@@ -100,12 +100,12 @@ fn draw_menu_edit(ctx: &mut Context, state: &mut State) {
         ctx.needs_rerender();
     }
     if ctx.menubar_menu_button("toggle block comment", 'B', edit::input::vk::NULL) {
-        if let Some((open, close)) = tb.language().and_then(|l| l.block_comment) {
+        if let Some((open, close)) = tb.language().block_comment {
             tb.toggle_block_comment(open, close);
             ctx.needs_rerender();
         } else if let Some(tok) = tb
             .language()
-            .and_then(|l| l.line_comment)
+            .line_comment
             .or_else(|| document::fallback_line_comment(&state.document.path))
         {
             // Fall back to line comments for languages with no block syntax,

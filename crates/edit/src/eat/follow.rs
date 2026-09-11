@@ -175,15 +175,15 @@ pub enum TickOutcome {
 }
 
 /// drive one poll iteration: stat, branch on size/id, optionally read+emit.
-/// caller owns sleeping between ticks. the `runtime` is `Option` so that a
-/// "no language detected" caller can still follow w/out highlighting.
-/// `gutter`, when `Some`, prepends the line-number column + diff separator;
-/// `None` keeps the historical bare-line output.
+/// caller owns sleeping between ticks. `runtime_entrypoint` rebuilds the
+/// runtime from scratch when the file rotates. `gutter`, when `Some`,
+/// prepends the line-number column + diff separator; `None` keeps the
+/// historical bare-line output.
 #[allow(clippy::too_many_arguments)]
 pub fn tick<S: FollowSource>(
     state: &mut FollowState,
     src: &mut S,
-    runtime: Option<&mut Runtime<'static, 'static, 'static>>,
+    runtime: &mut Runtime<'static, 'static, 'static>,
     runtime_entrypoint: u32,
     color_map: &[&str],
     gutter: Option<&super::gutter_view::Gutter>,
@@ -283,15 +283,10 @@ pub fn tick<S: FollowSource>(
 /// the read-and-emit half of `tick`, factored out so the first-tick branch
 /// can share it w/out duplicating the runtime-reset / partial-buffer dance.
 #[allow(clippy::too_many_arguments)]
-// `as_deref_mut` is the right tool here: `runtime_ref: Option<&mut Runtime>`
-// gets re-borrowed across two call sites (`emit_lines`, the post-loop
-// flush). clippy's `needless_option_as_deref` suggests dropping it, but
-// that would consume the option. let-bind work-around is uglier.
-#[allow(clippy::needless_option_as_deref)]
 fn finish_tick<S: FollowSource>(
     state: &mut FollowState,
     src: &mut S,
-    runtime: Option<&mut Runtime<'static, 'static, 'static>>,
+    runtime: &mut Runtime<'static, 'static, 'static>,
     runtime_entrypoint: u32,
     color_map: &[&str],
     gutter: Option<&super::gutter_view::Gutter>,
@@ -307,19 +302,11 @@ fn finish_tick<S: FollowSource>(
     let line_no_before = state.line_no;
 
     // on rotation, drop accumulated runtime state + partial line + numbering.
-    let mut owned_runtime;
-    let mut runtime_ref: Option<&mut Runtime<'static, 'static, 'static>> = if rotated {
+    if rotated {
         state.partial.clear();
         state.line_no = 1;
-        if runtime.is_some() {
-            owned_runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, runtime_entrypoint);
-            Some(&mut owned_runtime as &mut Runtime<'static, 'static, 'static>)
-        } else {
-            None
-        }
-    } else {
-        runtime
-    };
+        *runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, runtime_entrypoint);
+    }
 
     let mut buf = Vec::new();
     src.read_from(read_offset, &mut buf)?;
@@ -334,7 +321,7 @@ fn finish_tick<S: FollowSource>(
 
     let mut emitted = emit_lines(
         &all,
-        runtime_ref.as_deref_mut(),
+        runtime,
         color_map,
         gutter,
         use_color,
@@ -348,15 +335,7 @@ fn finish_tick<S: FollowSource>(
     // file's last line, not a mid-line append we should buffer. flush them.
     if read_offset == 0 && !state.partial.is_empty() {
         let cow = String::from_utf8_lossy(&state.partial);
-        write_highlighted_line(
-            writer,
-            runtime_ref.as_deref_mut(),
-            color_map,
-            state.line_no,
-            &cow,
-            gutter,
-            use_color,
-        )?;
+        write_highlighted_line(writer, runtime, color_map, state.line_no, &cow, gutter, use_color)?;
         state.line_no += 1;
         emitted += 1;
         state.partial.clear();
@@ -380,7 +359,7 @@ fn finish_tick<S: FollowSource>(
 #[allow(clippy::too_many_arguments)]
 fn emit_lines(
     all: &[u8],
-    mut runtime: Option<&mut Runtime<'static, 'static, 'static>>,
+    runtime: &mut Runtime<'static, 'static, 'static>,
     color_map: &[&str],
     gutter: Option<&super::gutter_view::Gutter>,
     use_color: bool,
@@ -399,15 +378,7 @@ fn emit_lines(
                 end -= 1;
             }
             let cow = String::from_utf8_lossy(&all[start..end]);
-            write_highlighted_line(
-                writer,
-                runtime.as_deref_mut(),
-                color_map,
-                *line_no,
-                &cow,
-                gutter,
-                use_color,
-            )?;
+            write_highlighted_line(writer, runtime, color_map, *line_no, &cow, gutter, use_color)?;
             *line_no += 1;
             emitted += 1;
             start = i + 1;
@@ -424,7 +395,7 @@ fn emit_lines(
 /// calling `tick`. exits on `GoneTooLong` or io error.
 pub fn run(
     path: PathBuf,
-    lang: Option<&'static Language>,
+    lang: &'static Language,
     show_numbers: bool,
     use_color: bool,
     poll_interval: Duration,
@@ -434,8 +405,7 @@ pub fn run(
     // rather than burning the miss budget.
     src.stat()?;
     let color_map = super::theme::color_map();
-    let entrypoint = lang.map(|l| l.entrypoint).unwrap_or(0);
-    let mut runtime = lang.map(|l| Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, l.entrypoint));
+    let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lang.entrypoint);
 
     // build the gutter once at startup; appended lines past the initial
     // marks vec just get GutterMark::None in their gutter prefix. for the
@@ -459,8 +429,8 @@ pub fn run(
         let outcome = tick(
             &mut state,
             &mut src,
-            runtime.as_mut(),
-            entrypoint,
+            &mut runtime,
+            lang.entrypoint,
             &color_map,
             gutter.as_ref(),
             use_color,
@@ -544,10 +514,14 @@ mod tests {
         }
     }
 
-    /// run a tick with no syntax runtime (raw line pass-through). simpler for
-    /// asserting the loop logic w/out caring about ansi escapes.
+    /// a plain-text runtime: raw line pass-through, so the loop logic can be
+    /// asserted w/out caring about ansi escapes.
+    fn plain() -> Runtime<'static, 'static, 'static> {
+        Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lsh_defs::PLAIN.entrypoint)
+    }
+
     fn step_plain(state: &mut FollowState, src: &mut MemSource, out: &mut Vec<u8>) -> TickOutcome {
-        tick(state, src, None, 0, &[], None, false, out).unwrap()
+        tick(state, src, &mut plain(), 0, &[], None, false, out).unwrap()
     }
 
     fn s(out: &[u8]) -> String {
@@ -830,7 +804,7 @@ mod tests {
         let lines = b"let x = 1;\nfn foo() {}\n";
 
         // path A: one tick.
-        let mut rt_a = Some(Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, rust.entrypoint));
+        let mut rt_a = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, rust.entrypoint);
         let mut src_a = MemSource::new();
         src_a.append(lines);
         let mut state_a = FollowState::new(20);
@@ -838,7 +812,7 @@ mod tests {
         tick(
             &mut state_a,
             &mut src_a,
-            rt_a.as_mut(),
+            &mut rt_a,
             rust.entrypoint,
             &color_map,
             None,
@@ -848,7 +822,7 @@ mod tests {
         .unwrap();
 
         // path B: two ticks, line by line.
-        let mut rt_b = Some(Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, rust.entrypoint));
+        let mut rt_b = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, rust.entrypoint);
         let mut src_b = MemSource::new();
         let mut state_b = FollowState::new(20);
         let mut out_b = Vec::new();
@@ -856,7 +830,7 @@ mod tests {
         tick(
             &mut state_b,
             &mut src_b,
-            rt_b.as_mut(),
+            &mut rt_b,
             rust.entrypoint,
             &color_map,
             None,
@@ -868,7 +842,7 @@ mod tests {
         tick(
             &mut state_b,
             &mut src_b,
-            rt_b.as_mut(),
+            &mut rt_b,
             rust.entrypoint,
             &color_map,
             None,
@@ -906,12 +880,13 @@ mod tests {
 
         // 3 misses, each within budget -> Idle.
         for _ in 0..3 {
-            let r = tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap();
+            let r =
+                tick(&mut state, &mut src, &mut plain(), 0, &[], None, false, &mut out).unwrap();
             assert_eq!(r, TickOutcome::Idle);
             src.fails_left -= 1;
         }
         // recovery: stat now succeeds, content emits.
-        let r = tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap();
+        let r = tick(&mut state, &mut src, &mut plain(), 0, &[], None, false, &mut out).unwrap();
         assert_eq!(r, TickOutcome::Wrote(1));
         assert_eq!(s(&out), "x\n");
     }
@@ -933,15 +908,15 @@ mod tests {
 
         // budget=2 means: 1st miss Idle, 2nd Idle, 3rd > budget -> GoneTooLong.
         assert_eq!(
-            tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap(),
+            tick(&mut state, &mut src, &mut plain(), 0, &[], None, false, &mut out).unwrap(),
             TickOutcome::Idle
         );
         assert_eq!(
-            tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap(),
+            tick(&mut state, &mut src, &mut plain(), 0, &[], None, false, &mut out).unwrap(),
             TickOutcome::Idle
         );
         assert_eq!(
-            tick(&mut state, &mut src, None, 0, &[], None, false, &mut out).unwrap(),
+            tick(&mut state, &mut src, &mut plain(), 0, &[], None, false, &mut out).unwrap(),
             TickOutcome::GoneTooLong
         );
     }
@@ -955,7 +930,7 @@ mod tests {
         src.append(b"a\nb\n");
         let mut state = FollowState::new(20);
         let mut out = Vec::new();
-        tick(&mut state, &mut src, None, 0, &[], Some(&g), false, &mut out).unwrap();
+        tick(&mut state, &mut src, &mut plain(), 0, &[], Some(&g), false, &mut out).unwrap();
         let got = s(&out);
         assert!(got.contains("1"));
         assert!(got.contains("2"));

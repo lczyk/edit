@@ -21,10 +21,7 @@ pub fn allow_create() -> bool {
 use edit::buffer::{RcTextBuffer, TextBuffer};
 use edit::framebuffer::IndexedColor;
 use edit::helpers::{CoordType, Point};
-use edit::lsh::{
-    FILE_ASSOCIATIONS, Language, disambiguate_language, language_from_content,
-    language_from_shebang, match_file_associations,
-};
+use edit::lsh::{Language, PLAIN, resolve};
 use edit::{path, sys, watch};
 
 use gutter::gutter_diff::{self, BaselineState};
@@ -38,7 +35,8 @@ pub struct Document {
     pub path: PathBuf,
     pub filename: String,
     pub file_id: Option<sys::FileId>,
-    pub language_override: Option<Option<&'static Language>>,
+    /// `None` while auto-detecting; `Some` once the user picked one.
+    pub language_override: Option<&'static Language>,
     pub read_only: bool,
 
     /// Fingerprint captured at open (or last save). Compared every 2s
@@ -284,7 +282,7 @@ impl Document {
         self.update_language();
     }
 
-    pub fn override_language(&mut self, lang: Option<&'static Language>) {
+    pub fn override_language(&mut self, lang: &'static Language) {
         self.language_override = Some(lang);
         self.update_language();
     }
@@ -296,57 +294,28 @@ impl Document {
         self.buffer.borrow_mut().set_language(lang);
     }
 
-    fn get_language(&self) -> Option<&'static Language> {
+    fn get_language(&self) -> &'static Language {
         if let Some(lang) = self.language_override {
             return lang;
         }
-
         let settings = Settings::borrow();
-        // Gather all path-glob candidates (user settings first, then built-ins)
-        // so dialect disambiguation can run when more than one definition
-        // shares a glob -- e.g. yaml + slice_yaml on `**/*.yaml`.
-        let mut candidates = match_file_associations(&settings.file_associations, &self.path);
-        for cand in match_file_associations(FILE_ASSOCIATIONS, &self.path) {
-            if !candidates.iter().any(|l| std::ptr::eq(*l, cand)) {
-                candidates.push(cand);
-            }
-        }
-
-        if !candidates.is_empty() {
-            // Only pay the buffer-read cost when there's actual ambiguity.
-            let head = if candidates.len() > 1 {
-                let mut buf = Vec::new();
-                self.buffer.borrow().copy_first_bytes(4096, &mut buf);
-                buf
-            } else {
-                Vec::new()
-            };
-            return disambiguate_language(&candidates, &head);
-        }
-
-        // Path-based detection missed -- fall back to content-based probes.
-        // Shebang catches scripts w/out a recognised extension; the content
-        // sniff catches markdown-y files (README, NOTES, ...) saved w/out
-        // an `.md` suffix, or new buffers where the user has typed enough
-        // markdown for it to be obvious.
-        let mut head = Vec::new();
-        self.buffer.borrow().copy_first_bytes(4096, &mut head);
-        if let Some(lang) = language_from_shebang(&head) {
-            return Some(lang);
-        }
-        language_from_content(&head)
+        resolve(Some(&self.path), &settings.file_associations, || {
+            let mut head = Vec::new();
+            self.buffer.borrow().copy_first_bytes(4096, &mut head);
+            head
+        })
     }
 
     /// Bump the language-redetect dirty marker if the buffer has changed
     /// since the last probe. Only relevant while the doc is in auto-detect
-    /// mode AND currently has no language -- once a language is locked in
-    /// or the user has explicitly picked one (incl. Plain Text), the loop
-    /// stops. Switching back to Auto Detect re-arms it.
+    /// mode AND still plain text -- once a language is locked in or the user
+    /// has explicitly picked one (incl. Plain Text), the loop stops.
+    /// Switching back to Auto Detect re-arms it.
     pub fn language_check_dirty(&mut self) {
         if self.language_override.is_some() {
             return;
         }
-        if self.buffer.borrow().language().is_some() {
+        if !std::ptr::eq(self.buffer.borrow().language(), PLAIN) {
             return;
         }
         self.language.check(self.buffer.borrow().generation());

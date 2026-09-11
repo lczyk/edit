@@ -44,7 +44,7 @@ use crate::watch::{self, FileDelta, FileStat};
 /// - `--color=never` override. edit's tui has no plain-mode toggle yet.
 pub fn run_snapshot(
     path: PathBuf,
-    lang: Option<&'static Language>,
+    lang: &'static Language,
     show_numbers: bool,
     _use_color: bool,
     wrap: bool,
@@ -199,7 +199,7 @@ fn snapshot_header(path_label: &str, at: Instant, file_changed: bool) -> String 
 ///   `request_scroll_delta_y` calls in this callback instead.
 pub fn run_follow_mount(
     path: PathBuf,
-    lang: Option<&'static Language>,
+    lang: &'static Language,
     show_numbers: bool,
     _use_color: bool,
     poll_interval: Duration,

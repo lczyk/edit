@@ -37,11 +37,7 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
 
     ctx.table_next_row();
 
-    let picker_clicked = ctx.button(
-        "language",
-        tb.language().map_or("Plain Text", |l| l.name),
-        ButtonStyle::default(),
-    );
+    let picker_clicked = ctx.button("language", tb.language().name, ButtonStyle::default());
     if picker_clicked {
         state.modal = Some(crate::modals::Modal::LanguagePicker);
     }

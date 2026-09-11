@@ -17,9 +17,9 @@ use stdext::arena::scratch_arena;
 use super::cli::{
     ColorMode, LineRange, PagingMode, WrapMode, print_short_help, prog_name, resolve_use_color,
 };
-use super::detect::{detect_by_path, head_bytes};
+use super::detect::head_bytes;
 use super::{gutter_view, theme};
-use lsh_defs::detect::{find_language, language_from_content, language_from_shebang};
+use lsh_defs::detect::{NO_USER_ASSOCIATIONS, find_language, resolve};
 
 /// resolve the pager binary path.
 fn resolve_pager() -> Option<String> {
@@ -52,57 +52,49 @@ fn resolve_pager() -> Option<String> {
 /// prefix and no trailing newline -- `write_highlighted_line` composes those
 /// around it.
 pub(crate) fn render_body(
-    runtime: Option<&mut Runtime>,
+    runtime: &mut Runtime,
     color_map: &[&str],
     line: &str,
     use_color: bool,
     out: &mut Vec<u8>,
 ) {
     use std::io::Write as _;
-    match runtime {
-        Some(rt) => {
-            let scratch = scratch_arena(None);
-            let highlights = rt.parse_next_line::<u32>(&scratch, line.as_bytes()).spans;
-            // NOTE: lsh emits byte indices that may not land on utf-8 char
-            // boundaries, so slice via as_bytes() and write_all -- string
-            // slicing would panic on multi-byte codepoints (e.g. man pages
-            // with em-dashes / smart quotes).
-            let line_bytes = line.as_bytes();
-            for w in highlights.windows(2) {
-                let curr = &w[0];
-                let next = &w[1];
-                let start = curr.start;
-                let end = next.start.min(line_bytes.len());
-                let kind = curr.kind;
-                let text = &line_bytes[start..end];
+    let scratch = scratch_arena(None);
+    let highlights = runtime.parse_next_line::<u32>(&scratch, line.as_bytes()).spans;
+    // NOTE: lsh emits byte indices that may not land on utf-8 char
+    // boundaries, so slice via as_bytes() and write_all -- string
+    // slicing would panic on multi-byte codepoints (e.g. man pages
+    // with em-dashes / smart quotes).
+    let line_bytes = line.as_bytes();
+    for w in highlights.windows(2) {
+        let curr = &w[0];
+        let next = &w[1];
+        let start = curr.start;
+        let end = next.start.min(line_bytes.len());
+        let kind = curr.kind;
+        let text = &line_bytes[start..end];
 
-                if use_color
-                    && let Some(color) = color_map.get(kind as usize)
-                    && !color.is_empty()
-                {
-                    let _ = write!(out, "{color}");
-                    out.extend_from_slice(text);
-                    out.extend_from_slice(b"\x1b[m");
-                } else {
-                    out.extend_from_slice(text);
-                }
-            }
-        }
-        None => {
-            out.extend_from_slice(line.as_bytes());
+        if use_color
+            && let Some(color) = color_map.get(kind as usize)
+            && !color.is_empty()
+        {
+            let _ = write!(out, "{color}");
+            out.extend_from_slice(text);
+            out.extend_from_slice(b"\x1b[m");
+        } else {
+            out.extend_from_slice(text);
         }
     }
 }
 
 /// write one line to `writer`, optionally with a leading line number and ansi
-/// colour escapes from `color_map`. when `runtime` is `None`, the line is
-/// emitted as-is (no highlighting). when `gutter` is `Some`, prepend the
+/// colour escapes from `color_map`. when `gutter` is `Some`, prepend the
 /// gutter prefix (right-aligned line number + separator) using mark
 /// information from it. used by the bulk path (`print_highlighted`) and the
 /// streaming follow path.
 pub(crate) fn write_highlighted_line(
     writer: &mut dyn Write,
-    mut runtime: Option<&mut Runtime>,
+    runtime: &mut Runtime,
     color_map: &[&str],
     line_no: usize,
     line: &str,
@@ -114,9 +106,7 @@ pub(crate) fn write_highlighted_line(
     }
     // Position-sensitive constructs (a line-1 frontmatter fence) read the
     // line number from the vm, and a top-level return clears it.
-    if let Some(rt) = runtime.as_deref_mut() {
-        rt.set_line_number(line_no as u32);
-    }
+    runtime.set_line_number(line_no as u32);
     let mut body = Vec::with_capacity(line.len() + 16);
     render_body(runtime, color_map, line, use_color, &mut body);
     writer.write_all(&body)?;
@@ -147,7 +137,7 @@ fn print_highlighted(
 
     for (i, line) in lines.iter().enumerate() {
         let g = if show_numbers { gutter } else { None };
-        write_highlighted_line(writer, Some(runtime), color_map, i + 1, line, g, use_color)?;
+        write_highlighted_line(writer, runtime, color_map, i + 1, line, g, use_color)?;
     }
 
     Ok(())
@@ -321,19 +311,9 @@ pub(crate) fn run(
             lines
         };
 
-        // language detection
-        let lang = if let Some(l) = lang_override {
-            Some(l)
-        } else if let Some(p) = path_for_detection {
-            let head = head_bytes(&lines);
-            detect_by_path(p, &head)
-                .or_else(|| language_from_shebang(&head))
-                .or_else(|| language_from_content(&head))
-        } else {
-            // stdin with no path: shebang sniff, then content sniff
-            let head = head_bytes(&lines);
-            language_from_shebang(&head).or_else(|| language_from_content(&head))
-        };
+        let lang = lang_override.unwrap_or_else(|| {
+            resolve(path_for_detection, NO_USER_ASSOCIATIONS, || head_bytes(&lines))
+        });
 
         if plain {
             // plain mode: cat to shared sink. no header, no decorations.
@@ -369,48 +349,24 @@ pub(crate) fn run(
             None
         };
 
-        if let Some(lang) = lang {
-            let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lang.entrypoint);
-            match print_highlighted(
-                sink.as_mut(),
-                &mut runtime,
-                &lines,
-                &color_map,
-                show_numbers,
-                header,
-                use_color,
-                gutter.as_ref(),
-            ) {
-                Ok(()) => {}
-                Err(e) if e.kind() == io::ErrorKind::BrokenPipe => {
-                    sink_closed = true;
-                }
-                Err(e) => {
-                    eprintln!("{}: {e}", prog_name());
-                    has_error = true;
-                }
+        let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, lang.entrypoint);
+        match print_highlighted(
+            sink.as_mut(),
+            &mut runtime,
+            &lines,
+            &color_map,
+            show_numbers,
+            header,
+            use_color,
+            gutter.as_ref(),
+        ) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::BrokenPipe => {
+                sink_closed = true;
             }
-        } else {
-            // no language detected -- plain output, but still through shared sink
-            // so we share the pager with siblings.
-            if let Some(hdr) = header {
-                let _ = if use_color {
-                    writeln!(sink, "\x1b[1m--- {hdr} ---\x1b[m")
-                } else {
-                    writeln!(sink, "--- {hdr} ---")
-                };
-            }
-            for line in &lines {
-                if let Err(e) = writeln!(sink, "{line}") {
-                    if e.kind() == io::ErrorKind::BrokenPipe {
-                        sink_closed = true;
-                        break;
-                    }
-                    eprintln!("{}: {e}", prog_name());
-                    has_error = true;
-                    sink_closed = true;
-                    break;
-                }
+            Err(e) => {
+                eprintln!("{}: {e}", prog_name());
+                has_error = true;
             }
         }
     }

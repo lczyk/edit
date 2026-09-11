@@ -460,8 +460,8 @@ fn toggle_line_comment(state: &mut State) {
     // TODO: when we have a user-facing warning/toast system, surface a
     // "no comment syntax for this file" hint instead of silent noop.
     let lang = state.document.buffer.borrow().language();
-    let line_tok = lang.and_then(|l| l.line_comment);
-    let block_tok = lang.and_then(|l| l.block_comment);
+    let line_tok = lang.line_comment;
+    let block_tok = lang.block_comment;
     if let Some(tok) = line_tok.or_else(|| document::fallback_line_comment(&state.document.path)) {
         state.document.buffer.borrow_mut().toggle_line_comment(tok);
     } else if let Some((open, close)) = block_tok {

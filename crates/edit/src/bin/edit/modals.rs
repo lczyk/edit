@@ -14,7 +14,7 @@ use std::num::ParseIntError;
 use edit::framebuffer::IndexedColor;
 use edit::helpers::*;
 use edit::input::vk;
-use edit::lsh::LANGUAGES;
+use edit::lsh::{LANGUAGES, PLAIN};
 use edit::tui::*;
 use stdext::arena_format;
 
@@ -256,21 +256,19 @@ pub fn draw_dialog_language_change(ctx: &mut Context, state: &mut State) {
             ctx.inherit_focus();
 
             let auto_detect = doc.language_override.is_none();
-            let selected = if auto_detect { None } else { doc.buffer.borrow().language() };
+            let selected = if auto_detect { None } else { Some(doc.buffer.borrow().language()) };
 
             if ctx.list_item(auto_detect, "Auto Detect") == ListSelection::Activated {
                 doc.auto_detect_language();
                 done = true;
             }
 
-            if ctx.list_item(selected.is_none(), "Plain Text") == ListSelection::Activated {
-                doc.override_language(None);
-                done = true;
-            }
-
-            for lang in LANGUAGES {
-                if ctx.list_item(Some(lang) == selected, lang.name) == ListSelection::Activated {
-                    doc.override_language(Some(lang));
+            // Plain Text keeps its spot right under Auto Detect.
+            let rest = LANGUAGES.iter().filter(|l| !std::ptr::eq(*l, PLAIN));
+            for lang in std::iter::once(PLAIN).chain(rest) {
+                let picked = selected.is_some_and(|s| std::ptr::eq(s, lang));
+                if ctx.list_item(picked, lang.name) == ListSelection::Activated {
+                    doc.override_language(lang);
                     done = true;
                 }
             }

@@ -51,7 +51,7 @@ use crate::framebuffer::{Attributes, IndexedColor};
 use crate::helpers::*;
 use crate::icu;
 use crate::lsh::cache::HighlighterCache;
-use crate::lsh::{HighlightKind, Highlighter, Language};
+use crate::lsh::{HighlightKind, Highlighter, Language, PLAIN};
 use crate::unicode::{Cursor, MeasurementConfig};
 use lsh::runtime::Highlight;
 use stdext::simd::{self, memchr2};
@@ -397,7 +397,7 @@ pub struct TextBuffer {
     indent_with_tabs: bool,
     line_highlight_enabled: bool,
     column_guides_enabled: bool,
-    language: Option<&'static Language>,
+    language: &'static Language,
     ruler: CoordType,
     newlines_are_crlf: bool,
     insert_final_newline: bool,
@@ -486,7 +486,7 @@ impl TextBuffer {
             indent_with_tabs: false,
             line_highlight_enabled: false,
             column_guides_enabled: false,
-            language: None,
+            language: PLAIN,
             ruler: 0,
             newlines_are_crlf: false,
             insert_final_newline: false,
@@ -943,11 +943,11 @@ impl TextBuffer {
         self.column_guides_enabled = enabled;
     }
 
-    pub fn language(&self) -> Option<&'static Language> {
+    pub fn language(&self) -> &'static Language {
         self.language
     }
 
-    pub fn set_language(&mut self, language: Option<&'static Language>) {
+    pub fn set_language(&mut self, language: &'static Language) {
         self.language = language;
         self.highlighter_cache.invalidate_from(0);
     }

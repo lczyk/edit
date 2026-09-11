@@ -24,8 +24,6 @@ use std::io::{self, IsTerminal};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use lsh::runtime::Language;
-
 use cli::{Cli, FollowDuration, parse_cli, parse_line_range, prog_name, resolve_use_color};
 use detect::resolve_language;
 use stream::run;
@@ -60,9 +58,7 @@ fn run_follow_cli(cli: &Cli, has_line_range: bool) -> ExitCode {
 
     let path = PathBuf::from(&cli.files[0]);
 
-    // resolve language: -l override, then path-glob, then shebang sniff
-    // off the file's first line.
-    let lang: Option<&'static Language> = match resolve_language(&path, cli.language.as_deref()) {
+    let lang = match resolve_language(&path, cli.language.as_deref()) {
         Ok(lang) => lang,
         Err(name) => {
             eprintln!("{}: unknown language '{name}'", prog_name());
@@ -136,8 +132,7 @@ pub fn main() -> ExitCode {
 
     if use_snapshot_tui {
         let path = PathBuf::from(&cli.files[0]);
-        let lang: Option<&'static Language> = match resolve_language(&path, cli.language.as_deref())
-        {
+        let lang = match resolve_language(&path, cli.language.as_deref()) {
             Ok(lang) => lang,
             Err(name) => {
                 eprintln!("{}: unknown language '{name}'", prog_name());

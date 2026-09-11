@@ -549,10 +549,10 @@ impl TextBuffer {
         // lsh markup is computed inside the layout loop, intersected per
         // visual row, so wrapped rows don't paint attrs (underline / bold /
         // ...) past their actual text extent. Skipped when colour output is
-        // suppressed (no-color mode) or no language is set; in those cases
-        // markup rects stay empty and the draw step paints nothing extra.
-        let lsh_enabled = !crate::glyphs::no_color() && self.language.is_some();
-        let mut highlighter_opt = self.language.map(|lang| Highlighter::new(&self.buffer, lang));
+        // suppressed (no-color mode); then markup rects stay empty and the
+        // draw step paints nothing extra.
+        let lsh_enabled = !crate::glyphs::no_color();
+        let mut highlighter = Highlighter::new(&self.buffer, self.language);
         let mut hl_logical_y: Option<CoordType> = None;
         let mut hl_buf: Vec<Highlight<HighlightKind>> = Vec::new();
 
@@ -677,12 +677,10 @@ impl TextBuffer {
             // trailing blanks past the wrap column.
             if lsh_enabled && cursor_beg.offset != cursor_end.offset {
                 let logical_y = cursor_beg.logical_pos.y;
-                if hl_logical_y != Some(logical_y)
-                    && let Some(ref mut highlighter) = highlighter_opt
-                {
+                if hl_logical_y != Some(logical_y) {
                     let scratch_hl = scratch_arena(None);
                     let parsed =
-                        self.highlighter_cache.parse_line(&scratch_hl, highlighter, logical_y);
+                        self.highlighter_cache.parse_line(&scratch_hl, &mut highlighter, logical_y);
                     hl_buf.clear();
                     hl_buf.extend(parsed.spans.iter().cloned());
                     hl_logical_y = Some(logical_y);
@@ -746,12 +744,9 @@ impl TextBuffer {
         if crate::glyphs::no_color() {
             return Vec::new();
         }
-        let Some(language) = self.language else {
-            return Vec::new();
-        };
         let line_count = self.logical_line_count() as usize;
         let mut out = vec![None; line_count];
-        let mut highlighter = Highlighter::new(&self.buffer, language);
+        let mut highlighter = Highlighter::new(&self.buffer, self.language);
         for slot in out.iter_mut() {
             let scratch = scratch_arena(None);
             let Some(parsed) = highlighter.parse_next_line(&scratch) else { break };
