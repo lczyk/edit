@@ -136,10 +136,7 @@ impl<'a> Backend<'a> {
                     ) {
                         (Some(o), Some(c)) => Some((o.to_string(), c.to_string())),
                         (None, None) => None,
-                        _ => panic!(
-                            "{}: block_comment_open and block_comment_close must be specified together",
-                            f.name
-                        ),
+                        _ => unreachable!("the frontend rejects an unpaired block comment"),
                     },
                     address: f.body.borrow().offset,
                     detect_address,

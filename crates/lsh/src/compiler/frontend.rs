@@ -96,6 +96,10 @@ impl<'a, 'c, 'src> Parser<'a, 'c, 'src> {
             }
         }
 
+        if attributes.block_comment_open.is_some() != attributes.block_comment_close.is_some() {
+            raise!(self, "block_comment_open and block_comment_close must be specified together");
+        }
+
         Ok(attributes)
     }
 
@@ -976,6 +980,17 @@ mod tests {
              pub fn t() {{\n{body}}}\n"
         );
         compiler.parse("test.lsh", &src).map(|_| ()).map_err(|e| e.message)
+    }
+
+    #[test]
+    fn an_unpaired_block_comment_attribute_is_rejected() {
+        let arena = Arena::new(1 << 20).unwrap();
+        let mut compiler = Compiler::new(&arena);
+        let src = "#[display_name = \"T\"]\n\
+                   #[block_comment_open = \"/*\"]\n\
+                   pub fn t() {}\n";
+        let err = compiler.parse("test.lsh", src).unwrap_err();
+        assert!(err.message.contains("specified together"), "{}", err.message);
     }
 
     #[test]
