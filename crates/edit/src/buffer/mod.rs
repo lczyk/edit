@@ -51,7 +51,7 @@ use crate::framebuffer::{Attributes, IndexedColor};
 use crate::helpers::*;
 use crate::icu;
 use crate::lsh::cache::HighlighterCache;
-use crate::lsh::{HighlightKind, Highlighter, Language, PLAIN};
+use crate::lsh::{ConflictTag, HighlightKind, Highlighter, Language, PLAIN};
 use crate::unicode::{Cursor, MeasurementConfig};
 use lsh::runtime::Highlight;
 use stdext::simd::{self, memchr2};
@@ -3371,6 +3371,34 @@ mod tests {
         let last_row = l.lines.iter().rposition(|line| line.text.contains("dog")).unwrap();
         assert!(last_row > 0, "width 12 wraps the line");
         assert_eq!(l.gutter_marks, vec![(last_row as CoordType, GutterMark::DeletedBelow)]);
+    }
+
+    #[test]
+    fn every_row_of_a_merge_conflict_carries_the_conflict_mark() {
+        // Marker lines, both sides and the blank line between them; the
+        // diff marks on the first two lines are outranked.
+        let mut tb = buf_with("a\n<<<<<<< HEAD\nours\n\n=======\ntheirs\n>>>>>>> branch\nb\n");
+        tb.set_margin_enabled(true);
+        tb.set_width(80);
+        tb.set_gutter_marks(vec![GutterMark::None, GutterMark::Modified, GutterMark::Modified]);
+
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(80, 10), None).unwrap();
+        let conflict: Vec<_> = (1..=6).map(|row| (row, GutterMark::Conflict)).collect();
+        assert_eq!(l.gutter_marks, conflict);
+    }
+
+    #[test]
+    fn a_wrapped_conflict_line_keeps_the_mark_on_every_row() {
+        let mut tb = buf_with("<<<<<<< HEAD\nthe quick brown fox jumps over the lazy dog");
+        tb.set_margin_enabled(true);
+        tb.set_word_wrap(true);
+        tb.set_width(12);
+
+        let l = tb.layout(Point { x: 0, y: 0 }, rect(12, 12), None).unwrap();
+        let rows = tb.visual_line_count() as usize;
+        assert!(rows > 2, "width 12 wraps the second line");
+        assert_eq!(l.gutter_marks.len(), rows, "{:?}", l.gutter_marks);
+        assert!(l.gutter_marks.iter().all(|&(_, m)| m == GutterMark::Conflict));
     }
 
     #[test]

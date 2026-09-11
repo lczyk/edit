@@ -18,8 +18,9 @@ impl TextBuffer {
     /// needs the wrapped-continuation dim.
     ///
     /// `visual_line` is the document-visual y; `cursor_beg` is the
-    /// row's start cursor. Caller must have already gated on
-    /// `line_number_width != 0`.
+    /// row's start cursor; `in_conflict` is what the highlighter said about
+    /// the row's logical line, and outranks the diff mark. Caller must have
+    /// already gated on `line_number_width != 0`.
     fn build_gutter_margin<'arena>(
         &self,
         line: &mut BString<'arena>,
@@ -27,7 +28,13 @@ impl TextBuffer {
         line_number_width: usize,
         visual_line: CoordType,
         cursor_beg: &Cursor,
+        in_conflict: bool,
     ) -> (Option<GutterMark>, bool) {
+        let mark = if in_conflict {
+            GutterMark::Conflict
+        } else {
+            self.gutter_mark(cursor_beg.logical_pos.y)
+        };
         if visual_line >= self.stats.visual_lines {
             // Past the end of the buffer? Place "    | " in the margin.
             // Since we know that we won't see line numbers greater than i64::MAX (9223372036854775807)
@@ -49,7 +56,6 @@ impl TextBuffer {
                 line_number_width,
                 sep
             );
-            let mark = self.gutter_mark(cursor_beg.logical_pos.y);
             (if mark != GutterMark::None { Some(mark) } else { None }, false)
         } else {
             // Wrapped line? Place " ... | " in the margin.
@@ -80,7 +86,7 @@ impl TextBuffer {
             // and the boundary DeletedBelow flag sits under the line's last
             // row -- the caller walks it down. DeletedAbove is the one arrow
             // that belongs to the first row alone.
-            let mark = match self.gutter_mark(cursor_beg.logical_pos.y) {
+            let mark = match mark {
                 m @ (GutterMark::Added
                 | GutterMark::Modified
                 | GutterMark::DeletedBelow
@@ -556,6 +562,7 @@ impl TextBuffer {
         let mut highlighter = Highlighter::new(&self.buffer, self.language);
         let mut hl_logical_y: Option<CoordType> = None;
         let mut hl_buf: Vec<Highlight<HighlightKind>> = Vec::new();
+        let mut hl_conflict = false;
 
         for y in 0..height {
             let scratch = scratch_arena(None);
@@ -596,6 +603,21 @@ impl TextBuffer {
                 view_rows.push(cursor_beg);
             }
 
+            // Parse the row's logical line before the gutter is built: the
+            // conflict mark comes from the highlighter, not the diff. Rows
+            // past the end keep the last line's parse, since the cursor
+            // stops advancing there. Wrapped continuation rows share it.
+            let logical_y = cursor_beg.logical_pos.y;
+            if hl_logical_y != Some(logical_y) {
+                let scratch_hl = scratch_arena(None);
+                let parsed =
+                    self.highlighter_cache.parse_line(&scratch_hl, &mut highlighter, logical_y);
+                hl_buf.clear();
+                hl_buf.extend(parsed.spans.iter().cloned());
+                hl_conflict = parsed.conflict != ConflictTag::None;
+                hl_logical_y = Some(logical_y);
+            }
+
             if line_number_width != 0 {
                 let (mark, dim) = self.build_gutter_margin(
                     &mut line,
@@ -603,6 +625,7 @@ impl TextBuffer {
                     line_number_width,
                     visual_line,
                     &cursor_beg,
+                    hl_conflict,
                 );
                 if let Some(mark) = mark {
                     let row = destination.top + y;
@@ -677,15 +700,6 @@ impl TextBuffer {
             // wrapped continuation rows don't smear attrs across the
             // trailing blanks past the wrap column.
             if lsh_enabled && cursor_beg.offset != cursor_end.offset {
-                let logical_y = cursor_beg.logical_pos.y;
-                if hl_logical_y != Some(logical_y) {
-                    let scratch_hl = scratch_arena(None);
-                    let parsed =
-                        self.highlighter_cache.parse_line(&scratch_hl, &mut highlighter, logical_y);
-                    hl_buf.clear();
-                    hl_buf.extend(parsed.spans.iter().cloned());
-                    hl_logical_y = Some(logical_y);
-                }
                 let (fg_rects, attr_rects) = self.build_markup_row(
                     &cursor_beg,
                     &cursor_end,

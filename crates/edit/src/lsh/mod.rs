@@ -7,7 +7,7 @@
 
 pub mod cache;
 
-pub use lsh::runtime::Language;
+pub use lsh::runtime::{ConflictTag, Language};
 pub use lsh_defs::detect::{NO_USER_ASSOCIATIONS, find_language, resolve};
 pub use lsh_defs::{
     ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, HighlightKind, Highlighter, HighlighterState, LANGUAGES,

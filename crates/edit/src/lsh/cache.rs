@@ -75,12 +75,13 @@ impl HighlighterCache {
 
         let parsed = self.parse_line_impl(arena, highlighter);
 
-        // Spans are half-open `[start, next.start)`, so a line's spans have to
-        // step strictly forward. A duplicated or out-of-order start means the
-        // compiler pipeline emitted overlapping tokens, which shows up only as
-        // odd-looking colour.
+        // Spans are half-open `[start, next.start)`, so a line's spans never
+        // step backwards; a zero-width one is fine (an empty line is a start
+        // and a sentinel at the same offset). A start behind the previous
+        // one means the compiler pipeline emitted overlapping tokens, which
+        // shows up only as odd-looking colour.
         #[cfg(feature = "sanity")]
-        if let Some(bad) = parsed.spans.windows(2).position(|w| w[1].start <= w[0].start) {
+        if let Some(bad) = parsed.spans.windows(2).position(|w| w[1].start < w[0].start) {
             crate::sanity_check!(
                 highlighter_spans_monotonic,
                 false,
