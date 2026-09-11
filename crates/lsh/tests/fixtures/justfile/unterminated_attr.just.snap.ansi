@@ -1,0 +1,5 @@
+\x1b[94m[private\x1b[m
+\x1b[94m[group('main')]\x1b[m
+\x1b[93mrecipe:\x1b[m
+    echo hi
+

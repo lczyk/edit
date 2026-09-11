@@ -11,8 +11,9 @@ pub fn justfile() {
     }
 
     if /\[/ {
-        until /\]/ {
-            yield keyword.other;
+        until /$/ {
+            if /\]/ { break; }
+            if /[^\]]+/ {}
         }
         yield keyword.other;
         return;

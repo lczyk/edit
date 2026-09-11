@@ -1,0 +1,4 @@
+{"line":1,"kind":"keyword.other","text":"[private"}
+{"line":2,"kind":"keyword.other","text":"[group('main')]"}
+{"line":3,"kind":"method","text":"recipe:"}
+{"line":4,"kind":"other","text":"    echo hi"}
