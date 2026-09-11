@@ -125,11 +125,15 @@ pub(crate) fn write_highlighted_line(
 
 /// write one file's highlighted lines (plus optional header) to a writer.
 /// caller owns sink + pager lifecycle so a multi-file run shares one pager.
+/// `first_line` is the 1-based file line number of `lines[0]`: a line range
+/// shows a slice, and the numbers the gutter prints and the vm sees stay
+/// the file's own.
 #[allow(clippy::too_many_arguments)]
 fn print_highlighted(
     writer: &mut dyn Write,
     runtime: &mut Runtime,
     lines: &[String],
+    first_line: usize,
     color_map: &[&str],
     show_numbers: bool,
     header: Option<&str>,
@@ -146,7 +150,7 @@ fn print_highlighted(
 
     for (i, line) in lines.iter().enumerate() {
         let g = if show_numbers { gutter } else { None };
-        write_highlighted_line(writer, runtime, color_map, i + 1, line, g, use_color)?;
+        write_highlighted_line(writer, runtime, color_map, first_line + i, line, g, use_color)?;
     }
 
     Ok(())
@@ -311,22 +315,27 @@ pub(crate) fn run(
             },
         };
 
-        // apply line range
-        let lines = if let Some(ref range) = line_range {
-            let start = range.start.unwrap_or(1).saturating_sub(1);
-            let end = range.end.unwrap_or(lines.len()).min(lines.len());
-            lines[start..end].to_vec()
-        } else {
-            lines
+        // apply line range: `shown` is the slice, `all` stays around so the
+        // gutter's marks are indexed by the file's own line numbers.
+        let all = lines;
+        let first_line = line_range.as_ref().map_or(1, |r| r.start.unwrap_or(1));
+        let shown: &[String] = match line_range {
+            Some(ref range) => {
+                let start = first_line.saturating_sub(1).min(all.len());
+                let end = range.end.unwrap_or(all.len()).clamp(start, all.len());
+                &all[start..end]
+            }
+            None => &all,
         };
+        let lines = shown;
 
         let lang = lang_override.unwrap_or_else(|| {
-            resolve(path_for_detection, NO_USER_ASSOCIATIONS, || head_bytes(&lines))
+            resolve(path_for_detection, NO_USER_ASSOCIATIONS, || head_bytes(lines))
         });
 
         if plain {
             // plain mode: cat to shared sink. no header, no decorations.
-            for line in &lines {
+            for line in lines {
                 if let Err(e) = writeln!(sink, "{line}") {
                     if e.kind() == io::ErrorKind::BrokenPipe {
                         sink_closed = true;
@@ -348,8 +357,8 @@ pub(crate) fn run(
         let gutter = if show_numbers && let Some(p) = path_for_detection {
             // re-join the lines into a contiguous byte buffer for diffing.
             // BufRead::lines() already stripped \n, so we need to put them back.
-            let mut bytes = Vec::with_capacity(lines.iter().map(|l| l.len() + 1).sum());
-            for l in &lines {
+            let mut bytes = Vec::with_capacity(all.iter().map(|l| l.len() + 1).sum());
+            for l in &all {
                 bytes.extend_from_slice(l.as_bytes());
                 bytes.push(b'\n');
             }
@@ -362,7 +371,8 @@ pub(crate) fn run(
         match print_highlighted(
             sink.as_mut(),
             &mut runtime,
-            &lines,
+            lines,
+            first_line,
             &color_map,
             show_numbers,
             header,
@@ -414,5 +424,32 @@ mod tests {
         let text = String::from_utf8(out).unwrap();
         let prefixes: Vec<&str> = text.lines().map(|l| &l[..4]).collect();
         assert_eq!(prefixes, ["1 | ", "2 ! ", "3 ! ", "4 ! ", "5 ! ", "6 ! ", "7 | "]);
+    }
+
+    /// A slice that starts mid-file keeps the file's line numbers, so a
+    /// `---` at the top of the slice is not mistaken for line-1 frontmatter.
+    #[test]
+    fn a_line_range_keeps_the_file_line_numbers() {
+        let markdown = lsh_defs::detect::find_language("markdown").unwrap();
+        let mut runtime = Runtime::new(&ASSEMBLY, &STRINGS, &CHARSETS, markdown.entrypoint);
+        let color_map = theme::color_map();
+        let lines: Vec<String> = ["---", "title: x", "---"].iter().map(|s| s.to_string()).collect();
+        let gutter = gutter_view::Gutter { width: 1, marks: vec![GutterMark::None; 10] };
+        let mut out = Vec::new();
+        print_highlighted(
+            &mut out,
+            &mut runtime,
+            &lines,
+            6,
+            &color_map,
+            true,
+            None,
+            true,
+            Some(&gutter),
+        )
+        .unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("6\x1b[m"), "numbering starts at the slice's file line: {text:?}");
+        assert!(!text.contains("\x1b[94m---"), "a mid-file --- is not frontmatter: {text:?}");
     }
 }
