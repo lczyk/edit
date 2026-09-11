@@ -1,0 +1,8 @@
+{"line":1,"kind":"markup.conflict.marker","text":"<<<<<<< HEAD","conflict":"marker"}
+{"line":2,"kind":"other","text":"ours","conflict":"ours"}
+{"line":3,"kind":"markup.conflict.marker","text":"||||||| ef303a3","conflict":"marker"}
+{"line":4,"kind":"other","text":"base","conflict":"base"}
+{"line":5,"kind":"markup.conflict.marker","text":"=======","conflict":"marker"}
+{"line":6,"kind":"other","text":"theirs","conflict":"theirs"}
+{"line":7,"kind":"markup.conflict.marker","text":">>>>>>> lczyk/main","conflict":"marker"}
+{"line":8,"kind":"other","text":"after"}

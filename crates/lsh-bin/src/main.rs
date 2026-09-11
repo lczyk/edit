@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, BufWriter, IsTerminal, Write as _, stdout};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use argh::FromArgs;
 use lsh::compiler::SerializedCharset;
 use lsh::runtime::Runtime;
@@ -135,7 +135,12 @@ fn resolve_entrypoint(
         .collect();
 
     let Some(&first) = candidates.first() else {
-        bail!("no matching highlighting definition for {}", path.display());
+        // The same fallback the editor makes: plain text, if bundled.
+        return assembly
+            .entrypoints
+            .iter()
+            .position(|ep| ep.name == "plain")
+            .ok_or_else(|| anyhow!("no matching highlighting definition for {}", path.display()));
     };
 
     if candidates.len() == 1 {

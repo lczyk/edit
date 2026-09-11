@@ -1,0 +1,9 @@
+\x1b[35m<<<<<<< HEAD\x1b[m
+ours
+\x1b[35m||||||| ef303a3\x1b[m
+base
+\x1b[35m=======\x1b[m
+theirs
+\x1b[35m>>>>>>> lczyk/main\x1b[m
+after
+

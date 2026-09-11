@@ -7,12 +7,13 @@
 //! commit like text. `UPDATE_GOLDEN=1` refreshes snapshots.
 
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use edit::eat::theme;
 use lsh::runtime::Runtime;
-use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, STRINGS};
+use lsh_defs::{ASSEMBLY, CHARSETS, FILE_ASSOCIATIONS, PLAIN, STRINGS};
 use stdext::arena::scratch_arena;
 use stdext::glob::glob_match;
 
@@ -87,11 +88,14 @@ fn golden() {
 
     for fixture in &fixtures {
         let path_bytes = fixture.as_os_str().as_encoded_bytes();
-        let Some(lang) = FILE_ASSOCIATIONS
+        let by_glob = FILE_ASSOCIATIONS
             .iter()
             .find(|(pat, _)| glob_match(pat.as_bytes(), path_bytes))
-            .map(|(_, lang)| *lang)
-        else {
+            .map(|(_, lang)| *lang);
+        // Plain claims no glob: only its own fixture dir falls back to it.
+        let in_plain_dir =
+            fixture.parent().and_then(|p| p.file_name()) == Some(OsStr::new("plain"));
+        let Some(lang) = by_glob.or(in_plain_dir.then_some(PLAIN)) else {
             failures.push(format!("no entrypoint for {}", fixture.display()));
             continue;
         };

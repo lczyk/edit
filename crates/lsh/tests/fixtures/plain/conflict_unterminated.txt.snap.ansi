@@ -1,0 +1,6 @@
+\x1b[35m<<<<<<< HEAD\x1b[m
+ours goes on
+\x1b[35m=======\x1b[m
+theirs goes on
+and the closing marker never comes
+

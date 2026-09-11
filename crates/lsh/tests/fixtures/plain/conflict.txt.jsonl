@@ -1,0 +1,8 @@
+{"line":1,"kind":"other","text":"before the conflict"}
+{"line":2,"kind":"markup.conflict.marker","text":"<<<<<<< HEAD","conflict":"marker"}
+{"line":3,"kind":"other","text":"ours, first line","conflict":"ours"}
+{"line":4,"kind":"other","text":"ours, second line","conflict":"ours"}
+{"line":5,"kind":"markup.conflict.marker","text":"=======","conflict":"marker"}
+{"line":6,"kind":"other","text":"theirs","conflict":"theirs"}
+{"line":7,"kind":"markup.conflict.marker","text":">>>>>>> feature/branch","conflict":"marker"}
+{"line":8,"kind":"other","text":"after the conflict"}

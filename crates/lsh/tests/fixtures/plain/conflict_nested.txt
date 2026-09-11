@@ -1,0 +1,14 @@
+<<<<<<< HEAD
+ours
+||||||| merged common ancestors
+<<<<<<<<< Temporary merge branch 1
+inner ours
+=========
+inner theirs
+>>>>>>>>> Temporary merge branch 2
+=======
+theirs
+>>>>>>> feature
+=======
+a separator on its own is text
+>>>>>>> and so is a stray closer

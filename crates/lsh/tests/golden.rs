@@ -10,7 +10,7 @@
 //! becomes non-exhaustive, forcing a fixture-dir entry at compile time.
 
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -51,6 +51,7 @@ fn fixture_subdir(lang: Language) -> &'static str {
         Language::Man => "man",
         Language::Markdown => "markdown",
         Language::Objc => "objc",
+        Language::Plain => "plain",
         Language::Powershell => "powershell",
         Language::Properties => "properties",
         Language::Python => "python",
@@ -208,6 +209,11 @@ fn golden() {
             .collect();
 
         let entrypoint = match candidates.as_slice() {
+            // Plain claims no glob, so only its own fixture dir falls back to
+            // it; anywhere else an unclaimed fixture is a broken glob.
+            [] if fixture.parent().and_then(|p| p.file_name()) == Some(OsStr::new("plain")) => {
+                assembly.entrypoints.iter().find(|ep| ep.name == "plain").unwrap()
+            }
             [] => {
                 failures.push(format!("no entrypoint for {}", fixture.display()));
                 continue;

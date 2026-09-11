@@ -1,0 +1,14 @@
+{"line":1,"kind":"markup.conflict.marker","text":"<<<<<<< HEAD","conflict":"marker"}
+{"line":2,"kind":"other","text":"ours","conflict":"ours"}
+{"line":3,"kind":"markup.conflict.marker","text":"||||||| merged common ancestors","conflict":"marker"}
+{"line":4,"kind":"other","text":"<<<<<<<<< Temporary merge branch 1","conflict":"base"}
+{"line":5,"kind":"other","text":"inner ours","conflict":"base"}
+{"line":6,"kind":"other","text":"=========","conflict":"base"}
+{"line":7,"kind":"other","text":"inner theirs","conflict":"base"}
+{"line":8,"kind":"other","text":">>>>>>>>> Temporary merge branch 2","conflict":"base"}
+{"line":9,"kind":"markup.conflict.marker","text":"=======","conflict":"marker"}
+{"line":10,"kind":"other","text":"theirs","conflict":"theirs"}
+{"line":11,"kind":"markup.conflict.marker","text":">>>>>>> feature","conflict":"marker"}
+{"line":12,"kind":"other","text":"======="}
+{"line":13,"kind":"other","text":"a separator on its own is text"}
+{"line":14,"kind":"other","text":">>>>>>> and so is a stray closer"}

@@ -1,0 +1,5 @@
+<<<<<<< HEAD
+ours goes on
+=======
+theirs goes on
+and the closing marker never comes

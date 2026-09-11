@@ -1,0 +1,5 @@
+{"line":1,"kind":"markup.conflict.marker","text":"<<<<<<< HEAD","conflict":"marker"}
+{"line":2,"kind":"other","text":"ours goes on","conflict":"ours"}
+{"line":3,"kind":"markup.conflict.marker","text":"=======","conflict":"marker"}
+{"line":4,"kind":"other","text":"theirs goes on","conflict":"theirs"}
+{"line":5,"kind":"other","text":"and the closing marker never comes","conflict":"theirs"}

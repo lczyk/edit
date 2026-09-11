@@ -1,0 +1,5 @@
+// The language of files no other definition claims. Empty on purpose: the
+// runtime still recognises merge-conflict markers, and that is all a plain
+// file gets.
+#[display_name = "Plain Text"]
+pub fn plain() {}

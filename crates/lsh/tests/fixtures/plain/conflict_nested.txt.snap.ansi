@@ -1,0 +1,15 @@
+\x1b[35m<<<<<<< HEAD\x1b[m
+ours
+\x1b[35m||||||| merged common ancestors\x1b[m
+<<<<<<<<< Temporary merge branch 1
+inner ours
+=========
+inner theirs
+>>>>>>>>> Temporary merge branch 2
+\x1b[35m=======\x1b[m
+theirs
+\x1b[35m>>>>>>> feature\x1b[m
+=======
+a separator on its own is text
+>>>>>>> and so is a stray closer
+

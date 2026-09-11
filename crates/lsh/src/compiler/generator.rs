@@ -306,6 +306,12 @@ impl TryFrom<u32> for HighlightKind {{
         }
         output.push_str("];\n");
 
+        // The language for files nothing else claims; consumers end their
+        // detection chain here rather than in an Option.
+        if let Some(idx) = assembly.entrypoints.iter().position(|ep| ep.name == "plain") {
+            _ = writeln!(output, "\npub static PLAIN: &Language = &LANGUAGES[{idx}];");
+        }
+
         output.push_str(
             "\n#[rustfmt::skip] pub const FILE_ASSOCIATIONS: &[(&str, &Language)] = &[\n",
         );

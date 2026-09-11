@@ -1,0 +1,8 @@
+before the conflict
+<<<<<<< HEAD
+ours, first line
+ours, second line
+=======
+theirs
+>>>>>>> feature/branch
+after the conflict

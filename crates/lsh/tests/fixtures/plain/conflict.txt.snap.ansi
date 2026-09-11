@@ -1,0 +1,9 @@
+before the conflict
+\x1b[35m<<<<<<< HEAD\x1b[m
+ours, first line
+ours, second line
+\x1b[35m=======\x1b[m
+theirs
+\x1b[35m>>>>>>> feature/branch\x1b[m
+after the conflict
+
