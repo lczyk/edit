@@ -38,11 +38,11 @@ pub fn resolve<T: AsRef<[u8]>>(
 ) -> &'static Language {
     let mut candidates = Vec::new();
     if let Some(path) = path {
+        // A user association settles the path by itself; the bundled
+        // dialects and their detectors never get to overrule it.
         candidates = match_file_associations(user_associations, path);
-        for cand in match_file_associations(FILE_ASSOCIATIONS, path) {
-            if !candidates.iter().any(|l| std::ptr::eq(*l, cand)) {
-                candidates.push(cand);
-            }
+        if candidates.is_empty() {
+            candidates = match_file_associations(FILE_ASSOCIATIONS, path);
         }
     }
     if let [only] = candidates.as_slice() {
@@ -565,6 +565,13 @@ mod tests {
         let python = find_language("python").unwrap();
         let user = [("**/*.rs", python)];
         let lang = resolve(Some(Path::new("src/main.rs")), &user, Vec::new);
+        assert_eq!(lang.id, "python");
+
+        // Even against a glob that bundled dialects share and settle by
+        // content: the user's choice is final and the head is never read.
+        let user = [("**/*.h", python)];
+        let lang =
+            resolve(Some(Path::new("x.h")), &user, || panic!("head read despite a user match"));
         assert_eq!(lang.id, "python");
     }
 
