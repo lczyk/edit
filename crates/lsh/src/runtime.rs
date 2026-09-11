@@ -424,7 +424,8 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
     ///
     /// # Returns
     /// A vector of [`Highlight`] spans. Always contains at least two spans:
-    /// one at offset 0 and one at `line.len()` as a sentinel.
+    /// one at offset 0 and one at `line.len()` as a sentinel. Starts never
+    /// decrease, so consumers may slice `[start, next.start)` unchecked.
     pub fn parse_next_line<'a, T: PartialEq + TryFrom<u32>>(
         &mut self,
         arena: &'a Arena,
@@ -564,6 +565,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
                         line.len()
                     );
 
+                    let start = res.last().map_or(start, |last| start.max(last.start));
                     if let Some(last) = res.last_mut()
                         && (last.start == start || last.kind == kind)
                     {
@@ -608,7 +610,7 @@ impl<'pa, 'ps, 'pc> Runtime<'pa, 'ps, 'pc> {
         }
 
         // Ensure that there's a past-the-end highlight.
-        if res.last().is_none_or(|last| last.start < line.len()) {
+        if res.len() < 2 || res.last().is_none_or(|last| last.start < line.len()) {
             res.push(arena, Highlight { start: line.len(), kind: unsafe { mem::zeroed() } });
         }
 
@@ -1727,5 +1729,45 @@ mod tests {
         };
         assert_eq!(spans[0], expected("one", " two"));
         assert_eq!(spans[1], expected("three", " four"));
+    }
+
+    /// Consumers slice the line between consecutive starts, so a definition
+    /// that yields capture groups out of order must not produce a span that
+    /// starts before the previous one.
+    #[test]
+    fn spans_stay_monotonic_when_captures_are_yielded_out_of_order() {
+        let src = "#[display_name = \"T\"]\n\
+                   #[path = \"**/*.t\"]\n\
+                   pub fn t() {\n\
+                       if /(\\w+)\\s+(\\w+)/ { yield $2 as string; yield $1 as keyword; }\n\
+                   }\n";
+        let spans = highlight(src, &["foo bar"]);
+        assert_eq!(spans[0].iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>(), ["foo ", "bar"]);
+    }
+
+    #[test]
+    fn an_empty_line_still_yields_two_spans() {
+        let _ = stdext::arena::init(16 * 1024 * 1024);
+        let arena = scratch_arena(None);
+        let mut compiler = Compiler::new(&arena);
+        compiler
+            .parse(
+                "test.lsh",
+                "#[display_name = \"T\"]\n\
+                 #[path = \"**/*.t\"]\n\
+                 pub fn t() {\n\
+                     if /.*/ { yield string; }\n\
+                 }\n",
+            )
+            .unwrap();
+        let assembly = compiler.assemble().unwrap();
+        let charsets: Vec<SerializedCharset> =
+            assembly.charsets.iter().map(|cs| cs.serialize()).collect();
+        let entry = assembly.entrypoints[0].address as u32;
+        let mut runtime = Runtime::new(&assembly.instructions, &assembly.strings, &charsets, entry);
+
+        let spans = runtime.parse_next_line::<u32>(&arena, b"");
+        assert_eq!(spans.len(), 2);
+        assert_eq!((spans[0].start, spans[1].start), (0, 0));
     }
 }
