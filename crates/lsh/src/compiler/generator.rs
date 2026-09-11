@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use stdext::arena::scratch_arena;
 
 use super::*;
+use crate::kind;
 use crate::runtime::{Instruction, MnemonicFormattingConfig};
 
 pub struct Generator<'a> {
@@ -187,6 +188,20 @@ impl<'a> Generator<'a> {
         // TryFrom below transmutes a u8; the repr makes that a guarantee
         // rather than a layout accident, and the count keeps it in range.
         output.push_str("\nconst _: () = assert!(HighlightKind::COUNT <= 256);\n");
+        // The runtime emits builtin kinds by value; hold the enum to the
+        // pinned order so a stale table can't compile.
+        for hk in assembly
+            .highlight_kinds
+            .iter()
+            .filter(|hk| kind::builtin_value(hk.identifier).is_some())
+        {
+            _ = writeln!(
+                output,
+                "const _: () = assert!(HighlightKind::{} as u32 == {});",
+                hk.fmt_camelcase(),
+                hk.value
+            );
+        }
 
         if let Some(last) = assembly.highlight_kinds.last() {
             _ = write!(
@@ -409,6 +424,7 @@ pub fn default_ansi16(identifier: &str) -> Option<crate::runtime::Ansi16> {
         "storage.type" => Ansi16::Cyan,
         "support.function" => Ansi16::Yellow,
         "markup.changed" => Ansi16::BrightBlue,
+        "markup.conflict.marker" => Ansi16::Magenta,
         "markup.deleted" => Ansi16::BrightRed,
         "markup.heading" => Ansi16::BrightBlue,
         "markup.inserted" => Ansi16::BrightGreen,
@@ -489,6 +505,16 @@ mod tests {
             "#[repr(u8)]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum HighlightKind"
         ));
         assert!(rust.contains("const _: () = assert!(HighlightKind::COUNT <= 256);"));
+        // Builtin kinds come first, in kind::BUILTIN order, ahead of any
+        // yielded kind however it sorts.
+        assert!(rust.contains("    Other = 0,"), "{rust}");
+        assert!(rust.contains("    MarkupConflictMarker = 1,"), "{rust}");
+        assert!(rust.contains("    Keyword = 2,"), "{rust}");
+        assert!(
+            rust.contains(
+                "const _: () = assert!(HighlightKind::MarkupConflictMarker as u32 == 1);"
+            )
+        );
     }
 
     #[test]

@@ -22,6 +22,7 @@ use stdext::collections::BString;
 pub use self::charset::{Charset, SerializedCharset};
 use self::frontend::*;
 pub use self::generator::{Generator, default_ansi16};
+use crate::kind;
 use crate::runtime::Register;
 
 pub fn builtin_definitions_path() -> &'static Path {
@@ -65,7 +66,7 @@ impl<'a> Compiler<'a> {
             functions: Default::default(),
             charsets: Default::default(),
             strings: Default::default(),
-            highlight_kinds: vec![HighlightKind { identifier: "other", value: 0 }],
+            highlight_kinds: builtin_highlight_kinds(),
             next_vreg_id: Cell::new(0),
         };
 
@@ -408,6 +409,19 @@ pub struct Entrypoint {
 pub struct HighlightKind<'a> {
     pub identifier: &'a str,
     pub value: u32,
+}
+
+/// The builtin kinds, sorted by identifier as `intern_highlight_kind`'s
+/// binary search requires. Values are provisional here; the optimizer pins
+/// them to their `kind::BUILTIN` positions.
+fn builtin_highlight_kinds() -> Vec<HighlightKind<'static>> {
+    let mut kinds: Vec<_> = kind::BUILTIN
+        .iter()
+        .enumerate()
+        .map(|(value, identifier)| HighlightKind { identifier, value: value as u32 })
+        .collect();
+    kinds.sort_unstable_by_key(|hk| hk.identifier);
+    kinds
 }
 
 impl<'a> HighlightKind<'a> {

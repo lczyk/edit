@@ -233,6 +233,7 @@ mod tests {
                 HighlightKind::KeywordOther => "keyword.other",
                 HighlightKind::MarkupBold => "markup.bold",
                 HighlightKind::MarkupChanged => "markup.changed",
+                HighlightKind::MarkupConflictMarker => "markup.conflict.marker",
                 HighlightKind::MarkupDeleted => "markup.deleted",
                 HighlightKind::MarkupHeading => "markup.heading",
                 HighlightKind::MarkupInserted => "markup.inserted",

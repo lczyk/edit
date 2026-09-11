@@ -16,6 +16,7 @@ use stdext::arena::scratch_arena;
 use stdext::collections::BVec;
 
 use super::*;
+use crate::kind;
 
 pub fn optimize<'a>(compiler: &mut Compiler<'a>) {
     // Remove noops first, such that analysing instruction chains becomes easier for the other passes.
@@ -158,8 +159,9 @@ fn optimize_redundant_offset_backup_restore<'a>(compiler: &mut Compiler<'a>) {
     optimize_noop(compiler);
 }
 
-/// This isn't an optimization for the VM, it's one for my pedantic side.
-/// I like it if the identifiers are sorted and the values contiguous.
+/// Builtin kinds take the first values in `kind::BUILTIN` order, so the
+/// runtime can name them. The rest is for my pedantic side: sorted
+/// identifiers and contiguous values.
 fn optimize_highlight_kind_values<'a>(compiler: &mut Compiler<'a>) {
     let scratch = scratch_arena(None);
     let mut mapping = BVec::empty();
@@ -168,23 +170,19 @@ fn optimize_highlight_kind_values<'a>(compiler: &mut Compiler<'a>) {
         let a = a.identifier;
         let b = b.identifier;
 
+        match (kind::builtin_value(a), kind::builtin_value(b)) {
+            (Some(a), Some(b)) => return a.cmp(&b),
+            (Some(_), None) => return std::cmp::Ordering::Less,
+            (None, Some(_)) => return std::cmp::Ordering::Greater,
+            (None, None) => {}
+        }
+
         // Global identifiers without a dot come first.
         let nested_a = a.contains('.');
         let nested_b = b.contains('.');
         let cmp = nested_a.cmp(&nested_b);
         if cmp != std::cmp::Ordering::Equal {
             return cmp;
-        }
-
-        // Among globals, "other" comes first. Due to the above,
-        // `nested_a == false` implies `nested_b == false`.
-        if !nested_a {
-            if a == "other" {
-                return std::cmp::Ordering::Less;
-            }
-            if b == "other" {
-                return std::cmp::Ordering::Greater;
-            }
         }
 
         // Otherwise, sort by dot-separated components.
