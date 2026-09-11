@@ -197,6 +197,7 @@ FG_VARIABLE        = b"\x1b[96m"  # BrightCyan    -- Variable
 FG_KEYWORD_OTHER   = b"\x1b[94m"  # BrightBlue    -- keyword.other / constant.language / meta.header / markup.heading / markup.list / markup.changed
 FG_NUMERIC         = b"\x1b[92m"  # BrightGreen   -- constant.numeric / markup.inserted
 FG_KEYWORD_CONTROL = b"\x1b[95m"  # BrightMagenta -- keyword.control
+FG_CONFLICT_MARKER = b"\x1b[35m"  # Magenta       -- markup.conflict.marker
 
 
 # ---- ANSI color ------------------------------------------------------------

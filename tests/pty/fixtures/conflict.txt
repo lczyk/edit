@@ -1,0 +1,7 @@
+before the conflict
+<<<<<<< HEAD
+ours
+=======
+theirs
+>>>>>>> feature
+after the conflict
