@@ -19,9 +19,7 @@ fn main() {
             continue;
         }
         let src = fs::read_to_string(&path).unwrap();
-        if let Some(name) = first_pub_fn(&src) {
-            names.push(name);
-        }
+        names.extend(pub_fn_names(&src));
     }
     names.sort();
 
@@ -53,18 +51,19 @@ fn main() {
     fs::write(out, code).unwrap();
 }
 
-fn first_pub_fn(src: &str) -> Option<String> {
+fn pub_fn_names(src: &str) -> Vec<String> {
+    let mut names = Vec::new();
     for line in src.lines() {
         let line = line.trim_start();
         if let Some(rest) = line.strip_prefix("pub fn ") {
             let name: String =
                 rest.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();
             if !name.is_empty() {
-                return Some(name);
+                names.push(name);
             }
         }
     }
-    None
+    names
 }
 
 fn to_pascal(s: &str) -> String {
