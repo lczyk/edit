@@ -376,6 +376,35 @@ impl ButtonStyle {
     }
 }
 
+/// Result of [`Tui::hit_test`].
+#[derive(Default)]
+struct Hit<'a> {
+    /// The deepest node under the position.
+    node: Option<&'a NodeCell<'a>>,
+    /// The deepest focusable node under the position.
+    focusable: Option<&'a NodeCell<'a>>,
+    /// (id, outer) of the modal the position is in.
+    modal: Option<(u64, Rect)>,
+}
+
+/// Mouse cursor shape, set via OSC 22. Terminals without support ignore it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PointerShape {
+    Default,
+    Pointer,
+    Text,
+}
+
+impl PointerShape {
+    fn osc(self) -> &'static str {
+        match self {
+            Self::Default => "\x1b]22;default\x07",
+            Self::Pointer => "\x1b]22;pointer\x07",
+            Self::Text => "\x1b]22;text\x07",
+        }
+    }
+}
+
 impl Default for ButtonStyle {
     fn default() -> Self {
         Self {
@@ -443,6 +472,12 @@ pub struct Tui {
     /// The node ID of the node that was first clicked on
     /// in a double/triple click series.
     first_click_target: u64,
+    /// Node ID of the clickable node under the mouse, or 0.
+    hover_target: u64,
+    /// Mouse cursor shape the hovered node asks for.
+    pointer_shape: PointerShape,
+    /// Mouse cursor shape last sent to the terminal.
+    pointer_shape_sent: PointerShape,
 
     /// Persistent per-modal drag offsets in cells, keyed by modal node id.
     /// Added on top of the centered float position so a dragged modal stays put.
@@ -468,6 +503,8 @@ pub struct Tui {
     settling_have: i32,
     settling_want: i32,
     read_timeout: time::Duration,
+    /// The last render left an animation in flight that needs the next one.
+    animating: bool,
 
     /// Tui-level anim state (frame timing + floater open-timer table).
     /// See [`paint::anim::TuiAnimState`].
@@ -512,6 +549,9 @@ impl Tui {
             mouse_down_node_path: Vec::with_capacity(16),
             first_click_position: Point::MIN,
             first_click_target: 0,
+            hover_target: 0,
+            pointer_shape: PointerShape::Default,
+            pointer_shape_sent: PointerShape::Default,
 
             modal_drag_offset: HashMap::new(),
             modal_drag_target: 0,
@@ -527,6 +567,7 @@ impl Tui {
             settling_have: 0,
             settling_want: 0,
             read_timeout: time::Duration::MAX,
+            animating: false,
 
             anim: paint::anim::TuiAnimState::default(),
         };
@@ -583,6 +624,7 @@ impl Tui {
     /// site (floater open, scroll/cursor advance, line-move trail)
     /// without worrying about ordering vs the existing cap.
     fn request_animation_frame(&mut self) {
+        self.animating = true;
         if self.read_timeout > paint::FRAME_INTERVAL {
             self.read_timeout = paint::FRAME_INTERVAL;
         }
@@ -716,44 +758,17 @@ impl Tui {
                     && next_state == InputMouseState::Left
                     && next_position != self.mouse_position;
 
-                let mut hovered_node = None; // Needed for `mouse_down`
-                let mut focused_node = None; // Needed for `mouse_down` and `is_click`
-                let mut hovered_modal = None; // (id, outer) of the topmost hit modal
-                if mouse_down || mouse_up {
-                    // Roots (aka windows) are ordered in Z order, so we iterate
-                    // them in reverse order, from topmost to bottommost.
-                    for root in self.prev_tree.iterate_roots_rev() {
-                        // Find the node that contains the cursor.
-                        Tree::visit_all(root, root, true, |node| {
-                            let n = node.borrow();
-                            if !n.outer_clipped.contains(next_position) {
-                                // Skip the entire sub-tree, because it doesn't contain the cursor.
-                                return VisitControl::SkipChildren;
-                            }
-                            hovered_node = Some(node);
-                            if n.attributes.focusable {
-                                focused_node = Some(node);
-                            }
-                            VisitControl::Continue
-                        });
-
-                        // This root/window contains the cursor.
-                        // We don't care about any lower roots.
-                        if hovered_node.is_some() {
-                            let r = root.borrow();
-                            if matches!(r.content, NodeContent::Modal(_)) {
-                                hovered_modal = Some((r.id, r.outer));
-                            }
-                            break;
-                        }
-
-                        // This root is modal and swallows all clicks,
-                        // no matter whether the click was inside it or not.
-                        if matches!(root.borrow().content, NodeContent::Modal(_)) {
-                            break;
-                        }
-                    }
-                }
+                let hit = if mouse_down || mouse_up {
+                    self.hit_test(next_position)
+                } else {
+                    Hit::default()
+                };
+                let hovered_node = hit.node; // Needed for `mouse_down`
+                let focused_node = hit.focusable; // Needed for `mouse_down` and `is_click`
+                let hovered_modal = hit.modal; // (id, outer) of the topmost hit modal
+                // Resolved now so this frame already draws the new hover, instead of
+                // leaving it to the post-layout check, which would cost a second frame.
+                (self.hover_target, self.pointer_shape) = self.hover_at(next_position);
 
                 if is_scroll {
                     next_state = self.mouse_state;
@@ -989,6 +1004,93 @@ impl Tui {
             let outer = root.outer;
             root.layout_children(outer);
         }
+
+        // Re-resolved against every new layout, not just on mouse events, so a
+        // menu opening or closing under a still mouse updates the hover too.
+        let hover = self.hover_at(self.mouse_position);
+        if hover.0 != self.hover_target {
+            self.needs_more_settling();
+        }
+        (self.hover_target, self.pointer_shape) = hover;
+    }
+
+    /// Finds the topmost node under `pos` in the last laid-out tree.
+    fn hit_test(&self, pos: Point) -> Hit<'static> {
+        let mut hit = Hit::default();
+
+        // Roots (aka windows) are ordered in Z order, so we iterate
+        // them in reverse order, from topmost to bottommost.
+        for root in self.prev_tree.iterate_roots_rev() {
+            // Find the node that contains the cursor.
+            Tree::visit_all(root, root, true, |node| {
+                let n = node.borrow();
+                if !n.outer_clipped.contains(pos) {
+                    // Skip the entire sub-tree, because it doesn't contain the cursor.
+                    return VisitControl::SkipChildren;
+                }
+                hit.node = Some(node);
+                if n.attributes.focusable {
+                    hit.focusable = Some(node);
+                }
+                VisitControl::Continue
+            });
+
+            // This root/window contains the cursor.
+            // We don't care about any lower roots.
+            if hit.node.is_some() {
+                let r = root.borrow();
+                if matches!(r.content, NodeContent::Modal(_)) {
+                    hit.modal = Some((r.id, r.outer));
+                }
+                break;
+            }
+
+            // This root is modal and swallows all clicks,
+            // no matter whether the click was inside it or not.
+            if matches!(root.borrow().content, NodeContent::Modal(_)) {
+                break;
+            }
+        }
+
+        hit
+    }
+
+    /// The clickable node under `pos` (0 if none) and the mouse cursor shape it wants.
+    fn hover_at(&self, pos: Point) -> (u64, PointerShape) {
+        let Some(leaf) = self.hit_test(pos).node else {
+            return (0, PointerShape::Default);
+        };
+        if matches!(leaf.borrow().content, NodeContent::Textarea(_)) {
+            return (0, PointerShape::Text);
+        }
+        let mut node = Some(leaf);
+        while let Some(n) = node {
+            let n = n.borrow();
+            if n.attributes.clickable {
+                return (n.id, PointerShape::Pointer);
+            }
+            node = n.parent;
+        }
+        (0, PointerShape::Default)
+    }
+
+    /// Takes in bare mouse motion that would leave the screen unchanged, so
+    /// the caller can skip the frame -- and, if the whole input batch was such
+    /// motion, the render too. Returns false for anything else, which must go
+    /// through [`Tui::create_context`] as usual.
+    pub fn absorb_idle_motion(&mut self, input: &Input) -> bool {
+        let Input::Mouse(mouse) = input else {
+            return false;
+        };
+        if self.animating
+            || mouse.state != InputMouseState::None
+            || self.mouse_state != InputMouseState::None
+            || self.hover_at(mouse.position) != (self.hover_target, self.pointer_shape)
+        {
+            return false;
+        }
+        self.mouse_position = mouse.position;
+        true
     }
 
     fn build_node_path(node: Option<&NodeCell>, path: &mut Vec<u64>) {
@@ -1036,6 +1138,7 @@ impl Tui {
         self.anim.dt_secs = paint::anim::frame_dt_secs(self.anim.last_frame_time, now);
         self.anim.last_frame_time = Some(now);
         self.anim.frame = self.anim.frame.wrapping_add(1);
+        self.animating = false;
 
         // Drop slide-animation entries for nodes that no longer exist in the
         // current tree (dropdown closed, modal dismissed). Lookup uses the
@@ -1052,7 +1155,12 @@ impl Tui {
             let mut child = child.borrow_mut();
             self.render_node(&mut child);
         }
-        self.framebuffer.render(arena)
+        let mut output = self.framebuffer.render(arena);
+        if self.pointer_shape != self.pointer_shape_sent {
+            self.pointer_shape_sent = self.pointer_shape;
+            output.push_str(arena, self.pointer_shape.osc());
+        }
+        output
     }
 
     /// Recursively shrinks `outer_clipped.bottom` / `inner_clipped.bottom`
@@ -1900,6 +2008,17 @@ impl<'a> Context<'a, '_> {
         self.tui.was_mouse_down_on_subtree(&last_node)
     }
 
+    /// Marks the current node as clickable: the mouse cursor turns into a
+    /// pointer over it, and it gets a highlight while hovered but not focused.
+    pub fn attr_clickable(&mut self) {
+        let hover_bg = self.tui.indexed_alpha(IndexedColor::Foreground, 1, 5);
+        let mut last_node = self.tree.last_node.borrow_mut();
+        last_node.attributes.clickable = true;
+        if last_node.id == self.tui.hover_target && !self.tui.is_subtree_focused(&last_node) {
+            last_node.attributes.bg = hover_bg;
+        }
+    }
+
     /// Returns whether the current node is focused.
     pub fn is_focused(&mut self) -> bool {
         let last_node = self.tree.last_node.borrow();
@@ -2227,6 +2346,7 @@ impl<'a> Context<'a, '_> {
     pub fn button(&mut self, classname: &'static str, text: &str, style: ButtonStyle) -> bool {
         self.button_label(classname, text, style);
         self.attr_focusable();
+        self.attr_clickable();
         if self.is_focused() {
             self.attr_reverse();
         }
@@ -2238,6 +2358,7 @@ impl<'a> Context<'a, '_> {
     pub fn checkbox(&mut self, classname: &'static str, text: &str, checked: &mut bool) -> bool {
         self.styled_label_begin(classname);
         self.attr_focusable();
+        self.attr_clickable();
         if self.is_focused() {
             self.attr_reverse();
         }
@@ -2432,6 +2553,7 @@ impl<'a> Context<'a, '_> {
         self.styled_label_begin("item");
         self.styled_label_add_text("  ");
         self.attr_focusable();
+        self.attr_clickable();
     }
 
     /// Ends the current styled list item.
@@ -2637,6 +2759,7 @@ impl<'a> Context<'a, '_> {
             ButtonStyle::default().accelerator(accelerator).bracketed(false),
         );
         self.attr_focusable();
+        self.attr_clickable();
         self.attr_padding(Rect::two(0, 1));
 
         let contains_focus = self.contains_focus();
@@ -2697,6 +2820,7 @@ impl<'a> Context<'a, '_> {
     ) -> bool {
         self.table_next_row();
         self.attr_focusable();
+        self.attr_clickable();
 
         // First menu item? Steal focus.
         if self.tree.current_node.borrow_mut().siblings.prev.is_none() {
@@ -2854,6 +2978,78 @@ impl<'a> Context<'a, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::InputMouse;
+
+    fn mouse(state: InputMouseState, x: CoordType, y: CoordType) -> Input<'static> {
+        Input::Mouse(InputMouse {
+            state,
+            modifiers: kbmod::NONE,
+            position: Point { x, y },
+            scroll: Point::default(),
+        })
+    }
+
+    fn motion(x: CoordType, y: CoordType) -> Input<'static> {
+        mouse(InputMouseState::None, x, y)
+    }
+
+    fn button_ui(ctx: &mut Context) {
+        ctx.button("button", "Click", ButtonStyle::default());
+    }
+
+    fn empty_ui(_: &mut Context) {}
+
+    /// Runs one input through a full frame and returns the VT output.
+    fn frame(tui: &mut Tui, input: Option<Input>, ui: fn(&mut Context)) -> String {
+        ui(&mut tui.create_context(input));
+        while tui.needs_settling() {
+            ui(&mut tui.create_context(None));
+        }
+        tui.render(&scratch_arena(None)).as_str().to_owned()
+    }
+
+    fn hover_tui(ui: fn(&mut Context)) -> Tui {
+        let mut tui = Tui::new().unwrap();
+        // The hover highlight is the foreground tinted onto the background;
+        // with an all-zero palette it would be invisible.
+        let mut colors = [StraightRgba::from_le(0xff000000); INDEXED_COLORS_COUNT];
+        colors[IndexedColor::Foreground as usize] = StraightRgba::from_le(0xffffffff);
+        tui.setup_indexed_colors(colors);
+        frame(&mut tui, Some(Input::Resize(Size { width: 20, height: 5 })), ui);
+        tui
+    }
+
+    #[test]
+    fn hovering_a_button_repaints_it_with_a_pointer_cursor() {
+        let mut tui = hover_tui(button_ui);
+
+        let out = frame(&mut tui, Some(motion(1, 0)), button_ui);
+        assert!(out.contains(PointerShape::Pointer.osc()), "{out:?}");
+        assert!(out.contains("Click"), "button not repainted on hover: {out:?}");
+
+        let out = frame(&mut tui, Some(motion(1, 3)), button_ui);
+        assert!(out.contains(PointerShape::Default.osc()), "{out:?}");
+        assert!(out.contains("Click"), "button not repainted on leave: {out:?}");
+    }
+
+    #[test]
+    fn motion_that_changes_nothing_is_absorbed() {
+        let mut tui = hover_tui(button_ui);
+        frame(&mut tui, Some(motion(1, 0)), button_ui);
+
+        assert!(tui.absorb_idle_motion(&motion(3, 0)), "still over the button");
+        assert!(!tui.absorb_idle_motion(&motion(1, 3)), "left the button");
+        assert!(!tui.absorb_idle_motion(&mouse(InputMouseState::Left, 3, 0)), "a press");
+    }
+
+    #[test]
+    fn a_button_appearing_under_a_still_mouse_is_hovered() {
+        let mut tui = hover_tui(empty_ui);
+        frame(&mut tui, Some(motion(1, 0)), empty_ui);
+
+        let out = frame(&mut tui, None, button_ui);
+        assert!(out.contains(PointerShape::Pointer.osc()), "{out:?}");
+    }
 
     #[test]
     fn drag_maps_travel_onto_content_proportionally() {

@@ -181,27 +181,43 @@ fn run() -> apperr::Result<()> {
 
             let vt_iter = vt_parser.parse(&input);
             let mut input_iter = input_parser.parse(vt_iter);
+            let mut absorbed = false;
+            let mut drew = false;
 
             while {
                 let input = input_iter.next();
                 let more = input.is_some();
 
-                #[cfg(debug_assertions)]
-                let logged_input =
-                    if devlog::is_enabled() { input.as_ref().map(devlog::describe) } else { None };
+                if input.as_ref().is_some_and(|i| tui.absorb_idle_motion(i)) {
+                    absorbed = true;
+                } else if more || drew || !absorbed {
+                    drew = true;
 
-                let mut ctx = tui.create_context(input);
+                    #[cfg(debug_assertions)]
+                    let logged_input = if devlog::is_enabled() {
+                        input.as_ref().map(devlog::describe)
+                    } else {
+                        None
+                    };
 
-                draw(&mut ctx, &mut state);
+                    let mut ctx = tui.create_context(input);
 
-                #[cfg(debug_assertions)]
-                if let Some(desc) = logged_input {
-                    let snapshot = state.document.buffer.borrow();
-                    devlog::log(&desc, Some(&snapshot));
+                    draw(&mut ctx, &mut state);
+
+                    #[cfg(debug_assertions)]
+                    if let Some(desc) = logged_input {
+                        let snapshot = state.document.buffer.borrow();
+                        devlog::log(&desc, Some(&snapshot));
+                    }
                 }
 
                 more
             } {}
+
+            // A batch of nothing but idle mouse motion needs no frame at all.
+            if absorbed && !drew {
+                continue;
+            }
         }
 
         // Continue rendering until the layout has settled.

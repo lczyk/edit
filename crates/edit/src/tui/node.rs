@@ -320,6 +320,7 @@ pub(super) struct NodeAttributes {
     pub(super) focusable: bool,
     pub(super) focus_well: bool, // Prevents focus from leaving via Tab
     pub(super) focus_void: bool, // Prevents focus from entering via Tab
+    pub(super) clickable: bool,  // Gets a hover highlight and a pointer-hand mouse cursor
     /// When set, the node's visible height grows from 0 to its full layout
     /// height over a short window when it first appears. Used for menubar
     /// dropdowns. The clip is applied recursively to descendants at render

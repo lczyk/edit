@@ -447,6 +447,17 @@ mod tests {
     }
 
     #[test]
+    fn sgr_mouse_motion_without_button_resolves_as_none() {
+        // Any-event tracking (mode 1003) reports bare motion as btn = 32 + 3.
+        let m = match parse_one("\x1b[<35;10;5M") {
+            Some(Input::Mouse(m)) => m,
+            _ => panic!("expected mouse input"),
+        };
+        assert!(matches!(m.state, InputMouseState::None));
+        assert_eq!((m.position.x, m.position.y), (9, 4));
+    }
+
+    #[test]
     fn sgr_mouse_shift_left_click_resolves_as_left_with_shift() {
         // SGR mouse press: CSI < <btn> ; <x> ; <y> M
         // Shift bit (0x04) OR'd with Left (0) -> btn = 4. Must still

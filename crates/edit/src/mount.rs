@@ -199,15 +199,27 @@ where
             };
             let vt_iter = vt_parser.parse(&inp);
             let mut iter = input_parser.parse(vt_iter);
+            let mut absorbed = false;
+            let mut drew = false;
             while {
                 let event = iter.next();
                 let more = event.is_some();
-                let mut ctx = tui.create_context(event);
-                if draw(&mut ctx).is_break() {
-                    exit = true;
+                if event.as_ref().is_some_and(|e| tui.absorb_idle_motion(e)) {
+                    absorbed = true;
+                } else if more || drew || !absorbed {
+                    drew = true;
+                    let mut ctx = tui.create_context(event);
+                    if draw(&mut ctx).is_break() {
+                        exit = true;
+                    }
                 }
                 more
             } {}
+
+            // A batch of nothing but idle mouse motion needs no frame at all.
+            if absorbed && !drew {
+                continue;
+            }
         }
 
         while tui.needs_settling() {

@@ -36,7 +36,9 @@ impl Drop for RestoreModes {
         // Reverse order of the mode-set in `setup`. We deliberately do NOT
         // reset 1036 (meta-sends-escape) because most apps expect it on.
         // `CSI < u` pops the kitty kbd proto flags we pushed.
-        sys::write_stdout("\x1b[<u\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l");
+        sys::write_stdout(
+            "\x1b[<u\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b]22;default\x07\x1b[?1003;1006;2004l\x1b[?1049l",
+        );
     }
 }
 
@@ -50,11 +52,11 @@ pub fn setup(
 ) -> (TerminalProbe, RestoreModes) {
     sys::write_stdout(concat!(
         // 1049: Alternative Screen Buffer
-        // 1002: Cell Motion Mouse Tracking
+        // 1003: Any Event Mouse Tracking (motion without a button, for hover)
         // 1006: SGR Mouse Mode
         // 2004: Bracketed Paste Mode
         // 1036: meta-sends-escape (Alt -> ESC+char)
-        "\x1b[?1049h\x1b[?1002;1006;2004h\x1b[?1036h",
+        "\x1b[?1049h\x1b[?1003;1006;2004h\x1b[?1036h",
         // Kitty keyboard protocol: push flag 1 for disambiguated escape codes.
         // Unsupporting terminals silently ignore.
         "\x1b[>1u",
