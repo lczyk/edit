@@ -1,0 +1,19 @@
+\x1b[32m#!/usr/bin/env bash\x1b[m
+\x1b[32m# The body of $(...) is shell code, on one line or across several.\x1b[m
+
+now=\x1b[96m$(\x1b[mdate +%s\x1b[96m)\x1b[m
+quoted=\x1b[91m"\x1b[m\x1b[96m$(\x1b[muname -s\x1b[96m)\x1b[m\x1b[91m and \x1b[m\x1b[96m$((1 + 2))\x1b[m\x1b[91m"\x1b[m
+test -z \x1b[91m"\x1b[m\x1b[96m$(\x1b[mchroot \x1b[91m"\x1b[m\x1b[96m$rootfs\x1b[m\x1b[91m"\x1b[m /usr/bin/\x1b[94mtrue\x1b[m\x1b[96m)\x1b[m\x1b[91m"\x1b[m
+
+rootfs=\x1b[91m"\x1b[m\x1b[96m$(\x1b[minstall-slices \\
+    openssh-server_bins \\
+    bash_bins \\
+\x1b[96m)\x1b[m\x1b[91m"\x1b[m
+
+bare=\x1b[96m$(\x1b[m
+    grep -c \x1b[91m'x'\x1b[m \x1b[91m"\x1b[m\x1b[96m$file\x1b[m\x1b[91m"\x1b[m \x1b[32m# trailing ) in a comment is inert\x1b[m
+\x1b[96m)\x1b[m
+
+nested=\x1b[91m"\x1b[m\x1b[96m$(\x1b[mdirname \x1b[91m"\x1b[m\x1b[96m$(\x1b[mreadlink -f \x1b[91m"\x1b[m\x1b[96m$0\x1b[m\x1b[91m"\x1b[m\x1b[96m)\x1b[m\x1b[91m"\x1b[m\x1b[96m)\x1b[m\x1b[91m"\x1b[m
+echo after
+

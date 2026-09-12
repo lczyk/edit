@@ -30,7 +30,9 @@
 {"line":22,"kind":"string","text":"\"escaped \\$ and \\\" and \\\\\""}
 {"line":23,"kind":"other","text":"echo "}
 {"line":23,"kind":"string","text":"\"subshell: "}
-{"line":23,"kind":"variable","text":"$(whoami)"}
+{"line":23,"kind":"variable","text":"$("}
+{"line":23,"kind":"other","text":"whoami"}
+{"line":23,"kind":"variable","text":")"}
 {"line":23,"kind":"string","text":"\""}
 {"line":24,"kind":"other","text":"echo "}
 {"line":24,"kind":"string","text":"\"arithmetic: "}

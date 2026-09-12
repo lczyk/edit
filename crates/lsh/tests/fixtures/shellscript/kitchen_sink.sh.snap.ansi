@@ -20,7 +20,7 @@ echo \x1b[91m'it'\x1b[m\\'\x1b[91m's a trap'\x1b[m
 echo \x1b[91m"hello \x1b[m\x1b[96m$USER\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"home is \x1b[m\x1b[96m${HOME}\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"escaped \\$ and \\" and \\\\"\x1b[m
-echo \x1b[91m"subshell: \x1b[m\x1b[96m$(whoami)\x1b[m\x1b[91m"\x1b[m
+echo \x1b[91m"subshell: \x1b[m\x1b[96m$(\x1b[mwhoami\x1b[96m)\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"arithmetic: \x1b[m\x1b[96m$((1 + 2))\x1b[m\x1b[91m"\x1b[m
 echo \x1b[91m"positional: \x1b[m\x1b[96m$1\x1b[m\x1b[91m \x1b[m\x1b[96m$#\x1b[m\x1b[91m \x1b[m\x1b[96m$?\x1b[m\x1b[91m \x1b[m\x1b[96m$!\x1b[m\x1b[91m \x1b[m\x1b[96m$@\x1b[m\x1b[91m \x1b[m\x1b[96m$0\x1b[m\x1b[91m \x1b[m\x1b[96m$$\x1b[m\x1b[91m \x1b[m\x1b[96m$-\x1b[m\x1b[91m"\x1b[m
 

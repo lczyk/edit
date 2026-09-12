@@ -1,0 +1,59 @@
+{"line":1,"kind":"comment","text":"#!/usr/bin/env bash"}
+{"line":2,"kind":"comment","text":"# The body of $(...) is shell code, on one line or across several."}
+{"line":4,"kind":"other","text":"now="}
+{"line":4,"kind":"variable","text":"$("}
+{"line":4,"kind":"other","text":"date +%s"}
+{"line":4,"kind":"variable","text":")"}
+{"line":5,"kind":"other","text":"quoted="}
+{"line":5,"kind":"string","text":"\""}
+{"line":5,"kind":"variable","text":"$("}
+{"line":5,"kind":"other","text":"uname -s"}
+{"line":5,"kind":"variable","text":")"}
+{"line":5,"kind":"string","text":" and "}
+{"line":5,"kind":"variable","text":"$((1 + 2))"}
+{"line":5,"kind":"string","text":"\""}
+{"line":6,"kind":"other","text":"test -z "}
+{"line":6,"kind":"string","text":"\""}
+{"line":6,"kind":"variable","text":"$("}
+{"line":6,"kind":"other","text":"chroot "}
+{"line":6,"kind":"string","text":"\""}
+{"line":6,"kind":"variable","text":"$rootfs"}
+{"line":6,"kind":"string","text":"\""}
+{"line":6,"kind":"other","text":" /usr/bin/"}
+{"line":6,"kind":"constant.language","text":"true"}
+{"line":6,"kind":"variable","text":")"}
+{"line":6,"kind":"string","text":"\""}
+{"line":8,"kind":"other","text":"rootfs="}
+{"line":8,"kind":"string","text":"\""}
+{"line":8,"kind":"variable","text":"$("}
+{"line":8,"kind":"other","text":"install-slices \\"}
+{"line":9,"kind":"other","text":"    openssh-server_bins \\"}
+{"line":10,"kind":"other","text":"    bash_bins \\"}
+{"line":11,"kind":"variable","text":")"}
+{"line":11,"kind":"string","text":"\""}
+{"line":13,"kind":"other","text":"bare="}
+{"line":13,"kind":"variable","text":"$("}
+{"line":14,"kind":"other","text":"    grep -c "}
+{"line":14,"kind":"string","text":"'x'"}
+{"line":14,"kind":"other","text":" "}
+{"line":14,"kind":"string","text":"\""}
+{"line":14,"kind":"variable","text":"$file"}
+{"line":14,"kind":"string","text":"\""}
+{"line":14,"kind":"other","text":" "}
+{"line":14,"kind":"comment","text":"# trailing ) in a comment is inert"}
+{"line":15,"kind":"variable","text":")"}
+{"line":17,"kind":"other","text":"nested="}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"variable","text":"$("}
+{"line":17,"kind":"other","text":"dirname "}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"variable","text":"$("}
+{"line":17,"kind":"other","text":"readlink -f "}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"variable","text":"$0"}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"variable","text":")"}
+{"line":17,"kind":"string","text":"\""}
+{"line":17,"kind":"variable","text":")"}
+{"line":17,"kind":"string","text":"\""}
+{"line":18,"kind":"other","text":"echo after"}
